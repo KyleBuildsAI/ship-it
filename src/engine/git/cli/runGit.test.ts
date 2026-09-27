@@ -9,7 +9,7 @@ describe('runGit', () => {
   it('prints help for bare git and git help', () => {
     const ws = folder().build(testDeps());
     expect(gitText(ws, [])).toContain('usage: git <command>');
-    expect(gitText(ws, ['help'])).toContain('Commands in this sandbox: init');
+    expect(gitText(ws, ['help'])).toContain('Commands in this sandbox: init, status');
     expect(git(ws, ['--help']).exitCode).toBe(0);
   });
 
@@ -17,11 +17,19 @@ describe('runGit', () => {
     expect(gitText(folder().build(testDeps()), ['--version'])).toBe(GIT_VERSION);
   });
 
+  it('refuses repository commands before git init', () => {
+    const result = git(folder().build(testDeps()), ['status']);
+    expect(result.exitCode).toBe(128);
+    expect(toText(result)).toBe(
+      'fatal: not a git repository (or any of the parent directories): .git',
+    );
+  });
+
   it('suggests the closest command for a typo', () => {
-    const result = git(repo().build(testDeps()), ['inti']);
+    const result = git(repo().build(testDeps()), ['stauts']);
     expect(result.exitCode).toBe(1);
     expect(toText(result)).toBe(
-      "git: 'inti' is not a git command. See 'git --help'.\n\nThe most similar command is\n\tinit",
+      "git: 'stauts' is not a git command. See 'git --help'.\n\nThe most similar command is\n\tstatus",
     );
   });
 
