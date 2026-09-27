@@ -84,11 +84,11 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 
 ## 6. Progression and systems
 
-- **XP** for every completed step. Ranks by Act completion: Intern (Acts 1-2), Junior (3-4), Mid (5-6), Senior (7), Staff (8).
+- **XP** for every completed step. Ranks by Act completion: Intern (Acts 1-2), Junior (3-4), Mid (5-6), Senior (7), Staff (8). The rank comes from the highest completed Act, so finishing Act 2 promotes to Junior, Act 4 to Mid, Act 6 to Senior, and Act 7 to Staff. Testing out of an Act grants 50% of its mission XP.
 - **Review queue**: missed drill items scheduled with a simple SM-2 style algorithm. Surfaced at the Standup Board as a daily set of 5-10 items.
 - **Stats**: drill accuracy, average time per drill, days practiced. No punishment for missed days.
-- **Skill tree** (M2+): one node per concept. Lit when mastered (90%+ drill accuracy over the last 10 attempts).
-- **Saves**: IndexedDB, versioned schema with migrations, autosave after every step, manual export/import to a JSON file from Settings. Must survive browser restarts and reboots.
+- **Skill tree** (M2+): one node per concept. Lit when mastered (90%+ drill accuracy over the last 10 attempts; a concept with fewer than 10 attempts is not mastered yet).
+- **Saves**: IndexedDB, versioned schema with migrations, autosave after every step (debounced 500 ms, so a burst of steps is one write), manual export/import to a JSON file from Settings. Must survive browser restarts and reboots.
 - **Settings**: graphics quality, audio volume, mentor on/off, mentor model per mode, reduced motion, text size, GitHub token (M3+).
 
 ## 7. Git simulation engine (`src/engine/git`)
@@ -239,8 +239,9 @@ ship-it/
     engine/shell/      shell commands + parser + tests
     engine/verify/     Field Mission output parsers + tests
     game/world/        three.js scenes (Campus, Git World), renderer boot, post
-    game/missions/     mission runner, grading, progression, review queue
-    game/save/         IndexedDB, schema versions, migrations, export/import
+    game/missions/     mission runner, grading
+    game/progression/  XP, ranks, review queue (SM-2), stats, mastery
+    game/save/         IndexedDB, schema versions, migrations, export/import, autosave
     ui/                React HUD, terminal, editor, menus, settings
     mentor/            client for /api/mentor + offline fallback
     content/act1..act8 mission data
