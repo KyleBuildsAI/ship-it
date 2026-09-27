@@ -433,3 +433,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/47
 3. Press W in the world, click into the terminal, then let go. The key-up would be ignored because it came from the terminal, so `keys.forward` would stay true and the avatar would keep walking. Only key-down is filtered, so a release always registers.
 
 </details>
+
+---
+
+## #48 feat: travel through the act 2 portal to the git world
+
+https://github.com/KyleBuildsAI/ship-it/pull/48
+
+1. Why do both islands live in one scene at different positions, instead of being two separate scenes?
+2. What would happen if you double-clicked the portal quickly and `travel` didn't check `travelling` first?
+3. The Git World's areas are named Workbench, Loading Dock, and Vault. Which real git concept does each one stand for?
+
+<details><summary>Answers</summary>
+
+1. One scene means one render loop, one camera, and one set of lights. Travel is just moving the player. Switching scenes would mean rebuilding or keeping two sets of everything, and objects in one scene couldn't animate into the other.
+2. Two `setTimeout(arrive)` calls would be queued. The second could fire after you'd started walking in the new zone and teleport you back to the spawn point. The flag makes travel happen once.
+3. Workbench = the working tree (your files on disk). Loading Dock = the staging area, or index (what the next commit will contain). Vault = the repository (committed snapshots).
+
+</details>
