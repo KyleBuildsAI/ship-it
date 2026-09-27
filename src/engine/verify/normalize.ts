@@ -22,6 +22,9 @@ const NON_BREAKING_SPACE = /\u00a0/g;
 // bare "PS>"), cmd.exe ("C:\repo>git status"), and Unix-style shells ("$ git status").
 const PROMPTS = [/^PS(?: [^>]*)?>/, /^[A-Za-z]:\\[^>]*>/, /^\$ /];
 
+// A copy that starts at the command itself, leaving the prompt in front of it behind.
+const BARE_GIT_COMMAND = /^git\s/;
+
 // What `less`, git's pager, leaves at the bottom of the screen when output is long.
 const PAGER_MARKERS = new Set(['(END)', ':']);
 
@@ -37,6 +40,16 @@ export function promptCommand(line: string): string | null {
     if (match) return line.slice(match[0].length).trim();
   }
   return null;
+}
+
+/**
+ * The command a line shows was typed, whether a prompt was copied in front of it or not.
+ * `''` for a bare prompt, null for anything else. No line of git's own output starts
+ * with "git ", so a bare command can't be mistaken for output.
+ */
+function typedCommand(line: string): string | null {
+  if (BARE_GIT_COMMAND.test(line)) return line.trim();
+  return promptCommand(line);
 }
 
 function isBlank(line: string): boolean {
@@ -58,18 +71,17 @@ export function normalizePaste(text: string): NormalizedPaste {
     .split(/\r\n|\r|\n/)
     .map((line) => line.trimEnd());
 
-  const firstContent = lines.findIndex((line) => !isBlank(line));
-  if (firstContent === -1) return { lines: [], command: null };
+  // A copy that starts at the prompt brings the typed command along, sometimes below an
+  // empty prompt or two. None of that is output, so the output starts at the first line
+  // that is neither blank nor a typed command.
+  const start = lines.findIndex((line) => !isBlank(line) && typedCommand(line) === null);
+  const typedLines = start === -1 ? lines : lines.slice(0, start);
+  // The last command typed is a useful hint about what produced the output.
+  const command = typedLines.map(typedCommand).findLast((typed) => typed !== null && typed !== '');
 
-  // A copy that starts at the prompt brings the typed command along. It isn't output,
-  // but it is a useful hint about what produced the output.
-  const typed = promptCommand(lines[firstContent] ?? '');
-  if (typed !== null) lines.splice(firstContent, 1);
-
-  const start = lines.findIndex((line) => !isBlank(line));
   const end = lines.findLastIndex((line) => !isTrailingNoise(line));
   return {
-    lines: end === -1 ? [] : lines.slice(start, end + 1),
-    command: typed === '' ? null : typed,
+    lines: start === -1 || end < start ? [] : lines.slice(start, end + 1),
+    command: command ?? null,
   };
 }

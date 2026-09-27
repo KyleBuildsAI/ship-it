@@ -63,6 +63,12 @@ describe('detectPasteKind', () => {
     expect(detectPasteKind('PS C:\\repo> git status --short --branch')).toBe('status-short');
   });
 
+  it('reads pastes that start at the typed command, without the prompt', () => {
+    expect(detectPasteKind('git log --oneline -3\nabc1234 feat: x')).toBe('log-oneline');
+    expect(detectPasteKind('git status -sb\n## main\n M app.ts')).toBe('status-short');
+    expect(detectPasteKind('git status -s\n')).toBe('status-short');
+  });
+
   it('does not treat an empty paste, or other empty commands, as a status', () => {
     expect(detectPasteKind('')).toBe('unknown');
     expect(detectPasteKind('PS C:\\repo> git status')).toBe('unknown');

@@ -64,6 +64,26 @@ describe('normalizePaste', () => {
     expect(paste.command).toBeNull();
   });
 
+  it('strips a typed command copied without its prompt', () => {
+    expect(normalizePaste('git status -s\r\n M app.ts\r\n')).toEqual({
+      lines: [' M app.ts'],
+      command: 'git status -s',
+    });
+  });
+
+  it('strips several prompts at the start, keeping the last command typed', () => {
+    expect(
+      normalizePaste('PS C:\\repo>\r\nPS C:\\repo> git log --oneline\r\nabc1234 feat: x'),
+    ).toEqual({ lines: ['abc1234 feat: x'], command: 'git log --oneline' });
+  });
+
+  it('treats a pager marker with nothing above it as no output', () => {
+    expect(normalizePaste('PS C:\\repo> git log --oneline\n(END)')).toEqual({
+      lines: [],
+      command: 'git log --oneline',
+    });
+  });
+
   it('drops a bare leading prompt without inventing a command', () => {
     expect(normalizePaste('PS C:\\repo>\n\nOn branch main')).toEqual({
       lines: ['On branch main'],

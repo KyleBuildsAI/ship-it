@@ -215,6 +215,10 @@ describe('parseStatusLong robustness', () => {
     expect(parseStatusLong(pasted)).toEqual(parseStatusLong(mixed));
   });
 
+  it('calls a clean tree clean when the copy started at the typed command', () => {
+    expect(parseStatusLong(`git status\n${clean}`)).toEqual(parseStatusLong(clean));
+  });
+
   it('still reads file lines whose indentation was lost in the copy', () => {
     const parsed = parseStatusLong(mixed.replace(/\t/g, ''));
     expect(parsed.staged).toHaveLength(2);
