@@ -217,3 +217,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/35
 3. `git restore --staged` resets the index entry to HEAD's version, but before the first commit there is no HEAD. `git rm --cached` removes the entry from the index directly, which works without any commit.
 
 </details>
+
+---
+
+## #36 feat: git add and git restore
+
+https://github.com/KyleBuildsAI/ship-it/pull/36
+
+1. You run `git add .` inside `src/`. Does it stage a change to `README.md` at the project root? What about `git add -A`?
+2. What's the difference between `git restore app.ts` and `git restore --staged app.ts`? Which one can lose work?
+3. `git add notes.md .env` with `.env` ignored: what gets staged, and what's the exit code?
+
+<details><summary>Answers</summary>
+
+1. `git add .` from `src/` covers only `src/` and below, so `README.md` isn't staged. `git add -A` without paths covers the whole project from anywhere, so it is.
+2. `git restore app.ts` overwrites your working file with the staged version, throwing away unstaged edits, and that *can* lose work. `git restore --staged app.ts` only moves the Loading Dock entry back to HEAD's version, and your file on disk is untouched.
+3. `notes.md` is staged and `.env` isn't. Git prints the "paths are ignored" message and exits with code 1. It still stages the paths it could, but the non-zero code warns you (and any script) that not everything happened.
+
+</details>
