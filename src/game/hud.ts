@@ -1,4 +1,13 @@
 import { createStore } from './store';
+import type { Suggestion } from './world/suggestions';
+
+/** A command the HUD asked the terminal to type (and maybe run). `id` makes each request unique. */
+export interface PendingCommand {
+  readonly text: string;
+  readonly run: boolean;
+  readonly cursorFromEnd: number;
+  readonly id: number;
+}
 
 export interface HudState {
   /** The terminal panel is docked at the bottom of the screen. */
@@ -8,14 +17,37 @@ export interface HudState {
    * then and only then. On first load the world keeps focus so WASD works right away.
    */
   terminalFocusRequests: number;
+  /** The command a click in the world maps to, shown as a chip until run or dismissed. */
+  suggestion: Suggestion | null;
+  pendingCommand: PendingCommand | null;
 }
 
-export const hud = createStore<HudState>({ terminalOpen: true, terminalFocusRequests: 0 });
+export const hud = createStore<HudState>({
+  terminalOpen: true,
+  terminalFocusRequests: 0,
+  suggestion: null,
+  pendingCommand: null,
+});
 
 export function toggleTerminal(): void {
   const { terminalOpen, terminalFocusRequests } = hud.get();
   hud.update({
     terminalOpen: !terminalOpen,
     terminalFocusRequests: terminalOpen ? terminalFocusRequests : terminalFocusRequests + 1,
+  });
+}
+
+export function suggest(suggestion: Suggestion | null): void {
+  hud.update({ suggestion });
+}
+
+/** Types a command into the terminal, running it too when `run` is true. */
+export function sendToTerminal(text: string, run: boolean, cursorFromEnd = 0): void {
+  const { pendingCommand, terminalFocusRequests } = hud.get();
+  hud.update({
+    terminalOpen: true,
+    terminalFocusRequests: terminalFocusRequests + 1,
+    suggestion: null,
+    pendingCommand: { text, run, cursorFromEnd, id: (pendingCommand?.id ?? 0) + 1 },
   });
 }

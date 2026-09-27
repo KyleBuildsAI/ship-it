@@ -48,6 +48,14 @@ export class LineEditor {
     return this.buffer;
   }
 
+  /** Replaces the whole line, e.g. with a command suggested by a click in the world. */
+  replaceLine(text: string, cursorFromEnd = 0): string {
+    this.buffer = text;
+    this.cursor = Math.max(0, text.length - cursorFromEnd);
+    this.historyIndex = null;
+    return this.render();
+  }
+
   /** The prompt plus the current line, used when the terminal first opens or after output. */
   render(): string {
     const back = this.buffer.length - this.cursor;

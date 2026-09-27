@@ -321,3 +321,51 @@ body {
 #scene {
   transition: opacity 0.35s ease;
 }
+
+/* The command a click in the world maps to, floating above the terminal. */
+.command-chip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(38vh + 32px);
+  transform: translateX(-50%);
+  max-width: min(640px, 90vw);
+  padding: 12px 16px;
+  pointer-events: auto;
+}
+
+.command-chip__command {
+  display: block;
+  color: var(--accent);
+  font: 15px var(--font-mono);
+}
+
+.command-chip__note {
+  margin: 6px 0 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.command-chip__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.command-chip__actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font: 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.command-chip__actions .command-chip__primary {
+  border-color: var(--accent);
+  background: rgba(111, 211, 255, 0.14);
+}
+
+.command-chip__actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

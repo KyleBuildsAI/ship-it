@@ -165,6 +165,16 @@ export class CrateYard {
     return view;
   }
 
+  /** The crate under the pointer, if any (crates on their way out don't count). */
+  pick(raycaster: THREE.Raycaster): CrateSpec | null {
+    const live = [...this.views.values()].filter((view) => !view.leaving);
+    const hit = raycaster.intersectObjects(
+      live.map((view) => view.box),
+      false,
+    )[0];
+    return live.find((view) => view.box === hit?.object)?.spec ?? null;
+  }
+
   private restyle(view: CrateView, spec: CrateSpec): void {
     view.spec = spec;
     view.look = spec.look;

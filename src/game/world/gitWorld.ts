@@ -15,6 +15,8 @@ export interface GitWorldLayout {
   readonly dockTop: THREE.Vector3;
   /** The Vault's door, where committed crates fly in. */
   readonly vaultDoor: THREE.Vector3;
+  /** The Vault's building and door, for clicks. */
+  readonly vaultMeshes: readonly THREE.Object3D[];
   /** The door's material, so a commit can make it flash. */
   readonly vaultDoorMaterial: THREE.MeshStandardMaterial;
   /** Ground spot beside the Workbench where ignored crates are kept. */
@@ -124,6 +126,7 @@ export function createGitWorld(): GitWorldLayout {
     dockTop: world(0, 0.4, 1.5),
     vaultDoor: world(0, 1.8, -4.25),
     vaultDoorMaterial: doorMaterial,
+    vaultMeshes: [vault, door],
     blocklistGround: world(-13, 0, 1.5),
     pathStart: world(5, 0.6, -3.5),
     // The path climbs away up and to the right, where the default camera can see it.
