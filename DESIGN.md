@@ -46,7 +46,7 @@ Intern -> Junior -> Mid -> Senior -> Staff.
 
 ### Hub: Campus
 A night-time floating island HQ. Contains:
-- Portals to each Act (locked until prerequisites are met, except placement tests).
+- Portals to each Act (locked until prerequisites are met, except placement tests). An open portal leads to its own Act's island: walk into its ring, or click it and the avatar walks there. Acts with an island have an open portal (`ZONE_FOR_ACT` in `src/game/world/zones.ts`).
 - **Standup Board**: the daily review queue.
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
@@ -244,7 +244,7 @@ ship-it/
     engine/git/        pure TS git simulation + tests
     engine/shell/      shell commands + parser + tests
     engine/verify/     Field Mission output parsers + tests
-    game/world/        three.js scenes (Campus, Git World), renderer boot, post
+    game/world/        three.js scenes (Campus, Git World), renderer boot, post; zones.ts lists each island as data
     game/missions/     mission runner, grading
     game/progression/  XP, ranks, review queue (SM-2), stats, mastery
     game/save/         IndexedDB, schema versions, migrations, export/import, autosave
