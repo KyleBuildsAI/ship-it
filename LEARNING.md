@@ -595,3 +595,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/56
 3. Without it, gaps multiply forever. The daily set's top-up means small queues get reviewed daily, so gaps explode within weeks and the dates overflow. A year also keeps every drill coming back eventually.
 
 </details>
+
+---
+
+## #57 feat: player stats and concept mastery
+
+https://github.com/KyleBuildsAI/ship-it/pull/57
+
+1. A concept has 9 attempts, all correct. Is it mastered? What about 10 attempts with 9 correct?
+2. Why does `drillAccuracy` return `null` instead of `0` when there are no attempts?
+3. You practise on Monday, skip Tuesday, and practise Wednesday. What's `practiceDayCount`, and did anything reset?
+
+<details><summary>Answers</summary>
+
+1. No: under 10 attempts is never mastered. Yes: 9 of 10 is exactly 90%, which meets the bar.
+2. Zero would claim you got everything wrong. `null` says there's no data yet, so the UI can show "—" or "No drills yet" instead of a discouraging 0%.
+3. 2, and nothing reset. Days are counted, not streaks, so skipping a day never costs anything.
+
+</details>
