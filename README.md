@@ -47,7 +47,7 @@ The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't availabl
 
 ## How to play
 
-- **First time?** A short tutorial in the top right teaches the controls by having you use them: walk, jump, look around, run a command, hide and show the terminal, then step into an Act. Each step moves on by itself once you've done it. **Skip tutorial** ends it; **Settings, Replay tutorial** runs it again.
+- **First time?** A short tutorial at the top left teaches the controls by having you use them: walk, jump, look around, run a command, hide and show the terminal, then step into an Act. Each step moves on by itself once you've done it. **Skip tutorial** ends it; **Settings, Replay tutorial** runs it again.
 - **Move:** WASD or the arrow keys, or click the ground to walk there. Space jumps. Drag to look around.
 - **Terminal:** `` Ctrl+` `` opens and closes it. It speaks PowerShell (`ls`, `cat`, `echo x > file`, `code file`) and git.
 - **Act 2:** walk through the glowing Act 2 portal on Campus, or press **Act 2** at the bottom left.
