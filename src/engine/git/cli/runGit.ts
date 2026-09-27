@@ -1,5 +1,6 @@
 import type { Workspace } from '../../workspace';
 import { initCommand } from './commands/init';
+import { statusCommand } from './commands/status';
 import { fatal, line, ok, type CommandResult } from './output';
 import type { CommandContext } from './pathspec';
 
@@ -10,6 +11,7 @@ const NO_REPO_NEEDED = new Set(['init']);
 
 const COMMANDS: Record<string, Command> = {
   init: initCommand,
+  status: statusCommand,
 };
 
 /** Real git commands this sandbox teaches in later Acts, so the reply can say so. */
