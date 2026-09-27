@@ -61,7 +61,12 @@ export interface BossActivity {
   readonly messages: readonly string[];
 }
 
-export type Activity = MissionActivity | SeriesActivity | BossActivity;
+/** The Field Mission: real work on a real repo, verified by pasted PowerShell output. */
+export interface FieldActivity {
+  readonly kind: 'field';
+}
+
+export type Activity = MissionActivity | SeriesActivity | BossActivity | FieldActivity;
 
 export interface PlayState {
   readonly activity: Activity | null;

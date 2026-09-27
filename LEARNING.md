@@ -1009,3 +1009,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/79
 3. Every Act 2 mission completed, or tested out through the placement test.
 
 </details>
+
+---
+
+## #80 feat: field mission screen with paste verification
+
+https://github.com/KyleBuildsAI/ship-it/pull/80
+
+1. Why is `!! dist/` in a `git status --short --ignored` paste a pass for the "build output ignored" check?
+2. You paste `git log` output into the `git status` check. What happens?
+3. Why are passed checks saved one by one instead of only when all pass?
+
+<details><summary>Answers</summary>
+
+1. `!!` is how git marks ignored paths when you ask with `--ignored`. Seeing `dist/` behind `!!` proves `.gitignore` covers it, which is exactly the goal.
+2. `detectPasteKind` sees log output, not status, so the check fails with a message to run the right command instead, like "That doesn't look like git status output. Run git status."
+3. Real cleanup can take days. Saving each pass means Kyle can verify the history today and the clean tree tomorrow without redoing anything.
+
+</details>

@@ -1,5 +1,6 @@
 import { startBossFight } from '../../game/play/bossPlay';
 import { getCatalog } from '../../game/play/catalog';
+import { startFieldMission } from '../../game/play/fieldPlay';
 import { startMission } from '../../game/play/missionPlay';
 import { missionDone } from '../../game/play/saveRules';
 import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
@@ -95,6 +96,19 @@ export function ActMenu() {
             }}
           >
             Fight
+          </button>
+        </li>
+        <li>
+          <span>
+            Field Mission: {act.fieldMission.title}
+            <small>
+              {actProgress?.fieldMissionCompletedAt
+                ? 'Verified'
+                : `Real work on your ${act.fieldMission.repoName} repo`}
+            </small>
+          </span>
+          <button type="button" className="play-button" onClick={startFieldMission}>
+            Open
           </button>
         </li>
         {reviews > 0 ? (
