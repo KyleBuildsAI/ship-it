@@ -56,6 +56,17 @@ export async function bootWorld(container: HTMLElement): Promise<void> {
     frame.render();
   });
 
+  // Another tab has the save: stop drawing here, so a forgotten tab doesn't keep the GPU
+  // busy. Its last frame stays under the notice; 'Play here instead' reloads everything.
+  const pauseIfElsewhere = () => {
+    if (progress.get().status !== 'elsewhere') return;
+    stopWatching();
+    void renderer.setAnimationLoop(null);
+  };
+  const stopWatching = progress.subscribe(pauseIfElsewhere);
+  // The hand-over may have happened while the renderer was starting.
+  pauseIfElsewhere();
+
   devStatus.update({ backend });
   console.info(`[ship-it] renderer: ${backend}, three.js r${THREE.REVISION}`);
 }

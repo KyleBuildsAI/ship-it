@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { hud, toggleTerminal } from '../game/hud';
 import { sandbox } from '../game/sandbox';
 import { CommandChip } from './CommandChip';
+import { ElsewhereNotice } from './ElsewhereNotice';
 import { HudMenu } from './menus/HudMenu';
 import { PlayPanel } from './play/PlayPanel';
 import { StatusBadge } from './StatusBadge';
@@ -58,6 +59,7 @@ export function App() {
           </Suspense>
         </div>
       ) : null}
+      <ElsewhereNotice />
     </>
   );
 }
