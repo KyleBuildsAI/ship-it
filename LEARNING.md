@@ -127,3 +127,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/30
 3. If a listener unsubscribes while the loop is running, deleting from the set being looped over can make the loop skip the next listener. Looping over a copy means every listener subscribed when `emit` started gets the event exactly once. There's a test for exactly this case.
 
 </details>
+
+---
+
+## #31 feat: engine repository model and revision parsing
+
+https://github.com/KyleBuildsAI/ship-it/pull/31
+
+1. Two commits have the same files and message but were made one minute apart. Do they get the same id? Why does that matter for the tests?
+2. What's the difference between `HEAD~2` and `HEAD^2`?
+3. After a commit on a detached HEAD, which branch moved, and how would you find that commit again later?
+
+<details><summary>Answers</summary>
+
+1. No. The timestamp is part of what gets hashed, so the ids differ. That's why tests inject a fixed clock (`testDeps`): with the same starting time and the same steps, every run makes the exact same ids, so tests can assert on them.
+2. `HEAD~2` walks back two generations along first parents (the grandparent). `HEAD^2` picks HEAD's *second parent*, which only exists when HEAD is a merge commit. On an ordinary commit, `HEAD^2` is an error (`no-such-parent`).
+3. None. On a detached HEAD, `commitIndex` moves only HEAD itself, and every branch stays where it was. The commit is still recorded in the reflog, so `git reflog` shows it, and `HEAD@{N}` or its id can bring it back.
+
+</details>
