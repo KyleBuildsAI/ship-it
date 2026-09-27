@@ -1,0 +1,11 @@
+* 501437f (HEAD -> main) docs(changelog): start a changelog
+*   828673f (tag: v1.1, origin/main) Merge branch 'feature'
+|\  
+| * 959c681 (origin/feature, feature) docs: explain paste verification
+| * bfeb7e2 feat!: drop legacy format
+* | 1c0066c test: cover detached HEAD
+|/  
+* 2f0b042 (tag: v1.0) update stuff
+* 84f90e1 fix(parser): handle quoted paths
+* 3f82ce7 feat: add status parser
+* 044d4cd Initial commit

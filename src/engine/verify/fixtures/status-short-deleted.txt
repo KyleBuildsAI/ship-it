@@ -1,0 +1,4 @@
+D  .env
+D  gone-staged.txt
+ D gone-unstaged.txt
+?? .env
