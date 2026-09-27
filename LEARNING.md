@@ -163,3 +163,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/32
 3. Git infers renames by comparing content, because it never records "I renamed this". Identical content (the same blob id) is a certain match. Real git also allows *similar* content above a threshold, which is harder to explain and to test. The sandbox starts with the exact case, which is what `git mv` produces.
 
 </details>
+
+---
+
+## #33 feat: engine grading queries and fixture builder
+
+https://github.com/KyleBuildsAI/ship-it/pull/33
+
+1. Why does `fixtures.ts` store setup steps as plain objects instead of just calling engine functions directly?
+2. A drill says "commit your work but leave `.env` untracked." Which queries would grade it, and why does this accept both `git add app.ts` and `git add .` (with `.env` in `.gitignore`)?
+3. What would break if `FixtureBuilder` methods changed `this.steps` in place instead of returning a new builder?
+
+<details><summary>Answers</summary>
+
+1. Plain data can be validated by a schema, saved to a file, printed, and replayed later into an identical sandbox. A chain of function calls can only be run. Missions need to *describe* their starting state, not just produce it once.
+2. `untrackedPaths()` (or `ignoredPaths()`) contains `.env`, and `log()` shows a new commit containing `app.ts` (checked with `fileAt('HEAD', 'app.ts')`). Both commands end in that same state, and grading only looks at the state, so both pass.
+3. A shared base like `const base = repo().commit('init', files)` would be changed by every drill that extended it. The second drill would silently inherit the first drill's edits, and tests would depend on the order they ran in. Returning new builders keeps each setup independent.
+
+</details>
