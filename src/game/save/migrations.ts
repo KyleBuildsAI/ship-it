@@ -59,8 +59,16 @@ function moveXpIntoProfile(save: UncheckedSave): UncheckedSave {
   return { ...rest, schemaVersion: 1, profile: { ...profile, ...movedXp } };
 }
 
+/**
+ * Version 1 to 2: the first-run tutorial arrived. Saves from before it have never seen the
+ * tutorial, so it starts as not done and runs once for them too.
+ */
+function addTutorial(save: UncheckedSave): UncheckedSave {
+  return { ...save, schemaVersion: 2, tutorial: { completedAt: null } };
+}
+
 /** MIGRATIONS[n] upgrades a version n save to version n + 1. */
-export const MIGRATIONS: readonly Migration[] = [moveXpIntoProfile];
+export const MIGRATIONS: readonly Migration[] = [moveXpIntoProfile, addTutorial];
 
 function readSchemaVersion(save: UncheckedSave): number {
   const version = save.schemaVersion;

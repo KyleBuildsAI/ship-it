@@ -32,6 +32,7 @@ describe('createDefaultSave', () => {
     expect(save.drillHistory).toEqual([]);
     expect(save.reviewQueue).toEqual([]);
     expect(save.fieldMissions).toEqual({});
+    expect(save.tutorial).toEqual({ completedAt: null });
   });
 
   it('uses mentor-server model defaults and follows the system reduced-motion setting', () => {
@@ -73,7 +74,8 @@ describe('saveDataSchema', () => {
   });
 
   it('rejects any other schema version', () => {
-    expect(isValid(sampleWith({ schemaVersion: 2 }))).toBe(false);
+    expect(isValid(sampleWith({ schemaVersion: CURRENT_SCHEMA_VERSION - 1 }))).toBe(false);
+    expect(isValid(sampleWith({ schemaVersion: CURRENT_SCHEMA_VERSION + 1 }))).toBe(false);
     expect(isValid(sampleWith({ schemaVersion: undefined }))).toBe(false);
   });
 
@@ -180,6 +182,15 @@ describe('saveDataSchema', () => {
       };
 
       expect(isValid(sampleWith({ reviewQueue: [item, { ...item }] }))).toBe(false);
+    });
+  });
+
+  describe('tutorial', () => {
+    it('accepts a finish time or null, and nothing else', () => {
+      expect(isValid(sampleWith({ tutorial: { completedAt: TEST_NOW.toISOString() } }))).toBe(true);
+      expect(isValid(sampleWith({ tutorial: { completedAt: null } }))).toBe(true);
+      expect(isValid(sampleWith({ tutorial: { completedAt: 'yesterday' } }))).toBe(false);
+      expect(isValid(sampleWith({ tutorial: undefined }))).toBe(false);
     });
   });
 
