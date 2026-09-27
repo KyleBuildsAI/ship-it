@@ -685,3 +685,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/61
 3. So the runner stays pure and testable. Tests can jump the clock instantly, and the same inputs always give the same result.
 
 </details>
+
+---
+
+## #62 feat: cross-check act content before it ships
+
+https://github.com/KyleBuildsAI/ship-it/pull/62
+
+1. A mission file says `act: 3`, but Act 2 lists it. What does `validateAct` report?
+2. Why doesn't the mission schema catch a placement test that references a missing drill?
+3. Why return a list of issues instead of throwing on the first one?
+
+<details><summary>Answers</summary>
+
+1. `mission <id>: Says act 3, not 2.`
+2. The placement test lives in the Act schema, and the drills live in mission files. Neither schema sees the other's data, so the link can only be checked with both in hand.
+3. Content authors fix everything in one pass. Throwing on the first problem would turn 5 problems into 5 separate edit-and-rerun cycles.
+
+</details>
