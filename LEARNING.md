@@ -1117,3 +1117,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/88
 3. They're "infinitely far away" scenery. Moving them with the camera keeps a full sky around the player on any island. Fixed in the world, they'd be off-centre for the Git World, 140 units from Campus.
 
 </details>
+
+---
+
+## #90 feat: save v2 and action counters for the first-run tutorial
+
+https://github.com/KyleBuildsAI/ship-it/pull/90
+
+1. What does `migrate` do with a version 1 save, step by step?
+2. Why count walks when a walk *starts* rather than on every frame the player is walking?
+3. Why did the terminal's first line sometimes show two letters per row?
+
+<details><summary>Answers</summary>
+
+1. It reads `schemaVersion: 1`, then runs `MIGRATIONS.slice(1)`: just `addTutorial`, which adds `tutorial: { completedAt: null }` and sets `schemaVersion: 2`. Then it validates the result against the version 2 schema. All other fields are copied unchanged.
+2. Every store update notifies its subscribers, and React re-renders anything reading that store. Updating on every frame would re-render the HUD about 60 times a second while walking. Counting only the start updates once per walk.
+3. xterm wraps text at the width it has when the text is written. If the page loaded before it had a real width, the terminal was 2 columns wide at that moment, so the greeting wrapped every 2 letters, and it stays wrapped. Now the greeting waits until the terminal is at least 20 columns wide.
+
+</details>
