@@ -85,7 +85,7 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 ## 6. Progression and systems
 
 - **XP** for every completed step. Ranks by Act completion: Intern (Acts 1-2), Junior (3-4), Mid (5-6), Senior (7), Staff (8). The rank comes from the highest completed Act, so finishing Act 2 promotes to Junior, Act 4 to Mid, Act 6 to Senior, and Act 7 to Staff. Testing out of an Act grants 50% of its mission XP.
-- **Review queue**: missed drill items scheduled with a simple SM-2 style algorithm. Surfaced at the Standup Board as a daily set of 5-10 items.
+- **Review queue**: missed drill items scheduled with a simple SM-2 style algorithm. Surfaced at the Standup Board as a daily set of 5-10 items. Gaps between reviews are capped at one year.
 - **Stats**: drill accuracy, average time per drill, days practiced. No punishment for missed days.
 - **Skill tree** (M2+): one node per concept. Lit when mastered (90%+ drill accuracy over the last 10 attempts).
 - **Saves**: IndexedDB, versioned schema with migrations, autosave after every step (debounced 500 ms, so a burst of steps is one write), manual export/import to a JSON file from Settings. Must survive browser restarts and reboots.
