@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { devStatus } from './game/devStatus';
+import { getMentorStatus } from './mentor/client';
 import { App } from './ui/App';
 import './ui/theme.css';
 
@@ -13,6 +14,10 @@ createRoot(uiRoot).render(
     <App />
   </StrictMode>,
 );
+
+// Lights the Sage row of the dev badge. It never throws and, on the Pages build, never
+// touches the network, so there's nothing to catch here.
+void getMentorStatus();
 
 // three.js is large, so the 3D world loads as a separate chunk after the HUD has painted.
 import('./game/world/boot')

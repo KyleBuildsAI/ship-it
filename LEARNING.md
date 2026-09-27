@@ -883,3 +883,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/72
 3. Windows refused to let the process use that port, here because it sat inside a range reserved for Hyper-V/WSL. Run `netsh interface ipv4 show excludedportrange protocol=tcp`, then pick a port outside every listed range and set `MENTOR_PORT` in `.env`.
 
 </details>
+
+---
+
+## #73 feat: sage client with offline fallback, and how to turn sage on
+
+https://github.com/KyleBuildsAI/ship-it/pull/73
+
+1. On the GitHub Pages build, what happens when Kyle asks for a hint?
+2. Why does the client refuse to call Sage during a drill when the server would refuse anyway?
+3. What exactly should Kyle do to enable Sage, and what must he never do with the key?
+
+<details><summary>Answers</summary>
+
+1. The client reports Sage as offline (`no-server`) without any network request, and the mission shows the next rung of its pre-written hint ladder.
+2. Two reasons. The server's 403 would show up as a console error, and a drill should involve no AI traffic at all (pillar 4). Guarding in both places means neither can be bypassed by a bug in the other.
+3. Run `Copy-Item .env.example .env`, then `notepad .env`, paste the key after `ANTHROPIC_API_KEY=`, save, and run `npm run dev`. Never paste it into a chat, an issue, a commit, code, or a `VITE_` variable.
+
+</details>
