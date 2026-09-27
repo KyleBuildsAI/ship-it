@@ -91,3 +91,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/19
 3. Building the node graph can fail up front, for example with an unsupported node. Rendering can fail later, on the first frame when shaders compile on this particular GPU. Catching in both places covers both. Either way it logs one warning and switches permanently to `renderer.render(scene, camera)`, so the player sees the scene without glow or vignette, not a black screen.
 
 </details>
+
+---
+
+## #29 feat: engine purity guardrails and in-memory filesystem
+
+https://github.com/KyleBuildsAI/ship-it/pull/29
+
+1. Engine files are included in both `tsconfig.app.json` (with DOM types) and `tsconfig.engine.json` (without). Why does the second one catch mistakes the first can't?
+2. `resolvePath('src', '../../etc/passwd')` returns `null`. What could go wrong if it returned `'etc/passwd'` instead?
+3. `VirtualFs` tracks directories separately from files. Which shell command would behave wrongly if directories only existed as "folders that contain files"?
+
+<details><summary>Answers</summary>
+
+1. Typechecking with DOM types means `document`, `window`, and `fetch` all look valid, so engine code could quietly start depending on the browser. With only ES2023 types, any browser API is an unknown name and compilation fails. The same file gets checked twice, once with rules strict enough to protect the engine's purity.
+2. The sandbox would pretend there are files outside the project root. Worse, a path that escapes the root could become a way to reach or overwrite things the game never meant to expose. Refusing to go above the root keeps every path inside the project, the same idea as blocking "path traversal" attacks in real servers.
+3. `mkdir docs` followed by `ls`. If directories existed only as parents of files, an empty folder would vanish the moment it was created, `ls` wouldn't show it, and `cd docs` would fail. Git itself doesn't track empty folders, but the filesystem, and the shell on top of it, must.
+
+</details>

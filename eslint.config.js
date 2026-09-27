@@ -32,6 +32,28 @@ export default defineConfig([
       },
     },
   },
+  {
+    // DESIGN.md section 13: the engine is pure. It never imports the game, UI, mentor,
+    // content, three.js, or React. Everything else talks to the engine, not the reverse.
+    files: ['src/engine/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/game/**', '**/ui/**', '**/mentor/**', '**/content/**'],
+              message: 'engine/ must not import from the game layers.',
+            },
+            {
+              group: ['three', 'three/*', 'react', 'react-dom', 'react/*', 'react-dom/*'],
+              message: 'engine/ is pure TypeScript: no rendering or UI libraries.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Last, so it switches off every rule that would fight Prettier's formatting.
   prettier,
 ]);
