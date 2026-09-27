@@ -5,9 +5,9 @@ import type { ActInput } from '../../game/missions/schema';
  * SandCastles repo. Kyle runs each command in PowerShell and pastes the output; the
  * paste checker in engine/verify reads it.
  *
- * Two of the checks read `git status --short --ignored`, because plain `git status`
- * never lists ignored files. With --ignored, git marks them with `!!`, which is the
- * evidence that .env and build output are ignored rather than tracked.
+ * The secrets check reads `git ls-files`, the only output that lists every tracked file,
+ * changed or not. The build-output check reads `git status --short --ignored`, because
+ * plain `git status` never lists ignored files; with --ignored, git marks them with `!!`.
  */
 export const cleanTheDirtyTree: ActInput['fieldMission'] = {
   id: 'clean-the-dirty-tree',
@@ -55,9 +55,9 @@ export const cleanTheDirtyTree: ActInput['fieldMission'] = {
     {
       id: 'no-tracked-secrets',
       instruction:
-        'Run git status --short --ignored and paste everything it prints. .env should only appear with !! in front (ignored), never as a change git tracks.',
-      command: 'git status --short --ignored',
-      parser: 'status-short',
+        'Run git ls-files and paste everything it prints. It lists every file git tracks, changed or not. .env must not be on it; .env.example is fine.',
+      command: 'git ls-files',
+      parser: 'ls-files',
       check: { kind: 'noTrackedSecrets' },
     },
     {
