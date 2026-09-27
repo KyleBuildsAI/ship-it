@@ -4,13 +4,17 @@ import { loadSave, requestPersistentStorage, writeSave } from './save/db';
 import type { SaveData } from './save/schema';
 import { createStore } from './store';
 
-export type ProgressStatus = 'loading' | 'ready' | 'failed';
+/** 'elsewhere': another tab has the save now, so this one stopped writing it. */
+export type ProgressStatus = 'loading' | 'ready' | 'failed' | 'elsewhere';
 
 export interface ProgressState {
   readonly status: ProgressStatus;
   /** The player's progress. Null while loading, or when the stored save couldn't be read. */
   readonly save: SaveData | null;
-  /** Why the save couldn't be loaded, in words the player can act on. */
+  /**
+   * In words the player can act on: why the save couldn't be loaded, or that this tab's
+   * last change couldn't be stored before handing over to another tab.
+   */
   readonly problem: string | null;
 }
 
@@ -32,23 +36,165 @@ export interface ProgressStorage {
 
 const indexedDbStorage: ProgressStorage = { load: loadSave, write: writeSave };
 
-let autosave: Autosave | null = null;
+/** The one Web Locks call the save uses. `navigator.locks` in the game; a fake in tests. */
+export interface SaveLocks {
+  request: (
+    name: string,
+    options: { steal?: boolean; signal?: AbortSignal },
+    callback: () => Promise<void>,
+  ) => Promise<unknown>;
+}
 
-function describeLoadProblem(error: unknown): string {
-  if (error instanceof Error && error.name === 'FutureSaveVersionError') {
-    return 'Your save comes from a newer version of SHIP IT. Update the game to keep playing it.';
+/** How tabs of the game talk to each other. A BroadcastChannel in the game; a fake in tests. */
+export interface TabChannel {
+  postMessage: (message: unknown) => void;
+  addEventListener: (type: 'message', listener: (event: { data: unknown }) => void) => void;
+  close: () => void;
+}
+
+/** Everything tabs use to agree on who saves. Null parts mean "a browser without it". */
+export interface TabCoordination {
+  locks: SaveLocks | null;
+  openChannel: (() => TabChannel) | null;
+}
+
+const SAVE_LOCK = 'ship-it-save';
+const HANDOVER = 'ship-it-handover';
+/** How long a new tab waits for the old one to hand over before taking the save anyway. */
+export const HANDOVER_WAIT_MS = 1500;
+
+function browserCoordination(): TabCoordination {
+  // Read through honest types: older browsers have neither, and Node in tests has both.
+  const scope = globalThis as {
+    navigator?: { locks?: SaveLocks };
+    BroadcastChannel?: new (name: string) => TabChannel;
+  };
+  const Channel = scope.BroadcastChannel;
+  return {
+    locks: scope.navigator?.locks ?? null,
+    openChannel: Channel ? () => new Channel(HANDOVER) : null,
+  };
+}
+
+let autosave: Autosave | null = null;
+/** Set the moment this tab starts handing over, before anything else can write. */
+let steppedAside = false;
+/** A newer tab asked for the save while this one was still waiting for it. */
+let handoverRequested = false;
+/** Ends this tab's hold on the save lock. Null when it doesn't hold it. */
+let releaseSave: (() => void) | null = null;
+let channel: TabChannel | null = null;
+/** Counts claims, so only the latest one in this page reacts to losing the save. */
+let claims = 0;
+
+/*
+ * Two tabs each hold a copy of the save, so both writing would let the older copy
+ * overwrite newer progress. So exactly one tab saves, and the newest one gets it:
+ *
+ * 1. A new tab asks for the save on a BroadcastChannel, and waits for the Web Lock.
+ * 2. The tab that has it stops writing, stores anything still pending, then lets go.
+ * 3. Only then does the new tab load the save, so it always reads the latest one.
+ *
+ * A tab that can't answer (frozen in the background, or kept in the back/forward cache)
+ * never lets go, so after HANDOVER_WAIT_MS the new tab takes the lock anyway. A frozen tab
+ * can't write while frozen, and when it wakes up it learns it lost the save.
+ */
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'name' in error && error.name === 'AbortError'
+  );
+}
+
+/** Stops this tab writing, stores what's pending, and tells the player. Final until reload. */
+async function handOver(release: boolean): Promise<void> {
+  if (steppedAside) return;
+  steppedAside = true;
+  progress.update({ status: 'elsewhere' });
+  let lastChangeLost = false;
+  try {
+    await autosave?.flush();
+  } catch (error) {
+    lastChangeLost = true;
+    console.error('[ship-it] saving before handing over to the other tab failed', error);
   }
-  return 'Your save could not be read. Import a backup from Settings, or start over there.';
+  // Nothing in this tab may write again, not even a retry of a failed write.
+  autosave = null;
+  progress.update({
+    problem: lastChangeLost ? 'Your latest change in this tab could not be saved.' : null,
+  });
+  devStatus.update({ save: 'elsewhere' });
+  if (release) {
+    releaseSave?.();
+    releaseSave = null;
+  }
+}
+
+function onTabMessage(event: { data: unknown }): void {
+  if (event.data !== HANDOVER || steppedAside) return;
+  // Still waiting for the lock ourselves: hand over as soon as it arrives.
+  if (releaseSave === null) handoverRequested = true;
+  else void handOver(true);
+}
+
+/** Resolves once this tab holds the save lock (or has to go without: no Web Locks). */
+function acquireSave(locks: SaveLocks | null): Promise<void> {
+  if (locks === null) return Promise.resolve();
+  const claim = ++claims;
+  return new Promise<void>((granted) => {
+    let holding = false;
+    const hold = () => {
+      holding = true;
+      granted();
+      return new Promise<void>((release) => {
+        releaseSave = release;
+      });
+    };
+    const lost = (error: unknown) => {
+      // A newer claim from this same page (a second startProgress) isn't another tab.
+      if (claim !== claims) return;
+      if (isAbortError(error)) void handOver(false);
+      else console.error('[ship-it] this tab lost the save lock', error);
+    };
+    locks
+      .request(SAVE_LOCK, { signal: AbortSignal.timeout(HANDOVER_WAIT_MS) }, hold)
+      .catch((error: unknown) => {
+        if (holding) {
+          lost(error);
+          return;
+        }
+        // Nobody handed over in time: a frozen or cached tab holds it. Take it anyway.
+        locks.request(SAVE_LOCK, { steal: true }, hold).catch((stealError: unknown) => {
+          if (holding) {
+            lost(stealError);
+            return;
+          }
+          console.error('[ship-it] this tab could not claim the save', stealError);
+          granted();
+        });
+      });
+  });
 }
 
 /**
- * Loads the save (creating a new game on first launch) and starts autosaving. A save that
- * can't be read is left untouched in storage: the player chooses what happens to it.
+ * Loads the save (creating a new game on first launch) and starts autosaving, once this tab
+ * owns the save. A save that can't be read is left untouched in storage: the player
+ * chooses what happens to it.
  */
 export async function startProgress(
   storage: ProgressStorage = indexedDbStorage,
   now: Date = new Date(),
+  coordination: TabCoordination = browserCoordination(),
 ): Promise<void> {
+  // A second start in the same page lets go of the first one's claim before asking again.
+  releaseSave?.();
+  releaseSave = null;
+  channel?.close();
+  channel = null;
+  steppedAside = false;
+  handoverRequested = false;
+  progress.update({ status: 'loading', save: null, problem: null });
+
   autosave = createAutosave(
     async (save) => {
       await storage.write(save);
@@ -61,8 +207,26 @@ export async function startProgress(
       },
     },
   );
+
+  if (coordination.openChannel) {
+    channel = coordination.openChannel();
+    channel.addEventListener('message', onTabMessage);
+    channel.postMessage(HANDOVER);
+  }
+  await acquireSave(coordination.locks);
+  // Read through functions: other tabs' messages change these flags during the awaits.
+  if (handoverPending()) {
+    await handOver(true);
+    return;
+  }
+
   try {
     const save = await storage.load(now);
+    // Handed over while loading: keep the save to show, but this tab stays 'elsewhere'.
+    if (!isSavingHere()) {
+      progress.update({ save });
+      return;
+    }
     progress.update({ status: 'ready', save, problem: null });
     devStatus.update({ save: 'saved' });
     // Without this, a browser low on disk may treat IndexedDB as a cache and delete it.
@@ -70,19 +234,37 @@ export async function startProgress(
       console.warn('[ship-it] the browser would not keep the save permanently', error);
     });
   } catch (error) {
+    if (!isSavingHere()) return;
     progress.update({ status: 'failed', save: null, problem: describeLoadProblem(error) });
     devStatus.update({ save: 'error' });
     console.error('[ship-it] the save could not be loaded', error);
   }
 }
 
+function describeLoadProblem(error: unknown): string {
+  if (error instanceof Error && error.name === 'FutureSaveVersionError') {
+    return 'Your save comes from a newer version of SHIP IT. Update the game to keep playing it.';
+  }
+  return 'Your save could not be read. Import a backup from Settings, or start over there.';
+}
+
+function handoverPending(): boolean {
+  return handoverRequested;
+}
+
+/** False once another tab has the save: then nothing here can change it. */
+export function isSavingHere(): boolean {
+  return !steppedAside;
+}
+
 /**
  * Changes the player's progress and schedules an autosave. `change` gets the current save
- * and returns the new one; it must not modify its argument. Does nothing until a save loads.
+ * and returns the new one; it must not modify its argument. Does nothing until a save loads,
+ * or once another tab has the save.
  */
 export function updateSave(change: (save: SaveData) => SaveData): void {
   const { save } = progress.get();
-  if (save === null) return;
+  if (save === null || steppedAside) return;
   const next = change(save);
   if (next === save) return;
   progress.update({ save: next });
@@ -101,11 +283,16 @@ export function saveProgressNow(change: (save: SaveData) => SaveData): void {
   });
 }
 
-/** Replaces the whole save, as an import does, and stores it straight away. */
-export async function replaceSave(save: SaveData): Promise<void> {
+/**
+ * Replaces the whole save, as an import does, and stores it straight away. Resolves false,
+ * changing nothing, when another tab has the save.
+ */
+export async function replaceSave(save: SaveData): Promise<boolean> {
+  if (steppedAside) return false;
   progress.update({ status: 'ready', save, problem: null });
   autosave?.schedule(save);
   await flushProgress();
+  return true;
 }
 
 /** Writes any pending change now, e.g. when the tab is hidden or before an export. */

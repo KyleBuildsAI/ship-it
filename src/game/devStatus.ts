@@ -7,7 +7,8 @@ export type RenderBackend = 'none' | 'starting' | 'webgpu' | 'webgl2' | 'failed'
 export type MentorState = 'offline' | 'online';
 
 /** Whether player progress is being persisted. */
-export type SaveState = 'none' | 'saved' | 'error';
+/** 'elsewhere': another tab holds the save, so this one doesn't write it. */
+export type SaveState = 'none' | 'saved' | 'error' | 'elsewhere';
 
 export interface DevStatus {
   backend: RenderBackend;

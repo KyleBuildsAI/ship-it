@@ -25,6 +25,7 @@ const SAVE: Record<SaveState, Omit<StatusRow, 'label'>> = {
   none: { value: 'none', tone: 'neutral' },
   saved: { value: 'saved', tone: 'ok' },
   error: { value: 'error', tone: 'warn' },
+  elsewhere: { value: 'other tab', tone: 'warn' },
 };
 
 /** Turns raw dev status into the labeled rows the badge displays. */
