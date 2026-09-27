@@ -50,6 +50,7 @@ A night-time floating island HQ. Contains:
 - **Standup Board**: the daily review queue.
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
+- In M1 these three are HUD menus (Standup, Trophies, Settings) reachable from anywhere, next to an **Act 2** button that opens the Act menu outside the Git World too. Mentor chat arrives with later modes.
 
 ### Git World visual language (reused everywhere)
 | Git concept | In-world object |
@@ -152,13 +153,13 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 ### Modes (`POST /api/mentor` with `{ mode, context }`)
 - **hint**: hint ladder. Level 1: a question back. Level 2: the concept. Level 3: the command with explanation. Never skips levels.
 - **grade_question**: grades Kyle's free-text clarifying question against the ticket rubric. Returns JSON `{ score: 0-3, whyItMatters, betterVersion }`.
-- **explain**: explains a mistake after a drill ends (never during).
+- **explain**: explains a mistake after a drill ends (never during). Not in M1: drills show the pass or miss, and misses go to the review queue.
 - **interview** (M5, Act 8 and Experience Vault): uses the interview model. Asks follow-ups, pushes on weak answers, scores against a rubric.
 
 ### Rules
 - System prompts live in `/server/prompts/*.md` so Kyle can read and tune them.
 - Sage is unavailable during No-AI Drills and placement tests: the client never calls it, and the server rejects calls tagged with a drill session.
-- **Cost guard**: usage tracked in a local JSON file (persists across restarts, gitignored), shown in the HUD and Settings. Hard stop at the daily cap.
+- **Cost guard**: usage tracked in a local JSON file (persists across restarts, gitignored), shown in Settings (M1; the HUD badge shows online or offline). Hard stop at the daily cap.
 - **Offline behavior**: if the server is unreachable or has no key (always the case on the GitHub Pages build), Sage shows "offline", hints fall back to pre-written hint ladders in mission data, free-text grading is hidden, and multiple-choice Question Rounds still work. The game stays fully playable.
 
 ## 10. Content format
