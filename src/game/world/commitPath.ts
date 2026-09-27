@@ -106,6 +106,18 @@ export class CommitPath {
     this.hologram.children[0]?.position.set(0, 0.9 + Math.sin(elapsed * 2) * 0.05, 0);
   }
 
+  /** The commit whose platform is under the pointer, if any. */
+  pick(raycaster: THREE.Raycaster): ObjectId | null {
+    const entries = [...this.platforms.entries()];
+    const hit = raycaster.intersectObjects(
+      entries.map(([, view]) => view.group),
+      true,
+    )[0];
+    if (!hit) return null;
+    const found = entries.find(([, view]) => view.group === hit.object.parent);
+    return found ? found[0] : null;
+  }
+
   /** Along the path by depth, rising as it goes; side-lane commits sit off to its right. */
   private positionFor(spec: PlatformSpec): THREE.Vector3 {
     const along = this.layout.pathDirection;

@@ -38,6 +38,9 @@ const WELCOME =
 export function TerminalPanel({ open }: { open: boolean }) {
   const terminalRef = useRef<Terminal | null>(null);
   const host = useRef<HTMLDivElement>(null);
+  /** Types text as if the player had, so HUD requests use the exact same path as keys. */
+  const typeRef = useRef<((data: string) => void) | null>(null);
+  const editorRef = useRef<LineEditor | null>(null);
 
   useEffect(() => {
     const element = host.current;
@@ -67,7 +70,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
     terminal.writeln(WELCOME);
     terminal.write(editor.render());
 
-    const typing = terminal.onData((data) => {
+    const type = (data: string) => {
       const result = editor.handle(data);
       terminal.write(result.output);
       if (result.clear) terminal.clear();
@@ -79,7 +82,10 @@ export function TerminalPanel({ open }: { open: boolean }) {
         if (outcome.openFile) sandbox.update({ openFile: outcome.openFile });
       }
       if (result.submitted.length > 0 || result.clear) terminal.write(editor.render());
-    });
+    };
+    const typing = terminal.onData(type);
+    typeRef.current = type;
+    editorRef.current = editor;
 
     const resize = new ResizeObserver(() => {
       fit.fit();
@@ -91,11 +97,23 @@ export function TerminalPanel({ open }: { open: boolean }) {
       typing.dispose();
       terminal.dispose();
       terminalRef.current = null;
+      typeRef.current = null;
+      editorRef.current = null;
     };
   }, []);
 
+  const { pendingCommand, terminalFocusRequests } = useStore(hud);
+
+  // A click in the world can ask the terminal to type (and maybe run) a command.
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    const editor = editorRef.current;
+    if (!pendingCommand || !terminal || !editor) return;
+    terminal.write(editor.replaceLine(pendingCommand.text, pendingCommand.cursorFromEnd));
+    if (pendingCommand.run) typeRef.current?.('\r');
+  }, [pendingCommand]);
+
   // Focus only when the player opened the terminal on purpose (see HudState).
-  const { terminalFocusRequests } = useStore(hud);
   useEffect(() => {
     if (terminalFocusRequests > 0) terminalRef.current?.focus();
   }, [terminalFocusRequests]);

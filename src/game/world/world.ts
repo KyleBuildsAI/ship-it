@@ -1,7 +1,9 @@
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three/webgpu';
 import type { Workspace } from '../../engine/workspace';
+import { shortId } from '../../engine/git/hash';
 import { isTypingTarget } from '../../ui/focus';
+import { suggest } from '../hud';
 import { sandbox } from '../sandbox';
 import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
@@ -11,6 +13,7 @@ import { CommitPath } from './commitPath';
 import { CrateYard } from './crateYard';
 import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
 import { describeHistory } from './historyLayout';
+import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
 import {
   clampToDisc,
@@ -147,12 +150,39 @@ export function createWorld(
   watch();
   const stopSandbox = sandbox.subscribe(watch);
 
-  // Clicking an open portal walks to its doorstep and steps through; clicking the ground
-  // walks there. A drag turns the camera instead, so tell clicks and drags apart.
+  // What the player can click: things in the Git World suggest a command, open portals
+  // walk to their doorstep and step through, and the ground walks there. A drag turns the
+  // camera instead, so tell clicks and drags apart.
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let pressed: { x: number; y: number; at: number } | null = null;
   let pendingPortal: { doorstep: Flat; to: ZoneId } | null = null;
+
+  /** What in the Git World the ray hits: a crate, a commit platform, or the Vault. */
+  const pickTarget = (): WorldTarget | null => {
+    const crate = yard.pick(raycaster);
+    if (crate) return { kind: 'crate', path: crate.path, area: crate.area, look: crate.look };
+    const commit = path.pick(raycaster);
+    if (commit) return { kind: 'commit', shortId: shortId(commit) };
+    if (raycaster.intersectObjects([...gitWorld.vaultMeshes], false)[0]) return { kind: 'vault' };
+    return null;
+  };
+
+  const aimAt = (event: PointerEvent) => {
+    const bounds = canvas.getBoundingClientRect();
+    pointer.set(
+      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+      -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(pointer, camera);
+  };
+
+  // A pointer cursor over anything clickable in the Git World, so it reads as interactive.
+  const onPointerMove = (event: PointerEvent) => {
+    if (zone !== 'gitworld' || pressed) return;
+    aimAt(event);
+    canvas.style.cursor = pickTarget() ? 'pointer' : '';
+  };
 
   const onPointerDown = (event: PointerEvent) => {
     pressed = { x: event.clientX, y: event.clientY, at: performance.now() };
@@ -164,12 +194,12 @@ export function createWorld(
     pressed = null;
     if (moved > CLICK_MAX_PIXELS || !quick) return;
 
-    const bounds = canvas.getBoundingClientRect();
-    pointer.set(
-      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
-      -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
-    );
-    raycaster.setFromCamera(pointer, camera);
+    aimAt(event);
+
+    // DESIGN.md pillar 2: a click never changes git state itself; it offers the command.
+    const target = zone === 'gitworld' ? pickTarget() : null;
+    suggest(target ? suggestFor(target) : null);
+    if (target) return;
 
     const portalTargets =
       zone === 'campus'
@@ -219,6 +249,7 @@ export function createWorld(
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointermove', onPointerMove);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', releaseAll);
@@ -282,6 +313,7 @@ export function createWorld(
       stopSandbox();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', releaseAll);
