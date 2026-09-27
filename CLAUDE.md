@@ -15,8 +15,9 @@ His machine: Windows 11, PowerShell, NVIDIA GPU, Chrome. Give every command in P
 3. Small, focused commits with Conventional Commit messages (`feat:`, `fix:`, `test:`, `docs:`, `chore:`, `refactor:`). Never "wip" or "update files".
 4. Before opening a PR, run locally and confirm all green: lint, typecheck, unit tests, build, e2e smoke.
 5. Open the PR with `gh pr create` using the template. Link the issue (`Closes #N`).
-6. **Stop after opening the PR.** Give Kyle the PR link and its three review questions. Do not merge. Do not start the next PR until Kyle says it's merged or tells you to keep going.
-7. After merge: `git switch main`, `git pull`, delete the local branch, then continue.
+6. After opening a PR, wait for CI to pass (or all local checks until CI exists), then merge it yourself with `gh pr merge --squash --delete-branch`, pull main, and start the next PR. Do not wait for Kyle.
+7. Before merging, append the PR's number, title, and three review questions (answers in a collapsed block) to `LEARNING.md` as a commit on the same branch, so Kyle can study them later.
+8. After merge: `git switch main`, `git pull`, delete the local branch, then continue.
 
 Target PR size: under ~400 changed lines, excluding generated files, lockfiles, and mission content data. Split anything bigger.
 
@@ -75,11 +76,19 @@ One line each.
 
 ## When to stop and ask
 
-- `DESIGN.md` and the code disagree, or a requirement is ambiguous and expensive to redo.
-- Anything that needs Kyle's accounts, keys, repo settings, or installs on his machine. Give the exact PowerShell command or click path, then wait.
-- Any destructive git operation: force push, rewriting history on `main`, deleting remote branches.
+Only stop for things only Kyle can do:
 
-Otherwise, make the reasonable call and note it in the PR under "Why".
+- Installs on his machine.
+- GitHub account settings.
+- His API key. Don't wait on this one: finish the work, put the `.env` setup steps in the README, and keep building. The game must work without the key.
+
+For those, give the exact PowerShell command or click path, then wait. For everything else, make the reasonable call and note it in the PR under "Why". If `DESIGN.md` and the code disagree, follow the intent of `DESIGN.md` and update it in the same PR.
+
+## Hard limits
+
+- Never merge a PR with failing checks.
+- Never force push `main` or rewrite its history.
+- If something fails 3 times, open an issue describing it (what failed, what was tried, the error output), skip it, and keep going.
 
 ## Keep docs current
 
