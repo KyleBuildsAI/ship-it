@@ -6,7 +6,10 @@
 export interface NormalizedPaste {
   /** Git's output, one entry per line, with no color codes or trailing whitespace. */
   readonly lines: readonly string[];
-  /** The command typed at a copied prompt, like `git status -sb`, or null when no prompt was copied. */
+  /**
+   * The command copied above the output, with or without its prompt, like
+   * `git status -sb`. Null when the copy started below it.
+   */
   readonly command: string | null;
 }
 

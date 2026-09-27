@@ -30,15 +30,16 @@ function looksLikeLogOneline(lines: readonly string[]): boolean {
 
 /**
  * Works out which command produced a paste, so the game can pick the right parser (and
- * tell Kyle when he pasted the wrong thing). Long status needs just one line only it
- * prints, because it can include lines we don't know, like rebase progress. The short
- * status and log formats are stricter: every line has to fit.
+ * tell Kyle when he pasted the wrong thing). One line that only the long status prints
+ * is enough to call a paste long status, because it can also hold lines we don't know,
+ * like rebase progress. The short status and log formats are stricter: every line has
+ * to fit.
  */
 export function detectPasteKind(text: string): PasteKind {
   const { lines, command } = normalizePaste(text);
   const content = lines.filter((line) => line !== '');
 
-  // A clean `git status --short` prints nothing, so only the copied prompt can say what ran.
+  // A clean `git status --short` prints nothing, so only the copied command can say what ran.
   if (content.length === 0) {
     return command !== null && isShortStatusCommand(command) ? 'status-short' : 'unknown';
   }
