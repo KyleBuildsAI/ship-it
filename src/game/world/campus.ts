@@ -8,8 +8,8 @@ export interface Portal {
   readonly title: string;
   readonly locked: boolean;
   readonly group: THREE.Group;
-  /** Where the avatar stands to step through. */
-  readonly doorstep: Flat;
+  /** Where the ring stands on the ground. */
+  readonly at: Flat;
 }
 
 export interface Campus {
@@ -19,7 +19,7 @@ export interface Campus {
   update: (elapsed: number) => void;
 }
 
-/** The eight Acts of DESIGN.md section 11. Only Act 2 is playable in Milestone 1. */
+/** The eight Acts of DESIGN.md section 11. Which ones are open comes from the caller. */
 export const ACTS = [
   { act: 1, title: 'The Machine' },
   { act: 2, title: 'Git Core' },
@@ -31,12 +31,18 @@ export const ACTS = [
   { act: 8, title: 'The Loop' },
 ] as const;
 
-const OPEN_ACTS = new Set([2]);
+/** How high the middle of a portal's ring stands above the ground. */
+export const PORTAL_RING_HEIGHT = 1.45;
 const OPEN = 0x6fd3ff;
 const LOCKED = 0x39425a;
 
-function createPortal(act: number, title: string, angle: number, radius: number): Portal {
-  const locked = !OPEN_ACTS.has(act);
+function createPortal(
+  act: number,
+  title: string,
+  locked: boolean,
+  angle: number,
+  radius: number,
+): Portal {
   const color = locked ? LOCKED : OPEN;
   const group = new THREE.Group();
   const ring = new THREE.Mesh(
@@ -47,7 +53,7 @@ function createPortal(act: number, title: string, angle: number, radius: number)
       emissiveIntensity: locked ? 0.25 : 2.6,
     }),
   );
-  ring.position.y = 1.45;
+  ring.position.y = PORTAL_RING_HEIGHT;
   const veil = new THREE.Mesh(
     new THREE.CircleGeometry(1.05, 48),
     new THREE.MeshBasicMaterial({
@@ -57,7 +63,7 @@ function createPortal(act: number, title: string, angle: number, radius: number)
       side: THREE.DoubleSide,
     }),
   );
-  veil.position.y = 1.45;
+  veil.position.y = PORTAL_RING_HEIGHT;
   const label = new Label(
     locked ? `Act ${String(act)} · ${title} · locked` : `Act ${String(act)} · ${title}`,
     {
@@ -74,17 +80,16 @@ function createPortal(act: number, title: string, angle: number, radius: number)
   // Face the island's centre so every portal greets the player.
   group.lookAt(0, 0, 0);
   group.userData = { portalAct: act };
-  const inward = (radius - 1.6) / radius;
-  return { act, title, locked, group, doorstep: { x: x * inward, z: z * inward } };
+  return { act, title, locked, group, at: { x, z } };
 }
 
-/** The hub: a night-time floating island with a ring of Act portals. */
-export function createCampus(): Campus {
+/** The hub: a night-time floating island with a ring of Act portals, open ones glowing. */
+export function createCampus(openActs: ReadonlySet<number>): Campus {
   const island = createIsland(14, 0x18242e);
   const portals = ACTS.map(({ act, title }, index) => {
     // Spread the portals over the far half of the island, Act 1 on the left.
     const angle = Math.PI + (index - (ACTS.length - 1) / 2) * 0.36;
-    return createPortal(act, title, angle, 11.5);
+    return createPortal(act, title, !openActs.has(act), angle, 11.5);
   });
   portals.forEach((portal) => island.group.add(portal.group));
 
