@@ -34,6 +34,13 @@ const WELCOME =
   'SHIP IT sandbox. Type \x1b[36mhelp\x1b[0m for commands, or start with \x1b[36mgit init\x1b[0m.';
 
 /**
+ * The page can load before it has its real width (a window still opening, a background
+ * tab), and text written then stays wrapped at that width, two letters per line. So the
+ * greeting waits until the terminal is at least this many columns wide.
+ */
+const MIN_GREETING_COLUMNS = 20;
+
+/**
  * The in-game terminal: xterm.js draws the text, LineEditor handles typing, and every
  * submitted line runs in the sandbox shell. Output is colored by meaning, like real git.
  * It stays mounted while hidden, so the scrollback survives closing and reopening.
@@ -72,10 +79,18 @@ export function TerminalPanel({ open }: { open: boolean }) {
       complete: (before) => completeLine(shell(), before),
     });
 
-    terminal.writeln(WELCOME);
-    terminal.write(editor.render());
+    let greeted = false;
+    const greet = (evenIfNarrow: boolean) => {
+      if (greeted || (!evenIfNarrow && terminal.cols < MIN_GREETING_COLUMNS)) return;
+      greeted = true;
+      terminal.writeln(WELCOME);
+      terminal.write(editor.render());
+    };
+    greet(false);
 
     const type = (data: string) => {
+      // Typing needs a prompt to type after, however narrow the terminal still is.
+      greet(true);
       const result = editor.handle(data);
       terminal.write(result.output);
       if (result.clear) terminal.clear();
@@ -95,6 +110,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
 
     const resize = new ResizeObserver(() => {
       fit.fit();
+      greet(false);
     });
     resize.observe(element);
 
