@@ -57,6 +57,15 @@ describe('applySteps', () => {
     expect(q.untrackedPaths()).toEqual(['NOTES.md']);
   });
 
+  it('announces what it changes, so the 3D world can follow a twist', () => {
+    const ws = createSandbox(repo().commit('init', { 'app.ts': 'a\n' }).toSpec(), testDeps());
+    const heard: string[] = [];
+    ws.events.on((event) => heard.push(event.type));
+    const twist = folder().write('NOTES.md', 'x\n').stage('NOTES.md').commit('docs: notes');
+    applySteps(ws, twist.toSpec());
+    expect(heard).toEqual(['fileChanged', 'staged', 'committed', 'branchMoved', 'headMoved']);
+  });
+
   it('refuses to stage in a folder that has no repository', () => {
     const ws = createSandbox(folder().write('a.ts', 'a').toSpec(), testDeps());
     expect(() => {

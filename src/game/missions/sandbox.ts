@@ -1,3 +1,4 @@
+import { recordCommit, stagePaths } from '../../engine/git/cli/staging';
 import { buildWorkspace, defaultDeps, type FixtureStep } from '../../engine/git/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
 import type { Workspace } from '../../engine/workspace';
@@ -16,8 +17,13 @@ export function createSandbox(
 /**
  * Applies setup steps to a sandbox the player is already working in, for boss twists
  * like "Dex drops a new file on the Workbench". The engine only replays steps into a
- * brand-new workspace, so this mirrors `buildWorkspace` using the Workspace's public
- * API. A test checks that the two always produce identical sandboxes.
+ * brand-new workspace, so this mirrors `buildWorkspace`. A test checks that the two
+ * always produce identical sandboxes.
+ *
+ * One difference is on purpose: staging and committing go through the same helpers as
+ * `git add` and `git commit`, so they announce `staged` and `committed` events. The 3D
+ * world is already on screen, and a twist it never hears about would leave it showing
+ * crates in the wrong place. `buildWorkspace` can skip that because nothing is drawn yet.
  */
 export function applySteps(ws: Workspace, steps: readonly FixtureStep[]): void {
   for (const step of steps) {
@@ -36,16 +42,11 @@ export function applySteps(ws: Workspace, steps: readonly FixtureStep[]): void {
       case 'delete':
         ws.deleteFile(step.path);
         break;
-      case 'stage': {
-        const repository = ws.requireRepo();
-        for (const path of step.paths) {
-          if (ws.fs.isFile(path)) repository.stage(path, ws.fs.readFile(path));
-          else repository.removeFromIndex(path);
-        }
+      case 'stage':
+        stagePaths(ws, step.paths);
         break;
-      }
       case 'commit':
-        ws.requireRepo().commitIndex(step.message);
+        recordCommit(ws, step.message);
         break;
     }
   }
