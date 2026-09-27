@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.tsbuildinfo
+.vite/
+
+# Secrets: real values live only in .env on your machine
+.env
+.env.*
+!.env.example
+
+# Mentor server usage tracking (per-machine, may reveal spend)
+server/usage.json
+
+# Test output
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local Claude Code settings
+.claude/settings.local.json

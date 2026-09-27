@@ -1,0 +1,22 @@
+# SHIP IT
+
+SHIP IT is a 3D browser game that is also a complete course in professional software engineering. You join Quillwork AI, a fictional AI startup, as an intern and rank up to Staff engineer by learning Git, GitHub team workflow, testing and CI, how systems work, AI-native engineering, and interview prep. Every Git concept is a physical place you can see (the Workbench, the Loading Dock, the Vault), every command you type animates the world, and every mission is graded by the state you reach, not the exact commands you typed. The full spec lives in [DESIGN.md](DESIGN.md).
+
+## Status
+
+Milestone 1 (Act 2: Git Core vertical slice) is in progress. See [DESIGN.md](DESIGN.md) section 15.
+
+## How to run
+
+Requirements: Windows 11 with PowerShell, Node.js LTS, npm, and Chrome.
+
+Open a terminal in the repo folder, then:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open the URL Vite prints (usually `http://localhost:5173`) in Chrome.
+
+The Sage mentor is optional. To enable it, copy `.env.example` to `.env` and fill in the values. Without a key, the game stays fully playable with pre-written hints.
