@@ -10,7 +10,7 @@ describe('runGit', () => {
     const ws = folder().build(testDeps());
     expect(gitText(ws, [])).toContain('usage: git <command>');
     expect(gitText(ws, ['help'])).toContain(
-      'Commands in this sandbox: add, commit, diff, init, log, mv, reflog, reset, restore, rm, show, status',
+      'Commands in this sandbox: add, commit, diff, init, log, mv, reflog, reset, restore, revert, rm, show, status',
     );
     expect(git(ws, ['--help']).exitCode).toBe(0);
   });
