@@ -1,0 +1,52 @@
+import { buildWorkspace, defaultDeps, type FixtureStep } from '../../engine/git/fixtures';
+import type { RepositoryDeps } from '../../engine/git/repository';
+import type { Workspace } from '../../engine/workspace';
+
+/**
+ * A fresh sandbox for a mission, drill, or boss, built from its setup steps. Tests pass
+ * `testDeps()` so commit ids come out the same on every run.
+ */
+export function createSandbox(
+  steps: readonly FixtureStep[],
+  deps: RepositoryDeps = defaultDeps(),
+): Workspace {
+  return buildWorkspace(steps, deps);
+}
+
+/**
+ * Applies setup steps to a sandbox the player is already working in, for boss twists
+ * like "Dex drops a new file on the Workbench". The engine only replays steps into a
+ * brand-new workspace, so this mirrors `buildWorkspace` using the Workspace's public
+ * API. A test checks that the two always produce identical sandboxes.
+ */
+export function applySteps(ws: Workspace, steps: readonly FixtureStep[]): void {
+  for (const step of steps) {
+    switch (step.op) {
+      case 'init':
+        ws.initRepo();
+        break;
+      case 'write':
+        ws.writeFile(step.path, step.content);
+        break;
+      case 'append': {
+        const before = ws.fs.isFile(step.path) ? ws.fs.readFile(step.path) : '';
+        ws.writeFile(step.path, before + step.text);
+        break;
+      }
+      case 'delete':
+        ws.deleteFile(step.path);
+        break;
+      case 'stage': {
+        const repository = ws.requireRepo();
+        for (const path of step.paths) {
+          if (ws.fs.isFile(path)) repository.stage(path, ws.fs.readFile(path));
+          else repository.removeFromIndex(path);
+        }
+        break;
+      }
+      case 'commit':
+        ws.requireRepo().commitIndex(step.message);
+        break;
+    }
+  }
+}
