@@ -66,3 +66,15 @@ export function createSampleSave(): SaveData {
     },
   };
 }
+
+/** A save as the earliest prototype wrote it: no schemaVersion, and xp at the top level. */
+export function createLegacyV0Save(): Record<string, unknown> {
+  const { profile, ...current } = createSampleSave();
+  const legacy: Record<string, unknown> = {
+    ...current,
+    xp: profile.xp,
+    profile: { createdAt: profile.createdAt, practiceDays: profile.practiceDays },
+  };
+  delete legacy.schemaVersion;
+  return legacy;
+}
