@@ -1171,3 +1171,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/93
 3. It's the effect's cleanup. React runs it when the card stops being "finished" (you pressed Close) or unmounts. It clears the 8-second timer so it can't fire later and close something it shouldn't.
 
 </details>
+
+---
+
+## #94 feat: calm classical tracks and a pure playlist
+
+https://github.com/KyleBuildsAI/ship-it/pull/94
+
+1. Bach died in 1750. Why wasn't that enough to know his Prelude's recording is free to use?
+2. Why does `nextInPlaylist` rotate the new order when its first piece is the one that just ended?
+3. How do the tests make a shuffle predictable?
+
+<details><summary>Answers</summary>
+
+1. The composition is public domain, but each recording is a separate work owned by its performer or label. Kimiko Ishizaka released hers as CC0, and her Commons page says so. That's what makes this file usable.
+2. Shuffles are independent, so a new round can start with the piece that ended the last one, and you'd hear the same piece twice in a row. Moving that piece from the front to the back of the new order prevents it.
+3. `shuffled` takes `random` as a parameter. The tests pass `() => 0.999`, which makes every swap a swap with itself, so the order stays as written. Another test feeds chosen values to show all six orders of three items are possible.
+
+</details>
