@@ -2,7 +2,9 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
+import { hud } from '../../game/hud';
 import { sandbox } from '../../game/sandbox';
+import { useStore } from '../useStore';
 import { completeLine } from './complete';
 import { LineEditor } from './lineEditor';
 import { colorize } from './tones';
@@ -83,7 +85,6 @@ export function TerminalPanel({ open }: { open: boolean }) {
       fit.fit();
     });
     resize.observe(element);
-    terminal.focus();
 
     return () => {
       resize.disconnect();
@@ -93,9 +94,11 @@ export function TerminalPanel({ open }: { open: boolean }) {
     };
   }, []);
 
+  // Focus only when the player opened the terminal on purpose (see HudState).
+  const { terminalFocusRequests } = useStore(hud);
   useEffect(() => {
-    if (open) terminalRef.current?.focus();
-  }, [open]);
+    if (terminalFocusRequests > 0) terminalRef.current?.focus();
+  }, [terminalFocusRequests]);
 
   return (
     <section

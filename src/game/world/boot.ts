@@ -1,9 +1,8 @@
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three/webgpu';
 import { devStatus } from '../devStatus';
-import { createPlaceholderScene } from './placeholderScene';
 import { createFrameRenderer } from './post';
 import { createRenderer, fitToContainer } from './renderer';
+import { createWorld } from './world';
 
 /** Starts the 3D world inside `container` and keeps it rendering every frame. */
 export async function bootWorld(container: HTMLElement): Promise<void> {
@@ -11,26 +10,11 @@ export async function bootWorld(container: HTMLElement): Promise<void> {
 
   const { renderer, backend } = await createRenderer(container);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const world = createPlaceholderScene(
-    container.clientWidth / container.clientHeight,
-    reducedMotion,
-  );
-
-  const controls = new OrbitControls(world.camera, renderer.domElement);
-  controls.target.set(0, 2.4, 0);
-  controls.enableDamping = true;
-  controls.enablePan = false;
-  controls.minDistance = 6;
-  controls.maxDistance = 22;
-  controls.maxPolarAngle = Math.PI * 0.48;
-  controls.autoRotate = !reducedMotion;
-  controls.autoRotateSpeed = 0.35;
-
+  const world = createWorld(renderer.domElement, container, reducedMotion);
   const frame = createFrameRenderer(renderer, world.scene, world.camera);
 
   const fit = () => {
-    world.camera.aspect = container.clientWidth / container.clientHeight;
-    world.camera.updateProjectionMatrix();
+    world.resize(container.clientWidth, container.clientHeight);
     fitToContainer(renderer, container);
   };
   window.addEventListener('resize', fit);
@@ -52,8 +36,8 @@ export async function bootWorld(container: HTMLElement): Promise<void> {
   // WebGPU/WebGL frame and XR sessions.
   await renderer.setAnimationLoop((time) => {
     timer.update(time);
-    world.update(timer.getElapsed());
-    controls.update(timer.getDelta());
+    // Clamp long frames (a background tab, a breakpoint) so nothing teleports.
+    world.update(Math.min(timer.getDelta(), 0.1), timer.getElapsed());
     frame.render();
   });
 
