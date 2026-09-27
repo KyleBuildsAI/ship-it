@@ -505,3 +505,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/51
 3. So there is exactly one way commands run. History, prompt redraw, error tones, and opening the editor all happen in `type()`. Calling the shell directly would skip some of that, and bugs would appear only for clicked commands.
 
 </details>
+
+---
+
+## #52 feat: versioned save schema validated with zod
+
+https://github.com/KyleBuildsAI/ship-it/pull/52
+
+1. A save file is hand-edited so `xp` is `-50`. Would TypeScript catch it? Would zod?
+2. Why is `schemaVersion` `z.literal(1)` instead of `z.number()`?
+3. Why is `practiceDays` required to be sorted and unique?
+
+<details><summary>Answers</summary>
+
+1. TypeScript wouldn't. The file is read at runtime, long after type checking. zod would, because `xp` uses `countSchema` (an integer ≥ 0), so parsing fails and the save is rejected instead of silently loading bad data.
+2. This schema describes exactly version 1. An older or newer save must go through migrations (or be refused) first, and a literal makes the schema reject any other version outright.
+3. Then "days practiced" is simply the array's length, and "last practiced" is the last element. Nothing has to deduplicate or sort at read time, and the schema guarantees it stays true.
+
+</details>
