@@ -147,7 +147,7 @@ export class CrateYard {
   private createView(spec: CrateSpec): CrateView {
     const group = new THREE.Group();
     const box = new THREE.Mesh(this.geometry, this.materials[spec.look]);
-    const label = new Label(baseName(spec.path), { height: 0.26 });
+    const label = new Label(baseName(spec.path), { height: 0.32 });
     label.sprite.position.y = 0.62;
     group.add(box, label.sprite);
     group.userData = { path: spec.path, area: spec.area };
