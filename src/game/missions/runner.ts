@@ -259,6 +259,7 @@ export function startBoss(act: Act, nowMs: number): BossRun {
 
 /** Whole seconds left on the boss clock, never below zero. */
 export function secondsRemaining(boss: BossRun, act: Act, nowMs: number): number {
+  expectBoss(boss, act);
   const elapsed = (nowMs - boss.startedAtMs) / 1000;
   return Math.max(0, Math.ceil(act.boss.timeLimitSeconds - elapsed));
 }

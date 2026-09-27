@@ -326,6 +326,7 @@ describe('boss runs', () => {
     const otherBoss = { ...startBoss(act, 0), bossId: 'someone-else' };
     const q = gitQueries(bossSandbox());
     expect(() => tick(otherBoss, act, 0)).toThrow(MissionRunError);
+    expect(() => secondsRemaining(otherBoss, act, 0)).toThrow(MissionRunError);
     expect(() => checkBoss(otherBoss, act, q, 0)).toThrow(
       'This boss run is for "someone-else", not "sample-dirty-tree".',
     );
