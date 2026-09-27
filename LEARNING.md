@@ -703,3 +703,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/62
 3. Content authors fix everything in one pass. Throwing on the first problem would turn 5 problems into 5 separate edit-and-rerun cycles.
 
 </details>
+
+---
+
+## #63 test: capture real git output as paste-verification fixtures
+
+https://github.com/KyleBuildsAI/ship-it/pull/63
+
+1. Why capture real git output instead of writing example outputs by hand?
+2. What would go wrong if `capture.ps1` didn't pin the commit dates?
+3. Why does the script restore environment variables in a `finally` block instead of at the end of the script?
+
+<details><summary>Answers</summary>
+
+1. Hand-written examples reflect what we think git prints. Real output includes details we'd never guess (hint lines, spacing, quoting rules), and a parser that passes on real output works on Kyle's real pastes.
+2. Every run would produce different commit hashes, so the fixtures would change every time, and tests couldn't assert exact hashes.
+3. `finally` runs even when the script fails partway. Restoring only at the end would leave the terminal changed after any error, which is exactly when you'd least notice.
+
+</details>
