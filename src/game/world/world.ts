@@ -16,6 +16,7 @@ import { describeHistory } from './historyLayout';
 import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
 import { installTestHooks } from './testHooks';
+import { CAMERA_RIGS, doorwayAt, openActs, zoneForAct, type Doorway, type Zone } from './zones';
 import {
   clampToDisc,
   GROUNDED,
@@ -68,7 +69,7 @@ export function createWorld(
   scene.background = new THREE.Color(0x05060b);
   scene.fog = new THREE.FogExp2(0x070a14, 0.022);
 
-  const campus = createCampus();
+  const campus = createCampus(openActs());
   const gitWorld = createGitWorld();
   const avatar = createAvatar(motion);
   // The stars follow the camera (see update), so the sky surrounds whichever island you're on.
@@ -97,6 +98,40 @@ export function createWorld(
   controls.maxDistance = 20;
   controls.maxPolarAngle = Math.PI * 0.46;
 
+  // Each island as data (zones.ts), plus the portal meshes a click can hit.
+  const campusPortals = campus.portals.flatMap((portal) => {
+    const to = portal.locked ? null : zoneForAct(portal.act);
+    return to ? [{ group: portal.group, doorway: { at: portal.at, to } }] : [];
+  });
+  const gitWorldExit: { group: THREE.Object3D; doorway: Doorway } = {
+    group: gitWorld.exit.group,
+    doorway: { at: gitWorld.exit.at, to: 'campus' },
+  };
+  const portalsIn: Record<ZoneId, readonly { group: THREE.Object3D; doorway: Doorway }[]> = {
+    campus: campusPortals,
+    gitworld: [gitWorldExit],
+  };
+  const zones: Record<ZoneId, Zone & { ground: THREE.Object3D }> = {
+    campus: {
+      id: 'campus',
+      center: { x: 0, z: 0 },
+      radius: campus.island.radius - 1,
+      spawn: campus.spawn,
+      rig: CAMERA_RIGS.campus,
+      doorways: campusPortals.map((portal) => portal.doorway),
+      ground: campus.island.ground,
+    },
+    gitworld: {
+      id: 'gitworld',
+      center: GIT_WORLD_CENTER,
+      radius: gitWorld.island.radius - 1,
+      spawn: gitWorld.spawn,
+      rig: CAMERA_RIGS.gitworld,
+      doorways: [gitWorldExit.doorway],
+      ground: gitWorld.island.ground,
+    },
+  };
+
   let zone: ZoneId = 'campus';
   let position: Flat = { ...campus.spawn };
   let walkTarget: Flat | null = null;
@@ -105,16 +140,12 @@ export function createWorld(
   let travelling = false;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
 
-  // The Git World needs a wider view than Campus so the Workbench, Dock, and Vault all fit.
   const placeCamera = (at: Flat) => {
-    const [height, back] = zone === 'campus' ? [5.5, 10] : [8, 13.5];
+    const { height, back } = zones[zone].rig;
     controls.target.set(at.x, 1.2, at.z);
     camera.position.set(at.x, height, at.z + back);
   };
   placeCamera(position);
-
-  const zoneCenter = (): Flat => (zone === 'campus' ? { x: 0, z: 0 } : GIT_WORLD_CENTER);
-  const zoneRadius = () => (zone === 'campus' ? campus.island.radius : gitWorld.island.radius) - 1;
 
   const travel = (to: ZoneId) => {
     if (travelling) return;
@@ -122,7 +153,7 @@ export function createWorld(
     walkTarget = null;
     const arrive = () => {
       zone = to;
-      position = { ...(to === 'campus' ? campus.spawn : gitWorld.spawn) };
+      position = { ...zones[to].spawn };
       placeCamera(position);
       worldState.update({ zone });
       fadeTarget.style.opacity = '1';
@@ -160,13 +191,12 @@ export function createWorld(
   watch();
   const stopSandbox = sandbox.subscribe(watch);
 
-  // What the player can click: things in the Git World suggest a command, open portals
-  // walk to their doorstep and step through, and the ground walks there. A drag turns the
-  // camera instead, so tell clicks and drags apart.
+  // What the player can click: things in the Git World suggest a command, an open portal
+  // walks the avatar into its ring (stepping through travels, see update), and the ground
+  // walks there. A drag turns the camera instead, so tell clicks and drags apart.
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let pressed: { x: number; y: number; at: number } | null = null;
-  let pendingPortal: { doorstep: Flat; to: ZoneId } | null = null;
 
   /** What in the Git World the ray hits: a crate, a commit platform, or the Vault. */
   const pickTarget = (): WorldTarget | null => {
@@ -216,31 +246,24 @@ export function createWorld(
     suggest(target ? suggestFor(target) : null);
     if (target) return;
 
-    const portalTargets =
-      zone === 'campus'
-        ? campus.portals.filter((portal) => !portal.locked).map((portal) => portal.group)
-        : [gitWorld.exit.group];
-    const portalHit = raycaster.intersectObjects(portalTargets, true)[0];
-    if (portalHit) {
-      pendingPortal =
-        zone === 'campus'
-          ? {
-              doorstep: campus.portals.find((portal) => !portal.locked)?.doorstep ?? campus.spawn,
-              to: 'gitworld',
-            }
-          : { doorstep: gitWorld.exit.doorstep, to: 'campus' };
-      walkTarget = pendingPortal.doorstep;
+    // The nearest portal the ray hits, if several line up.
+    let clicked: Doorway | null = null;
+    let clickedDistance = Infinity;
+    for (const portal of portalsIn[zone]) {
+      const hit = raycaster.intersectObject(portal.group, true)[0];
+      if (hit && hit.distance < clickedDistance) {
+        clicked = portal.doorway;
+        clickedDistance = hit.distance;
+      }
+    }
+    if (clicked) {
+      walkTarget = clicked.at;
       return;
     }
-    const ground = zone === 'campus' ? campus.island.ground : gitWorld.island.ground;
+    const { ground, center, radius } = zones[zone];
     const groundHit = raycaster.intersectObject(ground, false)[0];
     if (groundHit) {
-      pendingPortal = null;
-      walkTarget = clampToDisc(
-        { x: groundHit.point.x, z: groundHit.point.z },
-        zoneCenter(),
-        zoneRadius(),
-      );
+      walkTarget = clampToDisc({ x: groundHit.point.x, z: groundHit.point.z }, center, radius);
     }
   };
 
@@ -250,10 +273,7 @@ export function createWorld(
     // Keys typed into the terminal or editor never move the avatar.
     if (down && isTypingTarget(event.target)) return;
     keys[binding] = down;
-    if (down) {
-      walkTarget = null;
-      pendingPortal = null;
-    }
+    if (down) walkTarget = null;
   };
   // Space jumps, but not while typing, and not when a HUD button has focus (Space presses it).
   const onJumpKey = (event: KeyboardEvent) => {
@@ -319,16 +339,12 @@ export function createWorld(
         const step = stepToward(position, walkTarget, WALK_SPEED, dt);
         direction = { x: walkTarget.x - position.x, z: walkTarget.z - position.z };
         position = step.position;
-        if (step.arrived) {
-          walkTarget = null;
-          if (pendingPortal) {
-            const destination = pendingPortal.to;
-            pendingPortal = null;
-            travel(destination);
-          }
-        }
+        if (step.arrived) walkTarget = null;
       }
-      position = clampToDisc(position, zoneCenter(), zoneRadius());
+      position = clampToDisc(position, zones[zone].center, zones[zone].radius);
+      // Walking into an open portal's ring, by keys or by a click, steps through it.
+      const doorway = travelling ? null : doorwayAt(position, zones[zone].doorways);
+      if (doorway) travel(doorway.to);
       // Count each walk once, when it starts, rather than touching the store every frame.
       if (direction && !walking)
         worldState.update({ hasMoved: true, walks: worldState.get().walks + 1 });
