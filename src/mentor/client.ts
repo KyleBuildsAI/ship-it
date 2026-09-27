@@ -5,6 +5,7 @@ import type {
   HintContext,
   HintLevel,
   HintReply,
+  MentorRequest,
 } from '../../server/protocol';
 import { devStatus } from '../game/devStatus';
 import { activeDrillSession } from './drillGuard';
@@ -178,7 +179,7 @@ export function createMentorClient({
    * request as a console error).
    */
   async function ask<T>(
-    request: { mode: string; context: object },
+    request: MentorRequest,
     isReply: (body: unknown) => body is T,
   ): Promise<(T & { offline: false }) | MentorOffline> {
     if (activeDrillSession() !== null) return offline('drill');
