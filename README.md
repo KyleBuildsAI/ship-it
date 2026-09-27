@@ -57,7 +57,25 @@ The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't availabl
   - **Field Mission:** clean the dirty tree on your real SandCastles repo, then paste PowerShell output to verify it.
 - **The Git World mirrors your repo:** files are crates on the Workbench, `git add` moves them to the Loading Dock, `git commit` seals them into the Vault, and commits become platforms behind it. Click anything there to see the git command it maps to.
 - **Standup** brings back drills you missed, spaced out so they stick. **Trophies** shows your rank and stats. **Settings** has text size, reduced motion, graphics quality, Sage on or off, the tutorial, and your save file.
+- **Music:** calm classical pieces play after your first click or key press (browsers block sound until then). **♪ Music** at the bottom left mutes and unmutes. **Settings** has the volume, what's playing, and the credits. The music pauses while the tab is hidden, and needs an internet connection: the recordings stream from Wikimedia Commons.
 - **Your progress saves itself** in the browser (IndexedDB) after every step. Settings, Export save gives you a backup file; Import save brings it back.
+
+## Music credits
+
+The game streams these recordings from [Wikimedia Commons](https://commons.wikimedia.org/). None are stored in this repo. Each license below covers the recording itself; the compositions are all long in the public domain.
+
+| Piece | Performer | License |
+|---|---|---|
+| J. S. Bach, [Prelude No. 1 in C major, BWV 846](https://commons.wikimedia.org/wiki/File:Kimiko_Ishizaka_-_Bach_-_Well-Tempered_Clavier,_Book_1_-_01_Prelude_No._1_in_C_major,_BWV_846.ogg) | Kimiko Ishizaka (Open Well-Tempered Clavier) | CC0 1.0 |
+| J. S. Bach, [Goldberg Variations: Aria](https://commons.wikimedia.org/wiki/File:Goldberg_Variations_01_Aria.ogg) | Kimiko Ishizaka (Open Goldberg Variations) | CC0 1.0 |
+| J. S. Bach, [Air on the G String](https://commons.wikimedia.org/wiki/File:Air_-_Air_Force_Strings_-_United_States_Air_Force_Band.mp3) | United States Air Force Band, Air Force Strings | Public domain |
+| Erik Satie, [Gymnopédie No. 1](https://commons.wikimedia.org/wiki/File:Erik_Satie_-_gymnopedies_-_la_1_ere._lent_et_douloureux.ogg) | Robin Alciatore (Musopen) | Public domain |
+| Claude Debussy, [Clair de lune](https://commons.wikimedia.org/wiki/File:Clair_de_lune_(Claude_Debussy)_Suite_bergamasque.ogg) | Laurens Goedhart | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| Johann Pachelbel, [Canon in D](https://commons.wikimedia.org/wiki/File:Canon_(2004)_-_Strolling_Strings_-_United_States_Air_Force_Band.mp3) (arranged by Frank Hudson) | United States Air Force Band, Strolling Strings | Public domain |
+| Frédéric Chopin, [Nocturne Op. 9 No. 2](https://commons.wikimedia.org/wiki/File:Chopin_-_Nocturne_No._2_in_E-flat_major,_Op._9_No._2_(Frank_Levy).flac) | Frank Lévy (Musopen, Set Chopin Free) | Public domain |
+| Edvard Grieg, [Morning Mood](https://commons.wikimedia.org/wiki/File:Musopen_-_Morning.ogg) | Czech National Symphony Orchestra (Musopen) | Public domain |
+| Robert Schumann, [Träumerei](https://commons.wikimedia.org/wiki/File:Robert_Schumann_-_scenes_from_childhood,_op._15_-_vii._dreaming.ogg) | Donald Betts (Musopen) | Public domain |
+| W. A. Mozart, [String Quartet No. 19, K. 465: Andante cantabile](https://commons.wikimedia.org/wiki/File:Mozart_-_String_Quartet_No._19_in_C_major,_K465_%27Dissonance%27_-_II._Andante_cantabile_(Musopen_String_Quartet).flac) | Musopen String Quartet | Public domain |
 
 ## Sage (optional AI mentor)
 
