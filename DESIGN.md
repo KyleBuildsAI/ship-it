@@ -181,7 +181,7 @@ Three areas, status, add, commit, log, diff, .gitignore, commit hygiene, undo.
 - 2.4 **The Ignore List**: `.gitignore`, `rm --cached`, secrets hygiene
 - 2.5 **Undo Everything**: `restore`, `revert`, `reset` modes, reflog recovery
 
-Boss: **"The Dirty Tree"**: Dex deploys from a clean checkout in 3:00. The Workbench has ~40 modified and untracked files. Commit the right things in sensible commits, without committing `.env` or build output, before the timer hits zero. Twist at 1:00: Dex reports a missing file that was never tracked.
+Boss: **"The Dirty Tree"**: Dex deploys from a clean checkout in 3:00. The Workbench has ~40 modified and untracked files. Commit the right things in sensible commits, without committing `.env` or build output, before the timer hits zero. Twist at 1:00: Dex reports a missing file that was never tracked: a too-broad `.gitignore` rule (`log*`) has been hiding `src/logger.ts`, and the player must commit it before the clock runs out.
 
 ### Act 3: Branching
 Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.

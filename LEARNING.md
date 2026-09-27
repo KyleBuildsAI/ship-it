@@ -973,3 +973,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/77
 3. Lose. `checkBoss` evaluates the failure rules first, and breaking one ends the fight even if the objectives are met.
 
 </details>
+
+---
+
+## #78 feat: act 2 content: missions 2.1-2.5, placement, boss, field mission
+
+https://github.com/KyleBuildsAI/ship-it/pull/78
+
+1. In the boss, why does `src/logger.ts` never show up as untracked, even though it isn't committed?
+2. How do the tests prove a step can't be completed "by accident" before Kyle does the work?
+3. Why does the Field Mission ask for `git ls-files` to check for secrets instead of `git status`?
+
+<details><summary>Answers</summary>
+
+1. The `.gitignore` has a `log*` rule, which also matches `logger.ts`. Ignored files don't appear as untracked, so git quietly hides it, and the deploy from a clean checkout is missing it.
+2. The solvability tests check each step is *not* complete when it becomes the current step, before its commands run, and *is* complete afterwards. Drill tests check the untouched setup fails.
+3. `git status` only lists files that changed or aren't tracked. A committed `.env` that hasn't changed never appears. `git ls-files` lists every tracked file, so a leaked `.env` shows up.
+
+</details>

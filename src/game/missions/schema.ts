@@ -375,7 +375,8 @@ const BossSchema = z
     });
   });
 
-export const FIELD_PARSERS = ['status-short', 'status-long', 'log-oneline'] as const;
+// ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
+export const FIELD_PARSERS = ['status-short', 'status-long', 'log-oneline', 'ls-files'] as const;
 export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
@@ -401,7 +402,7 @@ export type FieldCheck = z.output<typeof FieldCheckSchema>;
 export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[]> = {
   clean: ['status-short', 'status-long'],
   ignores: ['status-short', 'status-long'],
-  noTrackedSecrets: ['status-short', 'status-long'],
+  noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
 };
