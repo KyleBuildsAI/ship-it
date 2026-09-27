@@ -667,3 +667,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/60
 3. `stagePaths` is what `git add` uses, and it fires the `staged` event. The 3D world listens for events to redraw crates. Writing the index directly would change the repo silently, and the world would show the wrong state.
 
 </details>
+
+---
+
+## #61 feat: mission and boss runs as pure state machines
+
+https://github.com/KyleBuildsAI/ship-it/pull/61
+
+1. A mission has steps "stage README.md" and "commit it". The player types `git commit -am "docs: readme"` first. What does `checkStep` do?
+2. Why does `tick` record fired twists by index instead of just comparing times?
+3. Why is time passed in as `nowMs` instead of calling `Date.now()` inside the runner?
+
+<details><summary>Answers</summary>
+
+1. It records an attempt on step 1, sees "staged" (or a later check) is satisfied, marks step 1 complete, then checks step 2, which is also true, and marks it complete too. With no steps left, the phase moves to drills.
+2. `tick` is called on a timer, so the same moment is seen by several ticks. Recording the index makes each twist fire exactly once, even if two twists share a time or the timer jitters.
+3. So the runner stays pure and testable. Tests can jump the clock instantly, and the same inputs always give the same result.
+
+</details>
