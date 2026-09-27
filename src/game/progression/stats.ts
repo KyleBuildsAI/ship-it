@@ -72,5 +72,6 @@ export function masteredConcept(
     .filter((attempt) => conceptDrills.has(attempt.drillId))
     .slice(-MASTERY_ATTEMPTS);
   if (recent.length < MASTERY_ATTEMPTS) return false;
-  return (drillAccuracy(recent) ?? 0) >= MASTERY_ACCURACY;
+  const correct = recent.filter((attempt) => attempt.correct).length;
+  return correct / MASTERY_ATTEMPTS >= MASTERY_ACCURACY;
 }
