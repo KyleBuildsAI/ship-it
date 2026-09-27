@@ -1,0 +1,6 @@
+On branch main
+
+It took 3.25 seconds to enumerate untracked files.
+See 'git help status' for information on how to improve this.
+
+nothing to commit, working tree clean

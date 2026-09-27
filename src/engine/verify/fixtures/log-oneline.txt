@@ -1,0 +1,9 @@
+501437f docs(changelog): start a changelog
+828673f Merge branch 'feature'
+1c0066c test: cover detached HEAD
+959c681 docs: explain paste verification
+bfeb7e2 feat!: drop legacy format
+2f0b042 update stuff
+84f90e1 fix(parser): handle quoted paths
+3f82ce7 feat: add status parser
+044d4cd Initial commit

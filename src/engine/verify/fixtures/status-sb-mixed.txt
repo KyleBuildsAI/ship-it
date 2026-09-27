@@ -1,0 +1,8 @@
+## main
+ M README.md
+ D old.txt
+MM src/app.ts
+A  src/new.ts
+?? "caf\303\251.txt"
+?? dist/
+?? "draft notes.md"

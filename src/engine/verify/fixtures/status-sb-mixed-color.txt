@@ -1,0 +1,8 @@
+## [32mmain[m
+ [31mM[m README.md
+ [31mD[m old.txt
+[32mM[m[31mM[m src/app.ts
+[32mA[m  src/new.ts
+[31m??[m "caf\303\251.txt"
+[31m??[m dist/
+[31m??[m "draft notes.md"
