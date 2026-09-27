@@ -19,6 +19,8 @@ npm run dev
 
 Open the URL Vite prints (usually `http://localhost:5173`) in Chrome.
 
+The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't available. The status badge in the top-left shows which one is running. To try the fallback on a WebGPU machine, add `?backend=webgl2` to the URL.
+
 The Sage mentor is optional. To enable it, copy `.env.example` to `.env` and fill in the values. Without a key, the game stays fully playable with pre-written hints.
 
 ## Checks
