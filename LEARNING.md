@@ -109,3 +109,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/29
 3. `mkdir docs` followed by `ls`. If directories existed only as parents of files, an empty folder would vanish the moment it was created, `ls` wouldn't show it, and `cd docs` would fail. Git itself doesn't track empty folders, but the filesystem, and the shell on top of it, must.
 
 </details>
+
+---
+
+## #30 feat: engine object ids, event emitter, and .gitignore matcher
+
+https://github.com/KyleBuildsAI/ship-it/pull/30
+
+1. Why does `blobId` hash `"blob <size>\0" + content` instead of just the content?
+2. Given `.env*` followed by `!.env.example`, which of `.env`, `.env.local`, and `.env.example` get ignored, and why does rule order matter?
+3. `Emitter.emit` loops over a *copy* of the listener set. What bug does that prevent?
+
+<details><summary>Answers</summary>
+
+1. Git stores several kinds of objects (blobs, trees, commits) in one database. The header records the object's type and size, so two different kinds of object with the same bytes can never share an id. Matching the header exactly is also what makes our ids identical to real git's.
+2. `.env` and `.env.local` are ignored. `.env.example` isn't, because the later `!` rule matches it and the last matching rule wins. With the two lines swapped, `.env*` would come last and ignore `.env.example` again.
+3. If a listener unsubscribes while the loop is running, deleting from the set being looped over can make the loop skip the next listener. Looping over a copy means every listener subscribed when `emit` started gets the event exactly once. There's a test for exactly this case.
+
+</details>
