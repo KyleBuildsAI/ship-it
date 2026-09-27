@@ -59,6 +59,26 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // The browser may share the Sage server's wire types, but never its code: server
+    // modules read .env, where the API key lives, and pull in zod and the Anthropic SDK.
+    // `import type` is erased at build time, so it's the only kind allowed here.
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/server/**'],
+              allowTypeImports: true,
+              message: 'The game may only `import type` from server/. Server code stays in Node.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Last, so it switches off every rule that would fight Prettier's formatting.
   prettier,
 ]);
