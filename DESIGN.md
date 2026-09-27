@@ -51,6 +51,7 @@ A night-time floating island HQ. Contains:
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
 - In M1 these three are HUD menus (Standup, Trophies, Settings) reachable from anywhere, next to an **Act 2** button that opens the Act menu outside the Git World too. Mentor chat arrives with later modes.
+- **First-run tutorial** (M2): a card at the top right teaches the controls by doing, one step at a time: walk, jump, look around, run a command, hide and show the terminal, enter an Act. Each step advances when the player has done it (counters in the world and HUD stores; logic in `src/game/tutorial.ts`), never on a "Next" button. Skippable; Settings can replay it. Finishing or skipping is saved, so it runs once per save.
 
 ### Git World visual language (reused everywhere)
 | Git concept | In-world object |
@@ -89,8 +90,8 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 - **Review queue**: missed drill items scheduled with a simple SM-2 style algorithm. Surfaced at the Standup Board as a daily set of 5-10 items. Gaps between reviews are capped at one year.
 - **Stats**: drill accuracy, average time per drill, days practiced. No punishment for missed days.
 - **Skill tree** (M2+): one node per concept. Lit when mastered (90%+ drill accuracy over the last 10 attempts; a concept with fewer than 10 attempts is not mastered yet).
-- **Saves**: IndexedDB, versioned schema with migrations, autosave after every step (debounced 500 ms, so a burst of steps is one write), manual export/import to a JSON file from Settings. Must survive browser restarts and reboots. One tab owns the save at a time: a new tab asks the current owner (BroadcastChannel) to store anything pending and release a Web Lock, then loads; an unresponsive owner loses the lock after 1.5 s. Older tabs stop writing and show a notice.
-- **Settings**: graphics quality, audio volume, mentor on/off, mentor model per mode, reduced motion, text size, GitHub token (M3+). The GitHub token is stored apart from the save data, so an exported save file never contains it.
+- **Saves**: IndexedDB, versioned schema with migrations (version 2 added the tutorial's finish time; older saves get the tutorial once), autosave after every step (debounced 500 ms, so a burst of steps is one write), manual export/import to a JSON file from Settings. Must survive browser restarts and reboots. One tab owns the save at a time: a new tab asks the current owner (BroadcastChannel) to store anything pending and release a Web Lock, then loads; an unresponsive owner loses the lock after 1.5 s. Older tabs stop writing and show a notice.
+- **Settings**: graphics quality, audio volume, mentor on/off, mentor model per mode, reduced motion, text size, replay the tutorial, GitHub token (M3+). The GitHub token is stored apart from the save data, so an exported save file never contains it.
 
 ## 7. Git simulation engine (`src/engine/git`)
 
