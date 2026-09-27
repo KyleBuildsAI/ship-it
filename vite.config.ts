@@ -20,11 +20,12 @@ export default defineConfig(({ command, isPreview }) => ({
     chunkSizeWarningLimit: 1600,
   },
   test: {
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx'],
+      include: ['src/**/*.{ts,tsx}', 'server/**/*.ts'],
+      // Entry points only wire real modules together; the modules they wire are tested.
+      exclude: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts', 'src/main.tsx', 'server/index.ts'],
       reporter: ['text', 'html'],
       // CLAUDE.md: the engine is graded like production code. Dropping below 90% fails the run.
       thresholds: {
