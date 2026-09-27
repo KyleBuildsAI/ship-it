@@ -1,24 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { getMentorStatus, type MentorStatus } from '../../mentor/client';
 import { leavePlay } from '../../game/play/play';
-import { progress, replaceSave, updateSave, flushProgress } from '../../game/progress';
+import {
+  flushProgress,
+  isSavingHere,
+  progress,
+  replaceSave,
+  updateSave,
+} from '../../game/progress';
 import { exportSave, ImportError, importSave } from '../../game/save/exportImport';
 import { createDefaultSave, type Settings } from '../../game/save/schema';
+import { download, saveFileName } from '../download';
 import { useStore } from '../useStore';
 import { Overlay } from './Overlay';
 
 function changeSetting<K extends keyof Settings>(key: K, value: Settings[K]): void {
   updateSave((save) => ({ ...save, settings: { ...save.settings, [key]: value } }));
-}
-
-/** Hands the player a file, the way a browser download does. */
-function download(name: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function SageUsage() {
@@ -43,6 +40,8 @@ function SageUsage() {
   );
 }
 
+const ELSEWHERE = "SHIP IT is open in another tab, so this tab can't change your save.";
+
 /** Settings (DESIGN.md section 6): how the game looks and behaves, and the save file. */
 export function SettingsPanel() {
   const { save, status } = useStore(progress);
@@ -55,26 +54,33 @@ export function SettingsPanel() {
     if (save === null) return;
     await flushProgress();
     const now = new Date();
-    download(`ship-it-save-${now.toISOString().slice(0, 10)}.json`, exportSave(save, now));
+    download(saveFileName(now), exportSave(save, now));
     setMessage('Save downloaded. Keep it somewhere safe.');
   };
 
   const importFile = async (file: File) => {
     try {
       const imported = importSave(await file.text());
+      if (!isSavingHere()) {
+        setMessage(ELSEWHERE);
+        return;
+      }
       leavePlay();
-      await replaceSave(imported);
-      setMessage('Save imported.');
+      setMessage((await replaceSave(imported)) ? 'Save imported.' : ELSEWHERE);
     } catch (error) {
       setMessage(error instanceof ImportError ? error.message : 'That file could not be imported.');
     }
   };
 
   const startOver = async () => {
-    leavePlay();
-    await replaceSave(createDefaultSave(new Date()));
     setConfirmReset(false);
-    setMessage('Progress reset. A fresh start.');
+    if (!isSavingHere()) {
+      setMessage(ELSEWHERE);
+      return;
+    }
+    leavePlay();
+    const reset = await replaceSave(createDefaultSave(new Date()));
+    setMessage(reset ? 'Progress reset. A fresh start.' : ELSEWHERE);
   };
 
   return (

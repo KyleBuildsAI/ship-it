@@ -34,8 +34,8 @@ if defined DIRTY goto :work_in_progress
 rem Already running from this folder? Then just bring the game up in Chrome.
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\open-when-ready.ps1" -Url "%GAME_URL%" -CheckOnly
 if %errorlevel% equ 3 (
-  echo SHIP IT is already running. Opened it in Chrome.
-  echo If a SHIP IT tab was already open, keep playing in that one.
+  echo SHIP IT is already running, so this opened it in a new Chrome tab.
+  echo That tab has your save now. Any older SHIP IT tab stops saving, so you can close it.
   timeout /t 5 >nul
   exit /b 0
 )

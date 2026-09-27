@@ -13,7 +13,7 @@ Double-click **`start-ship-it.bat`** in the repo folder.
 - The first time, it installs the packages (a minute or two). It also repairs them if a later `git pull` brought new ones.
 - It starts the game and Sage, then opens Chrome at http://localhost:18173 by itself.
 - Keep its window open while you play. To stop, close the window, or press `Ctrl+C` in it and then `Y`.
-- Double-clicking it again while the game is running just opens Chrome. If a SHIP IT tab is already open, keep playing in that one.
+- Double-clicking it again while the game is running opens SHIP IT in a new Chrome tab, and that tab takes over your save. Any older SHIP IT tab says so and stops saving, so you can close it.
 - If the folder is on a work-in-progress branch (not `main`), it warns you first, because playing unfinished code uses your real save.
 
 For a desktop icon, right-click `start-ship-it.bat`, then **Show more options**, then **Send to**, then **Desktop (create shortcut)**. Keep the file itself in the repo folder.
@@ -23,6 +23,7 @@ For a desktop icon, right-click `start-ship-it.bat`, then **Show more options**,
 Yes, automatically, in Chrome's storage for this game (IndexedDB). Closing Chrome, closing the launcher, or rebooting loses nothing.
 
 - Every finished step, drill, mission, placement test, boss, and Field Mission check is saved the moment it happens. Settings save within half a second.
+- Only one tab saves at a time: the newest one. An older SHIP IT tab hands over, stores anything still pending, and shows "SHIP IT is open in another tab". **Play here instead** takes the save back. This stops two tabs from overwriting each other.
 - A mission you leave halfway starts again from its briefing next time, with a fresh Workbench. Steps you already finished don't pay XP twice.
 - The save belongs to **this Chrome profile at this address**. The launcher always opens http://localhost:18173, and the game never runs on any other port. The online version (https://kylebuildsai.github.io/ship-it/), `127.0.0.1` instead of `localhost`, another browser, and Incognito windows each keep their own separate save.
 - Clearing Chrome's "Cookies and other site data" deletes the save. Now and then, use **Settings, Export save** for a backup; **Import save** brings it back, on this computer or another.

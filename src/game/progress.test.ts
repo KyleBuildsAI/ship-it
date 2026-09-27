@@ -2,11 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { devStatus } from './devStatus';
 import {
   flushProgress,
+  isSavingHere,
   progress,
   replaceSave,
   startProgress,
   updateSave,
   type ProgressStorage,
+  type SaveLocks,
+  type TabChannel,
+  type TabCoordination,
 } from './progress';
 import { FutureSaveVersionError, InvalidSaveError } from './save/migrations';
 import { createDefaultSave, type SaveData } from './save/schema';
@@ -86,8 +90,223 @@ describe('progress', () => {
       ...createDefaultSave(NOW),
       profile: { ...createDefaultSave(NOW).profile, xp: 999 },
     };
-    await replaceSave(imported);
+    expect(await replaceSave(imported)).toBe(true);
     expect(progress.get().save?.profile.xp).toBe(999);
     expect(writes.at(-1)?.profile.xp).toBe(999);
+  });
+});
+
+interface LockRequest {
+  options: { steal?: boolean; signal?: AbortSignal };
+  callback: () => Promise<void>;
+  resolve: (value: unknown) => void;
+  reject: (error: unknown) => void;
+}
+
+/**
+ * Plays "another tab of the game" for the tab under test: it hears what this tab posts,
+ * can ask for the save, and decides when the shared lock is free.
+ */
+function otherTab() {
+  const listeners: ((event: { data: unknown }) => void)[] = [];
+  const posted: unknown[] = [];
+  const channel: TabChannel = {
+    postMessage: (message) => posted.push(message),
+    addEventListener: (_type, listener) => listeners.push(listener),
+    close: () => {
+      listeners.length = 0;
+    },
+  };
+  const requests: LockRequest[] = [];
+  const locks: SaveLocks = {
+    request: (_name, options, callback) =>
+      new Promise((resolve, reject) => {
+        requests.push({ options, callback, resolve, reject });
+        options.signal?.addEventListener('abort', () => {
+          reject(new DOMException('The wait for the lock timed out', 'TimeoutError'));
+        });
+      }),
+  };
+  const coordination: TabCoordination = { locks, openChannel: () => channel };
+  return {
+    coordination,
+    posted,
+    requests,
+    /** The lock is free: this tab gets it. Resolves when this tab lets go of it. */
+    grant: (index = requests.length - 1) => {
+      const request = requests[index];
+      if (request === undefined) throw new Error(`no lock request ${String(index)}`);
+      const held = request.callback();
+      void held.then(request.resolve);
+      return held;
+    },
+    /** The other tab asks for the save. */
+    asks: () => {
+      for (const listener of [...listeners]) listener({ data: 'ship-it-handover' });
+    },
+    /** The other tab's fallback takes the lock without asking. */
+    steals: (index = requests.length - 1) => {
+      requests[index]?.reject(new DOMException('Lock broken by another request', 'AbortError'));
+    },
+  };
+}
+
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe('two tabs', () => {
+  it('asks for the save, and loads it only once the other tab lets go', async () => {
+    const load = vi.fn(() => Promise.resolve(createDefaultSave(NOW)));
+    const tab = otherTab();
+    const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
+    await settle();
+    expect(tab.posted).toEqual(['ship-it-handover']);
+    expect(load).not.toHaveBeenCalled();
+    void tab.grant();
+    await starting;
+    expect(load).toHaveBeenCalledOnce();
+    expect(progress.get().status).toBe('ready');
+    expect(isSavingHere()).toBe(true);
+  });
+
+  it('hands over when a newer tab asks: stores what was pending, stops writing, lets go', async () => {
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    const held = tab.grant();
+    await starting;
+    // A settings change waits out the autosave debounce when the player opens another tab.
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.asks();
+    expect(progress.get().status).toBe('elsewhere');
+    await held;
+    // The lock is only released after the pending change is stored.
+    expect(writes.at(-1)?.profile.xp).toBe(5);
+    expect(devStatus.get().save).toBe('elsewhere');
+    expect(progress.get().problem).toBeNull();
+
+    const before = writes.length;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 999 } }));
+    expect(await replaceSave(createDefaultSave(NOW))).toBe(false);
+    await flushProgress();
+    expect(writes).toHaveLength(before);
+    expect(progress.get().save?.profile.xp).toBe(5);
+    expect(isSavingHere()).toBe(false);
+  });
+
+  it('stays handed over when asked while the save is still loading', async () => {
+    let finishLoad: (save: SaveData) => void = () => undefined;
+    const storage: ProgressStorage = {
+      load: () =>
+        new Promise((resolve) => {
+          finishLoad = resolve;
+        }),
+      write: () => Promise.resolve(),
+    };
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await settle();
+    tab.asks();
+    finishLoad(createDefaultSave(NOW));
+    await starting;
+    expect(progress.get().status).toBe('elsewhere');
+    await settle();
+    expect(devStatus.get().save).toBe('elsewhere');
+  });
+
+  it('hands over straight away when asked while still waiting for the save', async () => {
+    const load = vi.fn(() => Promise.resolve(createDefaultSave(NOW)));
+    const tab = otherTab();
+    const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
+    await settle();
+    tab.asks();
+    const held = tab.grant();
+    await starting;
+    await held;
+    expect(load).not.toHaveBeenCalled();
+    expect(progress.get().status).toBe('elsewhere');
+  });
+
+  it('takes the save anyway when the other tab never answers', async () => {
+    const { storage } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    // A frozen or cached tab never lets go; after the wait, this tab takes the lock.
+    await vi.waitFor(
+      () => {
+        expect(tab.requests).toHaveLength(2);
+      },
+      { timeout: 3000 },
+    );
+    expect(tab.requests[1]?.options.steal).toBe(true);
+    void tab.grant(1);
+    await starting;
+    expect(progress.get().status).toBe('ready');
+  });
+
+  it("steps aside when another tab's fallback takes the save without asking", async () => {
+    const { storage } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    tab.steals();
+    await vi.waitFor(() => {
+      expect(progress.get().status).toBe('elsewhere');
+    });
+  });
+
+  it('says so when the last change could not be stored before handing over', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const write = vi.fn(() => Promise.reject(new Error('disk full')));
+    const tab = otherTab();
+    const starting = startProgress(
+      { load: () => Promise.resolve(createDefaultSave(NOW)), write },
+      NOW,
+      tab.coordination,
+    );
+    await settle();
+    const held = tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.asks();
+    await held;
+    expect(progress.get().problem).toContain('could not be saved');
+    // Never retried from this tab: the other tab owns the save now.
+    const attempts = write.mock.calls.length;
+    await flushProgress();
+    expect(write.mock.calls.length).toBe(attempts);
+  });
+
+  it('ignores losing an older claim from this same page', async () => {
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    let starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant(0);
+    await starting;
+    starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant(1);
+    await starting;
+    tab.steals(0);
+    await settle();
+    expect(progress.get().status).toBe('ready');
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 3 } }));
+    await flushProgress();
+    expect(writes.at(-1)?.profile.xp).toBe(3);
+  });
+
+  it('works in browsers without Web Locks or BroadcastChannel', async () => {
+    const { storage, writes } = memoryStorage();
+    await startProgress(storage, NOW, { locks: null, openChannel: null });
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 7 } }));
+    await flushProgress();
+    expect(writes.at(-1)?.profile.xp).toBe(7);
   });
 });

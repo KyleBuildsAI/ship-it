@@ -89,7 +89,7 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 - **Review queue**: missed drill items scheduled with a simple SM-2 style algorithm. Surfaced at the Standup Board as a daily set of 5-10 items. Gaps between reviews are capped at one year.
 - **Stats**: drill accuracy, average time per drill, days practiced. No punishment for missed days.
 - **Skill tree** (M2+): one node per concept. Lit when mastered (90%+ drill accuracy over the last 10 attempts; a concept with fewer than 10 attempts is not mastered yet).
-- **Saves**: IndexedDB, versioned schema with migrations, autosave after every step (debounced 500 ms, so a burst of steps is one write), manual export/import to a JSON file from Settings. Must survive browser restarts and reboots.
+- **Saves**: IndexedDB, versioned schema with migrations, autosave after every step (debounced 500 ms, so a burst of steps is one write), manual export/import to a JSON file from Settings. Must survive browser restarts and reboots. One tab owns the save at a time: a new tab asks the current owner (BroadcastChannel) to store anything pending and release a Web Lock, then loads; an unresponsive owner loses the lock after 1.5 s. Older tabs stop writing and show a notice.
 - **Settings**: graphics quality, audio volume, mentor on/off, mentor model per mode, reduced motion, text size, GitHub token (M3+). The GitHub token is stored apart from the save data, so an exported save file never contains it.
 
 ## 7. Git simulation engine (`src/engine/git`)
