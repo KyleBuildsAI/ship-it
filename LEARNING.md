@@ -487,3 +487,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/50
 3. Each rebuild creates new geometries. Without `dispose()`, the old ones would stay in GPU memory even after being removed from the scene, and memory would grow with every command.
 
 </details>
+
+---
+
+## #51 feat: click the git world to get the matching git command
+
+https://github.com/KyleBuildsAI/ship-it/pull/51
+
+1. Why does clicking a crate show a command instead of just staging the file?
+2. You click a Dock crate and press Run. What exactly happens, from the click to the crate moving?
+3. Why does "Run" send `\r` through `typeRef` instead of calling `shell.run()` directly?
+
+<details><summary>Answers</summary>
+
+1. Pillar 2: you should always see and use the real command. If clicks changed state silently, you'd learn to click instead of learning git, and nothing would carry over to a real terminal on SandCastles.
+2. `onPointerUp` raycasts, and `pickTarget` returns the crate. `suggestFor` builds `git restore --staged <file>`, and `suggest()` puts it in the hud store, so the chip renders. Run calls `sendToTerminal`, which sets `pendingCommand`. The TerminalPanel effect puts the text on the prompt and sends `\r`. The shell runs it, the engine fires events, the world marks the crates as dirty, and on the next frame `describeCrates` moves the crate back to the Workbench.
+3. So there is exactly one way commands run. History, prompt redraw, error tones, and opening the editor all happen in `type()`. Calling the shell directly would skip some of that, and bugs would appear only for clicked commands.
+
+</details>
