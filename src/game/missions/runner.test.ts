@@ -22,6 +22,7 @@ import {
   type MissionRun,
 } from './runner';
 import { applySteps, createSandbox } from './sandbox';
+import { DEFAULT_STEP_XP } from './schema';
 import { sampleAct, sampleMission, secondMission } from './sample.test-mission';
 
 const mission = sampleMission;
@@ -90,7 +91,8 @@ describe('a mission run, start to finish', () => {
     play(ws, ['add', 'app.ts']);
     check();
     expect(run.stepIndex).toBe(2);
-    expect(xpEarned(run, mission)).toBe(10);
+    // "init" earns the default step XP; "stage-app" sets its own.
+    expect(xpEarned(run, mission)).toBe(DEFAULT_STEP_XP + 10);
 
     play(ws, ['commit', '-m', 'feat: add app']);
     check();
@@ -118,7 +120,7 @@ describe('a mission run, start to finish', () => {
       picks: ['when-lost', 'done-means', 'how-many'],
       freeText: 'What does "fixed" look like?',
     });
-    expect(xpEarned(run, mission)).toBe(10 + 20 + mission.xp);
+    expect(xpEarned(run, mission)).toBe(DEFAULT_STEP_XP + 10 + 20 + mission.xp);
   });
 
   it('accepts any path to the target state, finishing several steps at once', () => {
@@ -253,7 +255,7 @@ describe('phase rules', () => {
 
   it('earns no mission XP before the mission is done', () => {
     expect(xpEarned(startRun(mission), mission)).toBe(0);
-    expect(xpEarned(atDrills(), mission)).toBe(30);
+    expect(xpEarned(atDrills(), mission)).toBe(DEFAULT_STEP_XP + 10 + 20);
   });
 });
 

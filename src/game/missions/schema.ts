@@ -244,14 +244,19 @@ function checkUniqueIds(items: readonly { id: string }[], where: string, ctx: z.
   });
 }
 
+/**
+ * DESIGN.md section 6 gives XP for every completed step, so a step that doesn't say
+ * how much still earns this. Content can raise it for a hard step, or set 0.
+ */
+export const DEFAULT_STEP_XP = 10;
+
 const StepSchema = z.strictObject({
   id: IdSchema,
   instruction: ScreenTextSchema,
   success: PredicateSchema,
   /** The hint ladder: 1 a question back, 2 the concept, 3 the command. Never skipped. */
   hints: z.tuple([ScreenTextSchema, ScreenTextSchema, ScreenTextSchema]),
-  /** Bonus XP for finishing this step. */
-  xp: z.int().nonnegative().optional(),
+  xp: z.int().nonnegative().default(DEFAULT_STEP_XP),
 });
 
 export const DEFAULT_DRILL_SECONDS = 90;
@@ -306,7 +311,7 @@ export const MissionSchema = z
     id: IdSchema,
     act: z.int().positive(),
     title: NameSchema,
-    /** Awarded when the whole mission is finished. */
+    /** Awarded once the whole mission is finished, on top of each step's XP. */
     xp: z.int().nonnegative(),
     briefing: z.strictObject({
       sceneId: NameSchema,

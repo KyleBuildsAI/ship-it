@@ -223,15 +223,15 @@ export function finishQuestionRound(
 }
 
 /**
- * XP for this run: each finished sim step's bonus, plus the mission's XP once the
- * whole mission is done. Drill misses cost nothing; they go to the review queue
- * instead, so practice never feels like punishment.
+ * XP for this run: each finished sim step's XP, plus the mission's XP once the whole
+ * mission is done. Drill misses cost nothing; they go to the review queue instead, so
+ * practice never feels like punishment.
  */
 export function xpEarned(run: MissionRun, mission: Mission): number {
   expectMission(run, mission);
   const stepXp = mission.steps
     .filter((_, index) => run.steps[index]?.completed === true)
-    .reduce((total, step) => total + (step.xp ?? 0), 0);
+    .reduce((total, step) => total + step.xp, 0);
   return stepXp + (run.phase === 'done' ? mission.xp : 0);
 }
 

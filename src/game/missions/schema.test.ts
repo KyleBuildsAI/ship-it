@@ -4,6 +4,7 @@ import {
   ActSchema,
   countWords,
   DEFAULT_DRILL_SECONDS,
+  DEFAULT_STEP_XP,
   FixtureStepSchema,
   MissionSchema,
   PICK_LIMIT,
@@ -161,6 +162,8 @@ describe('MissionSchema', () => {
       DEFAULT_DRILL_SECONDS,
     ]);
     expect(sampleMission.questionRound.pickLimit).toBe(PICK_LIMIT);
+    // Only the first step leaves out its XP.
+    expect(sampleMission.steps.map((step) => step.xp)).toEqual([DEFAULT_STEP_XP, 10, 20]);
   });
 
   it('wants kebab-case ids', () => {
