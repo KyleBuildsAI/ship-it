@@ -104,6 +104,7 @@ describe('parseShortEntry', () => {
     expect(parseShortEntry('!? app.ts')).toBeNull();
     expect(parseShortEntry(' ! app.ts')).toBeNull();
     expect(parseShortEntry('m  app.ts')).toBeNull();
+    expect(parseShortEntry('Mx app.ts')).toBeNull();
     expect(parseShortEntry('XY app.ts')).toBeNull();
     expect(parseShortEntry('abc1234 feat: x')).toBeNull();
     expect(parseShortEntry('M')).toBeNull();
@@ -256,7 +257,7 @@ describe('parseStatusShort robustness', () => {
 
   it('reports lines it does not understand instead of guessing', () => {
     const parsed = parseStatusShort('## main\n M app.ts\nfatal: something odd\n## other');
-    expect(parsed.entries).toHaveLength(1);
+    expect(parsed.entries).toEqual([{ index: ' ', worktree: 'M', path: 'app.ts' }]);
     expect(parsed.warnings).toEqual(['fatal: something odd', '## other']);
   });
 });

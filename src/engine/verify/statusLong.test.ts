@@ -220,9 +220,7 @@ describe('parseStatusLong robustness', () => {
   });
 
   it('still reads file lines whose indentation was lost in the copy', () => {
-    const parsed = parseStatusLong(mixed.replace(/\t/g, ''));
-    expect(parsed.staged).toHaveLength(2);
-    expect(parsed.untracked).toEqual(['café.txt', 'dist/', 'draft notes.md']);
+    expect(parseStatusLong(mixed.replace(/\t/g, ''))).toEqual(parseStatusLong(mixed));
   });
 
   it('understands the wording of older git versions', () => {
@@ -294,7 +292,7 @@ describe('parseStatusLong robustness', () => {
       'On branch main\nand have 1 and 2 different commits each, respectively.',
     );
     expect(parsed.upstream).toBeNull();
-    expect(parsed.warnings).toHaveLength(1);
+    expect(parsed.warnings).toEqual(['and have 1 and 2 different commits each, respectively.']);
   });
 
   it('never calls a paste clean when it hides untracked files or has unknown lines', () => {
