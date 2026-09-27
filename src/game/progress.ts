@@ -89,6 +89,18 @@ export function updateSave(change: (save: SaveData) => SaveData): void {
   autosave?.schedule(next);
 }
 
+/**
+ * For play milestones (a finished step, drill, or mission): apply the change and store it
+ * straight away, so closing the browser a moment later loses nothing (DESIGN.md pillar 7).
+ * Quick settings changes use updateSave and ride the autosave debounce instead.
+ */
+export function saveProgressNow(change: (save: SaveData) => SaveData): void {
+  updateSave(change);
+  flushProgress().catch((error: unknown) => {
+    console.error('[ship-it] saving progress failed', error);
+  });
+}
+
 /** Replaces the whole save, as an import does, and stores it straight away. */
 export async function replaceSave(save: SaveData): Promise<void> {
   progress.update({ status: 'ready', save, problem: null });
@@ -99,4 +111,26 @@ export async function replaceSave(save: SaveData): Promise<void> {
 /** Writes any pending change now, e.g. when the tab is hidden or before an export. */
 export async function flushProgress(): Promise<void> {
   await autosave?.flush();
+}
+
+/**
+ * Resolves once the save has loaded (or failed to), or after `timeoutMs` at most, so the
+ * 3D world can read settings like reduced motion without ever waiting on a stuck database.
+ */
+export function whenProgressSettles(timeoutMs = 1500): Promise<void> {
+  return new Promise((resolve) => {
+    if (progress.get().status !== 'loading') {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(finish, timeoutMs);
+    const stop = progress.subscribe(() => {
+      if (progress.get().status !== 'loading') finish();
+    });
+    function finish() {
+      clearTimeout(timer);
+      stop();
+      resolve();
+    }
+  });
 }

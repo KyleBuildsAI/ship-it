@@ -3,7 +3,7 @@ import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
-import { progress, updateSave } from '../progress';
+import { progress, saveProgressNow } from '../progress';
 import { findDrill, getCatalog } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox } from './sandboxControl';
@@ -92,7 +92,7 @@ function finish(current: SeriesActivity, nowMs: number): void {
   );
   endDrill();
   const now = new Date(nowMs);
-  updateSave((save) =>
+  saveProgressNow((save) =>
     current.kind === 'review'
       ? recordReview(save, drill, score, now)
       : recordDrill(save, drill, score, now),
@@ -104,7 +104,7 @@ function finish(current: SeriesActivity, nowMs: number): void {
     const { act, missions } = getCatalog();
     placement = placementResult(results, act.placementTest.passPercent);
     const result = placement;
-    updateSave((save) => recordPlacement(save, act, missions, result, now));
+    saveProgressNow((save) => recordPlacement(save, act, missions, result, now));
   }
   setActivity({ ...current, active: null, results, placement });
 }

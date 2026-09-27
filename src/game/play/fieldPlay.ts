@@ -1,5 +1,5 @@
 import { endDrill } from '../../mentor/drillGuard';
-import { updateSave } from '../progress';
+import { saveProgressNow } from '../progress';
 import { getCatalog } from './catalog';
 import { verifyPaste, type FieldVerdict } from './fieldCheck';
 import { play } from './playStore';
@@ -26,6 +26,7 @@ export function submitFieldPaste(
     return { passed: false, message: 'That check is not part of this Field Mission.' };
   }
   const verdict = verifyPaste(verification, text);
-  if (verdict.passed) updateSave((save) => recordFieldMission(save, act, [verification.id], now));
+  if (verdict.passed)
+    saveProgressNow((save) => recordFieldMission(save, act, [verification.id], now));
   return verdict;
 }

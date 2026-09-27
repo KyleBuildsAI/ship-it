@@ -12,7 +12,7 @@ import {
   startRun,
   submitDrill,
 } from '../missions/runner';
-import { progress, updateSave } from '../progress';
+import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
 import { findMission, getCatalog } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
@@ -62,7 +62,7 @@ export function startMission(missionId: string): void {
   const mission = findMission(missionId);
   endDrill();
   loadSandbox(mission.initialRepoState, `${mission.title}: a fresh project is on your Workbench.`);
-  updateSave((save) => startMissionProgress(save, mission.id));
+  saveProgressNow((save) => startMissionProgress(save, mission.id));
   setActivity({
     kind: 'mission',
     mission,
@@ -123,7 +123,7 @@ function finishDrill(current: MissionActivity, nowMs: number): void {
     seconds: outcome.seconds,
     overtime: outcome.overtime,
   };
-  updateSave((save) => recordDrill(save, drill, outcome, new Date(nowMs)));
+  saveProgressNow((save) => recordDrill(save, drill, outcome, new Date(nowMs)));
   setActivity({ ...current, run, lastDrill });
 }
 
@@ -141,7 +141,7 @@ export function missionSandboxChanged(nowMs: number = Date.now()): void {
     const completed = next.steps.filter((step) => step.completed).map((step) => step.stepId);
     const before = run.steps.filter((step) => step.completed).length;
     if (completed.length > before) {
-      updateSave((save) => recordSteps(save, mission, completed, next.stepIndex));
+      saveProgressNow((save) => recordSteps(save, mission, completed, next.stepIndex));
     }
     // A finished step retires its hint; the next step starts at the bottom of the ladder.
     const hint = next.stepIndex === run.stepIndex ? current.hint : null;
@@ -243,7 +243,7 @@ export function submitQuestionRound(
       ? 0
       : Math.round((drills.filter((result) => result.passed).length / drills.length) * 100);
   const xpFromQuestions = questionXp(score.perPick);
-  updateSave((save) =>
+  saveProgressNow((save) =>
     completeMission(
       save,
       getCatalog().act,
