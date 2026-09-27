@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportSave, ImportError, importSave, SAVE_FILE_FORMAT } from './exportImport';
+import { InvalidSaveError } from './migrations';
 import { CURRENT_SCHEMA_VERSION, createDefaultSave } from './schema';
 import { createLegacyV0Save, createSampleSave, TEST_NOW } from './testFixtures';
 
@@ -33,6 +34,21 @@ describe('exportSave', () => {
     const text = exportSave(createDefaultSave(TEST_NOW), TEST_NOW);
 
     expect(text).toContain('\n  "format": "ship-it-save"');
+  });
+
+  it('refuses to write a backup that could not be imported again', () => {
+    const save = createSampleSave();
+    const broken = { ...save, profile: { ...save.profile, xp: -1 } };
+
+    expect(() => exportSave(broken, TEST_NOW)).toThrow(InvalidSaveError);
+  });
+
+  it('leaves out fields the save format does not know', () => {
+    const withExtra = { ...createSampleSave(), cheatMode: true };
+
+    const exported = JSON.parse(exportSave(withExtra, TEST_NOW)) as { data: object };
+
+    expect(exported.data).not.toHaveProperty('cheatMode');
   });
 });
 

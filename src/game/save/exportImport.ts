@@ -1,4 +1,4 @@
-import { FutureSaveVersionError, InvalidSaveError, migrate } from './migrations';
+import { FutureSaveVersionError, InvalidSaveError, migrate, validateSave } from './migrations';
 import type { SaveData } from './schema';
 
 /**
@@ -37,12 +37,18 @@ export class ImportError extends Error {
   }
 }
 
-/** Turns a save into the text of a .json file. Indented so a curious player can read it. */
+/**
+ * Turns a save into the text of a .json file. Indented so a curious player can read it.
+ *
+ * Throws InvalidSaveError instead of writing a file that importSave() would refuse. An export
+ * is the player's backup, and a broken backup is worse than a failed export: the player only
+ * finds out it is broken on the day they need it.
+ */
 export function exportSave(data: SaveData, now: Date): string {
   const envelope: SaveFileEnvelope = {
     format: SAVE_FILE_FORMAT,
     exportedAt: now.toISOString(),
-    data,
+    data: validateSave(data),
   };
   return JSON.stringify(envelope, null, 2);
 }
