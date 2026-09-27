@@ -7,6 +7,7 @@ import {
   createReviewItem,
   dailySet,
   INITIAL_EASINESS,
+  MAX_INTERVAL_DAYS,
   qualityFor,
   review,
   type ReviewQuality,
@@ -163,6 +164,17 @@ describe('review', () => {
     for (const entry of history) {
       expect(Math.round(entry.easiness * 100) / 100).toBe(entry.easiness);
     }
+  });
+
+  it(`never schedules more than ${String(MAX_INTERVAL_DAYS)} days ahead`, () => {
+    // round(300 x 2.5) = 750 days, which the cap brings down to a year.
+    const wellKnown = item('d', { repetitions: 5, intervalDays: 300 });
+
+    const reviewed = review(wellKnown, 5, TODAY);
+
+    expect(MAX_INTERVAL_DAYS).toBe(365);
+    expect(reviewed.intervalDays).toBe(MAX_INTERVAL_DAYS);
+    expect(reviewed.dueOn).toBe('2027-09-27');
   });
 
   it('always schedules at least one day ahead', () => {
@@ -363,5 +375,22 @@ describe('dailySet', () => {
 
   it('rejects an invalid day', () => {
     expect(() => dailySet([], '2026-13-01')).toThrow(RangeError);
+  });
+
+  it('keeps due dates within a year when a small queue is topped up and aced every day', () => {
+    // With fewer than 5 items, every item is in the daily set every day, due or not. Before the
+    // interval cap, two weeks of fast correct answers pushed dueOn past the year 9999.
+    let today = TODAY;
+    let queue = [item('a'), item('b')];
+
+    for (let day = 0; day < 60; day += 1) {
+      for (const entry of dailySet(queue, today)) {
+        queue = applyReview(queue, entry.drillId, 5, today);
+      }
+      for (const entry of queue) {
+        expect(entry.dueOn <= addDays(today, MAX_INTERVAL_DAYS)).toBe(true);
+      }
+      today = addDays(today, 1);
+    }
   });
 });

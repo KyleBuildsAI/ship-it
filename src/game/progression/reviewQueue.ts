@@ -6,8 +6,8 @@ import { addDays, assertDayString, compareDays } from './days';
  *
  * SM-2 is a classic spaced-repetition algorithm. Every missed drill becomes a review item.
  * Answer it well and the gap before you see it again grows (1 day, 6 days, then longer
- * each time). Miss it and it comes back tomorrow. Items you find hard get a lower
- * "easiness", which keeps their gaps short.
+ * each time, up to a year). Miss it and it comes back tomorrow. Items you find hard get a
+ * lower "easiness", which keeps their gaps short.
  *
  * `today` is always passed in rather than read from the clock, so tests are repeatable.
  */
@@ -22,6 +22,14 @@ const PASSING_QUALITY = 3;
 export const INITIAL_EASINESS = 2.5;
 
 export const DAILY_SET_LIMITS = { min: 5, max: 10 } as const;
+
+/**
+ * The longest gap between two reviews. Plain SM-2 has no limit: every good answer multiplies
+ * the gap by the item's easiness (2.5 for a new item). The daily set tops up with items
+ * that are not due yet, so a small queue gets reviewed every day, and without a cap its gaps
+ * would pass the year 9999 within about two weeks. A year also means no drill is gone for good.
+ */
+export const MAX_INTERVAL_DAYS = 365;
 
 /**
  * Grades a drill attempt for SM-2. A fast correct answer (under half the time limit) shows
@@ -65,8 +73,9 @@ function nextEasiness(easiness: number, quality: ReviewQuality): number {
 function nextInterval(item: ReviewItem): number {
   if (item.repetitions === 0) return 1;
   if (item.repetitions === 1) return 6;
+  const grown = Math.round(item.intervalDays * item.easiness);
   // At least 1, so an item can never be rescheduled for the day it was just reviewed.
-  return Math.max(1, Math.round(item.intervalDays * item.easiness));
+  return Math.min(MAX_INTERVAL_DAYS, Math.max(1, grown));
 }
 
 /**
