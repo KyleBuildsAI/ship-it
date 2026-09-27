@@ -31,6 +31,8 @@ export const ACTS = [
   { act: 8, title: 'The Loop' },
 ] as const;
 
+/** How high the middle of a portal's ring stands above the ground. */
+export const PORTAL_RING_HEIGHT = 1.45;
 const OPEN = 0x6fd3ff;
 const LOCKED = 0x39425a;
 
@@ -51,7 +53,7 @@ function createPortal(
       emissiveIntensity: locked ? 0.25 : 2.6,
     }),
   );
-  ring.position.y = 1.45;
+  ring.position.y = PORTAL_RING_HEIGHT;
   const veil = new THREE.Mesh(
     new THREE.CircleGeometry(1.05, 48),
     new THREE.MeshBasicMaterial({
@@ -61,7 +63,7 @@ function createPortal(
       side: THREE.DoubleSide,
     }),
   );
-  veil.position.y = 1.45;
+  veil.position.y = PORTAL_RING_HEIGHT;
   const label = new Label(
     locked ? `Act ${String(act)} · ${title} · locked` : `Act ${String(act)} · ${title}`,
     {

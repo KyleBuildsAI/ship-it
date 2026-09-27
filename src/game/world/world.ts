@@ -7,7 +7,7 @@ import { suggest } from '../hud';
 import { sandbox } from '../sandbox';
 import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
-import { createCampus } from './campus';
+import { createCampus, PORTAL_RING_HEIGHT } from './campus';
 import { describeCrates } from './crateLayout';
 import { CommitPath } from './commitPath';
 import { CrateYard } from './crateYard';
@@ -311,7 +311,22 @@ export function createWorld(
   frameAroundPanels();
   const stopInset = worldState.subscribe(frameAroundPanels);
 
-  const removeTestHooks = installTestHooks({ avatarHeight: () => jump.height, zone: () => zone });
+  const removeTestHooks = installTestHooks({
+    avatarHeight: () => jump.height,
+    zone: () => zone,
+    portalPoint: (act) => {
+      const portal = campus.portals.find((candidate) => candidate.act === act);
+      if (!portal || zone !== 'campus') return null;
+      // The middle of the ring, projected through the camera onto the canvas.
+      const point = new THREE.Vector3(portal.at.x, PORTAL_RING_HEIGHT, portal.at.z).project(camera);
+      if (Math.abs(point.x) > 1 || Math.abs(point.y) > 1 || point.z > 1) return null;
+      const bounds = canvas.getBoundingClientRect();
+      return {
+        x: bounds.left + ((point.x + 1) / 2) * bounds.width,
+        y: bounds.top + ((1 - point.y) / 2) * bounds.height,
+      };
+    },
+  });
 
   const follow = new THREE.Vector3();
   return {

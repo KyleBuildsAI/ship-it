@@ -8,6 +8,8 @@ import type { ZoneId } from '../worldState';
 export interface WorldTestHooks {
   avatarHeight: () => number;
   zone: () => ZoneId;
+  /** Where an Act's Campus portal appears on screen, in page pixels, or null when it's out of view. */
+  portalPoint: (act: number) => { x: number; y: number } | null;
 }
 
 declare global {
