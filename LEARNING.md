@@ -289,3 +289,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/39
 3. An empty commit is almost always a mistake (you forgot to `git add`), and it would add noise to history. Git refuses, prints the status so you can see what isn't staged, and requires `--allow-empty` if you really mean it.
 
 </details>
+
+---
+
+## #40 feat: git log and git show
+
+https://github.com/KyleBuildsAI/ship-it/pull/40
+
+1. In `git log --oneline`, what does `(HEAD -> main)` next to a commit mean?
+2. How would you see only the last 3 commits that changed `src/app.ts`?
+3. What's the difference between `git show HEAD~1` and `git show HEAD~1:app.ts`?
+
+<details><summary>Answers</summary>
+
+1. The branch `main` points at this commit, and HEAD is attached to `main`. So this is where you are, and your next commit will move `main` forward from here.
+2. `git log -n 3 -- src/app.ts` (or `git log -3 --oneline -- src/app.ts` for one line each).
+3. `git show HEAD~1` prints that commit's header and the diff it introduced. `git show HEAD~1:app.ts` prints the full content of `app.ts` as it was at that commit, with no header and no diff.
+
+</details>
