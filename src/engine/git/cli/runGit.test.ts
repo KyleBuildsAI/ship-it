@@ -9,7 +9,9 @@ describe('runGit', () => {
   it('prints help for bare git and git help', () => {
     const ws = folder().build(testDeps());
     expect(gitText(ws, [])).toContain('usage: git <command>');
-    expect(gitText(ws, ['help'])).toContain('Commands in this sandbox: add, init, mv, restore, rm, status');
+    expect(gitText(ws, ['help'])).toContain(
+      'Commands in this sandbox: add, init, mv, restore, rm, status',
+    );
     expect(git(ws, ['--help']).exitCode).toBe(0);
   });
 
