@@ -1225,3 +1225,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/99
 3. Hiding the tab only pauses the audio element, which keeps its position. `play()` compares the piece with `loaded`, the file the element already holds. It's the same, so `src` isn't set again, and `play()` carries on from where it paused.
 
 </details>
+
+---
+
+## #98 fix: space jumps after a world or hud click instead of pressing a button
+
+https://github.com/KyleBuildsAI/ship-it/pull/98
+
+1. Why did pressing Space after clicking a crate run the suggested command?
+2. How does `releaseMouseFocus` tell a mouse click from a keyboard press?
+3. Why are the test hooks installed only when `navigator.webdriver` is true?
+
+<details><summary>Answers</summary>
+
+1. The chip called `focus()` on its Run button whenever it appeared. The jump handler ignores keys aimed at anything but the page or the canvas, so the Space press went to the focused button. The browser's default action for Space on a button is to click it, which ran the command.
+2. The click event's `detail` is the mouse click count: 1 or more for a mouse click, 0 when Enter or Space pressed the button. Only a `detail` above 0 releases focus.
+3. They're for tests only. Players don't need a global object that exposes the world's state. `navigator.webdriver` is true only when a browser is driven by automation, as Playwright does, so real players never get the hooks.
+
+</details>

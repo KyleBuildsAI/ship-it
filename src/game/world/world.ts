@@ -2,7 +2,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three/webgpu';
 import type { Workspace } from '../../engine/workspace';
 import { shortId } from '../../engine/git/hash';
-import { isTypingTarget } from '../../ui/focus';
+import { isTypingTarget, isWorldTarget } from '../../ui/focus';
 import { suggest } from '../hud';
 import { sandbox } from '../sandbox';
 import { worldState, type ZoneId } from '../worldState';
@@ -15,6 +15,7 @@ import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
 import { describeHistory } from './historyLayout';
 import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
+import { installTestHooks } from './testHooks';
 import {
   clampToDisc,
   GROUNDED,
@@ -256,9 +257,7 @@ export function createWorld(
   };
   // Space jumps, but not while typing, and not when a HUD button has focus (Space presses it).
   const onJumpKey = (event: KeyboardEvent) => {
-    if (event.code !== 'Space' || event.repeat) return;
-    const { target } = event;
-    if (target !== document.body && !(target instanceof HTMLCanvasElement)) return;
+    if (event.code !== 'Space' || event.repeat || !isWorldTarget(event.target)) return;
     event.preventDefault();
     if (travelling || !isGrounded(jump)) return;
     jump = startJump(jump);
@@ -291,6 +290,8 @@ export function createWorld(
   };
   frameAroundPanels();
   const stopInset = worldState.subscribe(frameAroundPanels);
+
+  const removeTestHooks = installTestHooks({ avatarHeight: () => jump.height, zone: () => zone });
 
   const follow = new THREE.Vector3();
   return {
@@ -353,6 +354,7 @@ export function createWorld(
       frameAroundPanels();
     },
     dispose: () => {
+      removeTestHooks();
       stopInset();
       stopWatching();
       stopSandbox();

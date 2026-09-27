@@ -1,21 +1,34 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { hud, sendToTerminal, suggest } from '../game/hud';
+import { chipKeyAction } from './chipKeys';
+import { isWorldTarget } from './focus';
 import { useStore } from './useStore';
 
 /**
  * Shows the git command that matches what the player clicked in the world, with a
  * one-line explanation. Running it goes through the terminal, so every world action is
  * also a command the player sees (DESIGN.md pillar 2).
+ *
+ * The chip never takes focus: a focused Run button would turn the next Space (a jump)
+ * into running the command. Enter runs it instead, while the world has the keyboard.
  */
 export function CommandChip() {
   const { suggestion } = useStore(hud);
-  const runButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!suggestion) return;
-    runButton.current?.focus();
+    const { command, cursorFromEnd = 0 } = suggestion;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') suggest(null);
+      const action = chipKeyAction({
+        key: event.key,
+        repeat: event.repeat,
+        onWorld: isWorldTarget(event.target),
+      });
+      if (action === 'dismiss') suggest(null);
+      if (action === 'run') {
+        event.preventDefault();
+        sendToTerminal(command, cursorFromEnd === 0, cursorFromEnd);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => {
@@ -34,7 +47,6 @@ export function CommandChip() {
       <p className="command-chip__note">{note}</p>
       <div className="command-chip__actions">
         <button
-          ref={runButton}
           type="button"
           className="command-chip__primary"
           onClick={() => {

@@ -1,4 +1,5 @@
 import { hud, openMenu, toggleActMenu } from '../../game/hud';
+import { releaseMouseFocus } from '../focus';
 import { useStore } from '../useStore';
 import { SettingsPanel } from './SettingsPanel';
 import { StandupBoard } from './StandupBoard';
@@ -20,7 +21,10 @@ export function HudMenu() {
           type="button"
           className="glass hud-menu__button"
           aria-pressed={actMenuOpen}
-          onClick={toggleActMenu}
+          onClick={(event) => {
+            toggleActMenu();
+            releaseMouseFocus(event);
+          }}
         >
           Act 2
         </button>
@@ -28,8 +32,9 @@ export function HudMenu() {
           type="button"
           className="glass hud-menu__button"
           aria-pressed={menu === 'standup'}
-          onClick={() => {
+          onClick={(event) => {
             openMenu(menu === 'standup' ? null : 'standup');
+            releaseMouseFocus(event);
           }}
         >
           Standup
@@ -38,8 +43,9 @@ export function HudMenu() {
           type="button"
           className="glass hud-menu__button"
           aria-pressed={menu === 'trophies'}
-          onClick={() => {
+          onClick={(event) => {
             openMenu(menu === 'trophies' ? null : 'trophies');
+            releaseMouseFocus(event);
           }}
         >
           Trophies
@@ -48,8 +54,9 @@ export function HudMenu() {
           type="button"
           className="glass hud-menu__button"
           aria-pressed={menu === 'settings'}
-          onClick={() => {
+          onClick={(event) => {
             openMenu(menu === 'settings' ? null : 'settings');
+            releaseMouseFocus(event);
           }}
         >
           Settings
