@@ -469,3 +469,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/49
 3. Every crate would vanish and reappear on every command, with no flights. You couldn't see which crate moved where, which is the whole point.
 
 </details>
+
+---
+
+## #50 feat: commit path with branch banners, head, and footprints
+
+https://github.com/KyleBuildsAI/ship-it/pull/50
+
+1. After `git reset --hard HEAD~1`, why does the undone commit move to lane 1 instead of disappearing?
+2. How does `describeHistory` decide how far along the path a commit floats?
+3. Why does `rebuildBridges` call `disposeChildren` before building new bridges?
+
+<details><summary>Answers</summary>
+
+1. The commit still exists in the object store, and the reflog still remembers it. No branch or HEAD can reach it any more, so it's no longer on the main road. Lane 1 shows exactly that: present and recoverable, but off the road.
+2. By depth: the number of first-parent steps back to the root commit. The root is depth 0, its child is 1, and so on. The path position is the start point plus depth times the spacing, along the path direction.
+3. Each rebuild creates new geometries. Without `dispose()`, the old ones would stay in GPU memory even after being removed from the scene, and memory would grow with every command.
+
+</details>
