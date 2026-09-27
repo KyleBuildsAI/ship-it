@@ -102,6 +102,8 @@ export const fieldMissionProgressSchema = z.object({
   verifiedAt: timestampSchema.nullable(),
 });
 
+// Never add a secret here, such as the GitHub token planned for M3. exportSave() copies the
+// whole save into a plain file the player may share or back up, so a secret in it would leak.
 export const settingsSchema = z.object({
   graphicsQuality: z.enum(['low', 'medium', 'high']),
   audioVolume: z.number().min(0).max(1),
