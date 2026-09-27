@@ -7,6 +7,10 @@ import type { Predicate } from './predicates';
  * Schemas for mission content (DESIGN.md sections 5 and 10). Missions are data, so a
  * typo in a mission file should fail a test, not crash the game halfway through Act 2.
  * Each schema checks one object on its own; `validateAct` checks the links between them.
+ *
+ * Every object is a `strictObject`, so an unknown key is an error. A plain `z.object`
+ * quietly drops unknown keys: the typo `exist: false` would vanish and turn the check
+ * "workingFile, exists: false" (the file must be gone) into "the file must exist".
  */
 
 // ---- Shared building blocks ---------------------------------------------------------
@@ -53,12 +57,12 @@ const CaptionsSchema = z.array(ScreenTextSchema).min(1).max(3);
 
 /** Mirrors the engine's `FixtureStep` union, so mission setups are checked before replay. */
 export const FixtureStepSchema = z.discriminatedUnion('op', [
-  z.object({ op: z.literal('init') }).readonly(),
-  z.object({ op: z.literal('write'), path: RepoPathSchema, content: z.string() }).readonly(),
-  z.object({ op: z.literal('append'), path: RepoPathSchema, text: z.string() }).readonly(),
-  z.object({ op: z.literal('delete'), path: RepoPathSchema }).readonly(),
-  z.object({ op: z.literal('stage'), paths: z.array(RepoPathSchema).readonly() }).readonly(),
-  z.object({ op: z.literal('commit'), message: NameSchema }).readonly(),
+  z.strictObject({ op: z.literal('init') }).readonly(),
+  z.strictObject({ op: z.literal('write'), path: RepoPathSchema, content: z.string() }).readonly(),
+  z.strictObject({ op: z.literal('append'), path: RepoPathSchema, text: z.string() }).readonly(),
+  z.strictObject({ op: z.literal('delete'), path: RepoPathSchema }).readonly(),
+  z.strictObject({ op: z.literal('stage'), paths: z.array(RepoPathSchema).readonly() }).readonly(),
+  z.strictObject({ op: z.literal('commit'), message: NameSchema }).readonly(),
 ]);
 
 /**
@@ -122,22 +126,22 @@ const regexFields = { pattern: z.string().min(1), flags: RegexFlagsSchema.option
 const nested = z.lazy(() => PredicateSchema);
 
 const predicateKinds = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('isRepo'), ...labelled }),
-  z.object({ kind: z.literal('clean'), ...labelled }),
-  z.object({
+  z.strictObject({ kind: z.literal('isRepo'), ...labelled }),
+  z.strictObject({ kind: z.literal('clean'), ...labelled }),
+  z.strictObject({
     kind: z.literal('staged'),
     paths: PathListSchema,
     exact: z.boolean().optional(),
     ...labelled,
   }),
-  z.object({ kind: z.literal('notStaged'), paths: PathListSchema, ...labelled }),
-  z.object({ kind: z.literal('untracked'), paths: PathListSchema, ...labelled }),
-  z.object({ kind: z.literal('tracked'), paths: PathListSchema, ...labelled }),
-  z.object({ kind: z.literal('notTracked'), paths: PathListSchema, ...labelled }),
-  z.object({ kind: z.literal('ignored'), paths: PathListSchema, ...labelled }),
-  z.object({ kind: z.literal('modified'), paths: PathListSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('notStaged'), paths: PathListSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('untracked'), paths: PathListSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('tracked'), paths: PathListSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('notTracked'), paths: PathListSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('ignored'), paths: PathListSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('modified'), paths: PathListSchema, ...labelled }),
   z
-    .object({
+    .strictObject({
       kind: z.literal('commitCount'),
       min: z.int().nonnegative().optional(),
       max: z.int().nonnegative().optional(),
@@ -153,16 +157,18 @@ const predicateKinds = z.discriminatedUnion('kind', [
         ctx.addIssue({ code: 'custom', message: 'min is larger than max.', path: ['min'] });
       }
     }),
-  z.object({ kind: z.literal('headMessage'), ...regexFields, ...labelled }).superRefine(checkRegex),
   z
-    .object({
+    .strictObject({ kind: z.literal('headMessage'), ...regexFields, ...labelled })
+    .superRefine(checkRegex),
+  z
+    .strictObject({
       kind: z.literal('allMessagesMatch'),
       ...regexFields,
       last: z.int().positive().optional(),
       ...labelled,
     })
     .superRefine(checkRegex),
-  z.object({
+  z.strictObject({
     kind: z.literal('fileAtHead'),
     path: RepoPathSchema,
     equals: z.string().optional(),
@@ -170,7 +176,7 @@ const predicateKinds = z.discriminatedUnion('kind', [
     ...labelled,
   }),
   z
-    .object({
+    .strictObject({
       kind: z.literal('workingFile'),
       path: RepoPathSchema,
       equals: z.string().optional(),
@@ -188,7 +194,7 @@ const predicateKinds = z.discriminatedUnion('kind', [
         });
       }
     }),
-  z.object({
+  z.strictObject({
     kind: z.literal('commitChanged'),
     ref: NameSchema.optional(),
     paths: PathListSchema,
@@ -196,12 +202,12 @@ const predicateKinds = z.discriminatedUnion('kind', [
     ...labelled,
   }),
   z
-    .object({ kind: z.literal('reflogContains'), ...regexFields, ...labelled })
+    .strictObject({ kind: z.literal('reflogContains'), ...regexFields, ...labelled })
     .superRefine(checkRegex),
-  z.object({ kind: z.literal('headMessageIs'), message: NameSchema, ...labelled }),
-  z.object({ kind: z.literal('all'), of: z.array(nested).min(1), ...labelled }),
-  z.object({ kind: z.literal('any'), of: z.array(nested).min(1), ...labelled }),
-  z.object({ kind: z.literal('not'), predicate: nested, ...labelled }),
+  z.strictObject({ kind: z.literal('headMessageIs'), message: NameSchema, ...labelled }),
+  z.strictObject({ kind: z.literal('all'), of: z.array(nested).min(1), ...labelled }),
+  z.strictObject({ kind: z.literal('any'), of: z.array(nested).min(1), ...labelled }),
+  z.strictObject({ kind: z.literal('not'), predicate: nested, ...labelled }),
 ]);
 
 /** Validates the predicate language in `predicates.ts`, including nested all/any/not. */
@@ -230,7 +236,7 @@ function checkUniqueIds(items: readonly { id: string }[], where: string, ctx: z.
   });
 }
 
-const StepSchema = z.object({
+const StepSchema = z.strictObject({
   id: IdSchema,
   instruction: ScreenTextSchema,
   success: PredicateSchema,
@@ -242,7 +248,7 @@ const StepSchema = z.object({
 
 export const DEFAULT_DRILL_SECONDS = 90;
 
-const DrillSchema = z.object({
+const DrillSchema = z.strictObject({
   id: IdSchema,
   prompt: ScreenTextSchema,
   setup: FixtureSchema,
@@ -255,7 +261,7 @@ const DrillSchema = z.object({
 export const QUALITIES = ['strong', 'okay', 'weak'] as const;
 export type Quality = (typeof QUALITIES)[number];
 
-const CandidateSchema = z.object({
+const CandidateSchema = z.strictObject({
   id: IdSchema,
   text: ScreenTextSchema,
   /** Hidden until the round ends. */
@@ -268,8 +274,8 @@ const CandidateSchema = z.object({
 export const PICK_LIMIT = 3;
 
 const QuestionRoundSchema = z
-  .object({
-    ticket: z.object({ from: z.literal('Marco'), title: NameSchema, body: ScreenTextSchema }),
+  .strictObject({
+    ticket: z.strictObject({ from: z.literal('Marco'), title: NameSchema, body: ScreenTextSchema }),
     candidates: z.array(CandidateSchema).min(6).max(10),
     pickLimit: z.literal(PICK_LIMIT).default(PICK_LIMIT),
     /** What a strong free-text question covers. Sage grades against it; players never see it. */
@@ -288,13 +294,13 @@ const QuestionRoundSchema = z
   });
 
 export const MissionSchema = z
-  .object({
+  .strictObject({
     id: IdSchema,
     act: z.int().positive(),
     title: NameSchema,
     /** Awarded when the whole mission is finished. */
     xp: z.int().nonnegative(),
-    briefing: z.object({
+    briefing: z.strictObject({
       sceneId: NameSchema,
       captions: CaptionsSchema,
       /** The one diagram moment in the briefing (DESIGN.md section 5). */
@@ -322,7 +328,7 @@ export type Candidate = Mission['questionRound']['candidates'][number];
 
 export const PLACEMENT_PASS_PERCENT = 85;
 
-const TwistSchema = z.object({
+const TwistSchema = z.strictObject({
   /** Fires once, when the boss clock shows this many seconds or fewer. */
   atSecondsRemaining: z.int().positive(),
   message: ScreenTextSchema,
@@ -331,7 +337,7 @@ const TwistSchema = z.object({
 });
 
 const BossSchema = z
-  .object({
+  .strictObject({
     id: IdSchema,
     title: NameSchema,
     briefing: CaptionsSchema,
@@ -360,16 +366,16 @@ export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('clean') }),
+  z.strictObject({ kind: z.literal('clean') }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
-  z.object({
+  z.strictObject({
     kind: z.literal('conventionalRatio'),
     min: z.number().min(0).max(1),
     last: z.int().positive(),
   }),
-  z.object({ kind: z.literal('noTrackedSecrets') }),
-  z.object({ kind: z.literal('minCommits'), count: z.int().positive() }),
-  z.object({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
+  z.strictObject({ kind: z.literal('noTrackedSecrets') }),
+  z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
+  z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
 
@@ -387,7 +393,7 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
 };
 
 const VerificationSchema = z
-  .object({
+  .strictObject({
     id: IdSchema,
     instruction: ScreenTextSchema,
     /** Exactly what to run in PowerShell on the real repo, e.g. `git status --short`. */
@@ -407,13 +413,13 @@ const VerificationSchema = z
   });
 
 const FieldMissionSchema = z
-  .object({
+  .strictObject({
     id: IdSchema,
     title: NameSchema,
     /** The real repository this happens in, e.g. "SandCastles". */
     repoName: NameSchema,
     briefing: CaptionsSchema,
-    checklist: z.array(z.object({ id: IdSchema, text: ScreenTextSchema })).min(1),
+    checklist: z.array(z.strictObject({ id: IdSchema, text: ScreenTextSchema })).min(1),
     verifications: z.array(VerificationSchema).min(1),
   })
   .superRefine((field, ctx) => {
@@ -421,11 +427,11 @@ const FieldMissionSchema = z
     checkUniqueIds(field.verifications, 'verifications', ctx);
   });
 
-export const ActSchema = z.object({
+export const ActSchema = z.strictObject({
   act: z.int().positive(),
   title: NameSchema,
   missionIds: z.array(IdSchema).min(1),
-  placementTest: z.object({
+  placementTest: z.strictObject({
     /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
     drillIds: z.array(IdSchema).min(8).max(12),
     passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),

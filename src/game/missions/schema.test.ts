@@ -92,6 +92,18 @@ describe('PredicateSchema', () => {
     expect(PredicateSchema.safeParse(deep).success).toBe(false);
   });
 
+  it('rejects misspelled keys instead of dropping them', () => {
+    // Dropping `exist` would silently flip this check to "a.ts exists".
+    const typo = { kind: 'workingFile', path: 'a.ts', exist: false };
+    expect(problems(PredicateSchema.safeParse(typo))).toEqual(['Unrecognized key: "exist"']);
+    expect(problems(MissionSchema.safeParse({ ...sampleMissionInput, xpp: 5 }))).toEqual([
+      'Unrecognized key: "xpp"',
+    ]);
+    expect(FixtureStepSchema.safeParse({ op: 'delete', path: 'a.ts', paths: [] }).success).toBe(
+      false,
+    );
+  });
+
   it('rejects a regex that does not compile, when the mission loads', () => {
     for (const kind of ['headMessage', 'allMessagesMatch', 'reflogContains']) {
       const result = PredicateSchema.safeParse({ kind, pattern: '(unclosed' });
