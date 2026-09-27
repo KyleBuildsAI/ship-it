@@ -1189,3 +1189,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/94
 3. `shuffled` takes `random` as a parameter. The tests pass `() => 0.999`, which makes every swap a swap with itself, so the order stays as written. Another test feeds chosen values to show all six orders of three items are possible.
 
 </details>
+
+---
+
+## #96 feat: music player that waits for a click and fades pieces in
+
+https://github.com/KyleBuildsAI/ship-it/pull/96
+
+1. Why doesn't the player call `play()` as soon as the page loads?
+2. You mute during the 4-second fade-in. What stops the fade from finishing at full volume?
+3. What does the `attempts` counter protect against?
+
+<details><summary>Answers</summary>
+
+1. Chrome refuses sound before the player has interacted with the page: `play()` would reject with `NotAllowedError`. So the player waits for the first click or key press, which counts as that interaction.
+2. Muting sets the volume setting to 0, which calls `sync()`. That calls `quieten()`, which starts a fade to 0. `fadeTo` always stops the running fade first, so the fade-in is cancelled.
+3. `play()` answers later, asynchronously. If you stop the music (or a new piece starts) before it answers, a late "it's playing" must not mark the music as playing or start a fade. Each attempt gets a number, and only the latest one counts.
+
+</details>
