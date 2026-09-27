@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react';
+import { loadEnv, type ProxyOptions } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 // GitHub Pages serves this repo from https://kylebuildsai.github.io/ship-it/, so
@@ -6,9 +7,33 @@ import { defineConfig } from 'vitest/config';
 // serves the production build, so it must use the same prefix. Dev stays at "/".
 const PAGES_BASE = '/ship-it/';
 
-export default defineConfig(({ command, isPreview }) => ({
+/** Where Sage listens. server/config.ts reads the same MENTOR_PORT from .env, so both agree. */
+function sageUrl(mode: string): string {
+  const port = loadEnv(mode, process.cwd(), 'MENTOR_PORT').MENTOR_PORT?.trim() ?? '';
+  return `http://127.0.0.1:${port === '' ? '8787' : port}`;
+}
+
+// When the Sage server isn't running (say, only `npm run dev:web`), answer the game the way
+// Sage answers without a key: offline. Status 200 on purpose, because Chrome logs every
+// 4xx/5xx response as a console error and DESIGN.md section 14 wants a clean console.
+// Vite still prints the proxy error in the terminal, where it's useful.
+const answerOfflineWhenSageIsDown: ProxyOptions['configure'] = (proxy) => {
+  proxy.on('error', (_error, _request, response) => {
+    if (!('writeHead' in response) || response.headersSent) return;
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ offline: true, error: 'The Sage server is not running.' }));
+  });
+};
+
+export default defineConfig(({ command, mode, isPreview }) => ({
   base: command === 'build' || isPreview ? PAGES_BASE : '/',
   plugins: [react()],
+  server: {
+    // The game calls /api/...; in dev, Vite forwards those to the local Sage server.
+    proxy: {
+      '/api': { target: sageUrl(mode), configure: answerOfflineWhenSageIsDown },
+    },
+  },
   resolve: {
     // three.js addons import from 'three'. Point that at the WebGPU build our code uses,
     // so only one copy of the three.js core loads (two copies break instanceof checks).

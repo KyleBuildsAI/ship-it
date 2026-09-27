@@ -8,7 +8,9 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently --names web,sage --prefix-colors cyan,magenta \"npm:dev:web\" \"npm:dev:server\"",
+    "dev:web": "vite",
+    "dev:server": "tsx watch --clear-screen=false --include server/prompts server/index.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
