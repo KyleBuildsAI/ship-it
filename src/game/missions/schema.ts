@@ -360,7 +360,8 @@ const BossSchema = z
     objectives: z.array(PredicateSchema).min(1),
     /** Any one true loses immediately, e.g. a secret committed. */
     failIf: z.array(PredicateSchema).default([]),
-    twists: z.array(TwistSchema).default([]),
+    /** DESIGN.md section 5: a boss is a timed scenario "with a twist", so at least one. */
+    twists: z.array(TwistSchema).min(1),
   })
   .superRefine((boss, ctx) => {
     boss.twists.forEach((twist, index) => {

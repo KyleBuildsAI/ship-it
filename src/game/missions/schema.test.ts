@@ -267,12 +267,14 @@ describe('ActSchema', () => {
     expect(placement(ids(8), 50).success).toBe(false);
   });
 
-  it('only allows twists after the boss clock starts', () => {
+  it('needs objectives and at least one twist, fired after the clock starts', () => {
     const boss = sampleActInput.boss;
     const late = { ...boss, twists: [{ atSecondsRemaining: 180, message: 'Too late.' }] };
     expect(problems(act({ boss: late }))).toEqual([
       'A twist must fire after the boss starts, so before the full time limit.',
     ]);
+    expect(act({ boss: { ...boss, twists: [] } }).success).toBe(false);
+    expect(act({ boss: { ...boss, twists: undefined } }).success).toBe(false);
     expect(act({ boss: { ...boss, objectives: [] } }).success).toBe(false);
   });
 
