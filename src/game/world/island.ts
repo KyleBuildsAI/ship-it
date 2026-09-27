@@ -43,7 +43,10 @@ export function seededRandom(seed: number): () => number {
   };
 }
 
-/** A dome of stars far beyond the fog. */
+/**
+ * Stars in every direction, below the horizon too, so the islands float in space. The
+ * world moves them with the camera, so the sky stays around the player on any island.
+ */
 export function createStars(count: number): THREE.InstancedMesh {
   const random = seededRandom(184);
   const stars = new THREE.InstancedMesh(
@@ -54,9 +57,11 @@ export function createStars(count: number): THREE.InstancedMesh {
   );
   const placement = new THREE.Object3D();
   for (let index = 0; index < count; index++) {
+    // A uniform height from -1 to 1 spreads stars evenly over the whole sphere, instead of
+    // bunching them at the poles.
+    const height = random() * 2 - 1;
     const azimuth = random() * Math.PI * 2;
-    const elevation = random() * Math.PI * 0.45;
-    placement.position.setFromSphericalCoords(80 + random() * 40, Math.PI / 2 - elevation, azimuth);
+    placement.position.setFromSphericalCoords(90 + random() * 40, Math.acos(height), azimuth);
     placement.scale.setScalar(0.6 + random() * 1.4);
     placement.updateMatrix();
     stars.setMatrixAt(index, placement.matrix);

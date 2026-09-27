@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { clampToDisc, headingOf, keyDirection, stepToward, turnToward } from './movement';
+import {
+  clampToDisc,
+  GRAVITY,
+  GROUNDED,
+  headingOf,
+  isGrounded,
+  JUMP_SPEED,
+  keyDirection,
+  startJump,
+  stepJump,
+  stepToward,
+  turnToward,
+} from './movement';
 
 const none = { forward: false, back: false, left: false, right: false };
 const close = (value: number, expected: number) => {
@@ -64,5 +76,47 @@ describe('headings', () => {
     close(turned, Math.PI + 0.1);
     close(turnToward(0, 1, 0.5, 1), 0.5);
     close(turnToward(0, -2 * Math.PI + 0.2, 1, 1), 0.2);
+  });
+});
+
+describe('jumping', () => {
+  it('only takes off from the ground', () => {
+    const inAir = startJump(GROUNDED);
+    expect(inAir).toEqual({ height: 0, velocity: JUMP_SPEED });
+    const higher = stepJump(inAir, 0.1);
+    expect(startJump(higher)).toBe(higher);
+  });
+
+  it('rises about one unit, then lands exactly on the ground', () => {
+    let jump = startJump(GROUNDED);
+    let peak = 0;
+    let frames = 0;
+    while (frames === 0 || !isGrounded(jump)) {
+      jump = stepJump(jump, 1 / 60);
+      peak = Math.max(peak, jump.height);
+      frames++;
+    }
+    expect(peak).toBeCloseTo((JUMP_SPEED * JUMP_SPEED) / (2 * GRAVITY), 1);
+    expect(jump).toEqual(GROUNDED);
+    // About two thirds of a second at 60 frames per second.
+    expect(frames).toBeGreaterThan(35);
+    expect(frames).toBeLessThan(45);
+  });
+
+  it('keeps the same arc at any frame rate', () => {
+    const peakAt = (dt: number) => {
+      let jump = startJump(GROUNDED);
+      let peak = 0;
+      for (let time = 0; time < 1; time += dt) {
+        jump = stepJump(jump, dt);
+        peak = Math.max(peak, jump.height);
+      }
+      return peak;
+    };
+    expect(peakAt(1 / 30)).toBeCloseTo(peakAt(1 / 144), 1);
+  });
+
+  it('stays grounded when not jumping', () => {
+    expect(stepJump(GROUNDED, 0.1)).toBe(GROUNDED);
   });
 });

@@ -74,3 +74,34 @@ export function turnToward(current: number, target: number, rate: number, dt: nu
   if (delta < -Math.PI) delta += Math.PI * 2;
   return current + delta * Math.min(1, rate * dt);
 }
+
+/** Takeoff speed, in world units per second. With GRAVITY this makes a jump about 1 unit high. */
+export const JUMP_SPEED = 6;
+/** Stronger than real gravity, so a jump feels light and quick (about two thirds of a second). */
+export const GRAVITY = 18;
+
+/** How high the avatar is off the ground, and how fast it's moving up (negative: falling). */
+export interface Jump {
+  height: number;
+  velocity: number;
+}
+
+export const GROUNDED: Jump = { height: 0, velocity: 0 };
+
+export function isGrounded(jump: Jump): boolean {
+  return jump.height <= 0 && jump.velocity <= 0;
+}
+
+/** Leaves the ground, but only from the ground: no jumping again in mid-air. */
+export function startJump(jump: Jump): Jump {
+  return isGrounded(jump) ? { height: 0, velocity: JUMP_SPEED } : jump;
+}
+
+/** Advances a jump by dt seconds, landing exactly on the ground instead of sinking into it. */
+export function stepJump(jump: Jump, dt: number): Jump {
+  if (isGrounded(jump)) return GROUNDED;
+  const velocity = jump.velocity - GRAVITY * dt;
+  // The average of the old and new speeds keeps the arc the same at any frame rate.
+  const height = jump.height + ((jump.velocity + velocity) / 2) * dt;
+  return height <= 0 ? GROUNDED : { height, velocity };
+}
