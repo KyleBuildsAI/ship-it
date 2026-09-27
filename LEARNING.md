@@ -181,3 +181,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/33
 3. A shared base like `const base = repo().commit('init', files)` would be changed by every drill that extended it. The second drill would silently inherit the first drill's edits, and tests would depend on the order they ran in. Returning new builders keeps each setup independent.
 
 </details>
+
+---
+
+## #34 feat: git CLI plumbing, command router, and git init
+
+https://github.com/KyleBuildsAI/ship-it/pull/34
+
+1. What does `-am "fix: typo"` expand to, and why does the parser stop reading letters after it hits `m`?
+2. Why does `git add "*.ts"` in PowerShell reach git as a literal `*.ts`, and which files does it match?
+3. The engine returns lines tagged `staged` or `error` instead of colored text. Name one benefit.
+
+<details><summary>Answers</summary>
+
+1. `-a -m "fix: typo"`. `m` takes a value, so whatever follows it (the rest of the same word, or the next word) is the message, and no more letters can be flags. That's why `-ma` would mean "message is `a`", not `-m -a`.
+2. PowerShell doesn't expand wildcards for programs like git, so git receives `*.ts` and expands it itself as a pathspec. Git's pathspec `*` also crosses folders, so it matches `app.ts`, `src/app.ts`, and `src/lib/util.ts`.
+3. The engine stays free of display concerns and can be tested with plain strings. The terminal can then choose, and later change, colors (or support a high-contrast mode) without touching git logic. Mission verification can also read the plain text.
+
+</details>
