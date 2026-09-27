@@ -541,3 +541,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/53
 3. `db.version(1)` describes IndexedDB's tables and keys. It only changes if the table layout changes. `CURRENT_SCHEMA_VERSION` describes the save data's shape, which will change more often, and is handled by migrations inside the data.
 
 </details>
+
+---
+
+## #54 feat: export, import, and debounced autosave for the save
+
+https://github.com/KyleBuildsAI/ship-it/pull/54
+
+1. You finish three steps within 200 ms. How many times is IndexedDB written, and which save is written?
+2. Why is `onError` a required option instead of an optional one?
+3. What does a player see if they import a JSON file from a newer version of the game?
+
+<details><summary>Answers</summary>
+
+1. Once, about 500 ms after the third step, and it writes the third (newest) save. Each `schedule` replaced the pending save and restarted the timer.
+2. Autosave runs in the background, so nobody awaits it. If the write failed and there was no handler, the failure would disappear, and the player would lose progress without knowing. Making it required forces every caller to decide how to report it.
+3. An `ImportError` with reason `newer-version` and a plain message saying the file comes from a newer version of SHIP IT. The current save is untouched, because loading a newer save could drop fields this version doesn't know about.
+
+</details>
