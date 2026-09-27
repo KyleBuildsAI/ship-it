@@ -73,3 +73,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/18
 3. The default checkout fetches only the latest commit. A secret that was committed and then deleted in a later commit is still in the history, so anyone can recover it. The full history (`fetch-depth: 0`) lets gitleaks scan every commit ever made.
 
 </details>
+
+---
+
+## #19 feat: three.js render boot with WebGPU/WebGL2 fallback and post stack
+
+https://github.com/KyleBuildsAI/ship-it/pull/19
+
+1. Why must `await renderer.init()` finish before the first `render()` call, and what would you see if it didn't?
+2. `vite.config.ts` aliases `'three'` to `'three/webgpu'`. What goes wrong without that alias?
+3. `post.ts` wraps both building and running the post stack in `try/catch`. Why catch in both places, and what does the player see if bloom fails?
+
+<details><summary>Answers</summary>
+
+1. `init()` asks the browser for a GPU device (WebGPU) or a WebGL2 context, and sets up the backend. Until that finishes there's nothing to draw with. Rendering early does nothing, or throws, so you'd get a blank or black first frame, possibly with an error in the console.
+2. The addons import `'three'`, which normally resolves to the classic core, while our code imports `'three/webgpu'`. The bundle would then contain two separate copies of three.js. It gets bigger, and objects created by one copy fail `instanceof` checks in the other, which causes subtle bugs, like controls or nodes not recognising our camera.
+3. Building the node graph can fail up front, for example with an unsupported node. Rendering can fail later, on the first frame when shaders compile on this particular GPU. Catching in both places covers both. Either way it logs one warning and switches permanently to `renderer.render(scene, camera)`, so the player sees the scene without glow or vignette, not a black screen.
+
+</details>

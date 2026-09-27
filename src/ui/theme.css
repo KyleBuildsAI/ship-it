@@ -50,6 +50,10 @@ body {
   animation: sky-drift 18s ease-in-out infinite alternate;
 }
 
+#scene canvas {
+  display: block;
+}
+
 /*
  * The HUD layer lets clicks fall through to the 3D world.
  * Interactive panels opt back in with pointer-events: auto.
@@ -105,7 +109,7 @@ body {
 
 .title-card {
   position: absolute;
-  top: 18vh;
+  top: 6vh;
   left: 0;
   right: 0;
   text-align: center;
@@ -121,7 +125,7 @@ body {
 
 .title-card__title {
   margin: 8px 0;
-  font-size: clamp(48px, 9vw, 112px);
+  font-size: clamp(40px, 6vw, 80px);
   font-weight: 800;
   letter-spacing: 0.08em;
   animation: title-glow 4s ease-in-out infinite;
