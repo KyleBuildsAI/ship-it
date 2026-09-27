@@ -8,6 +8,7 @@ import { mvCommand } from './commands/mv';
 import { reflogCommand } from './commands/reflog';
 import { resetCommand } from './commands/reset';
 import { restoreCommand } from './commands/restore';
+import { revertCommand } from './commands/revert';
 import { rmCommand } from './commands/rm';
 import { showCommand } from './commands/show';
 import { statusCommand } from './commands/status';
@@ -29,6 +30,7 @@ const COMMANDS: Record<string, Command> = {
   reflog: reflogCommand,
   reset: resetCommand,
   restore: restoreCommand,
+  revert: revertCommand,
   rm: rmCommand,
   show: showCommand,
   status: statusCommand,
