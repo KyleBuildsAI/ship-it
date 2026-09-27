@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { hud, toggleTerminal } from '../game/hud';
 import { sandbox } from '../game/sandbox';
 import { CommandChip } from './CommandChip';
+import { PlayPanel } from './play/PlayPanel';
 import { StatusBadge } from './StatusBadge';
 import { TerminalPanel } from './terminal/TerminalPanel';
 import { TitleCard } from './TitleCard';
@@ -42,6 +43,7 @@ export function App() {
       >
         Terminal <kbd>Ctrl</kbd>+<kbd>`</kbd>
       </button>
+      <PlayPanel />
       <CommandChip />
       <TerminalPanel open={terminalOpen} />
       {openFile !== null ? (

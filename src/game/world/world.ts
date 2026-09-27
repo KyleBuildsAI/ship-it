@@ -254,6 +254,19 @@ export function createWorld(
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', releaseAll);
 
+  // A HUD panel on the left covers part of the view. Shifting the projection by half its
+  // width keeps whatever the camera looks at centred in the space still visible, and
+  // raycasts stay correct because they use the same projection.
+  let viewSize = { width: canvas.clientWidth, height: canvas.clientHeight };
+  const frameAroundPanels = () => {
+    const inset = worldState.get().leftInset;
+    const { width, height } = viewSize;
+    if (inset > 0) camera.setViewOffset(width, height, -inset / 2, 0, width, height);
+    else camera.clearViewOffset();
+  };
+  frameAroundPanels();
+  const stopInset = worldState.subscribe(frameAroundPanels);
+
   const follow = new THREE.Vector3();
   return {
     scene,
@@ -305,10 +318,12 @@ export function createWorld(
       lights.position.set(position.x, 0, position.z);
     },
     resize: (width, height) => {
+      viewSize = { width, height };
       camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      frameAroundPanels();
     },
     dispose: () => {
+      stopInset();
       stopWatching();
       stopSandbox();
       canvas.removeEventListener('pointerdown', onPointerDown);
