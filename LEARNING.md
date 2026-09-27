@@ -199,3 +199,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/34
 3. The engine stays free of display concerns and can be tested with plain strings. The terminal can then choose, and later change, colors (or support a high-contrast mode) without touching git logic. Mission verification can also read the plain text.
 
 </details>
+
+---
+
+## #35 feat: git status in long and short formats
+
+https://github.com/KyleBuildsAI/ship-it/pull/35
+
+1. In `git status -s`, what do `MM app.ts`, ` M b.ts`, and `?? notes/` each mean?
+2. Why does git show a new folder as `src/` instead of listing its files, and when does it stop doing that?
+3. Before your first commit, why does `git status` suggest `git rm --cached` to unstage instead of `git restore --staged`?
+
+<details><summary>Answers</summary>
+
+1. `MM`: a change is staged *and* the file was edited again after staging. ` M` (space, then M): modified but not staged. `??`: untracked. For `notes/`, the whole folder is untracked.
+2. Listing hundreds of files from, say, a new `node_modules/` would bury everything else. While git tracks nothing inside the folder, one line is enough. Once any file in it is tracked, git lists the untracked files individually.
+3. `git restore --staged` resets the index entry to HEAD's version, but before the first commit there is no HEAD. `git rm --cached` removes the entry from the index directly, which works without any commit.
+
+</details>
