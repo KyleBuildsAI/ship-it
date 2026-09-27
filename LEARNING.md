@@ -343,3 +343,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/42
 3. Undoing the old change means combining it with the newer edit to the same file. If they touch the same lines, git can't decide on its own, and that's a conflict. Resolving conflicts is taught with merges in Act 3, so for now the sandbox stops and explains instead of leaving a half-finished state.
 
 </details>
+
+---
+
+## #43 feat: sandbox shell with PowerShell-style commands
+
+https://github.com/KyleBuildsAI/ship-it/pull/43
+
+1. Why does `git commit -m "fix: login bug"` need the quotes? What would git receive without them?
+2. What's the difference between `echo ".env" > .gitignore` and `echo ".env" >> .gitignore`?
+3. `ls` doesn't show `.git`, but `ls -Force` does. What is `.git`, and why is it hidden?
+
+<details><summary>Answers</summary>
+
+1. Without quotes the shell splits on spaces, so git receives `-m`, `fix:`, `login`, and `bug` as four separate arguments. The message becomes just `fix:`, and git then tries to treat `login` and `bug` as file paths. Quotes make the whole message one word.
+2. `>` replaces the file's contents, so any existing rules are wiped out. `>>` appends a new line and keeps what was there. When adding a rule to an existing `.gitignore`, you almost always want `>>`.
+3. `.git` is the repository: every commit, branch, and the staging area live inside it. It's hidden because you should never edit it by hand, and deleting it deletes the project's whole history. `-Force` shows hidden items.
+
+</details>
