@@ -60,6 +60,10 @@ export function compareDays(a: string, b: string): number {
  * 11pm on Tuesday counts as Tuesday, even though it is already Wednesday in UTC.
  */
 export function localDay(moment: Date): string {
+  // An invalid Date would otherwise come out as "NaN-NaN-NaN" and fail somewhere far away.
+  if (Number.isNaN(moment.getTime())) {
+    throw new RangeError('Expected a valid date, got an invalid Date.');
+  }
   const pad = (value: number) => String(value).padStart(2, '0');
   const year = String(moment.getFullYear()).padStart(4, '0');
   return `${year}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())}`;

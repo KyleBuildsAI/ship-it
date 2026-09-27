@@ -114,4 +114,10 @@ describe('localDay', () => {
   it('handles leap days', () => {
     expect(localDay(new Date(2024, 1, 29, 8))).toBe('2024-02-29');
   });
+
+  it('throws a RangeError for an invalid Date instead of returning "NaN-NaN-NaN"', () => {
+    expect(() => localDay(new Date('not a date'))).toThrow(
+      new RangeError('Expected a valid date, got an invalid Date.'),
+    );
+  });
 });
