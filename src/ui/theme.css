@@ -370,12 +370,15 @@ body {
   outline-offset: 2px;
 }
 
-/* The play panel: the Act menu, or the mission being played, above the terminal. */
+/*
+ * The play panel: the Act menu, or the mission being played, above the terminal. It starts
+ * below the status badge (five rows since the Music row) with a little air.
+ */
 .play-panel {
   position: absolute;
-  top: 118px;
+  top: 140px;
   left: 16px;
-  max-height: calc(100vh - 134px);
+  max-height: calc(100vh - 156px);
   box-sizing: border-box;
   width: min(400px, 34vw);
   padding: 14px 16px;
@@ -387,7 +390,7 @@ body {
 }
 
 .play-panel--above-terminal {
-  max-height: calc(62vh - 194px);
+  max-height: calc(62vh - 216px);
 }
 
 .play-panel__header {
