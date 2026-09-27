@@ -23,6 +23,8 @@ function missionRow(page: Page, title: string) {
 }
 
 test('a mission step is graded by state and survives a reload', async ({ page }) => {
+  // Several screens and a reload: CI renders the 3D world in software, so allow extra time.
+  test.slow();
   const problems = collectConsoleProblems(page);
   await page.goto('./');
   await expect(page.getByLabel('Developer status')).toContainText('saved');
@@ -44,6 +46,7 @@ test('a mission step is graded by state and survives a reload', async ({ page })
 });
 
 test('an exported save imports back after starting over', async ({ page }) => {
+  test.slow();
   const problems = collectConsoleProblems(page);
   await page.goto('./');
   await expect(page.getByLabel('Developer status')).toContainText('saved');
@@ -70,7 +73,7 @@ test('an exported save imports back after starting over', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.locator('input[type=file]').setInputFiles(file);
-  await expect(page.getByText('Save imported.')).toBeVisible();
+  await expect(page.getByText('Save imported.')).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Close Settings' }).click();
   await expect(missionRow(page, 'Three Rooms')).toContainText('In progress');
   expect(problems).toEqual([]);
