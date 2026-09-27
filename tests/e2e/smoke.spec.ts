@@ -37,9 +37,12 @@ test('the render loop is live: frames change over time', async ({ page }, testIn
   await page.goto('./');
   await waitForRenderer(page);
 
-  const first = await page.screenshot();
+  // Freeze CSS animations and cover the HUD panels so only the 3D canvas can make frames differ.
+  // (Masking #ui itself would cover everything: it spans the whole viewport.)
+  const shot = () => page.screenshot({ animations: 'disabled', mask: [page.locator('#ui > *')] });
+  const first = await shot();
   await page.waitForTimeout(1500);
-  const second = await page.screenshot();
+  const second = await shot();
   await testInfo.attach('frame-1', { body: first, contentType: 'image/png' });
   await testInfo.attach('frame-2', { body: second, contentType: 'image/png' });
 
