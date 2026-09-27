@@ -253,3 +253,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/37
 3. It shows one staged change, `renamed: old.ts -> new.ts`. Renaming in Explorer changes only the disk, so status shows `deleted: old.ts` (unstaged) plus an untracked `new.ts` until you stage both. After staging, git detects the same rename.
 
 </details>
+
+---
+
+## #38 feat: line diff algorithm and git diff
+
+https://github.com/KyleBuildsAI/ship-it/pull/38
+
+1. You staged a change to `app.ts`. Does `git diff` show it? Which command does?
+2. What does the hunk header `@@ -1,3 +1,4 @@` tell you?
+3. Why does the diff show `\ No newline at end of file`, and why does it matter?
+
+<details><summary>Answers</summary>
+
+1. No. `git diff` compares the staged version with your working file, and they match now. `git diff --staged` (or `--cached`) compares the last commit with the staged version, so it shows the change.
+2. The hunk starts at line 1 in both versions. It covers 3 lines of the old file and 4 lines of the new file, so the net change is one extra line.
+3. The last line of the file has no newline character after it. That counts as a real difference: adding a line later then shows a change to the *previous* line too, and some tools misbehave. Most editors add the final newline automatically.
+
+</details>
