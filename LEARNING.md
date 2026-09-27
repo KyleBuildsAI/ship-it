@@ -451,3 +451,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/48
 3. Workbench = the working tree (your files on disk). Loading Dock = the staging area, or index (what the next commit will contain). Vault = the repository (committed snapshots).
 
 </details>
+
+---
+
+## #49 feat: files as crates on the workbench, dock, and blocklist
+
+https://github.com/KyleBuildsAI/ship-it/pull/49
+
+1. You run `git add README.md`. Which two crates exist for README.md afterwards, and why is there still one on the Workbench?
+2. Why does the world redraw from `describeCrates(workspace)` instead of listening for an "added" event and moving that one crate?
+3. What would you see if crates had no stable `key` and were rebuilt from scratch on every change?
+
+<details><summary>Answers</summary>
+
+1. One on the Workbench (the file is still on disk in your working tree) and one on the Dock (a copy is staged for the next commit). Staging copies the file into the index. It doesn't move it off your disk.
+2. Many commands change several things at once (`git add .`, `git reset --hard`, `git commit -a`). Listening for each event would need special-case code per command, and it would drift from the truth. Describing the whole state is always right, whatever command ran.
+3. Every crate would vanish and reappear on every command, with no flights. You couldn't see which crate moved where, which is the whole point.
+
+</details>

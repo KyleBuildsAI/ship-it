@@ -1,9 +1,13 @@
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three/webgpu';
+import type { Workspace } from '../../engine/workspace';
 import { isTypingTarget } from '../../ui/focus';
+import { sandbox } from '../sandbox';
 import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
 import { createCampus } from './campus';
+import { describeCrates } from './crateLayout';
+import { CrateYard } from './crateYard';
 import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
 import { createStars } from './island';
 import {
@@ -117,6 +121,29 @@ export function createWorld(
     window.setTimeout(arrive, 350);
   };
 
+  // The Git World mirrors the sandbox: any engine event marks the crates for a redraw,
+  // done at most once per frame however many events a command produced.
+  const yard = new CrateYard(gitWorld, scene);
+  let watched: Workspace | null = null;
+  let stopWatching: () => void = () => {
+    // Nothing to stop until the first workspace is watched.
+  };
+  let cratesDirty = true;
+  let committedSinceSync = false;
+  const watch = () => {
+    const ws = sandbox.get().shell.ws;
+    if (ws === watched) return;
+    stopWatching();
+    watched = ws;
+    cratesDirty = true;
+    stopWatching = ws.events.on((event) => {
+      cratesDirty = true;
+      if (event.type === 'committed') committedSinceSync = true;
+    });
+  };
+  watch();
+  const stopSandbox = sandbox.subscribe(watch);
+
   // Clicking an open portal walks to its doorstep and steps through; clicking the ground
   // walks there. A drag turns the camera instead, so tell clicks and drags apart.
   const raycaster = new THREE.Raycaster();
@@ -200,6 +227,12 @@ export function createWorld(
     update: (dt, elapsed) => {
       campus.update(elapsed);
       gitWorld.update(elapsed);
+      if (cratesDirty && watched) {
+        yard.sync(describeCrates(watched), committedSinceSync);
+        cratesDirty = false;
+        committedSinceSync = false;
+      }
+      yard.update(dt);
 
       let direction = travelling ? null : keyDirection(keys, controls.getAzimuthalAngle());
       if (direction) {
@@ -240,6 +273,8 @@ export function createWorld(
       camera.updateProjectionMatrix();
     },
     dispose: () => {
+      stopWatching();
+      stopSandbox();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('keydown', onKeyDown);
