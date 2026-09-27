@@ -613,3 +613,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/57
 3. 2, and nothing reset. Days are counted, not streaks, so skipping a day never costs anything.
 
 </details>
+
+---
+
+## #58 feat: mission predicate language that grades by state
+
+https://github.com/KyleBuildsAI/ship-it/pull/58
+
+1. A mission step's success is `{ kind: 'staged', paths: ['a.ts', 'b.ts'] }`. The player runs `git add .`, which also stages `c.ts`. Does the step pass? What if the predicate had `exact: true`?
+2. Why is "grade by state" better than checking that the player typed `git add a.ts b.ts`?
+3. How would you express "the working tree is clean and the last commit message starts with `feat:`"?
+
+<details><summary>Answers</summary>
+
+1. Yes: every listed path is staged, and extra staged files are allowed. With `exact: true` it fails, because `exact` means nothing else may be staged.
+2. There are many correct ways to reach a state (`git add .`, `-A`, one file at a time, `git commit -a`). Checking strings would reject correct work and teach one memorised incantation instead of the concept.
+3. `{ kind: 'all', of: [{ kind: 'clean' }, { kind: 'headMessage', pattern: '^feat:' }] }`
+
+</details>
