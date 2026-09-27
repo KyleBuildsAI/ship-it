@@ -9,6 +9,16 @@ export const GIT_WORLD_CENTER: Flat = { x: 140, z: 0 };
 export interface GitWorldLayout {
   readonly island: Island;
   readonly spawn: Flat;
+  /** Top surface where Workbench crates sit (world coordinates of its centre). */
+  readonly workbenchTop: THREE.Vector3;
+  /** Top surface of the Loading Dock. */
+  readonly dockTop: THREE.Vector3;
+  /** The Vault's door, where committed crates fly in. */
+  readonly vaultDoor: THREE.Vector3;
+  /** The door's material, so a commit can make it flash. */
+  readonly vaultDoorMaterial: THREE.MeshStandardMaterial;
+  /** Ground spot beside the Workbench where ignored crates are kept. */
+  readonly blocklistGround: THREE.Vector3;
   /** The portal back to Campus. */
   readonly exit: { readonly group: THREE.Group; readonly doorstep: Flat };
   update: (elapsed: number) => void;
@@ -75,16 +85,14 @@ export function createGitWorld(): GitWorldLayout {
   // Vault: a heavy building with a round door that seals snapshots.
   const vault = box([4.4, 3.6, 3.4], 0x1c2436);
   vault.position.set(0, 1.8, -6);
-  const door = new THREE.Mesh(
-    new THREE.TorusGeometry(1.1, 0.14, 12, 48),
-    new THREE.MeshStandardMaterial({
-      color: 0x9fb6d8,
-      emissive: 0x6fd3ff,
-      emissiveIntensity: 0.6,
-      metalness: 0.8,
-      roughness: 0.3,
-    }),
-  );
+  const doorMaterial = new THREE.MeshStandardMaterial({
+    color: 0x9fb6d8,
+    emissive: 0x6fd3ff,
+    emissiveIntensity: 0.6,
+    metalness: 0.8,
+    roughness: 0.3,
+  });
+  const door = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.14, 12, 48), doorMaterial);
   door.position.set(0, 1.8, -4.25);
   group.add(vault, door, areaLabel('Vault', 'repository', new THREE.Vector3(0, 4.3, -6)));
 
@@ -102,9 +110,17 @@ export function createGitWorld(): GitWorldLayout {
   exitGroup.rotation.y = -0.6;
   group.add(exitGroup);
 
+  const world = (x: number, y: number, z: number) =>
+    new THREE.Vector3(GIT_WORLD_CENTER.x + x, y, GIT_WORLD_CENTER.z + z);
+
   return {
     island,
     spawn: { x: GIT_WORLD_CENTER.x - 2.5, z: GIT_WORLD_CENTER.z + 5 },
+    workbenchTop: world(-7, 1.03, 1.5),
+    dockTop: world(0, 0.4, 1.5),
+    vaultDoor: world(0, 1.8, -4.25),
+    vaultDoorMaterial: doorMaterial,
+    blocklistGround: world(-13, 0, 1.5),
     exit: { group: exitGroup, doorstep: { x: GIT_WORLD_CENTER.x - 9, z: GIT_WORLD_CENTER.z + 9 } },
     update: (elapsed) => {
       door.rotation.z = Math.sin(elapsed * 0.4) * 0.05;
