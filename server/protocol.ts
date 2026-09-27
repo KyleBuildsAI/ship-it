@@ -4,8 +4,11 @@ import { z } from 'zod';
  * The wire format between the game and the Sage server. The server validates every
  * request against these schemas. The browser client imports only the types (never the
  * schemas), so zod stays out of the game bundle while both sides share one definition.
+ * A lint rule in eslint.config.js holds the game to type-only imports from server/.
  *
  * The length limits keep prompts small: every character sent to Anthropic costs tokens.
+ * A request over any limit gets a 400. The mentor client sends context as given, so the
+ * code that builds it (the mission runner) must trim first.
  */
 
 /** 1 = a question back, 2 = the concept, 3 = the command with an explanation. */
@@ -16,7 +19,7 @@ export const hintContextSchema = z.object({
   missionTitle: z.string().min(1).max(200),
   stepInstruction: z.string().min(1).max(2000),
   level: hintLevelSchema,
-  /** Oldest first. */
+  /** Oldest first, and only the latest 20. */
   recentCommands: z.array(z.string().max(500)).max(20),
   gitStatus: z.string().max(8000),
   /** Set by the game during No-AI Drills and placement tests. true is always refused. */
