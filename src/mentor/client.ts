@@ -30,6 +30,11 @@ export interface MentorOffline {
   message: string;
 }
 
+/**
+ * What getMentorStatus() found. offline: false only means the server answered. Whether
+ * Sage can help right now depends on keyConfigured and usage, the same rule the dev badge
+ * uses. askHint() and gradeQuestion() run that check themselves.
+ */
 export type MentorStatus = (HealthReply & { offline: false }) | MentorOffline;
 export type HintResult = (HintReply & { offline: false }) | MentorOffline;
 export type GradeResult = (GradeReply & { offline: false }) | MentorOffline;
@@ -223,7 +228,7 @@ export function createMentorClient({
 
 const defaultClient = createMentorClient({ serverExpected: import.meta.env.DEV });
 
-/** Checks whether Sage can answer, and updates the dev status badge. */
+/** Asks the Sage server for its health and usage, and updates the dev status badge. */
 export const getMentorStatus = defaultClient.getMentorStatus;
 /** Asks Sage for a hint. On any offline result, show fallbackHint() instead. */
 export const askHint = defaultClient.askHint;
