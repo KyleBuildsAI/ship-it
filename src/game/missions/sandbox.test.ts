@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { folder, repo } from '../../engine/git/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
@@ -35,9 +35,17 @@ describe('createSandbox', () => {
     expect(q.untrackedPaths()).toEqual(['.env', 'notes.md']);
   });
 
-  it('uses the real clock and hash when no test dependencies are given', () => {
-    const ws = createSandbox(repo().commit('init', { 'a.ts': 'a' }).toSpec());
-    expect(gitQueries(ws).headCommit()?.author.name).toBe('Kyle');
+  it('uses the real clock when no test dependencies are given', () => {
+    // testDeps() would stamp its own fixed start time, so seeing this date proves the
+    // commit read the system clock. Only Date is faked; real timers keep running.
+    const newYear2030 = Date.UTC(2030, 0, 1);
+    vi.useFakeTimers({ now: newYear2030, toFake: ['Date'] });
+    try {
+      const ws = createSandbox(repo().commit('init', { 'a.ts': 'a' }).toSpec());
+      expect(gitQueries(ws).headCommit()?.timestamp).toBe(newYear2030);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
