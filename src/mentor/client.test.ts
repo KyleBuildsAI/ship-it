@@ -100,11 +100,13 @@ describe('getMentorStatus', () => {
   it.each([
     ['no key is configured', health({ keyConfigured: false })],
     ['the daily cap is spent', health({ usage: { date: '2026-09-27', calls: 50, cap: 50 } })],
-  ])('keeps the badge offline when %s', async (_label, reply) => {
+  ])('turns the badge offline when %s', async (_label, reply) => {
     routeFetch(
       () => json(reply),
       () => json({}),
     );
+    // Start from online, so this test fails if the client forgets to update the badge.
+    devStatus.update({ mentor: 'online' });
 
     const status = await client.getMentorStatus();
 
@@ -132,10 +134,12 @@ describe('getMentorStatus', () => {
     );
     const error = vi.spyOn(console, 'error');
     const warn = vi.spyOn(console, 'warn');
+    devStatus.update({ mentor: 'online' });
 
     const status = await client.getMentorStatus();
 
     expect(status).toMatchObject({ offline: true, reason: 'unreachable' });
+    expect(devStatus.get().mentor).toBe('offline');
     expect(error).not.toHaveBeenCalled();
     expect(warn).not.toHaveBeenCalled();
   });
@@ -154,6 +158,7 @@ describe('getMentorStatus', () => {
     ['a reply in the wrong shape', () => json({ ok: true, keyConfigured: 'yes' })],
   ])('reports an error for %s', async (_label, reply) => {
     routeFetch(reply, () => json({}));
+    devStatus.update({ mentor: 'online' });
 
     expect(await client.getMentorStatus()).toMatchObject({ offline: true, reason: 'error' });
     expect(devStatus.get().mentor).toBe('offline');
