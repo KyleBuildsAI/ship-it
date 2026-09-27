@@ -1,3 +1,4 @@
+import type { MusicState } from './audio/music';
 import { createStore } from './store';
 
 /** Which GPU API three.js is drawing with. 'none' means no renderer is running. */
@@ -15,6 +16,7 @@ export interface DevStatus {
   threeRevision: string | null;
   mentor: MentorState;
   save: SaveState;
+  music: MusicState;
 }
 
 /**
@@ -26,4 +28,5 @@ export const devStatus = createStore<DevStatus>({
   threeRevision: null,
   mentor: 'offline',
   save: 'none',
+  music: 'off',
 });
