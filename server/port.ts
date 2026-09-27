@@ -5,7 +5,10 @@
  * loads it directly, without the rest of the server.
  */
 
-export const DEFAULT_PORT = 8787;
+// Above 15000 on purpose. Windows reserves random blocks of ports for Hyper-V and WSL inside
+// its dynamic port range, and tools like Docker often widen that range down to 1024. Ports
+// in those blocks fail with EACCES, so the default stays above where they usually land.
+export const DEFAULT_PORT = 18787;
 
 /**
  * The port MENTOR_PORT asks for. Blank or missing means the default. Returns null when the

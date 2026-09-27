@@ -865,3 +865,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/71
 3. "Anthropic rejected the API key. Check ANTHROPIC_API_KEY in .env, then restart the server." It points at the exact variable in the exact file.
 
 </details>
+
+---
+
+## #72 feat: sage http server, dev proxy, and npm run dev for both
+
+https://github.com/KyleBuildsAI/ship-it/pull/72
+
+1. Sage listens on 127.0.0.1. Why does it also check the Host and Origin headers?
+2. Why does the Vite proxy answer 200 `{ offline: true }` instead of an error when Sage is down?
+3. What does `EACCES` on a port mean on Windows here, and how would you find a free one?
+
+<details><summary>Answers</summary>
+
+1. Any website open in your browser can make the browser send requests to 127.0.0.1. Checking that Host and Origin are loopback blocks those cross-site and DNS-rebinding tricks, so only the game can spend your calls.
+2. Chrome logs every 4xx/5xx response as a console error, and DESIGN.md requires zero console errors. `{ offline: true }` tells the game exactly what it needs to fall back to pre-written hints.
+3. Windows refused to let the process use that port, here because it sat inside a range reserved for Hyper-V/WSL. Run `netsh interface ipv4 show excludedportrange protocol=tcp`, then pick a port outside every listed range and set `MENTOR_PORT` in `.env`.
+
+</details>
