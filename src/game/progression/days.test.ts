@@ -92,6 +92,16 @@ describe('addDays', () => {
     expect(addDays('2026-11-02', -1)).toBe('2026-11-01');
   });
 
+  it('throws rather than return a day outside the years 0000 to 9999', () => {
+    expect(addDays('9999-12-30', 1)).toBe('9999-12-31');
+    expect(() => addDays('9999-12-31', 1)).toThrow(
+      new RangeError('9999-12-31 plus 1 days falls outside the years 0000 to 9999.'),
+    );
+    expect(() => addDays('2026-09-27', -800_000)).toThrow(RangeError);
+    // So far out that Date itself gives up.
+    expect(() => addDays('2026-09-27', 1_000_000_000)).toThrow(RangeError);
+  });
+
   it('rejects a bad day or a fractional count', () => {
     expect(() => addDays('2023-02-29', 1)).toThrow(RangeError);
     expect(() => addDays('2026-09-27', 1.5)).toThrow(

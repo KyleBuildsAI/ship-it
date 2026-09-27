@@ -45,7 +45,15 @@ export function addDays(day: string, count: number): string {
   if (!Number.isInteger(count)) {
     throw new RangeError(`Days to add must be a whole number, got ${String(count)}.`);
   }
-  return formatUtcDay(utcMidnight(day) + count * MS_PER_DAY);
+  const time = utcMidnight(day) + count * MS_PER_DAY;
+  // "YYYY-MM-DD" only has room for years 0000 to 9999. Past that, the text would come out
+  // as "+010000-01" and no save would accept it, so fail loudly here instead. Far enough out,
+  // Date gives up entirely and the year is NaN, which this check also catches.
+  const year = new Date(time).getUTCFullYear();
+  if (!(year >= 0 && year <= 9999)) {
+    throw new RangeError(`${day} plus ${String(count)} days falls outside the years 0000 to 9999.`);
+  }
+  return formatUtcDay(time);
 }
 
 /** Sort helper: negative if `a` is earlier, positive if later, 0 for the same day. */
