@@ -48,9 +48,10 @@ function readDailyCallCap(env: Env, logger: Logger): number {
 
 /** Uses the same parser as vite.config.ts, so the /api proxy always finds the server. */
 function readPort(env: Env, logger: Logger): number {
-  const port = parsePort(env.MENTOR_PORT);
+  const raw = env.MENTOR_PORT ?? '';
+  const port = parsePort(raw);
   if (port !== null) return port;
-  warnInvalid(logger, 'MENTOR_PORT', env.MENTOR_PORT?.trim() ?? '', DEFAULT_PORT);
+  warnInvalid(logger, 'MENTOR_PORT', raw.trim(), DEFAULT_PORT);
   return DEFAULT_PORT;
 }
 
