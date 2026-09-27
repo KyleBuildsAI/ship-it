@@ -775,3 +775,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/66
 3. Ignoring every unknown line could hide a real problem and pass a dirty tree. Listing known-safe notes one by one keeps the parser strict everywhere else.
 
 </details>
+
+---
+
+## #67 feat: parse git log --oneline and detect which command was pasted
+
+https://github.com/KyleBuildsAI/ship-it/pull/67
+
+1. What does `a1b2c3d (HEAD -> main, origin/main) fix: stop double deploys` tell you about your branch and the remote?
+2. Why is one long-status-only line enough to classify a paste as long status, while short status needs every line to fit?
+3. How does the parser tell a graph connector line from a commit line?
+
+<details><summary>Answers</summary>
+
+1. HEAD is on `main`, `main` is at commit `a1b2c3d`, and `origin/main` points at the same commit, so local and remote agree (nothing to push or pull for this branch).
+2. Long status contains many kinds of lines, some of which the parser may not know (like rebase progress), so one unmistakable marker such as "Changes not staged for commit" is enough. Short status lines are uniform (`XY path`), so every line should match, or it probably isn't short status.
+3. Commit lines have a `*` in the graph prefix followed by a hash and a subject. Connector lines are only `|`, `/`, `\`, and spaces.
+
+</details>
