@@ -67,9 +67,17 @@ export function createSampleSave(): SaveData {
   };
 }
 
+/** A version 1 save: the sample's progress, from before the tutorial existed. */
+export function createV1Save(): Record<string, unknown> {
+  const v1: Record<string, unknown> = { ...createSampleSave(), schemaVersion: 1 };
+  delete v1.tutorial;
+  return v1;
+}
+
 /** The sample version 0 shape (see migrations.ts): no schemaVersion, and xp at the top level. */
 export function createLegacyV0Save(): Record<string, unknown> {
-  const { profile, ...current } = createSampleSave();
+  const { profile, ...current } = createV1Save() as Pick<SaveData, 'profile'> &
+    Record<string, unknown>;
   const legacy: Record<string, unknown> = {
     ...current,
     xp: profile.xp,

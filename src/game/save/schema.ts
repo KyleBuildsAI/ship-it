@@ -9,7 +9,7 @@ import { z } from 'zod';
  */
 
 /** Bump this and add a step to MIGRATIONS in migrations.ts whenever the saved shape changes. */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /** Capped so the save, which is rewritten on every autosave, stays small forever. */
 export const DRILL_HISTORY_LIMIT = 200;
@@ -118,6 +118,11 @@ export const settingsSchema = z.object({
   textSize: z.enum(['normal', 'large', 'x-large']),
 });
 
+/** The first-run tutorial (version 2). Null until the player finishes or skips it. */
+export const tutorialSchema = z.object({
+  completedAt: timestampSchema.nullable(),
+});
+
 export const saveDataSchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
   profile: profileSchema,
@@ -127,6 +132,7 @@ export const saveDataSchema = z.object({
   reviewQueue: reviewQueueSchema,
   fieldMissions: z.record(idSchema, fieldMissionProgressSchema),
   settings: settingsSchema,
+  tutorial: tutorialSchema,
 });
 
 export type SaveData = z.infer<typeof saveDataSchema>;
@@ -186,5 +192,6 @@ export function createDefaultSave(now: Date): SaveData {
     reviewQueue: [],
     fieldMissions: {},
     settings: createDefaultSettings(),
+    tutorial: { completedAt: null },
   };
 }

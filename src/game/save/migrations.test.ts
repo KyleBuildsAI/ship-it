@@ -7,7 +7,7 @@ import {
   validateSave,
 } from './migrations';
 import { CURRENT_SCHEMA_VERSION, createDefaultSave } from './schema';
-import { createLegacyV0Save, createSampleSave, TEST_NOW } from './testFixtures';
+import { createLegacyV0Save, createSampleSave, createV1Save, TEST_NOW } from './testFixtures';
 
 /** Runs `action` and returns what it threw, so a test can check the error's fields. */
 function thrownBy(action: () => unknown): unknown {
@@ -36,6 +36,19 @@ describe('migrate', () => {
     const save = createDefaultSave(TEST_NOW);
 
     expect(migrate(save)).toEqual(save);
+  });
+
+  describe('from version 1', () => {
+    it('adds a tutorial that has not been done yet', () => {
+      const migrated = migrate(createV1Save());
+
+      expect(migrated.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+      expect(migrated.tutorial).toEqual({ completedAt: null });
+    });
+
+    it('keeps every other piece of progress', () => {
+      expect(migrate(createV1Save())).toEqual(createSampleSave());
+    });
   });
 
   describe('from version 0', () => {
