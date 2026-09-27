@@ -397,3 +397,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/45
 3. A different `key` makes React throw away the old editor and mount a fresh one. The new file starts with its own content and a clean "unsaved" state, instead of inheriting `a.ts`'s editor.
 
 </details>
+
+---
+
+## #46 feat: floating campus island with act portals
+
+https://github.com/KyleBuildsAI/ship-it/pull/46
+
+1. Why does the portal's `group.lookAt(0, 0, 0)` make every portal face the player at spawn?
+2. What would go wrong in screenshot tests if the stars used `Math.random()` instead of `seededRandom(184)`?
+3. Why does `boot.ts` pass `Math.min(timer.getDelta(), 0.1)` to `world.update` instead of the raw delta?
+
+<details><summary>Answers</summary>
+
+1. `lookAt` turns an object to face a point. Every portal faces the island's centre, and the player spawns near the centre, so all eight portals face inward toward you.
+2. Every load would place the stars differently, so two screenshots could differ because of the stars instead of real animation. The test is meant to prove the render loop is live, so a random background would hide a frozen loop.
+3. After the tab has been in the background, the next delta can be seconds long. Once walking exists, "speed × delta" would then move the avatar metres in one frame. Clamping to 0.1 s keeps every step small.
+
+</details>
