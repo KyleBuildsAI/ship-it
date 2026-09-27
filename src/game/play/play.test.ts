@@ -6,8 +6,10 @@ import {
   thirdMission,
 } from '../missions/sample.test-mission';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
+import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
 import { createDefaultSave } from '../save/schema';
+import { bossTick, bossSandboxChanged, startBossFight } from './bossPlay';
 import { setCatalog } from './catalog';
 import {
   askForHint,
@@ -19,7 +21,8 @@ import {
   submitQuestionRound,
 } from './missionPlay';
 import { leavePlay } from './play';
-import { play, type MissionActivity } from './playStore';
+import { play, type BossActivity, type MissionActivity, type SeriesActivity } from './playStore';
+import { seriesSandboxChanged, startNextSeriesDrill, startPlacement } from './seriesPlay';
 
 const NOW = new Date('2026-09-27T12:00:00.000Z');
 const T0 = NOW.getTime();
@@ -31,6 +34,18 @@ function run(...commands: string[]): void {
 function mission(): MissionActivity {
   const current = play.get().activity;
   if (current?.kind !== 'mission') throw new Error('no mission is being played');
+  return current;
+}
+
+function series(): SeriesActivity {
+  const current = play.get().activity;
+  if (current?.kind !== 'placement' && current?.kind !== 'review') throw new Error('no series');
+  return current;
+}
+
+function boss(): BossActivity {
+  const current = play.get().activity;
+  if (current?.kind !== 'boss') throw new Error('no boss fight');
   return current;
 }
 
@@ -113,5 +128,51 @@ describe('playing a mission', () => {
     expect(mission().freeTextGrade).toEqual({ state: 'grading' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mission().freeTextGrade?.state).toBe('unavailable');
+  });
+});
+
+describe('the placement test', () => {
+  it('tests out of the act at 85% or better', () => {
+    startPlacement();
+    const total = series().drills.length;
+    for (let index = 0; index < total; index++) {
+      startNextSeriesDrill(T0 + index * 1000);
+      const drill = series().drills[index];
+      // Solve every drill by reaching its target state.
+      if (drill?.id.endsWith('init')) run('git init');
+      else if (drill?.id.endsWith('stage-one')) run('git add notes.md');
+      else if (drill?.id.endsWith('commit')) run('git commit -m "feat: a"');
+      else if (drill?.id.endsWith('unstage')) run('git restore --staged .env');
+      else run('git commit -am "fix: v2"');
+      seriesSandboxChanged(T0 + index * 1000 + 500);
+    }
+    expect(series().placement).toEqual({ percent: 100, testedOut: true });
+    expect(progress.get().save?.acts['2']?.completedAt).not.toBeNull();
+  });
+});
+
+describe('the boss', () => {
+  it('fires twists on the clock and wins by state', () => {
+    startBossFight(T0);
+    bossTick(T0 + 121_000);
+    expect(boss().messages).toHaveLength(1);
+    run('git add app.ts src/logger.ts', 'git commit -m "fix: ship logger"');
+    bossSandboxChanged(T0 + 125_000);
+    expect(boss().outcome).toBe('won');
+    expect(progress.get().save?.profile.xp).toBe(XP_AWARDS.boss);
+  });
+
+  it('loses at once when a rule breaks', () => {
+    startBossFight(T0);
+    run('git add .env', 'git commit -m "chore: oops"');
+    bossSandboxChanged(T0 + 1_000);
+    expect(boss().outcome).toBe('lost-rule');
+  });
+
+  it('loses when the clock runs out', () => {
+    startBossFight(T0);
+    bossTick(T0 + 181_000);
+    expect(boss().outcome).toBe('lost-time');
+    expect(boss().secondsLeft).toBe(0);
   });
 });

@@ -955,3 +955,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/76
 3. Nothing stale. When Sage's reply arrives, the controller sees the step index changed and drops it, and the next step starts with no hint shown.
 
 </details>
+
+---
+
+## #77 feat: placement tests, standup reviews, and the boss fight
+
+https://github.com/KyleBuildsAI/ship-it/pull/77
+
+1. What's the difference in how a placement drill and a review drill are recorded afterwards?
+2. When exactly does a twist fire, and how does the 3D world find out?
+3. Kyle's last command both completes every objective and commits `.env`. Win or lose?
+
+<details><summary>Answers</summary>
+
+1. Both go into drill history. A placement drill miss joins the review queue (due today), and the whole test is scored with `placementResult`. A review drill updates its existing queue item with SM-2 (a longer gap on a pass, tomorrow on a miss).
+2. On the first tick where the clock shows the twist's seconds or fewer. `applySteps` writes, stages, or commits through the engine, which emits events, and the world redraws from them.
+3. Lose. `checkBoss` evaluates the failure rules first, and breaking one ends the fight even if the objectives are met.
+
+</details>
