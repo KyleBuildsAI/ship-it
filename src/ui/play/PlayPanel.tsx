@@ -6,6 +6,7 @@ import { worldState } from '../../game/worldState';
 import { useStore } from '../useStore';
 import { ActMenu } from './ActMenu';
 import { BossView } from './BossView';
+import { FieldView } from './FieldView';
 import { MissionView } from './MissionView';
 import { SeriesView } from './SeriesView';
 
@@ -31,6 +32,8 @@ export function PlayPanel() {
     content = <SeriesView activity={activity} checklist={checklist} />;
   } else if (activity?.kind === 'boss') {
     content = <BossView activity={activity} checklist={checklist} />;
+  } else if (activity?.kind === 'field') {
+    content = <FieldView />;
   } else if (zone === 'gitworld') {
     content = <ActMenu />;
   }
