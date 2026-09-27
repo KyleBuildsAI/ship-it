@@ -262,14 +262,14 @@ ship-it/
 
 ## 14. Visual and polish bar
 
-- Dark, atmospheric night campus. Fog or depth falloff. Key + rim + low ambient lighting. Bloom on glowing crates, banners, and portals.
+- Dark, atmospheric night campus. Fog or depth falloff. Key + rim + low ambient lighting. Bloom on glowing crates, banners, and portals. Stars fill the whole sky around every island, below the horizon too.
 - Glassmorphism UI panels (blurred translucent backgrounds, 1px subtle strokes, rounded corners).
 - Terminal is readable: monospace, 14px+, high contrast. UI text never goes through post effects.
 - **Zero console errors and zero warnings** in dev and production builds.
 - Motion from the first frame. A static opening screen reads as broken.
 - Target 60fps on an NVIDIA desktop GPU. Respect the reduced-motion setting.
 - Dev status badge: backend (WebGPU / WebGL2), three.js revision, mentor state, save state.
-- Controls: third-person camera with damped orbit, WASD + mouse, click-to-walk. Focus rules: typing in the terminal or editor never moves the avatar.
+- Controls: third-person camera with damped orbit, WASD + mouse, click-to-walk, Space to jump. Focus rules: typing in the terminal or editor never moves the avatar. Space jumps and Enter runs a suggested command only while the world has the keyboard; the suggestion chip never takes focus, and HUD buttons hand the keyboard back after a mouse click (keyboard users keep their focus).
 - **Verify loop** after every UI-affecting change: run the app in Chrome, read the console for errors and warnings, take two screenshots a few seconds apart (they must differ), compare against this section.
 
 ## 15. Milestones
