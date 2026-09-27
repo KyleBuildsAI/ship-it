@@ -19,3 +19,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/14
 3. A floating Promise: calling an async function without `await` or `.catch()`. It compiles fine, but errors inside disappear silently and later code runs before the work finishes. An un-awaited `renderer.init()` can render a frame before the GPU device exists. `@typescript-eslint/no-floating-promises` flags it.
 
 </details>
+
+---
+
+## #16 docs: autonomous PR workflow and LEARNING.md
+
+https://github.com/KyleBuildsAI/ship-it/pull/16
+
+1. What's the difference between a squash merge and a regular merge commit? What does `main`'s history look like with each?
+2. Why is "never merge a PR with failing checks" only a real guarantee once CI exists, and what fills that gap until then?
+3. Why does the rule say to open an issue after 3 failed attempts instead of retrying until it works?
+
+<details><summary>Answers</summary>
+
+1. A regular merge keeps every commit from the branch and adds a merge commit with two parents, so `main` shows all the small steps. A squash merge combines the branch into one new commit with one parent, so `main` shows one commit per PR. The individual commits remain readable in the PR on GitHub.
+2. With no CI, the PR reports no checks at all, so there's nothing to fail and nothing to stop a bad merge. Until CI exists, the gap is filled by running `npm run check` locally before merging. Once #12 lands, GitHub runs the same gates on every push, independently of the author's machine.
+3. Retrying the same thing rarely fixes it and burns time on one blocker while everything else waits. An issue records what failed and what was tried, so a person (or a later session) can pick it up with context. Meanwhile the rest of the milestone keeps moving.
+
+</details>
