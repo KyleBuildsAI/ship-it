@@ -1135,3 +1135,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/90
 3. xterm wraps text at the width it has when the text is written. If the page loaded before it had a real width, the terminal was 2 columns wide at that moment, so the greeting wrapped every 2 letters, and it stays wrapped. Now the greeting waits until the terminal is at least 20 columns wide.
 
 </details>
+
+---
+
+## #92 feat: first-run tutorial logic that advances when you do each step
+
+https://github.com/KyleBuildsAI/ship-it/pull/92
+
+1. Why does `isStepDone` take both `now` and `atStart`?
+2. What happens if the tutorial reaches the "step into an Act" step while you're already in the Git World?
+3. Why must `check()` hide the card *before* saving the finish?
+
+<details><summary>Answers</summary>
+
+1. The counters only ever go up, so "done" means "went up since this step began". `atStart` is the snapshot from when the step began, and `now` is the latest. Without `atStart`, a jump from before the jump step (or before a replay) would count.
+2. `advance` checks the next step right away with the new baseline. The portal step's rule is "not on Campus, or the Act menu is open", which is already true, so it passes at once and the tutorial finishes.
+3. Saving updates the progress store, which calls `check()` synchronously. If the last step were still showing, `check()` would see it done, save again, and recurse until the stack overflowed. Hiding first means the nested `check()` sees no tutorial running and a finished save, and does nothing.
+
+</details>
