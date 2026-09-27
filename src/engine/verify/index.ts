@@ -17,6 +17,7 @@ export {
 export { detectPasteKind, type PasteKind } from './detect';
 export { parseLogOneline, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
+export { parsePathList } from './pathList';
 export {
   parseStatusLong,
   type ChangeKind,

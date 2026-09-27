@@ -120,7 +120,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 ### Verification
 - **M1: paste verification.** Kyle runs a command in PowerShell on the real repo (e.g. `git status`, `git log --oneline -10`) and pastes the output. The game parses it and checks predicates. Parsers live in `src/engine/verify` with unit tests.
-  - Understood pastes: `git status` (default, `-s`, `-sb`, `--porcelain`) and `git log --oneline` (with or without `--graph` and `--decorate`). `detectPasteKind` tells them apart. A copied prompt or typed `git` command line, CRLF endings, color codes, and the pager's `(END)` are stripped first.
+  - Understood pastes: `git status` (default, `-s`, `-sb`, `--porcelain`) and `git log --oneline` (with or without `--graph` and `--decorate`), which `detectPasteKind` tells apart, plus `git ls-files` for the tracked-secrets check. A copied prompt or typed `git` command line, CRLF endings, color codes, and the pager's `(END)` are stripped first.
   - Checks: clean tree, Conventional Commit ratio (git's own merge subjects don't count), tracked secret files (`.env` yes, `.env.example` no), and `.gitignore` suggestions for build output.
   - Tests run against genuine git output saved in `src/engine/verify/fixtures/`. `capture.ps1` there rebuilds it with real git, and the sandbox's own output must parse the same way.
 - **M3+: GitHub API verification.** Fine-grained personal access token, read-only, scoped to the target repos. Stored in IndexedDB on Kyle's machine only. Never committed. Only ever sent to `api.github.com`. The Settings screen explains the scopes in plain language.

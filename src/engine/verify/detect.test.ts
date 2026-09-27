@@ -17,6 +17,8 @@ const fixtureName = (path: string) => path.replace('./fixtures/', '').replace('.
 function expectedKind(name: string): PasteKind {
   // Git printed an error here, not a log, and a clean `git status -s` printed nothing.
   if (name === 'log-oneline-fresh-error' || name === 'status-short-clean') return 'unknown';
+  // A plain list of paths has no shape to detect. A mission asks for it by name instead.
+  if (name === 'ls-files') return 'unknown';
   if (name.startsWith('status-long-')) return 'status-long';
   if (/^status-(?:short|sb|porcelain)-/.test(name)) return 'status-short';
   if (name.startsWith('log-oneline')) return 'log-oneline';

@@ -413,6 +413,17 @@ try {
     Save-Fixture 'status-long-slow-untracked' $clean @('status')
     Remove-Item Env:GIT_TEST_UF_DELAY_WARNING
 
+    # --- Every tracked file, including secrets and build output committed by mistake -------
+    $tracked = New-Repo 'tracked'
+    Write-RepoFile $tracked 'README.md' "# Demo`n"
+    Write-RepoFile $tracked '.env.example' "PORT=`n"
+    Write-RepoFile $tracked '.env' "PORT=3000`n"
+    Write-RepoFile $tracked 'café/.env.local' "PORT=4000`n"
+    Write-RepoFile $tracked 'dist/app.js' "bundle`n"
+    Invoke-Git $tracked add .
+    New-Commit $tracked 'chore: initial commit'
+    Save-Fixture 'ls-files' $tracked @('ls-files')
+
     Write-Host "Saved fixtures to $OutDir"
 }
 finally {

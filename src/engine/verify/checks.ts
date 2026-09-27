@@ -6,7 +6,8 @@ export type ParsedStatus = ParsedStatusLong | ParsedStatusShort;
 
 /**
  * Where a check reads file paths from: a parsed status, or a plain list of paths (for
- * example from `git ls-files`, which lists every tracked file, changed or not).
+ * example a `git ls-files` paste read by parsePathList, which lists every tracked file,
+ * changed or not).
  */
 export type PathSource = ParsedStatus | readonly string[];
 
@@ -128,8 +129,8 @@ export function isSecretPath(path: string): boolean {
 
 /**
  * Secret files that git tracks, or will after the next commit. A status only lists
- * files that changed, so an untouched tracked `.env` won't show there. Pass the lines
- * of `git ls-files` to check every tracked file.
+ * files that changed, so an untouched tracked `.env` won't show there. Pass a
+ * `git ls-files` paste through parsePathList to check every tracked file.
  */
 export function trackedSecretPaths(source: PathSource): string[] {
   return [...new Set(trackedPaths(source).filter(isSecretPath))];
