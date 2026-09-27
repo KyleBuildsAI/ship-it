@@ -991,3 +991,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/78
 3. `git status` only lists files that changed or aren't tracked. A committed `.env` that hasn't changed never appears. `git ls-files` lists every tracked file, so a leaked `.env` shows up.
 
 </details>
+
+---
+
+## #79 feat: act 2 on screen: act menu, mission, drill, and boss panels
+
+https://github.com/KyleBuildsAI/ship-it/pull/79
+
+1. Where does the objective checklist's ✓ come from? What decides it?
+2. Why does the view shift by half the panel's width, not the whole width?
+3. The boss button is disabled. What unlocks it?
+
+<details><summary>Answers</summary>
+
+1. The controller calls `explain(step.success, queries)` after every sandbox change. Each row's `passed` is that predicate evaluated against the current sandbox state, and the UI just renders it.
+2. The scene should be centred in the visible area. The visible area's centre is half a panel-width to the right of the screen's centre.
+3. Every Act 2 mission completed, or tested out through the placement test.
+
+</details>
