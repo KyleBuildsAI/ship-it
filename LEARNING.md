@@ -415,3 +415,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/46
 3. After the tab has been in the background, the next delta can be seconds long. Once walking exists, "speed × delta" would then move the avatar metres in one frame. Clamping to 0.1 s keeps every step small.
 
 </details>
+
+---
+
+## #47 feat: walk the campus with WASD and click-to-walk
+
+https://github.com/KyleBuildsAI/ship-it/pull/47
+
+1. You orbit the camera to look at the avatar from the side, then press W. Which way does the avatar walk, and which function decides that?
+2. Why does `stepToward` return `arrived: true` when the remaining distance is less than one step, instead of always moving a full step?
+3. What bug would appear if `onKey` ignored `isTypingTarget` on key-up as well as key-down?
+
+<details><summary>Answers</summary>
+
+1. Into the screen, away from the camera. `keyDirection` rotates "forward" by the camera's azimuth angle, from `controls.getAzimuthalAngle()`.
+2. A full step would overshoot the target, so the next frame would step back, and the avatar would jitter around the clicked spot forever. Snapping to the target and reporting arrival stops it cleanly.
+3. Press W in the world, click into the terminal, then let go. The key-up would be ignored because it came from the terminal, so `keys.forward` would stay true and the avatar would keep walking. Only key-down is filtered, so a release always registers.
+
+</details>
