@@ -17,7 +17,7 @@ import { SeriesView } from './SeriesView';
 export function PlayPanel() {
   const { activity, checklist } = useStore(play);
   const { zone } = useStore(worldState);
-  const { terminalOpen } = useStore(hud);
+  const { terminalOpen, actMenuOpen } = useStore(hud);
   const { status, problem } = useStore(progress);
   const panel = useRef<HTMLElement>(null);
 
@@ -34,7 +34,7 @@ export function PlayPanel() {
     content = <BossView activity={activity} checklist={checklist} />;
   } else if (activity?.kind === 'field') {
     content = <FieldView />;
-  } else if (zone === 'gitworld') {
+  } else if (zone === 'gitworld' || actMenuOpen) {
     content = <ActMenu />;
   }
   const visible = content !== null;

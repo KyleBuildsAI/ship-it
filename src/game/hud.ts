@@ -15,6 +15,9 @@ export interface TerminalNotice {
   readonly id: number;
 }
 
+/** The Campus menus reachable from the HUD (DESIGN.md section 4). */
+export type MenuId = 'standup' | 'trophies' | 'settings';
+
 export interface HudState {
   /** The terminal panel is docked at the bottom of the screen. */
   terminalOpen: boolean;
@@ -27,6 +30,10 @@ export interface HudState {
   suggestion: Suggestion | null;
   pendingCommand: PendingCommand | null;
   notice: TerminalNotice | null;
+  /** The menu open over the world, if any. */
+  menu: MenuId | null;
+  /** Act 2's menu, opened from the HUD so it's reachable outside the Git World too. */
+  actMenuOpen: boolean;
 }
 
 export const hud = createStore<HudState>({
@@ -35,6 +42,8 @@ export const hud = createStore<HudState>({
   suggestion: null,
   pendingCommand: null,
   notice: null,
+  menu: null,
+  actMenuOpen: false,
 });
 
 export function toggleTerminal(): void {
@@ -64,4 +73,12 @@ export function sendToTerminal(text: string, run: boolean, cursorFromEnd = 0): v
 export function announce(text: string): void {
   const { notice } = hud.get();
   hud.update({ notice: { text, id: (notice?.id ?? 0) + 1 } });
+}
+
+export function openMenu(menu: MenuId | null): void {
+  hud.update({ menu });
+}
+
+export function toggleActMenu(): void {
+  hud.update({ actMenuOpen: !hud.get().actMenuOpen });
 }

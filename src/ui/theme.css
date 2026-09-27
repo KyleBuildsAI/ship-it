@@ -670,3 +670,155 @@ body {
   color: var(--text);
   font: 13px var(--font-mono);
 }
+
+/* HUD menu row: Act 2, Standup Board, Trophy Wall, Settings. */
+.hud-menu {
+  position: absolute;
+  left: 150px;
+  bottom: 16px;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  transition: bottom 0.25s ease;
+}
+
+.hud-menu--above-terminal {
+  bottom: calc(38vh + 28px);
+}
+
+.hud-menu__button {
+  padding: 8px 14px;
+  color: var(--text);
+  font: 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.hud-menu__button:hover,
+.hud-menu__button[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+.hud-menu__button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.overlay {
+  position: absolute;
+  /* Above the terminal and the play panel: a menu is modal while it is open. */
+  z-index: 10;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  padding: 16px 20px;
+  overflow-y: auto;
+  background: rgba(10, 15, 28, 0.9);
+  pointer-events: auto;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.overlay:focus {
+  outline: none;
+}
+
+.standup-list {
+  padding-left: 20px;
+}
+
+.standup-list li {
+  margin: 6px 0;
+}
+
+.standup-list small {
+  display: block;
+  color: var(--text-muted);
+}
+
+.trophy-rank {
+  margin: 4px 0;
+  color: var(--accent);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.trophy-rank span {
+  margin-left: 8px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.trophy-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.trophy-stats div {
+  padding: 8px 10px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 8px;
+}
+
+.trophy-stats dt {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.trophy-stats dd {
+  margin: 2px 0 0;
+  font-size: 20px;
+}
+
+.trophy-missions {
+  margin: 4px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.settings-grid label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-grid select {
+  padding: 4px 8px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  font: 14px var(--font-ui);
+}
+
+.play-button--danger {
+  border-color: #ff7b7b;
+  background: rgba(255, 123, 123, 0.14);
+}
+
+html[data-text-size='large'] :is(.play-panel, .overlay, .command-chip, .title-card, .hud-menu) {
+  zoom: 1.12;
+}
+
+html[data-text-size='x-large'] :is(.play-panel, .overlay, .command-chip, .title-card, .hud-menu) {
+  zoom: 1.25;
+}
+
+html[data-reduced-motion='on'] *,
+html[data-reduced-motion='on'] *::before,
+html[data-reduced-motion='on'] *::after {
+  animation: none !important;
+  transition: none !important;
+}

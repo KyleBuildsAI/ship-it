@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
 import { hud } from '../../game/hud';
+import { progress } from '../../game/progress';
 import { sandbox } from '../../game/sandbox';
 import { useStore } from '../useStore';
 import { completeLine } from './complete';
@@ -27,6 +28,8 @@ const THEME = {
   brightBlack: '#5c6a86',
 };
 
+const FONT_SIZES = { normal: 14, large: 16, 'x-large': 18 } as const;
+
 const WELCOME =
   'SHIP IT sandbox. Type \x1b[36mhelp\x1b[0m for commands, or start with \x1b[36mgit init\x1b[0m.';
 
@@ -41,6 +44,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
   /** Types text as if the player had, so HUD requests use the exact same path as keys. */
   const typeRef = useRef<((data: string) => void) | null>(null);
   const editorRef = useRef<LineEditor | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
 
   useEffect(() => {
     const element = host.current;
@@ -59,6 +63,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
     terminal.open(element);
     fit.fit();
     terminalRef.current = terminal;
+    fitRef.current = fit;
 
     const shell = () => sandbox.get().shell;
     const editor = new LineEditor({
@@ -103,6 +108,16 @@ export function TerminalPanel({ open }: { open: boolean }) {
   }, []);
 
   const { pendingCommand, terminalFocusRequests, notice } = useStore(hud);
+  const textSize = useStore(progress).save?.settings.textSize ?? 'normal';
+
+  // Text size reaches the terminal through xterm's own font size; CSS zoom would break its
+  // mouse and selection maths.
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    terminal.options.fontSize = FONT_SIZES[textSize];
+    fitRef.current?.fit();
+  }, [textSize]);
 
   // Game messages print above a fresh prompt, in the accent color, so they read as the game
   // talking rather than command output.
