@@ -6,7 +6,7 @@ import { TEST_NOW } from '../save/testFixtures';
 import { FADE_IN_MS, FADE_OUT_MS, GAP_MS, music, startMusic, type AudioLike } from './music';
 import { MUSIC_LEVEL, musicVolume } from './playlist';
 
-type AudioEvent = 'ended';
+type AudioEvent = 'ended' | 'error' | 'playing';
 
 /** Plays nothing, but behaves like an audio element: play() answers the way a test says. */
 class FakeAudio implements AudioLike {
@@ -67,13 +67,16 @@ async function advance(ms = 0): Promise<void> {
 describe('the music player', () => {
   let audio: FakeAudio;
   let events: EventTarget;
-
+  let hidden: boolean;
+  let pageEvents: EventTarget;
   let stop: () => void = () => undefined;
 
   beforeEach(() => {
     vi.useFakeTimers();
     audio = new FakeAudio();
     events = new EventTarget();
+    hidden = false;
+    pageEvents = new EventTarget();
     withVolume(1);
   });
 
@@ -88,6 +91,7 @@ describe('the music player', () => {
       tracks: TRACKS,
       random: KEEP_ORDER,
       events,
+      page: { hidden: () => hidden, target: pageEvents },
     });
   };
   const click = () => events.dispatchEvent(new Event('pointerdown'));
@@ -150,13 +154,54 @@ describe('the music player', () => {
     expect(music.get().track).toEqual(TRACKS[0]);
   });
 
-  it('says unavailable when a piece fails to load', async () => {
-    audio.answer = () => Promise.reject(new DOMException('offline', 'NetworkError'));
+  it('skips a piece that fails to load', async () => {
+    // Only the first piece is broken.
+    audio.answer = () =>
+      audio.src === TRACKS[0]?.url
+        ? Promise.reject(new DOMException('no source', 'NotSupportedError'))
+        : Promise.resolve();
     begin();
     click();
     await advance();
 
+    expect(audio.src).toBe(TRACKS[1]?.url);
+    expect(music.get().state).toBe('playing');
+  });
+
+  it('says unavailable when every piece fails, and tries again once back online', async () => {
+    audio.answer = () => Promise.reject(new DOMException('offline', 'NetworkError'));
+    begin();
+    click();
+    await advance();
     expect(music.get()).toEqual({ state: 'unavailable', track: null });
+
+    audio.answer = () => Promise.resolve();
+    events.dispatchEvent(new Event('online'));
+    await advance();
+    expect(music.get().state).toBe('playing');
+  });
+
+  it('a piece that breaks off partway counts as a failure and moves on', async () => {
+    begin();
+    click();
+    await advance(FADE_IN_MS);
+    audio.emit('error');
+    await advance();
+
+    expect(audio.src).toBe(TRACKS[1]?.url);
+  });
+
+  it('waits for another click if the browser still refuses', async () => {
+    audio.answer = () => Promise.reject(new DOMException('needs a gesture', 'NotAllowedError'));
+    begin();
+    click();
+    await advance();
+    expect(music.get().state).toBe('waiting');
+
+    audio.answer = () => Promise.resolve();
+    click();
+    await advance();
+    expect(music.get().state).toBe('playing');
   });
 
   it('fades out and stops when the volume goes to 0, and comes back when raised', async () => {
@@ -185,6 +230,29 @@ describe('the music player', () => {
     await advance(1000);
 
     expect(audio.volume).toBeCloseTo(musicVolume(0.25));
+  });
+
+  it('pauses while the tab is hidden and resumes the same piece', async () => {
+    const play = vi.spyOn(audio, 'play');
+    begin();
+    click();
+    await advance(FADE_IN_MS);
+
+    hidden = true;
+    pageEvents.dispatchEvent(new Event('visibilitychange'));
+    await advance(FADE_OUT_MS);
+    expect(audio.paused).toBe(true);
+    expect(music.get().state).toBe('off');
+
+    audio.src = 'changed-only-if-reloaded';
+    hidden = false;
+    pageEvents.dispatchEvent(new Event('visibilitychange'));
+    await advance();
+
+    // Same piece, no new file: the element carries on from where it paused.
+    expect(audio.src).toBe('changed-only-if-reloaded');
+    expect(play).toHaveBeenCalledTimes(2);
+    expect(music.get()).toEqual({ state: 'playing', track: TRACKS[0] });
   });
 
   it('goes quiet when another tab takes the save', async () => {
