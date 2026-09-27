@@ -2,7 +2,7 @@ import { endDrill } from '../../mentor/drillGuard';
 import { explain } from '../missions/predicates';
 import { applySteps } from '../missions/sandbox';
 import { checkBoss, secondsRemaining, startBoss, tick } from '../missions/runner';
-import { updateSave } from '../progress';
+import { saveProgressNow } from '../progress';
 import { getCatalog } from './catalog';
 import { play, type BossActivity } from './playStore';
 import { currentQueries, currentWorkspace, loadSandbox } from './sandboxControl';
@@ -54,7 +54,7 @@ function settle(current: BossActivity, nowMs: number): void {
   const { act } = getCatalog();
   const outcome = checkBoss(current.boss, act, currentQueries(), nowMs);
   if (outcome === 'won' && current.outcome !== 'won') {
-    updateSave((save) => completeBoss(save, act, new Date(nowMs)));
+    saveProgressNow((save) => completeBoss(save, act, new Date(nowMs)));
   }
   setActivity({ ...current, outcome, secondsLeft: secondsRemaining(current.boss, act, nowMs) });
 }

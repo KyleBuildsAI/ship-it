@@ -1027,3 +1027,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/80
 3. Real cleanup can take days. Saving each pass means Kyle can verify the history today and the clean tree tomorrow without redoing anything.
 
 </details>
+
+---
+
+## #81 feat: standup board, trophy wall, and settings menus
+
+https://github.com/KyleBuildsAI/ship-it/pull/81
+
+1. What bug did the reload e2e test find, and why wasn't it caught by unit tests?
+2. Why does text size change the terminal's font size instead of zooming it like the panels?
+3. What's inside an exported save file, and what is deliberately never in it?
+
+<details><summary>Answers</summary>
+
+1. A step finished less than 500 ms before a reload was lost: the debounced autosave hadn't run, and writes started during unload aren't guaranteed. Unit tests call `flushProgress()` directly and never unload a page. Only a real browser reload shows it.
+2. xterm.js measures character cells in pixels for the cursor, selection, and mouse. CSS zoom scales the pixels without telling it, so clicks land in the wrong place. Setting `fontSize` lets xterm re-measure properly.
+3. `{ format: 'ship-it-save', exportedAt, data }`: XP, missions, Acts, drill history, the review queue, Field Mission checks, and settings. Never secrets: the GitHub token (M3) will be stored apart from the save, so a shared file can't leak it.
+
+</details>

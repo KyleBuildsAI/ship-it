@@ -22,8 +22,12 @@ async function hasWebGPUAdapter(): Promise<boolean> {
  * Matches the canvas to its container. Also re-reads the pixel ratio, which changes
  * with browser zoom or when the window moves to a different monitor.
  */
-export function fitToContainer(renderer: THREE.WebGPURenderer, container: HTMLElement): void {
-  renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio));
+export function fitToContainer(
+  renderer: THREE.WebGPURenderer,
+  container: HTMLElement,
+  maxPixelRatio?: number,
+): void {
+  renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio, maxPixelRatio));
   renderer.setSize(container.clientWidth, container.clientHeight);
 }
 

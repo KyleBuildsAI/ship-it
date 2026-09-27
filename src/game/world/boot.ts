@@ -1,21 +1,36 @@
 import * as THREE from 'three/webgpu';
 import { devStatus } from '../devStatus';
+import { progress, whenProgressSettles } from '../progress';
+import type { Settings } from '../save/schema';
 import { createFrameRenderer } from './post';
 import { createRenderer, fitToContainer } from './renderer';
 import { createWorld } from './world';
+
+/** Graphics quality caps the pixel ratio: the biggest cost on a high-DPI screen. */
+const PIXEL_RATIO_CAP: Record<Settings['graphicsQuality'], number> = {
+  low: 1,
+  medium: 1.5,
+  high: 2,
+};
 
 /** Starts the 3D world inside `container` and keeps it rendering every frame. */
 export async function bootWorld(container: HTMLElement): Promise<void> {
   devStatus.update({ backend: 'starting', threeRevision: THREE.REVISION });
 
   const { renderer, backend } = await createRenderer(container);
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Settings live in the save, which loads while the GPU starts up; wait briefly for it.
+  await whenProgressSettles();
+  const settings = progress.get().save?.settings;
+  const systemReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion =
+    settings?.reducedMotion === 'on' || (settings?.reducedMotion !== 'off' && systemReducedMotion);
+  const pixelRatioCap = PIXEL_RATIO_CAP[settings?.graphicsQuality ?? 'high'];
   const world = createWorld(renderer.domElement, container, reducedMotion);
   const frame = createFrameRenderer(renderer, world.scene, world.camera);
 
   const fit = () => {
     world.resize(container.clientWidth, container.clientHeight);
-    fitToContainer(renderer, container);
+    fitToContainer(renderer, container, pixelRatioCap);
   };
   window.addEventListener('resize', fit);
   // The window may have resized while the GPU device was being created.

@@ -17,6 +17,6 @@ export function chooseBackend(forced: Backend | null, hasWebGPUAdapter: boolean)
   return hasWebGPUAdapter ? 'webgpu' : 'webgl2';
 }
 
-export function clampPixelRatio(devicePixelRatio: number): number {
-  return Math.min(Math.max(devicePixelRatio, 1), MAX_PIXEL_RATIO);
+export function clampPixelRatio(devicePixelRatio: number, max = MAX_PIXEL_RATIO): number {
+  return Math.min(Math.max(devicePixelRatio, 1), max);
 }
