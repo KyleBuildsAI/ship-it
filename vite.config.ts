@@ -26,6 +26,10 @@ export default defineConfig(({ command, isPreview }) => ({
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx'],
       reporter: ['text', 'html'],
+      // CLAUDE.md: the engine is graded like production code. Dropping below 90% fails the run.
+      thresholds: {
+        'src/engine/**': { statements: 90, branches: 90, functions: 90, lines: 90 },
+      },
     },
   },
 }));
