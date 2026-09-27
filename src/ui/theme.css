@@ -162,3 +162,145 @@ body {
     animation: none;
   }
 }
+
+/* Panels that take clicks and typing opt back in to pointer events. */
+.hud-button,
+.terminal-panel {
+  pointer-events: auto;
+}
+
+.hud-button {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 8px 14px;
+  color: var(--text);
+  font: 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.hud-button:hover,
+.hud-button[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+.hud-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hud-button kbd {
+  font: 11px var(--font-mono);
+  color: var(--text-muted);
+}
+
+.terminal-toggle {
+  bottom: calc(38vh + 28px);
+  transition: bottom 0.25s ease;
+}
+
+.terminal-toggle[aria-pressed='false'] {
+  bottom: 16px;
+}
+
+.terminal-panel {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  box-sizing: border-box;
+  height: 38vh;
+  padding: 10px 12px;
+  background: rgba(10, 15, 28, 0.82);
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.terminal-panel--hidden {
+  transform: translateY(calc(100% + 32px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.terminal-panel__screen {
+  width: 100%;
+  height: 100%;
+}
+
+/* xterm paints its own background; let the glass show through at the edges only. */
+.terminal-panel .xterm-viewport {
+  scrollbar-color: #2a3a5c transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-panel,
+  .terminal-toggle {
+    transition: none;
+  }
+}
+
+.editor-dock {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(44vw, 640px);
+  pointer-events: auto;
+}
+
+.editor-dock--above-terminal {
+  bottom: calc(38vh + 32px);
+}
+
+.editor-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(10, 15, 28, 0.86);
+}
+
+.editor-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--glass-stroke);
+  font: 13px var(--font-mono);
+}
+
+.editor-panel__path {
+  flex: 1;
+  color: var(--text);
+}
+
+.editor-panel__hint {
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+}
+
+.editor-panel__close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.editor-panel__close:hover,
+.editor-panel__close:focus-visible {
+  color: var(--text);
+}
+
+.editor-panel__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* CodeMirror's One Dark paints solid panels; keep the gutter and active line translucent. */
+.editor-panel .cm-activeLine,
+.editor-panel .cm-activeLineGutter {
+  background-color: rgba(111, 211, 255, 0.06);
+}

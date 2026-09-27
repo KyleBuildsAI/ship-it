@@ -1,5 +1,16 @@
 import type { Workspace } from '../../workspace';
+import { addCommand } from './commands/add';
+import { commitCommand } from './commands/commit';
+import { diffCommand } from './commands/diff';
 import { initCommand } from './commands/init';
+import { logCommand } from './commands/log';
+import { mvCommand } from './commands/mv';
+import { reflogCommand } from './commands/reflog';
+import { resetCommand } from './commands/reset';
+import { restoreCommand } from './commands/restore';
+import { revertCommand } from './commands/revert';
+import { rmCommand } from './commands/rm';
+import { showCommand } from './commands/show';
 import { statusCommand } from './commands/status';
 import { fatal, line, ok, type CommandResult } from './output';
 import type { CommandContext } from './pathspec';
@@ -10,7 +21,18 @@ type Command = (ws: Workspace, ctx: CommandContext, argv: readonly string[]) => 
 const NO_REPO_NEEDED = new Set(['init']);
 
 const COMMANDS: Record<string, Command> = {
+  add: addCommand,
+  commit: commitCommand,
+  diff: diffCommand,
   init: initCommand,
+  log: logCommand,
+  mv: mvCommand,
+  reflog: reflogCommand,
+  reset: resetCommand,
+  restore: restoreCommand,
+  revert: revertCommand,
+  rm: rmCommand,
+  show: showCommand,
   status: statusCommand,
 };
 
