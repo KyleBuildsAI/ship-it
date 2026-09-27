@@ -1,5 +1,6 @@
 import type { Workspace } from '../../workspace';
 import { addCommand } from './commands/add';
+import { commitCommand } from './commands/commit';
 import { diffCommand } from './commands/diff';
 import { initCommand } from './commands/init';
 import { mvCommand } from './commands/mv';
@@ -16,6 +17,7 @@ const NO_REPO_NEEDED = new Set(['init']);
 
 const COMMANDS: Record<string, Command> = {
   add: addCommand,
+  commit: commitCommand,
   diff: diffCommand,
   init: initCommand,
   mv: mvCommand,
