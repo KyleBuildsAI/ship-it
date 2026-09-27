@@ -6,8 +6,11 @@ const isCI = Boolean(process.env.CI);
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
+  // GitHub's runners have two CPU cores and no GPU, so the 3D scene renders in software.
+  // One test at a time there keeps them from starving each other.
+  workers: isCI ? 1 : undefined,
   // Hard ceilings so a stuck browser fails the run instead of hanging it forever.
-  timeout: 30_000,
+  timeout: isCI ? 60_000 : 30_000,
   globalTimeout: 5 * 60_000,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,

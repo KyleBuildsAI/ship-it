@@ -162,3 +162,80 @@ body {
     animation: none;
   }
 }
+
+/* Panels that take clicks and typing opt back in to pointer events. */
+.hud-button,
+.terminal-panel {
+  pointer-events: auto;
+}
+
+.hud-button {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 8px 14px;
+  color: var(--text);
+  font: 13px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.hud-button:hover,
+.hud-button[aria-pressed='true'] {
+  border-color: var(--accent);
+}
+
+.hud-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.hud-button kbd {
+  font: 11px var(--font-mono);
+  color: var(--text-muted);
+}
+
+.terminal-toggle {
+  bottom: calc(38vh + 28px);
+  transition: bottom 0.25s ease;
+}
+
+.terminal-toggle[aria-pressed='false'] {
+  bottom: 16px;
+}
+
+.terminal-panel {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  box-sizing: border-box;
+  height: 38vh;
+  padding: 10px 12px;
+  background: rgba(10, 15, 28, 0.82);
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.terminal-panel--hidden {
+  transform: translateY(calc(100% + 32px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.terminal-panel__screen {
+  width: 100%;
+  height: 100%;
+}
+
+/* xterm paints its own background; let the glass show through at the edges only. */
+.terminal-panel .xterm-viewport {
+  scrollbar-color: #2a3a5c transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-panel,
+  .terminal-toggle {
+    transition: none;
+  }
+}
