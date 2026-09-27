@@ -157,11 +157,22 @@ describe('history', () => {
     );
   });
 
-  it('finds moves of HEAD in the reflog', () => {
+  it('finds moves of HEAD in the reflog, including a reset', () => {
     const ws = project();
     expect(holds(ws, { kind: 'reflogContains', pattern: 'commit \\(initial\\)' })).toBe(true);
-    expect(holds(ws, { kind: 'reflogContains', pattern: '^reset' })).toBe(false);
+    expect(holds(ws, { kind: 'reflogContains', pattern: '^reset: ' })).toBe(false);
     expect(holds(ws, { kind: 'reflogContains', pattern: 'ADD README', flags: 'i' })).toBe(true);
+    git(ws, ['reset', '--hard', 'HEAD~1']);
+    expect(holds(ws, { kind: 'reflogContains', pattern: '^reset: ' })).toBe(true);
+  });
+
+  it('follows HEAD through a reset and a reflog recovery', () => {
+    const ws = project();
+    git(ws, ['reset', '--hard', 'HEAD~1']);
+    expect(holds(ws, { kind: 'headMessageIs', message: 'chore: init' })).toBe(true);
+    // HEAD@{1} is where HEAD was one move ago: the commit the reset walked away from.
+    git(ws, ['reset', '--hard', 'HEAD@{1}']);
+    expect(holds(ws, { kind: 'headMessageIs', message: 'feat: add readme' })).toBe(true);
   });
 
   it('knows which commit HEAD is on by its message', () => {
