@@ -1,0 +1,15 @@
+interactive rebase in progress; onto e4348bf
+Last command done (1 command done):
+   pick 538baff # feat: move to port 4000
+No commands remaining.
+You are currently rebasing branch 'other' on 'e4348bf'.
+  (fix conflicts and then run "git rebase --continue")
+  (use "git rebase --skip" to skip this patch)
+  (use "git rebase --abort" to check out the original branch)
+
+Unmerged paths:
+  (use "git restore --staged <file>..." to unstage)
+  (use "git add <file>..." to mark resolution)
+	both modified:   app.ts
+
+no changes added to commit (use "git add" and/or "git commit -a")

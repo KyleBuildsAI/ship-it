@@ -1,0 +1,3 @@
+R  a.txt -> b.txt
+RM keep.txt -> kept.txt
+R  "old name.txt" -> "new name.txt"

@@ -1,0 +1,11 @@
+* [33m501437f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m docs(changelog): start a changelog
+*   [33m828673f[m[33m ([m[1;33mtag: [m[1;33mv1.1[m[33m, [m[1;31morigin/main[m[33m)[m Merge branch 'feature'
+[32m|[m[33m\[m  
+[32m|[m * [33m959c681[m[33m ([m[1;31morigin/feature[m[33m, [m[1;32mfeature[m[33m)[m docs: explain paste verification
+[32m|[m * [33mbfeb7e2[m feat!: drop legacy format
+* [33m|[m [33m1c0066c[m test: cover detached HEAD
+[33m|[m[33m/[m  
+* [33m2f0b042[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m update stuff
+* [33m84f90e1[m fix(parser): handle quoted paths
+* [33m3f82ce7[m feat: add status parser
+* [33m044d4cd[m Initial commit
