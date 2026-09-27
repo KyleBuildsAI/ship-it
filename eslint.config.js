@@ -24,6 +24,11 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // A one-line `if (x) return;` is fine, but a body on its own line needs braces,
+      // so adding a second statement later can't silently fall outside the if.
+      curly: ['error', 'multi-line'],
+    },
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
