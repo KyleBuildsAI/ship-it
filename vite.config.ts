@@ -9,6 +9,16 @@ const PAGES_BASE = '/ship-it/';
 export default defineConfig(({ command, isPreview }) => ({
   base: command === 'build' || isPreview ? PAGES_BASE : '/',
   plugins: [react()],
+  resolve: {
+    // three.js addons import from 'three'. Point that at the WebGPU build our code uses,
+    // so only one copy of the three.js core loads (two copies break instanceof checks).
+    alias: [{ find: /^three$/, replacement: 'three/webgpu' }],
+  },
+  build: {
+    // The three.js WebGPU core alone is over the 500 kB default. It loads in its own
+    // lazy chunk after the HUD, so the warning would only be noise.
+    chunkSizeWarningLimit: 1600,
+  },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
