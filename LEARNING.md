@@ -811,3 +811,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/68
 3. Any difference between the simulated git's output format and real git's, such as a changed hint line or different spacing, which would mean the game is teaching output that doesn't match reality.
 
 </details>
+
+---
+
+## #69 chore: sage server project with config, port, and logger
+
+https://github.com/KyleBuildsAI/ship-it/pull/69
+
+1. Why is a value import from `server/` into `src/` a lint error, while `import type` is allowed?
+2. `.env` says `MENTOR_DAILY_CALL_CAP=fifty`. What happens?
+3. Where should your Anthropic API key go, and where must it never appear?
+
+<details><summary>Answers</summary>
+
+1. A value import would bundle server code (which reads `.env`, where the key lives) into the browser. `import type` disappears at compile time, so only the type information is shared, and no code or secrets are.
+2. It isn't a whole number, so the server warns (`MENTOR_DAILY_CALL_CAP="fifty" is not a valid value. Using 50 instead.`) and uses the default cap of 50.
+3. Only in `.env` on your machine, after `ANTHROPIC_API_KEY=` (the file is gitignored). Never in code, a commit, an issue, a chat, or any `VITE_` variable.
+
+</details>
