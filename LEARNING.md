@@ -1207,3 +1207,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/96
 3. `play()` answers later, asynchronously. If you stop the music (or a new piece starts) before it answers, a late "it's playing" must not mark the music as playing or start a fade. Each attempt gets a number, and only the latest one counts.
 
 </details>
+
+---
+
+## #99 feat: music skips broken pieces and pauses while the tab is hidden
+
+https://github.com/KyleBuildsAI/ship-it/pull/99
+
+1. Why does the player stop trying after every piece has failed once, instead of retrying forever?
+2. Why is `AbortError` ignored while other errors count as failures?
+3. How does coming back to the tab resume the same piece instead of restarting it?
+
+<details><summary>Answers</summary>
+
+1. When every piece fails in a row, the cause is almost always the network, not the files. Retrying immediately would loop forever while offline, making requests and flickering the status. It waits for the browser's `online` event instead.
+2. `AbortError` means `play()` was interrupted on purpose: the music was muted or paused while a piece was still loading. Nothing broke, so nothing needs skipping. Other errors mean the file couldn't play.
+3. Hiding the tab only pauses the audio element, which keeps its position. `play()` compares the piece with `loaded`, the file the element already holds. It's the same, so `src` isn't set again, and `play()` carries on from where it paused.
+
+</details>

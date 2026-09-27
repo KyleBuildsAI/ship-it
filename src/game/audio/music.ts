@@ -10,7 +10,8 @@ import { createPlaylist, currentTrack, musicVolume, nextInPlaylist, rampVolume }
  *
  * Browsers refuse to play sound before the player has clicked or pressed a key on the
  * page, so the music waits for that first interaction. The volume setting (0 turns it
- * off) comes from the save, and a tab that has handed the save to another tab goes quiet.
+ * off) comes from the save. The music pauses while the tab is hidden and picks the same
+ * piece up where it left off, and a tab that has handed the save to another tab goes quiet.
  */
 
 export const FADE_IN_MS = 4000;
@@ -23,7 +24,7 @@ const FADE_STEP_MS = 50;
 
 /**
  * 'waiting': ready to play, but the browser needs a click or key press first.
- * 'unavailable': a piece failed to load, usually because the computer is offline.
+ * 'unavailable': every piece failed to load, usually because the computer is offline.
  */
 export type MusicState = 'off' | 'waiting' | 'loading' | 'playing' | 'unavailable';
 
@@ -41,16 +42,18 @@ export interface AudioLike {
   volume: number;
   play: () => Promise<void>;
   pause: () => void;
-  addEventListener: (type: 'ended', listener: () => void) => void;
-  removeEventListener: (type: 'ended', listener: () => void) => void;
+  addEventListener: (type: 'ended' | 'error' | 'playing', listener: () => void) => void;
+  removeEventListener: (type: 'ended' | 'error' | 'playing', listener: () => void) => void;
 }
 
 export interface MusicOptions {
   audio?: AudioLike;
   tracks?: readonly Track[];
   random?: () => number;
-  /** Where clicks and key presses are heard. The window in the game. */
+  /** Where clicks, key presses, and "back online" are heard. The window in the game. */
   events?: EventTarget;
+  /** Whether the tab is hidden, and where it says so changed. The document in the game. */
+  page?: { hidden: () => boolean; target: EventTarget };
 }
 
 const GESTURES = ['pointerdown', 'keydown'] as const;
@@ -61,19 +64,27 @@ export function startMusic(options: MusicOptions = {}): () => void {
   const tracks = options.tracks ?? TRACKS;
   const random = options.random ?? Math.random;
   const events = options.events ?? window;
+  const page = options.page ?? {
+    hidden: () => document.visibilityState === 'hidden',
+    target: document,
+  };
 
   let playlist = createPlaylist(tracks, random);
   // Sound is allowed once the player has interacted with the page.
   let interacted = false;
   // True from asking a piece to play until it ends or the music stops.
   let active = false;
+  let failuresInARow = 0;
+  // The file the audio element holds. Playing it again resumes where it paused.
+  let loaded: string | null = null;
   // Each request to play gets a number, so a late answer about an older piece is ignored.
   let attempts = 0;
   let fade: ReturnType<typeof setInterval> | null = null;
   let gap: ReturnType<typeof setTimeout> | null = null;
 
   const setting = () => progress.get().save?.settings.audioVolume ?? 0;
-  const wanted = () => progress.get().status === 'ready' && setting() > 0 && isSavingHere();
+  const wanted = () =>
+    progress.get().status === 'ready' && setting() > 0 && isSavingHere() && !page.hidden();
 
   const stopFade = () => {
     if (fade !== null) clearInterval(fade);
@@ -99,6 +110,19 @@ export function startMusic(options: MusicOptions = {}): () => void {
     playlist = nextInPlaylist(playlist, tracks, random);
   };
 
+  const failed = () => {
+    active = false;
+    // A broken file must load afresh next time round, not resume.
+    loaded = null;
+    failuresInARow += 1;
+    if (failuresInARow >= tracks.length) {
+      music.update({ state: 'unavailable', track: null });
+      return;
+    }
+    moveOn();
+    sync();
+  };
+
   const play = () => {
     const track = current();
     if (track === null) return;
@@ -107,7 +131,10 @@ export function startMusic(options: MusicOptions = {}): () => void {
     active = true;
     stopFade();
     audio.volume = 0;
-    audio.src = track.url;
+    if (loaded !== track.url) {
+      audio.src = track.url;
+      loaded = track.url;
+    }
     music.update({ state: 'loading', track });
     audio.play().then(
       () => {
@@ -116,11 +143,17 @@ export function startMusic(options: MusicOptions = {}): () => void {
         // Sync again afterwards in case the volume setting moved during the fade.
         fadeTo(musicVolume(setting()), FADE_IN_MS, sync);
       },
-      () => {
-        // Stopping the music on purpose also rejects play(), and that's not a failure.
-        if (attempt !== attempts || !active) return;
-        active = false;
-        music.update({ state: 'unavailable', track: null });
+      (error: unknown) => {
+        if (error instanceof DOMException && error.name === 'NotAllowedError') {
+          // The browser wants a fresh click or key press first; the next one retries.
+          active = false;
+          interacted = false;
+          sync();
+        } else if (error instanceof DOMException && error.name === 'AbortError') {
+          // Stopping or switching pieces interrupted this one on purpose; nothing to do.
+        } else {
+          failed();
+        }
       },
     );
   };
@@ -163,6 +196,9 @@ export function startMusic(options: MusicOptions = {}): () => void {
     interacted = true;
     sync();
   };
+  const onPlaying = () => {
+    failuresInARow = 0;
+  };
   const onEnded = () => {
     active = false;
     moveOn();
@@ -172,15 +208,35 @@ export function startMusic(options: MusicOptions = {}): () => void {
       sync();
     }, GAP_MS);
   };
+  const onError = () => {
+    // A network or decoding error, while loading or partway through a piece.
+    if (active) failed();
+  };
+  const onOnline = () => {
+    // Offline is the usual reason every piece failed; try again once the network is back.
+    if (music.get().state !== 'unavailable') return;
+    failuresInARow = 0;
+    music.update({ state: 'off', track: null });
+    sync();
+  };
+
   for (const type of GESTURES) events.addEventListener(type, onGesture, { capture: true });
+  events.addEventListener('online', onOnline);
+  page.target.addEventListener('visibilitychange', sync);
+  audio.addEventListener('playing', onPlaying);
   audio.addEventListener('ended', onEnded);
+  audio.addEventListener('error', onError);
   const stopWatching = progress.subscribe(sync);
   sync();
 
   return () => {
     stopWatching();
     for (const type of GESTURES) events.removeEventListener(type, onGesture, { capture: true });
+    events.removeEventListener('online', onOnline);
+    page.target.removeEventListener('visibilitychange', sync);
+    audio.removeEventListener('playing', onPlaying);
     audio.removeEventListener('ended', onEnded);
+    audio.removeEventListener('error', onError);
     stopFade();
     if (gap !== null) clearTimeout(gap);
     active = false;
