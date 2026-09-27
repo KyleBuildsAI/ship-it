@@ -121,8 +121,10 @@ describe('PredicateSchema', () => {
   });
 
   it('rejects the stateful g and y flags', () => {
-    const result = PredicateSchema.safeParse({ kind: 'headMessage', pattern: 'x', flags: 'g' });
-    expect(problems(result)[0]).toMatch(/g and y make test\(\) stateful/);
+    for (const flags of ['g', 'y', 'iy']) {
+      const result = PredicateSchema.safeParse({ kind: 'headMessage', pattern: 'x', flags });
+      expect(problems(result)[0]).toMatch(/g and y make test\(\) stateful/);
+    }
     expect(
       PredicateSchema.safeParse({ kind: 'headMessage', pattern: 'x', flags: 'imsu' }).success,
     ).toBe(true);
@@ -135,9 +137,10 @@ describe('PredicateSchema', () => {
     expect(problems(PredicateSchema.safeParse({ kind: 'commitCount', min: 3, max: 2 }))).toEqual([
       'min is larger than max.',
     ]);
-    expect(problems(PredicateSchema.safeParse({ kind: 'commitCount', equals: 3, min: 5 }))).toEqual(
-      ['Use equals on its own, or min and max without it.'],
-    );
+    for (const mixed of [{ min: 5 }, { max: 1 }]) {
+      const result = PredicateSchema.safeParse({ kind: 'commitCount', equals: 3, ...mixed });
+      expect(problems(result)).toEqual(['Use equals on its own, or min and max without it.']);
+    }
     const goneButFull = { kind: 'workingFile', path: 'a.ts', exists: false, contains: 'x' };
     expect(problems(PredicateSchema.safeParse(goneButFull))).toEqual([
       'A file that must not exist cannot also have content to check.',
@@ -175,12 +178,17 @@ describe('MissionSchema', () => {
     const longCaption = { ...sampleMissionInput.briefing, captions: [words(61)] };
     expect(problems(mission({ briefing: longCaption }))[0]).toMatch(/60 words or fewer/);
     expect(mission({ briefing: { ...longCaption, captions: [words(60)] } }).success).toBe(true);
+    const tooLong = /60 words or fewer/;
     const longStep = { ...firstStep, instruction: words(61) };
-    expect(mission({ steps: [longStep] }).success).toBe(false);
+    expect(problems(mission({ steps: [longStep] }))).toEqual([expect.stringMatching(tooLong)]);
     const longDrill = { ...firstDrill, prompt: words(61) };
-    expect(mission({ drills: [...sampleMissionInput.drills.slice(1), longDrill] }).success).toBe(
-      false,
-    );
+    const drills = [...sampleMissionInput.drills.slice(1), longDrill];
+    expect(problems(mission({ drills }))).toEqual([expect.stringMatching(tooLong)]);
+    // Labels replace checklist rows, so they are on-screen text too.
+    const longLabel = { kind: 'clean', label: words(61) };
+    expect(problems(PredicateSchema.safeParse(longLabel))).toEqual([
+      expect.stringMatching(tooLong),
+    ]);
   });
 
   it('shows 1 to 3 briefing captions', () => {
