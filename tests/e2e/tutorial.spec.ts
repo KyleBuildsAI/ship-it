@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { collectConsoleProblems } from './consoleProblems';
 
 test('the first-run tutorial moves on as the player does each thing', async ({ page }) => {
