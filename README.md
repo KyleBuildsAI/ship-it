@@ -36,6 +36,7 @@ It runs these in order and stops at the first failure:
 | `npm run lint` | ESLint with type-aware rules. Fails on any warning. |
 | `npm run format:check` | Prettier formatting check. `npm run format` fixes it. |
 | `npm run typecheck` | TypeScript strict compile, no output files. |
+| `npm run test:coverage` | Vitest unit tests with a coverage report in `coverage/`. `npm test` runs them without coverage. |
 | `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. |
 
 To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:4173/ship-it/`.

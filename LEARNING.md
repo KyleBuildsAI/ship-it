@@ -37,3 +37,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/16
 3. Retrying the same thing rarely fixes it and burns time on one blocker while everything else waits. An issue records what failed and what was tried, so a person (or a later session) can pick it up with context. Meanwhile the rest of the milestone keeps moving.
 
 </details>
+
+---
+
+## #17 feat: dev status badge with Vitest unit tests
+
+https://github.com/KyleBuildsAI/ship-it/pull/17
+
+1. The store test uses both `toBe` and `toEqual`. What's the difference, and why does the "nothing changed" test need `toBe`?
+2. Why is `statusRows()` a separate pure function instead of doing the mapping inside `StatusBadge`?
+3. What does `vi.fn()` give you that a normal function doesn't, and which test would be impossible to write without it?
+
+<details><summary>Answers</summary>
+
+1. `toEqual` compares contents: two different objects holding the same data pass. `toBe` compares identity: it passes only if both sides are the same object in memory. React re-renders when `get()` returns a different object, so "nothing changed" must mean the same object comes back. Only `toBe` proves that.
+2. A pure function (same input, same output, no side effects) can be tested with plain inputs and outputs, with no React, DOM, or rendering involved. It also keeps display logic (labels, tones) in one place, and the component stays a thin renderer.
+3. `vi.fn()` is a spy: it records every call and its arguments. That lets you assert the listener ran exactly once, or never. The tests "stays quiet when the patch changes nothing" and "stops notifying after unsubscribe" both check that something did *not* happen, and that's impossible to observe without a spy.
+
+</details>
