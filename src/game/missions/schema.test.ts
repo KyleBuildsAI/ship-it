@@ -134,6 +134,9 @@ describe('PredicateSchema', () => {
     expect(problems(PredicateSchema.safeParse({ kind: 'commitCount', min: 3, max: 2 }))).toEqual([
       'min is larger than max.',
     ]);
+    expect(problems(PredicateSchema.safeParse({ kind: 'commitCount', equals: 3, min: 5 }))).toEqual(
+      ['Use equals on its own, or min and max without it.'],
+    );
     const goneButFull = { kind: 'workingFile', path: 'a.ts', exists: false, contains: 'x' };
     expect(problems(PredicateSchema.safeParse(goneButFull))).toEqual([
       'A file that must not exist cannot also have content to check.',

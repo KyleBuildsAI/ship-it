@@ -156,6 +156,14 @@ const predicateKinds = z.discriminatedUnion('kind', [
       if (min !== undefined && max !== undefined && min > max) {
         ctx.addIssue({ code: 'custom', message: 'min is larger than max.', path: ['min'] });
       }
+      // { equals: 3, min: 5 } can never pass, and describe() would only mention equals.
+      if (equals !== undefined && (min !== undefined || max !== undefined)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Use equals on its own, or min and max without it.',
+          path: ['equals'],
+        });
+      }
     }),
   z
     .strictObject({ kind: z.literal('headMessage'), ...regexFields, ...labelled })
