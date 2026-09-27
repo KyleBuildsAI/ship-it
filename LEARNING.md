@@ -1243,3 +1243,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/98
 3. They're for tests only. Players don't need a global object that exposes the world's state. `navigator.webdriver` is true only when a browser is driven by automation, as Playwright does, so real players never get the hooks.
 
 </details>
+
+---
+
+## #100 refactor: world zones registry, and portals routed by act
+
+https://github.com/KyleBuildsAI/ship-it/pull/100
+
+1. What has to change to open Act 1's portal once its island exists?
+2. How does walking into a portal with WASD make you travel?
+3. Why does the Chrome test ask the page where the portal is, instead of clicking a fixed pixel?
+
+<details><summary>Answers</summary>
+
+1. Add `1: 'machine'` to `ZONE_FOR_ACT` (plus the island itself, as a zone). `openActs()` reads that table, so Campus draws Act 1's portal open, and `zoneForAct(1)` tells clicks and steps where it leads.
+2. After moving each frame, `update` calls `doorwayAt(position, zones[zone].doorways)`. When the avatar is within 0.9 of an open portal ring's centre, it returns that portal, and `travel(doorway.to)` fades to the other island.
+3. Where the portal lands on screen depends on the window size and the camera. A fixed pixel would break on a different screen. The test hook projects the ring's real 3D position through the camera, so the test clicks exactly where the portal is drawn.
+
+</details>
