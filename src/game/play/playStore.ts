@@ -1,7 +1,7 @@
 import type { CheckRow } from '../missions/predicates';
-import type { QuestionRoundScore } from '../missions/grading';
-import type { MissionRun } from '../missions/runner';
-import type { Mission } from '../missions/schema';
+import type { PlacementResult, QuestionRoundScore } from '../missions/grading';
+import type { BossOutcome, BossRun, MissionRun } from '../missions/runner';
+import type { Drill, Mission } from '../missions/schema';
 import { createStore } from '../store';
 
 /** A hint on screen, and whether Sage wrote it or it came from the mission's written ladder. */
@@ -42,8 +42,26 @@ export interface MissionActivity {
   readonly xpEarned: number;
 }
 
-/** What the player is doing now. Placement tests, reviews, and the boss join next. */
-export type Activity = MissionActivity;
+/** A row of timed drills: the placement test, or today's Standup Board reviews. */
+export interface SeriesActivity {
+  readonly kind: 'placement' | 'review';
+  readonly drills: readonly Drill[];
+  /** The drill on screen now, or null between drills and at the end. */
+  readonly active: { readonly index: number; readonly startedAtMs: number } | null;
+  readonly results: readonly DrillResult[];
+  readonly placement: PlacementResult | null;
+}
+
+export interface BossActivity {
+  readonly kind: 'boss';
+  readonly boss: BossRun;
+  readonly outcome: BossOutcome;
+  readonly secondsLeft: number;
+  /** Dex's messages so far, newest last. */
+  readonly messages: readonly string[];
+}
+
+export type Activity = MissionActivity | SeriesActivity | BossActivity;
 
 export interface PlayState {
   readonly activity: Activity | null;
