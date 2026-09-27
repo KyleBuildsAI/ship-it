@@ -1,21 +1,9 @@
 import { parseOnelineLine } from './logOneline';
 import { normalizePaste } from './normalize';
 import { isStatusLongLine } from './statusLong';
-import { parseShortBranch, parseShortEntry } from './statusShort';
+import { isShortStatusCommand, parseShortBranch, parseShortEntry } from './statusShort';
 
 export type PasteKind = 'status-short' | 'status-long' | 'log-oneline' | 'unknown';
-
-// Flags that switch `git status` to the two-column format: -s (alone or combined, as in
-// -sb), --short, and --porcelain (whose v1 layout is the same).
-const SHORT_FLAG = /^(?:-[a-z]*s[a-z]*|--short|--porcelain(?:=v1)?)$/;
-
-/** True for a typed command like `git status -s` or `git status --porcelain`. */
-function isShortStatusCommand(command: string): boolean {
-  const [program, subcommand, ...flags] = command.split(/\s+/);
-  return (
-    program === 'git' && subcommand === 'status' && flags.some((flag) => SHORT_FLAG.test(flag))
-  );
-}
 
 function looksLikeStatusShort(lines: readonly string[]): boolean {
   const [first = '', ...rest] = lines;

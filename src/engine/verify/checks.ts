@@ -47,14 +47,11 @@ export function conventionalRatio(commits: readonly { readonly subject: string }
 // ---- Working tree ----------------------------------------------------------------------
 
 /**
- * True when there is nothing to commit. Ignored files (`!!`, shown only with --ignored)
- * don't count: being left out is exactly what they are for. A short status with no lines
- * at all also counts as clean, because that is what a clean `git status -s` prints, so
- * check detectPasteKind first to be sure the paste really was a status.
+ * True when there is nothing to commit, whichever status format Kyle pasted. Each parser
+ * works this out as it reads, and never calls a paste it couldn't fully read clean.
  */
 export function isCleanStatus(status: ParsedStatus): boolean {
-  if (status.format === 'long') return status.clean;
-  return status.warnings.length === 0 && status.entries.every((entry) => entry.index === '!');
+  return status.clean;
 }
 
 /** A conflict in short format: a U in either column, or AA / DD (both added or deleted). */

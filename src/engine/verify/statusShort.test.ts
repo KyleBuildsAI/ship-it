@@ -117,6 +117,7 @@ describe('parseStatusShort on real git output', () => {
       format: 'short',
       branch: null,
       entries: MIXED_ENTRIES,
+      clean: false,
       warnings: [],
     });
   });
@@ -229,13 +230,23 @@ describe('parseStatusShort on real git output', () => {
     });
   });
 
-  it('reads the empty output of a clean `git status --short` as no entries', () => {
-    expect(parseStatusShort(shortClean)).toEqual({
+  it('reads the empty output of a clean `git status --short` as clean only with its command', () => {
+    expect(parseStatusShort(`PS C:\\repo> git status --short\n${shortClean}`)).toEqual({
       format: 'short',
       branch: null,
       entries: [],
+      clean: true,
       warnings: [],
     });
+    // On its own, an empty paste could be anything, including a paste that never happened.
+    expect(parseStatusShort(shortClean).clean).toBe(false);
+    expect(parseStatusShort('PS C:\\repo> git log --oneline').clean).toBe(false);
+  });
+
+  it('counts a branch header or ignored files alone as a clean status', () => {
+    expect(parseStatusShort(sbClean).clean).toBe(true);
+    expect(parseStatusShort('!! dist/\n!! .env').clean).toBe(true);
+    expect(parseStatusShort(`${sbClean}?? notes.txt`).clean).toBe(false);
   });
 });
 

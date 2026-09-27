@@ -39,6 +39,12 @@ export interface ParsedStatusShort {
   /** Null unless the output came from `-b` / `--branch` (as in `git status -sb`). */
   readonly branch: ShortBranch | null;
   readonly entries: readonly ShortEntry[];
+  /**
+   * True when nothing is left to commit: every line was understood, and no file is listed
+   * except ignored ones. A clean `git status -s` prints nothing at all, so an empty paste
+   * only counts as clean when the command copied with it shows it was a short status.
+   */
+  readonly clean: boolean;
   /** Lines that fit neither a branch header nor a file line. */
   readonly warnings: readonly string[];
 }
@@ -50,6 +56,18 @@ const BRANCH_HEADER =
   /^## (No commits yet on |Initial commit on )?(.+?)(?:\.\.\.(\S+))?(?: \[(.+)\])?$/;
 const DETACHED_NAME = 'HEAD (no branch)';
 const TRACKING_COUNT = /^(ahead|behind) (\d+)$/;
+
+// Flags that switch `git status` to the two-column format: -s (alone or combined, as in
+// -sb), --short, and --porcelain (whose v1 layout is the same).
+const SHORT_FLAG = /^(?:-[a-z]*s[a-z]*|--short|--porcelain(?:=v1)?)$/;
+
+/** True for a typed command like `git status -s` or `git status --porcelain`. */
+export function isShortStatusCommand(command: string): boolean {
+  const [program, subcommand, ...flags] = command.split(/\s+/);
+  return (
+    program === 'git' && subcommand === 'status' && flags.some((flag) => SHORT_FLAG.test(flag))
+  );
+}
 
 interface Tracking {
   ahead?: number;
@@ -118,7 +136,7 @@ export function parseShortEntry(line: string): ShortEntry | null {
  * (with or without `-b`). Pasted terminal noise is removed first; see normalizePaste.
  */
 export function parseStatusShort(text: string): ParsedStatusShort {
-  const lines = normalizePaste(text).lines;
+  const { lines, command } = normalizePaste(text);
   // Git prints the branch header only once, as the very first line.
   const branch = lines[0] === undefined ? null : parseShortBranch(lines[0]);
   const entries: ShortEntry[] = [];
@@ -129,5 +147,12 @@ export function parseStatusShort(text: string): ParsedStatusShort {
     if (entry) entries.push(entry);
     else if (line.trim() !== '') warnings.push(line);
   }
-  return { format: 'short', branch, entries, warnings };
+
+  // Ignored files (`!!`, listed only with --ignored) don't count: being left out is
+  // exactly what they are for.
+  const nothingToCommit = warnings.length === 0 && entries.every((entry) => entry.index === '!');
+  // Without this, pasting nothing at all would pass as a clean tree.
+  const knownToBeStatus =
+    branch !== null || entries.length > 0 || (command !== null && isShortStatusCommand(command));
+  return { format: 'short', branch, entries, clean: nothingToCommit && knownToBeStatus, warnings };
 }

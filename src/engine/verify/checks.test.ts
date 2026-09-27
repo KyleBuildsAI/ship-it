@@ -101,8 +101,13 @@ describe('isCleanStatus', () => {
     expect(isCleanStatus(parseStatusLong(longAheadClean))).toBe(true);
     expect(isCleanStatus(parseStatusLong(longMixed))).toBe(false);
     expect(isCleanStatus(parseStatusShort(sbClean))).toBe(true);
-    expect(isCleanStatus(parseStatusShort(shortClean))).toBe(true);
+    expect(isCleanStatus(parseStatusShort(`PS C:\\repo> git status -s\n${shortClean}`))).toBe(true);
     expect(isCleanStatus(parseStatusShort(sbMixed))).toBe(false);
+  });
+
+  it('never passes an empty paste, in either format', () => {
+    expect(isCleanStatus(parseStatusShort(''))).toBe(false);
+    expect(isCleanStatus(parseStatusLong(''))).toBe(false);
   });
 
   it('ignores ignored files but not the untracked file next to them', () => {
