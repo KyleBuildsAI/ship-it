@@ -16,7 +16,9 @@ import mixed from './fixtures/status-long-mixed.txt?raw';
 import mixedColor from './fixtures/status-long-mixed-color.txt?raw';
 import rebaseConflict from './fixtures/status-long-rebase-conflict.txt?raw';
 import renamed from './fixtures/status-long-renamed.txt?raw';
+import slowUntracked from './fixtures/status-long-slow-untracked.txt?raw';
 import stagedUnborn from './fixtures/status-long-staged-unborn.txt?raw';
+import stash from './fixtures/status-long-stash.txt?raw';
 import subdir from './fixtures/status-long-subdir.txt?raw';
 import submodule from './fixtures/status-long-submodule.txt?raw';
 import untrackedUnborn from './fixtures/status-long-untracked-unborn.txt?raw';
@@ -41,6 +43,11 @@ const NOTHING: ParsedStatusLong = {
 describe('parseStatusLong on real git output', () => {
   it('reads a clean tree', () => {
     expect(parseStatusLong(clean)).toEqual({ ...NOTHING, clean: true });
+  });
+
+  it("stays clean with git's notes about a stash or a slow scan for untracked files", () => {
+    expect(parseStatusLong(stash)).toEqual({ ...NOTHING, clean: true });
+    expect(parseStatusLong(slowUntracked)).toEqual({ ...NOTHING, clean: true });
   });
 
   it('reads a brand-new repository as clean, with no commits yet', () => {
@@ -292,9 +299,31 @@ describe('parseStatusLong robustness', () => {
     );
     expect(hidden.clean).toBe(false);
     expect(hidden.warnings).toEqual([]);
-    expect(parseStatusLong(`${clean}It took 3.1 seconds to enumerate untracked files.`).clean).toBe(
-      false,
+    const unknown = parseStatusLong(`${clean}a line git never prints`);
+    expect(unknown.clean).toBe(false);
+    expect(unknown.warnings).toEqual(['a line git never prints']);
+  });
+
+  it('skips the slow-status advice that only shows up with fsmonitor or a slow remote check', () => {
+    const parsed = parseStatusLong(
+      [
+        'On branch main',
+        "Your branch is ahead of 'origin/main' by 3 commits.",
+        '  (use "git push" to publish your local commits)',
+        '',
+        'It took 2.50 seconds to compute the branch ahead/behind values.',
+        "You can use '--no-ahead-behind' to avoid this.",
+        '',
+        'It took 4.10 seconds to enumerate untracked files,',
+        'but the results were cached, and subsequent runs may be faster.',
+        "See 'git help status' for information on how to improve this.",
+        '',
+        'nothing to commit, working tree clean',
+        'Your stash currently has 2 entries',
+      ].join('\n'),
     );
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.clean).toBe(true);
   });
 
   it('removes a submodule note listing several changes, but keeps other parentheses', () => {

@@ -131,6 +131,15 @@ const INFORMATIONAL = [
   /^nothing to commit \(use -u to show untracked files\)$/,
   /^Untracked files not listed(?: \(use -u option to show untracked files\))?$/,
   /^Not currently on any branch\.$/,
+  // Printed by `git status --show-stash`, or always with status.showStash turned on.
+  /^Your stash currently has \d+ entr(?:y|ies)$/,
+  // Advice git adds when working out the status was slow, which happens in big
+  // repositories on Windows. It is about speed, not about the files.
+  /^It took [\d.]+ seconds to enumerate untracked files[.,]$/,
+  /^but the results were cached, and subsequent runs may be faster\.$/,
+  /^See 'git help status' for information on how to improve this\.$/,
+  /^It took [\d.]+ seconds to compute the branch ahead\/behind values\.$/,
+  /^You can use '--no-ahead-behind' to avoid this\.$/,
 ];
 
 /** Top-level lines that set a fact about the branch, each with what it means. */

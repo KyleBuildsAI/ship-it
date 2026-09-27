@@ -36,7 +36,8 @@ $gitVariables = @(
     'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE',
     'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'GIT_COMMITTER_DATE',
     'GIT_EDITOR', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_GLOBAL',
-    'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0'
+    'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0',
+    'GIT_TEST_UF_DELAY_WARNING'
 )
 $savedVariables = @{}
 foreach ($name in $gitVariables) {
@@ -401,6 +402,16 @@ try {
     Save-Fixture 'status-long-submodule' $super @('status')
     Save-Fixture 'status-short-submodule' $super @('status', '--short')
     Save-Fixture 'status-porcelain-submodule' $super @('status', '--porcelain')
+
+    # --- Notes below a clean status: a stash count, and advice after a slow scan ----------
+    Write-RepoFile $clean 'README.md' "# Demo`n`nWork in progress.`n"
+    Invoke-Git $clean stash push -q
+    Save-Fixture 'status-long-stash' $clean @('status', '--show-stash')
+    # A test switch built into git pretends the scan for untracked files took 3.25 seconds.
+    # A real scan can take that long in a big repository on Windows.
+    $env:GIT_TEST_UF_DELAY_WARNING = '1'
+    Save-Fixture 'status-long-slow-untracked' $clean @('status')
+    Remove-Item Env:GIT_TEST_UF_DELAY_WARNING
 
     Write-Host "Saved fixtures to $OutDir"
 }
