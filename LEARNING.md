@@ -325,3 +325,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/41
 3. Other people's copies still contain those commits. Rewriting your branch makes it disagree with theirs, and your next push is rejected or forces them into messy fixes. For shared history, `git revert` adds an undo commit instead of removing anything.
 
 </details>
+
+---
+
+## #42 feat: git revert
+
+https://github.com/KyleBuildsAI/ship-it/pull/42
+
+1. A bad commit is already on `main`, which everyone has pulled. Why use `git revert` instead of `git reset`?
+2. After `git revert HEAD`, how many commits does `git log` show compared with before, and what does the new commit contain?
+3. Why can't the sandbox revert an old commit if the same file changed in a later commit?
+
+<details><summary>Answers</summary>
+
+1. `git reset` would rewrite `main` so the bad commit disappears, but everyone else still has it, so their copies and the shared branch would disagree. `git revert` adds a new commit that undoes the change, so everyone's history stays consistent and they just pull the fix.
+2. One more commit than before. The new commit contains the exact opposite of the reverted commit's changes, with the message `Revert "<original subject>"` and a note naming the original commit's id.
+3. Undoing the old change means combining it with the newer edit to the same file. If they touch the same lines, git can't decide on its own, and that's a conflict. Resolving conflicts is taught with merges in Act 3, so for now the sandbox stops and explains instead of leaving a half-finished state.
+
+</details>
