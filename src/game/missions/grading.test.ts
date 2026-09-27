@@ -22,6 +22,10 @@ describe('scoreDrill', () => {
     expect(scoreDrill(true, 91, 90)).toEqual({ passed: false, seconds: 91, overtime: true });
   });
 
+  it('marks a wrong answer as overtime too, when time also ran out', () => {
+    expect(scoreDrill(false, 120, 90)).toEqual({ passed: false, seconds: 120, overtime: true });
+  });
+
   it('never reports negative time from a clock that went backwards', () => {
     expect(scoreDrill(true, -2, 90).seconds).toBe(0);
   });

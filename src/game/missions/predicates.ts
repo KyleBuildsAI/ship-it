@@ -20,6 +20,7 @@ export type Predicate =
    */
   | { kind: 'staged'; paths: string[]; exact?: boolean; label?: string }
   | { kind: 'notStaged'; paths: string[]; label?: string }
+  /** Every path is new to git and not ignored. Ignored files are what `ignored` checks. */
   | { kind: 'untracked'; paths: string[]; label?: string }
   /** Every path is in the HEAD commit. */
   | { kind: 'tracked'; paths: string[]; label?: string }
@@ -29,7 +30,10 @@ export type Predicate =
   | { kind: 'ignored'; paths: string[]; label?: string }
   /** Every path has edits (or a deletion) that aren't staged yet. */
   | { kind: 'modified'; paths: string[]; label?: string }
-  /** Commits reachable from HEAD. Give at least one bound. */
+  /**
+   * Commits in HEAD's history, following first parents only, so commits that arrived
+   * from the other side of a merge aren't counted. Give `equals`, or `min` and/or `max`.
+   */
   | { kind: 'commitCount'; min?: number; max?: number; equals?: number; label?: string }
   | { kind: 'headMessage'; pattern: string; flags?: string; label?: string }
   /** Every commit message matches, or only the newest `last` of them. */

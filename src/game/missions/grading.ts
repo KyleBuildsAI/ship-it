@@ -4,7 +4,10 @@ export interface DrillScore {
   /** Reached the target state within the time limit. */
   readonly passed: boolean;
   readonly seconds: number;
-  /** Took longer than the limit. Lets the UI say "right answer, too slow" instead of "wrong". */
+  /**
+   * Took longer than the limit, whether the final state was right or wrong. Either way
+   * the drill is a miss, so `overtime: true` alone doesn't mean the answer was right.
+   */
   readonly overtime: boolean;
 }
 
