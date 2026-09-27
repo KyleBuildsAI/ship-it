@@ -1,5 +1,5 @@
 import type { Workspace } from '../../workspace';
-import type { FileSnapshot } from '../types';
+import type { Commit, FileSnapshot, ObjectId } from '../types';
 
 /**
  * Copies files from the working directory into the index (the Loading Dock). A path
@@ -56,4 +56,22 @@ export function resetWorkingPaths(
     if (target !== undefined) ws.writeFile(path, repo.readBlob(target));
     else if (ws.fs.isFile(path)) ws.deleteFile(path);
   }
+}
+
+/**
+ * Commits the index and announces it: the new commit, the branch that moved (if any),
+ * and HEAD's move. `git commit` and `git revert` both record commits through here.
+ */
+export function recordCommit(
+  ws: Workspace,
+  message: string,
+): { commit: Commit; from: ObjectId | null; branch: string | null } {
+  const repo = ws.requireRepo();
+  const branch = repo.currentBranch();
+  const from = repo.headCommitId();
+  const commit = repo.commitIndex(message);
+  ws.events.emit({ type: 'committed', commit, branch });
+  if (branch !== null) ws.events.emit({ type: 'branchMoved', branch, from, to: commit.id });
+  ws.events.emit({ type: 'headMoved', from, to: commit.id, reason: 'commit' });
+  return { commit, from, branch };
 }

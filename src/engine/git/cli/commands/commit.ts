@@ -6,7 +6,7 @@ import { subjectOf } from '../logFormat';
 import { failure, fatal, line, ok, type CommandResult, type OutputLine } from '../output';
 import type { CommandContext } from '../pathspec';
 import { snapshotSides } from '../revisions';
-import { stagePaths } from '../staging';
+import { recordCommit, stagePaths } from '../staging';
 import { statusCommand } from './status';
 
 function sameFiles(a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean {
@@ -58,12 +58,7 @@ export function commitCommand(
     return failure(status);
   }
 
-  const branch = repo.currentBranch();
-  const from = repo.headCommitId();
-  const commit = repo.commitIndex(message);
-  ws.events.emit({ type: 'committed', commit, branch });
-  if (branch !== null) ws.events.emit({ type: 'branchMoved', branch, from, to: commit.id });
-  ws.events.emit({ type: 'headMoved', from, to: commit.id, reason: 'commit' });
+  const { commit, from, branch } = recordCommit(ws, message);
   if (args.flags.has('q')) return ok();
 
   const changes = compareSides(
