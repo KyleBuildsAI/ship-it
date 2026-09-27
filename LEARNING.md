@@ -523,3 +523,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/52
 3. Then "days practiced" is simply the array's length, and "last practiced" is the last element. Nothing has to deduplicate or sort at read time, and the schema guarantees it stays true.
 
 </details>
+
+---
+
+## #53 feat: store the save in indexeddb with migrations
+
+https://github.com/KyleBuildsAI/ship-it/pull/53
+
+1. A save has `schemaVersion: 0`. What does `migrate` do with it, step by step?
+2. Why does `loadSave` throw on a damaged save instead of starting a fresh game?
+3. What's the difference between `db.version(1)` and `CURRENT_SCHEMA_VERSION`?
+
+<details><summary>Answers</summary>
+
+1. It reads version 0, checks it isn't newer than the current version (1), runs `MIGRATIONS.slice(0)` (just `moveXpIntoProfile`), and validates the result against `saveDataSchema`. If it's valid, it returns the save, and `loadSave` stores the upgraded copy so the next load skips migrating.
+2. Replacing it would silently destroy the player's progress. Throwing lets the UI explain what happened and offer to import a backup or reset on purpose.
+3. `db.version(1)` describes IndexedDB's tables and keys. It only changes if the table layout changes. `CURRENT_SCHEMA_VERSION` describes the save data's shape, which will change more often, and is handled by migrations inside the data.
+
+</details>
