@@ -229,10 +229,9 @@ export function finishQuestionRound(
  */
 export function xpEarned(run: MissionRun, mission: Mission): number {
   expectMission(run, mission);
-  const stepXp = mission.steps.reduce(
-    (total, step, index) => total + (run.steps[index]?.completed === true ? (step.xp ?? 0) : 0),
-    0,
-  );
+  const stepXp = mission.steps
+    .filter((_, index) => run.steps[index]?.completed === true)
+    .reduce((total, step) => total + (step.xp ?? 0), 0);
   return stepXp + (run.phase === 'done' ? mission.xp : 0);
 }
 
@@ -274,17 +273,18 @@ export interface BossTick {
 export function tick(boss: BossRun, act: Act, nowMs: number): BossTick {
   expectBoss(boss, act);
   const remaining = act.boss.timeLimitSeconds - (nowMs - boss.startedAtMs) / 1000;
-  const dueIndexes = act.boss.twists
+  // Keep each twist's index, because the index is what marks it as fired.
+  const ready = act.boss.twists
     .map((twist, index) => ({ twist, index }))
     .filter(
       ({ twist, index }) =>
         !boss.firedTwists.includes(index) && remaining <= twist.atSecondsRemaining,
     )
     .sort((a, b) => b.twist.atSecondsRemaining - a.twist.atSecondsRemaining);
-  if (dueIndexes.length === 0) return { boss, due: [] };
+  if (ready.length === 0) return { boss, due: [] };
   return {
-    boss: { ...boss, firedTwists: [...boss.firedTwists, ...dueIndexes.map(({ index }) => index)] },
-    due: dueIndexes.map(({ twist }) => twist),
+    boss: { ...boss, firedTwists: [...boss.firedTwists, ...ready.map(({ index }) => index)] },
+    due: ready.map(({ twist }) => twist),
   };
 }
 
