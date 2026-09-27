@@ -235,3 +235,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/36
 3. `notes.md` is staged and `.env` isn't. Git prints the "paths are ignored" message and exits with code 1. It still stages the paths it could, but the non-zero code warns you (and any script) that not everything happened.
 
 </details>
+
+---
+
+## #37 feat: git rm and git mv
+
+https://github.com/KyleBuildsAI/ship-it/pull/37
+
+1. You committed `.env` by mistake. Which command stops tracking it while keeping it on your machine, and what else must you do to keep it out of future commits?
+2. Why does `git rm app.ts` refuse when `app.ts` has unstaged edits, and what are your two ways forward?
+3. After `git mv old.ts new.ts`, what does `git status` show, and how is that different from renaming the file in Explorer?
+
+<details><summary>Answers</summary>
+
+1. `git rm --cached .env`, then add `.env` to `.gitignore` so it isn't picked up again by `git add .`. Commit both. If it held a real secret, rotate the secret, because the old commit still contains it.
+2. Deleting would destroy edits that exist only on disk, in no commit and not on the Loading Dock. Either `git rm --cached app.ts` (stop tracking, keep the edited file) or `git rm -f app.ts` (delete anyway, deliberately losing the edits).
+3. It shows one staged change, `renamed: old.ts -> new.ts`. Renaming in Explorer changes only the disk, so status shows `deleted: old.ts` (unstaged) plus an untracked `new.ts` until you stage both. After staging, git detects the same rename.
+
+</details>
