@@ -1,5 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { addDays, assertDayString, compareDays, isDayString, localDay } from './days';
+
+// Timezone bugs only show up away from UTC, and CI runners use UTC. Pinning a zone that is
+// behind UTC and has daylight saving makes these tests catch those bugs on every machine.
+beforeAll(() => {
+  vi.stubEnv('TZ', 'America/Los_Angeles');
+});
+
+afterAll(() => {
+  vi.unstubAllEnvs();
+});
+
+it('runs in the pinned timezone, or the timezone tests below prove nothing', () => {
+  // Midnight on 2026-09-27 in Los Angeles is 07:00 UTC (summer time, 7 hours behind).
+  expect(new Date(2026, 8, 27).toISOString()).toBe('2026-09-27T07:00:00.000Z');
+});
 
 describe('isDayString', () => {
   it.each(['2026-09-27', '2026-01-01', '2026-12-31', '2024-02-29', '2000-02-29'])(
@@ -67,12 +82,14 @@ describe('addDays', () => {
   });
 
   it('is not thrown off by daylight-saving changes', () => {
-    // US clocks spring forward on 2026-03-08 and fall back on 2026-11-01. Local-time math
-    // around those dates is where off-by-one-day bugs usually come from.
+    // US clocks spring forward on 2026-03-08 and fall back on 2026-11-01, so those local days
+    // are 23 and 25 hours long. Adding 24 hours to local midnight lands on the wrong day there.
     expect(addDays('2026-03-07', 1)).toBe('2026-03-08');
     expect(addDays('2026-03-08', 1)).toBe('2026-03-09');
+    expect(addDays('2026-03-09', -1)).toBe('2026-03-08');
     expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
     expect(addDays('2026-11-01', 1)).toBe('2026-11-02');
+    expect(addDays('2026-11-02', -1)).toBe('2026-11-01');
   });
 
   it('rejects a bad day or a fractional count', () => {
@@ -102,9 +119,9 @@ describe('compareDays', () => {
 
 describe('localDay', () => {
   it("uses the player's own timezone, so late-night practice counts for that evening", () => {
-    // Built from local-time parts, so this holds in every timezone the tests might run in.
-    expect(localDay(new Date(2026, 8, 27, 23, 59))).toBe('2026-09-27');
-    expect(localDay(new Date(2026, 8, 28, 0, 0))).toBe('2026-09-28');
+    // 11:59pm on the 27th in Los Angeles is already the 28th in UTC.
+    expect(localDay(new Date('2026-09-28T06:59:00.000Z'))).toBe('2026-09-27');
+    expect(localDay(new Date('2026-09-28T07:00:00.000Z'))).toBe('2026-09-28');
   });
 
   it('zero-pads months and days', () => {
