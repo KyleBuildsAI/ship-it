@@ -1045,3 +1045,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/81
 3. `{ format: 'ship-it-save', exportedAt, data }`: XP, missions, Acts, drill history, the review queue, Field Mission checks, and settings. Never secrets: the GitHub token (M3) will be stored apart from the save, so a shared file can't leak it.
 
 </details>
+
+---
+
+## #82 chore: m1 polish: how to play, troubleshooting, and a replay fix
+
+https://github.com/KyleBuildsAI/ship-it/pull/82
+
+1. Which M1 acceptance criterion does the reload e2e test prove, and which one does the export/import e2e test prove?
+2. Why describe the game in words in the README instead of adding screenshots?
+3. How was 60 fps checked, and what would you change on a much weaker GPU?
+
+<details><summary>Answers</summary>
+
+1. The reload test proves "progress survives closing the browser" (IndexedDB, saved immediately). The export/import test proves "export/import round-trips".
+2. The repo rules forbid committing binary files: they bloat history forever and can't be diffed. The live Pages link shows the real thing instead.
+3. By counting `requestAnimationFrame` callbacks over 3 seconds in the running game. On a weaker GPU, set Settings, Graphics quality to Medium or Low, which caps the pixel ratio (1.5 or 1), the biggest cost on high-DPI screens.
+
+</details>

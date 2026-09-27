@@ -4,7 +4,7 @@ SHIP IT is a 3D browser game that is also a complete course in professional soft
 
 ## Status
 
-Milestone 1 (Act 2: Git Core vertical slice) is in progress. See [DESIGN.md](DESIGN.md) section 15.
+Milestone 1 is complete: Act 2, Git Core, is playable from start to finish. Play it at https://kylebuildsai.github.io/ship-it/ (Sage is offline there; every hint still works) or run it locally below. See [DESIGN.md](DESIGN.md) section 15 for the roadmap.
 
 ## How to run
 
@@ -22,6 +22,19 @@ npm run dev
 To run only one half, use `npm run dev:web` (the game) or `npm run dev:server` (Sage).
 
 The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't available. The status badge in the top-left shows which one is running. To try the fallback on a WebGPU machine, add `?backend=webgl2` to the URL.
+
+## How to play
+
+- **Move:** WASD or the arrow keys, or click the ground to walk there. Drag to look around.
+- **Terminal:** `` Ctrl+` `` opens and closes it. It speaks PowerShell (`ls`, `cat`, `echo x > file`, `code file`) and git.
+- **Act 2:** walk through the glowing Act 2 portal on Campus, or press **Act 2** at the bottom left.
+  - **Placement test:** already know git? Score 85% on 12 timed drills to test out of the Act.
+  - **Missions 2.1-2.5:** a short briefing, then guided steps with a live checklist and a three-rung hint ladder, then timed No-AI Drills, then a Question Round with Marco's vague ticket.
+  - **Boss, The Dirty Tree:** Dex deploys from a clean checkout in 3:00. Commit the right things before he does.
+  - **Field Mission:** clean the dirty tree on your real SandCastles repo, then paste PowerShell output to verify it.
+- **The Git World mirrors your repo:** files are crates on the Workbench, `git add` moves them to the Loading Dock, `git commit` seals them into the Vault, and commits become platforms behind it. Click anything there to see the git command it maps to.
+- **Standup** brings back drills you missed, spaced out so they stick. **Trophies** shows your rank and stats. **Settings** has text size, reduced motion, graphics quality, Sage on or off, and your save file.
+- **Your progress saves itself** in the browser (IndexedDB) after every step. Settings, Export save gives you a backup file; Import save brings it back.
 
 ## Sage (optional AI mentor)
 
@@ -82,10 +95,16 @@ It runs these in order and stops at the first failure:
 | `npm run typecheck` | TypeScript strict compile, no output files. |
 | `npm run test:coverage` | Vitest unit tests with a coverage report in `coverage/`. `npm test` runs them without coverage. |
 | `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. |
-| `npm run e2e` | Playwright smoke test in your installed Chrome against the build in `dist/`. Run `npm run build` first. |
+| `npm run e2e` | Playwright end-to-end tests in your installed Chrome against the build in `dist/`: boot, terminal, editor, walking, playing a step, reload, and save export/import. Run `npm run build` first. |
 
 To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:4173/ship-it/`.
 
 ## CI and deploys
 
 Every pull request and every push to `main` runs [CI](.github/workflows/ci.yml): the same gates as `npm run check`, plus a gitleaks scan of the full history for committed secrets. When CI passes on `main`, the [deploy workflow](.github/workflows/deploy.yml) builds that exact commit and publishes it to https://kylebuildsai.github.io/ship-it/.
+
+## Troubleshooting
+
+- **Sage says a port is reserved (EACCES).** Windows reserves blocks of ports for Hyper-V and WSL. See them with `netsh interface ipv4 show excludedportrange protocol=tcp`, then set `MENTOR_PORT` in `.env` to a port outside every range.
+- **The badge says WebGL2 fallback.** WebGPU isn't available in this browser or on this GPU driver. The game works the same; update Chrome and your NVIDIA driver to get WebGPU back.
+- **"Your save could not be read."** The save is kept untouched. Open Settings to import a backup, or Start over.

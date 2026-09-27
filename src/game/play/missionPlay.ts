@@ -58,6 +58,8 @@ function refreshChecklist(): void {
   }
 }
 
+let attempts = 0;
+
 export function startMission(missionId: string): void {
   const mission = findMission(missionId);
   endDrill();
@@ -65,6 +67,7 @@ export function startMission(missionId: string): void {
   saveProgressNow((save) => startMissionProgress(save, mission.id));
   setActivity({
     kind: 'mission',
+    attempt: ++attempts,
     mission,
     run: startRun(mission),
     hint: null,
@@ -211,7 +214,13 @@ export async function askForHint(): Promise<void> {
   });
   // The player may have moved on while Sage was thinking; only show it if they haven't.
   const latest = activity();
-  if (latest?.run.stepIndex !== run.stepIndex || latest.run.phase !== 'sim') return;
+  if (
+    latest?.attempt !== current.attempt ||
+    latest.run.stepIndex !== run.stepIndex ||
+    latest.run.phase !== 'sim'
+  ) {
+    return;
+  }
   const shown = reply.offline
     ? ladderHint
     : { level: hint.level, text: reply.text, fromSage: true };
@@ -273,7 +282,7 @@ async function gradeFreeText(question: string): Promise<void> {
     rubric,
   });
   const latest = activity();
-  if (latest?.mission.id !== current.mission.id) return;
+  if (latest?.attempt !== current.attempt) return;
   setActivity({
     ...latest,
     freeTextGrade: reply.offline
