@@ -721,3 +721,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/63
 3. `finally` runs even when the script fails partway. Restoring only at the end would leave the terminal changed after any error, which is exactly when you'd least notice.
 
 </details>
+
+---
+
+## #64 feat: clean pasted terminal text and decode git's quoted paths
+
+https://github.com/KyleBuildsAI/ship-it/pull/64
+
+1. Why does `normalizePaste` keep the copied command instead of throwing it away with the prompt?
+2. What does git print for a file named `café.md` in `git status --short`, and why?
+3. Why must color codes be removed before parsing?
+
+<details><summary>Answers</summary>
+
+1. A clean `git status --short` prints nothing. Only the copied command line proves the empty paste really was a status, not an accidental empty paste.
+2. `?? "caf\303\251.md"`. Git quotes names with non-ASCII bytes and writes each byte of `é` as an octal escape (`\303\251` is `é` in UTF-8).
+3. Colored output wraps words in invisible escape sequences, so `modified:` would really be `\x1b[31mmodified:` and never match the parser's patterns.
+
+</details>
