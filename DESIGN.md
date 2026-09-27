@@ -142,7 +142,8 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
   - `ANTHROPIC_API_KEY`
   - `MENTOR_MODEL_DEFAULT=claude-sonnet-5`
   - `MENTOR_MODEL_INTERVIEW=claude-opus-5-5`
-  - `MENTOR_DAILY_CALL_CAP` (and/or a daily spend estimate cap)
+  - `MENTOR_DAILY_CALL_CAP` (default 50; and/or a daily spend estimate cap)
+  - `MENTOR_PORT` (optional, default 8787): the server listens on 127.0.0.1 only, and the Vite `/api` proxy follows it.
   - `MENTOR_BASE_URL` (optional): route through Kyle's LiteLLM gateway. Implement only after confirming LiteLLM exposes an Anthropic-compatible Messages endpoint; otherwise skip and note it in the PR.
 
 ### Modes (`POST /api/mentor` with `{ mode, context }`)
