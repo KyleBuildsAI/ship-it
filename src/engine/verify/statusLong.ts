@@ -133,13 +133,6 @@ const INFORMATIONAL = [
   /^Not currently on any branch\.$/,
 ];
 
-const upstream = (
-  name: string,
-  state: UpstreamState,
-  ahead: number,
-  behind: number,
-): UpstreamStatus => ({ name, state, ahead, behind });
-
 /** Top-level lines that set a fact about the branch, each with what it means. */
 const BRANCH_FACTS: readonly {
   readonly pattern: RegExp;
@@ -168,32 +161,32 @@ const BRANCH_FACTS: readonly {
     // Git before 2.15 spelled it "up-to-date".
     pattern: /^Your branch is up[ -]to[ -]date with '(.+)'\.$/,
     apply: ([, name = ''], draft) => {
-      draft.upstream = upstream(name, 'up-to-date', 0, 0);
+      draft.upstream = { name, state: 'up-to-date', ahead: 0, behind: 0 };
     },
   },
   {
     pattern: /^Your branch is ahead of '(.+)' by (\d+) commits?\.$/,
     apply: ([, name = '', count], draft) => {
-      draft.upstream = upstream(name, 'ahead', Number(count), 0);
+      draft.upstream = { name, state: 'ahead', ahead: Number(count), behind: 0 };
     },
   },
   {
     pattern: /^Your branch is behind '(.+)' by (\d+) commits?, and can be fast-forwarded\.$/,
     apply: ([, name = '', count], draft) => {
-      draft.upstream = upstream(name, 'behind', 0, Number(count));
+      draft.upstream = { name, state: 'behind', ahead: 0, behind: Number(count) };
     },
   },
   {
     pattern: /^Your branch is based on '(.+)', but the upstream is gone\.$/,
     apply: ([, name = ''], draft) => {
-      draft.upstream = upstream(name, 'gone', 0, 0);
+      draft.upstream = { name, state: 'gone', ahead: 0, behind: 0 };
     },
   },
   {
     // Diverging takes two lines. This first one names the upstream...
     pattern: /^Your branch and '(.+)' have diverged,$/,
     apply: ([, name = ''], draft) => {
-      draft.upstream = upstream(name, 'diverged', 0, 0);
+      draft.upstream = { name, state: 'diverged', ahead: 0, behind: 0 };
     },
   },
   {
@@ -201,7 +194,7 @@ const BRANCH_FACTS: readonly {
     pattern: /^and have (\d+) and (\d+) different commits each, respectively\.$/,
     apply: ([, ahead, behind], draft, line) => {
       if (draft.upstream?.state === 'diverged') {
-        draft.upstream = upstream(draft.upstream.name, 'diverged', Number(ahead), Number(behind));
+        draft.upstream = { ...draft.upstream, ahead: Number(ahead), behind: Number(behind) };
       } else {
         draft.warnings.push(line);
       }

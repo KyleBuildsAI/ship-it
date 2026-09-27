@@ -49,18 +49,22 @@ const BRANCH_HEADER =
 const DETACHED_NAME = 'HEAD (no branch)';
 const TRACKING_COUNT = /^(ahead|behind) (\d+)$/;
 
-/** Reads the `[ahead 2, behind 1]` part of a branch header into counts. */
-function readTracking(text: string): Pick<ShortBranch, 'ahead' | 'behind' | 'upstreamGone'> | null {
+interface Tracking {
+  ahead?: number;
+  behind?: number;
+  upstreamGone?: boolean;
+}
+
+/** Reads the `[ahead 2, behind 1]` part of a branch header. Null if any part is unknown. */
+function readTracking(text: string): Tracking | null {
   if (text === 'gone') return { upstreamGone: true };
-  let ahead: number | undefined;
-  let behind: number | undefined;
+  const tracking: Tracking = {};
   for (const part of text.split(', ')) {
     const match = TRACKING_COUNT.exec(part);
     if (!match) return null;
-    if (match[1] === 'ahead') ahead = Number(match[2]);
-    else behind = Number(match[2]);
+    tracking[match[1] === 'ahead' ? 'ahead' : 'behind'] = Number(match[2]);
   }
-  return { ...(ahead === undefined ? {} : { ahead }), ...(behind === undefined ? {} : { behind }) };
+  return tracking;
 }
 
 /** Parses a `## ...` branch header line, or returns null if `line` isn't one. */
@@ -75,6 +79,7 @@ export function parseShortBranch(line: string): ShortBranch | null {
     name: detached ? 'HEAD' : name,
     detached,
     noCommitsYet: unborn !== undefined,
+    // Spread so a missing upstream leaves the key out entirely, instead of `upstream: undefined`.
     ...(upstream === undefined ? {} : { upstream }),
     ...counts,
   };
