@@ -133,6 +133,12 @@ export class Repository implements RevisionContext {
     return id;
   }
 
+  /** Points an index entry at a blob that's already stored, e.g. restoring a file from HEAD. */
+  setIndexEntry(path: string, id: ObjectId): void {
+    if (!this.blobs.has(id)) throw new Error(`missing blob ${id}`);
+    this.index.set(path, id);
+  }
+
   removeFromIndex(path: string): boolean {
     return this.index.delete(path);
   }
