@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { onelineHeader } from '../git/cli/logFormat';
 import { toText } from '../git/cli/output';
 import { runGit } from '../git/cli/runGit';
 import { repo, type FixtureBuilder } from '../git/fixtures';
-import { gitQueries } from '../git/queries';
 import { testDeps } from '../git/testDeps';
+import { Shell } from '../shell/shell';
 import type { Workspace } from '../workspace';
+import { conventionalRatio } from './checks';
 import { detectPasteKind } from './detect';
 import realLog from './fixtures/log-oneline.txt?raw';
 import longClean from './fixtures/status-long-clean.txt?raw';
@@ -107,6 +107,24 @@ describe('sandbox output parses like real git output', () => {
     );
   });
 
+  it('when copied from the sandbox terminal with its PowerShell prompt', () => {
+    const shell = new Shell(build(mixedScenario()), 'C:\\Users\\kyle\\quillwork\\app');
+    const transcript = (command: string) =>
+      [
+        `${shell.prompt()}${command}`,
+        ...shell.run(command).lines.map((output) => output.text),
+        shell.prompt(),
+      ].join('\r\n');
+
+    expect(parseStatusShort(transcript('git status -sb'))).toEqual(parseStatusShort(sbMixed));
+    expect(parseStatusLong(transcript('git status'))).toEqual(parseStatusLong(longMixed));
+
+    const clean = new Shell(build(repo().commit('init', { 'a.txt': 'a' })), 'C:\\repo');
+    const cleanShort = `${clean.prompt()}git status -s\r\n${clean.prompt()}`;
+    expect(clean.run('git status -s').lines).toEqual([]);
+    expect(detectPasteKind(cleanShort)).toBe('status-short');
+  });
+
   it('from inside a subfolder, with ../ paths', () => {
     expectSameStatus(build(mixedScenario()), { long: longSubdir, short: shortSubdir }, 'src');
   });
@@ -167,25 +185,41 @@ describe('sandbox output parses like real git output', () => {
     );
   });
 
-  it('for a oneline log, where only the hashes differ', () => {
-    const ws = build(
-      repo()
-        .commit('Initial commit', { 'README.md': '# Demo\n' })
-        .commit('feat: add status parser', { 'src/status.ts': 'export {};\n' })
-        .commit('fix(parser): handle quoted paths', { 'src/status.ts': 'export const q = 1;\n' })
-        .commit('update stuff', { 'notes.txt': 'stuff\n' }),
-    );
-    const repository = ws.requireRepo();
-    const sandboxLog = gitQueries(ws)
-      .log()
-      .map((commit) => onelineHeader(repository, commit).text)
-      .join('\n');
+  describe('for a oneline log, where only the hashes differ', () => {
+    // The first four commits of capture.ps1's "history" repository.
+    const history = () =>
+      build(
+        repo()
+          .commit('Initial commit', { 'README.md': '# Demo\n' })
+          .commit('feat: add status parser', { 'src/status.ts': 'export {};\n' })
+          .commit('fix(parser): handle quoted paths', { 'src/status.ts': 'export const q = 1;\n' })
+          .commit('update stuff', { 'notes.txt': 'stuff\n' }),
+      );
+    const realSubjects = parseLogOneline(realLog)
+      .slice(-4)
+      .map((commit) => commit.subject);
 
-    const sandbox = parseLogOneline(sandboxLog);
-    const real = parseLogOneline(realLog).slice(-4);
-    expect(detectPasteKind(sandboxLog)).toBe('log-oneline');
-    expect(sandbox.map((commit) => commit.subject)).toEqual(real.map((commit) => commit.subject));
-    expect(sandbox.every((commit) => /^[0-9a-f]{7}$/.test(commit.hash))).toBe(true);
-    expect(sandbox.map((commit) => commit.refs)).toEqual([['HEAD -> main'], [], [], []]);
+    it.each(['log --oneline', 'log --oneline --graph'])('git %s', (command) => {
+      const sandboxLog = sandboxGit(history(), command.split(' '));
+      const sandbox = parseLogOneline(sandboxLog);
+      expect(detectPasteKind(sandboxLog)).toBe('log-oneline');
+      expect(sandbox.map((commit) => commit.subject)).toEqual(realSubjects);
+      expect(sandbox.every((commit) => /^[0-9a-f]{7}$/.test(commit.hash))).toBe(true);
+      expect(sandbox.map((commit) => commit.refs)).toEqual([['HEAD -> main'], [], [], []]);
+    });
+
+    it('with -n, keeping only the newest commits', () => {
+      const sandbox = parseLogOneline(sandboxGit(history(), ['log', '--oneline', '-2']));
+      expect(sandbox.map((commit) => commit.subject)).toEqual(realSubjects.slice(0, 2));
+    });
+
+    it("leaving git revert's own subject out of the Conventional Commit score", () => {
+      const ws = history();
+      sandboxGit(ws, ['revert', 'HEAD~1']);
+      const commits = parseLogOneline(sandboxGit(ws, ['log', '--oneline']));
+      expect(commits[0]?.subject).toBe('Revert "fix(parser): handle quoted paths"');
+      // "Initial commit" and "update stuff" are the two misses; the revert doesn't count.
+      expect(conventionalRatio(commits)).toBe(2 / 4);
+    });
   });
 });
