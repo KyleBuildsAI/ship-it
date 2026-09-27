@@ -1,16 +1,21 @@
 import react from '@vitejs/plugin-react';
 import { loadEnv, type ProxyOptions } from 'vite';
 import { defineConfig } from 'vitest/config';
+// With the .ts extension, because Vite's upcoming native config loader requires one.
+import { DEFAULT_PORT, parsePort } from './server/port.ts';
 
 // GitHub Pages serves this repo from https://kylebuildsai.github.io/ship-it/, so
 // production builds need that path prefix or every asset URL 404s. `vite preview`
 // serves the production build, so it must use the same prefix. Dev stays at "/".
 const PAGES_BASE = '/ship-it/';
 
-/** Where Sage listens. server/config.ts reads the same MENTOR_PORT from .env, so both agree. */
+/**
+ * Where Sage listens. MENTOR_PORT goes through the server's own parser, so a typo in .env
+ * sends the proxy to the same fallback port Sage uses (Sage prints the warning).
+ */
 function sageUrl(mode: string): string {
-  const port = loadEnv(mode, process.cwd(), 'MENTOR_PORT').MENTOR_PORT?.trim() ?? '';
-  return `http://127.0.0.1:${port === '' ? '8787' : port}`;
+  const raw = loadEnv(mode, process.cwd(), 'MENTOR_PORT').MENTOR_PORT;
+  return `http://127.0.0.1:${String(parsePort(raw) ?? DEFAULT_PORT)}`;
 }
 
 // When the Sage server isn't running (say, only `npm run dev:web`), answer the game the way

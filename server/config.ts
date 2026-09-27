@@ -1,4 +1,5 @@
 import type { Logger } from './logger';
+import { DEFAULT_PORT, parsePort } from './port';
 
 /** Everything the mentor server reads from the environment (`.env` or the shell). */
 export interface MentorConfig {
@@ -20,7 +21,7 @@ export interface MentorConfig {
 export const DEFAULT_MODEL = 'claude-sonnet-5';
 export const DEFAULT_INTERVIEW_MODEL = 'claude-opus-5-5';
 export const DEFAULT_DAILY_CALL_CAP = 50;
-export const DEFAULT_PORT = 8787;
+export { DEFAULT_PORT };
 
 type Env = Record<string, string | undefined>;
 
@@ -30,23 +31,27 @@ function readVar(env: Env, name: string): string | null {
   return value === '' ? null : value;
 }
 
-/**
- * Reads a whole number, falling back to the default with a warning when the value
- * is malformed. A typo in .env should never crash the server or silently remove the cap.
- */
-function readWholeNumber(
-  env: Env,
-  name: string,
-  fallback: number,
-  isValid: (value: number) => boolean,
-  logger: Logger,
-): number {
-  const raw = readVar(env, name);
-  if (raw === null) return fallback;
-  const value = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
-  if (Number.isSafeInteger(value) && isValid(value)) return value;
+// A typo in .env should never crash the server or silently remove the cap, so a bad value
+// falls back to the default and says so.
+function warnInvalid(logger: Logger, name: string, raw: string, fallback: number): void {
   logger.warn(`${name}="${raw}" is not a valid value. Using ${String(fallback)} instead.`);
-  return fallback;
+}
+
+function readDailyCallCap(env: Env, logger: Logger): number {
+  const raw = readVar(env, 'MENTOR_DAILY_CALL_CAP');
+  if (raw === null) return DEFAULT_DAILY_CALL_CAP;
+  const cap = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+  if (Number.isSafeInteger(cap)) return cap;
+  warnInvalid(logger, 'MENTOR_DAILY_CALL_CAP', raw, DEFAULT_DAILY_CALL_CAP);
+  return DEFAULT_DAILY_CALL_CAP;
+}
+
+/** Uses the same parser as vite.config.ts, so the /api proxy always finds the server. */
+function readPort(env: Env, logger: Logger): number {
+  const port = parsePort(env.MENTOR_PORT);
+  if (port !== null) return port;
+  warnInvalid(logger, 'MENTOR_PORT', env.MENTOR_PORT?.trim() ?? '', DEFAULT_PORT);
+  return DEFAULT_PORT;
 }
 
 export function loadConfig(env: Env, logger: Logger): MentorConfig {
@@ -62,19 +67,7 @@ export function loadConfig(env: Env, logger: Logger): MentorConfig {
       default: readVar(env, 'MENTOR_MODEL_DEFAULT') ?? DEFAULT_MODEL,
       interview: readVar(env, 'MENTOR_MODEL_INTERVIEW') ?? DEFAULT_INTERVIEW_MODEL,
     },
-    dailyCallCap: readWholeNumber(
-      env,
-      'MENTOR_DAILY_CALL_CAP',
-      DEFAULT_DAILY_CALL_CAP,
-      () => true,
-      logger,
-    ),
-    port: readWholeNumber(
-      env,
-      'MENTOR_PORT',
-      DEFAULT_PORT,
-      (port) => port >= 1 && port <= 65535,
-      logger,
-    ),
+    dailyCallCap: readDailyCallCap(env, logger),
+    port: readPort(env, logger),
   };
 }
