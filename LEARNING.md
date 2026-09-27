@@ -847,3 +847,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/70
 3. Yes. The request may have used tokens before failing, and a hard cap has to count what might have been spent, or retries could run past the budget.
 
 </details>
+
+---
+
+## #71 feat: hints and question grading with anthropic models
+
+https://github.com/KyleBuildsAI/ship-it/pull/71
+
+1. Why is the Anthropic call passed in as `createMessage` instead of being created inside `mentor.ts`?
+2. Structured output already enforces the JSON shape. Why validate the grade again with zod?
+3. What does Kyle see if his key is wrong, and where does the message tell him to look?
+
+<details><summary>Answers</summary>
+
+1. So tests can supply a fake that returns fixed replies: no network, no key, no cost, and deterministic results. The real client is created once, in `server/index.ts`.
+2. The schema's rules (like "0 to 3") are only advisory to the model. Validating again catches a reply like `score: 7` before it reaches the screen.
+3. "Anthropic rejected the API key. Check ANTHROPIC_API_KEY in .env, then restart the server." It points at the exact variable in the exact file.
+
+</details>
