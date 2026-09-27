@@ -5,7 +5,9 @@ async function run(page: Page, ...commands: string[]): Promise<void> {
   const input = page.locator('.xterm-helper-textarea');
   await input.focus();
   for (const command of commands) {
-    await page.keyboard.type(command);
+    // insertText delivers the whole command in one input event, like a paste, instead of
+    // one key at a time; much faster on slow CI machines and just as real for the terminal.
+    await page.keyboard.insertText(command);
     await page.keyboard.press('Enter');
   }
 }
