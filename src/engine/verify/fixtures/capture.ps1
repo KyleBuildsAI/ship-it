@@ -375,6 +375,33 @@ try {
     Save-Fixture 'status-long-rebase-conflict' $conflict @('status')
     Invoke-Git $conflict rebase --abort
 
+    # New scenarios go below this line. Each commit moves the fake clock, so a commit added
+    # above would change every hash after it and break the tests that assert them.
+
+    # --- Submodules with changes inside them ----------------------------------------------
+    $shared = New-Repo 'shared'
+    Write-RepoFile $shared 'lib.ts' "export const lib = 1;`n"
+    Invoke-Git $shared add .
+    New-Commit $shared 'chore: initial commit'
+    $super = New-Repo 'super'
+    Write-RepoFile $super 'README.md' "# Demo`n"
+    Invoke-Git $super add .
+    New-Commit $super 'chore: initial commit'
+    # Since git 2.38.1, cloning a submodule from a local folder needs explicit permission.
+    foreach ($submodule in 'lib', 'tools', 'vendor') {
+        Invoke-Git $super -c protocol.file.allow=always submodule add -q $shared $submodule
+    }
+    New-Commit $super 'chore: add submodules'
+    # lib: an edited file. tools: a new commit. vendor: a new untracked file.
+    Write-RepoFile $super 'lib/lib.ts' "export const lib = 2;`n"
+    Write-RepoFile $super 'tools/lib.ts' "export const lib = 3;`n"
+    Invoke-Git "$super/tools" add .
+    New-Commit "$super/tools" 'feat: bump lib'
+    Write-RepoFile $super 'vendor/notes.txt' "notes`n"
+    Save-Fixture 'status-long-submodule' $super @('status')
+    Save-Fixture 'status-short-submodule' $super @('status', '--short')
+    Save-Fixture 'status-porcelain-submodule' $super @('status', '--porcelain')
+
     Write-Host "Saved fixtures to $OutDir"
 }
 finally {

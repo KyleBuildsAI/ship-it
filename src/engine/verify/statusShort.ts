@@ -21,6 +21,8 @@ export interface ShortBranch {
 /**
  * One file line. Each column holds one letter: ' ' unchanged, M modified, T type changed,
  * A added, D deleted, R renamed, C copied, U unmerged (a conflict), ? untracked, ! ignored.
+ * For a submodule, `git status --short` can also put m (files inside it were edited) or
+ * ? (it has new files) in the worktree column.
  */
 export interface ShortEntry {
   /** Column X: the file's state in the staging area, compared with the last commit. */
@@ -86,11 +88,13 @@ export function parseShortBranch(line: string): ShortBranch | null {
 }
 
 function isValidPair(index: string, worktree: string): boolean {
-  if (!STATUS_CODES.includes(index) || !STATUS_CODES.includes(worktree)) return false;
-  // "??" and "!!" always come as a pair, and a file with no change on either side is never listed.
-  if (index === '?' || worktree === '?' || index === '!' || worktree === '!') {
-    return index === worktree;
-  }
+  // "??" (untracked) and "!!" (ignored) always come as a pair.
+  if (index === '?' || index === '!' || worktree === '!') return index === worktree;
+  if (!STATUS_CODES.includes(index)) return false;
+  // Here a "?" in the worktree column is a submodule with new files, and "m" one with
+  // edited files. Only `git status --short` uses those two, and only for submodules.
+  if (!STATUS_CODES.includes(worktree) && worktree !== 'm') return false;
+  // A file with no change on either side is never listed.
   return !(index === ' ' && worktree === ' ');
 }
 

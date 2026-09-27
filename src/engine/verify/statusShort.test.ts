@@ -6,10 +6,12 @@ import shortConflict from './fixtures/status-short-merge-conflict.txt?raw';
 import shortMixed from './fixtures/status-short-mixed.txt?raw';
 import renamed from './fixtures/status-short-renamed.txt?raw';
 import subdir from './fixtures/status-short-subdir.txt?raw';
+import shortSubmodule from './fixtures/status-short-submodule.txt?raw';
 import untrackedUnborn from './fixtures/status-short-untracked-unborn.txt?raw';
 import porcelainBranch from './fixtures/status-porcelain-branch-up-to-date.txt?raw';
 import porcelainMixed from './fixtures/status-porcelain-mixed.txt?raw';
 import porcelainRenamed from './fixtures/status-porcelain-renamed.txt?raw';
+import porcelainSubmodule from './fixtures/status-porcelain-submodule.txt?raw';
 import sbAhead from './fixtures/status-sb-ahead.txt?raw';
 import sbBehind from './fixtures/status-sb-behind.txt?raw';
 import sbClean from './fixtures/status-sb-clean.txt?raw';
@@ -91,10 +93,17 @@ describe('parseShortEntry', () => {
     expect(parseShortEntry('AA new.ts')?.index).toBe('A');
   });
 
+  it('reads the submodule codes m and ? in the worktree column, next to a staged change', () => {
+    expect(parseShortEntry('Mm lib')).toEqual({ index: 'M', worktree: 'm', path: 'lib' });
+    expect(parseShortEntry('A? vendor')).toEqual({ index: 'A', worktree: '?', path: 'vendor' });
+  });
+
   it('rejects lines that only look like entries', () => {
     expect(parseShortEntry('   pick 538baff # feat: x')).toBeNull();
     expect(parseShortEntry('?M app.ts')).toBeNull();
     expect(parseShortEntry('!? app.ts')).toBeNull();
+    expect(parseShortEntry(' ! app.ts')).toBeNull();
+    expect(parseShortEntry('m  app.ts')).toBeNull();
     expect(parseShortEntry('XY app.ts')).toBeNull();
     expect(parseShortEntry('abc1234 feat: x')).toBeNull();
     expect(parseShortEntry('M')).toBeNull();
@@ -159,6 +168,20 @@ describe('parseStatusShort on real git output', () => {
       '../café.txt',
       '../dist/',
       '../draft notes.md',
+    ]);
+  });
+
+  it('reads submodules with an edited file, a new commit, and a new file inside', () => {
+    expect(parseStatusShort(shortSubmodule).entries).toEqual([
+      { index: ' ', worktree: 'm', path: 'lib' },
+      { index: ' ', worktree: 'M', path: 'tools' },
+      { index: ' ', worktree: '?', path: 'vendor' },
+    ]);
+    // --porcelain keeps its layout stable for scripts, so it just says M for all three.
+    expect(parseStatusShort(porcelainSubmodule).entries.map((entry) => entry.worktree)).toEqual([
+      'M',
+      'M',
+      'M',
     ]);
   });
 

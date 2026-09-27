@@ -18,6 +18,7 @@ import rebaseConflict from './fixtures/status-long-rebase-conflict.txt?raw';
 import renamed from './fixtures/status-long-renamed.txt?raw';
 import stagedUnborn from './fixtures/status-long-staged-unborn.txt?raw';
 import subdir from './fixtures/status-long-subdir.txt?raw';
+import submodule from './fixtures/status-long-submodule.txt?raw';
 import untrackedUnborn from './fixtures/status-long-untracked-unborn.txt?raw';
 import upToDate from './fixtures/status-long-up-to-date.txt?raw';
 import { isStatusLongLine, parseStatusLong, type ParsedStatusLong } from './statusLong';
@@ -113,6 +114,17 @@ describe('parseStatusLong on real git output', () => {
     const parsed = parseStatusLong(ignored);
     expect(parsed.untracked).toEqual(['notes.txt']);
     expect(parsed.ignored).toEqual(['.env', 'dist/']);
+  });
+
+  it('reads submodules by name, without the note on what changed inside them', () => {
+    expect(parseStatusLong(submodule)).toEqual({
+      ...NOTHING,
+      unstaged: [
+        { kind: 'modified', path: 'lib' },
+        { kind: 'modified', path: 'tools' },
+        { kind: 'modified', path: 'vendor' },
+      ],
+    });
   });
 
   it('reads every upstream state git reports', () => {
@@ -283,6 +295,24 @@ describe('parseStatusLong robustness', () => {
     expect(parseStatusLong(`${clean}It took 3.1 seconds to enumerate untracked files.`).clean).toBe(
       false,
     );
+  });
+
+  it('removes a submodule note listing several changes, but keeps other parentheses', () => {
+    const parsed = parseStatusLong(
+      [
+        'Changes not staged for commit:',
+        '\tmodified:   lib (new commits, modified content, untracked content)',
+        '\tmodified:   "caf\\303\\251" (modified content)',
+        '\tmodified:   notes (draft).md',
+        '\tmodified:   notes (new ideas)',
+      ].join('\n'),
+    );
+    expect(parsed.unstaged.map((change) => change.path)).toEqual([
+      'lib',
+      'café',
+      'notes (draft).md',
+      'notes (new ideas)',
+    ]);
   });
 
   it('reads a rename without an arrow as a plain path rather than failing', () => {

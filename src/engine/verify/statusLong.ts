@@ -214,6 +214,20 @@ function applyBranchFact(draft: Draft, line: string): boolean {
   return false;
 }
 
+// What git can say changed inside a submodule, in the note after its name.
+const SUBMODULE_CHANGES = ['new commits', 'modified content', 'untracked content'];
+
+/**
+ * Removes the note git adds after a submodule's name, as in
+ * `lib (new commits, untracked content)`. The note isn't part of the path.
+ */
+function withoutSubmoduleNote(text: string): string {
+  const noteStart = text.lastIndexOf(' (');
+  if (noteStart === -1 || !text.endsWith(')')) return text;
+  const notes = text.slice(noteStart + 2, -1).split(', ');
+  return notes.every((note) => SUBMODULE_CHANGES.includes(note)) ? text.slice(0, noteStart) : text;
+}
+
 /** Reads `modified:   app.ts` or `renamed:    old -> new`. */
 function parseChange(text: string): StatusChange | null {
   const match = CHANGE_LINE.exec(text);
@@ -221,7 +235,8 @@ function parseChange(text: string): StatusChange | null {
   const rest = match?.[2];
   if (kind === undefined || rest === undefined) return null;
   const pair = kind === 'renamed' ? splitRename(rest) : null;
-  return pair ? { kind, path: pair.to, from: pair.from } : { kind, path: unquotePath(rest) };
+  if (pair) return { kind, path: pair.to, from: pair.from };
+  return { kind, path: unquotePath(withoutSubmoduleNote(rest)) };
 }
 
 /** Reads `both modified:   app.ts` and git's other conflict labels. */
