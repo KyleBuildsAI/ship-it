@@ -3,9 +3,11 @@ import { addCommand } from './commands/add';
 import { commitCommand } from './commands/commit';
 import { diffCommand } from './commands/diff';
 import { initCommand } from './commands/init';
+import { logCommand } from './commands/log';
 import { mvCommand } from './commands/mv';
 import { restoreCommand } from './commands/restore';
 import { rmCommand } from './commands/rm';
+import { showCommand } from './commands/show';
 import { statusCommand } from './commands/status';
 import { fatal, line, ok, type CommandResult } from './output';
 import type { CommandContext } from './pathspec';
@@ -20,9 +22,11 @@ const COMMANDS: Record<string, Command> = {
   commit: commitCommand,
   diff: diffCommand,
   init: initCommand,
+  log: logCommand,
   mv: mvCommand,
   restore: restoreCommand,
   rm: rmCommand,
+  show: showCommand,
   status: statusCommand,
 };
 
