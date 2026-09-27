@@ -5,8 +5,11 @@ const VISOR = 0x6fd3ff;
 
 export interface Avatar {
   readonly group: THREE.Group;
-  /** Moves the avatar and animates its walk; `direction` is null while standing still. */
-  update: (dt: number, elapsed: number, direction: Flat | null) => void;
+  /**
+   * Animates the avatar: `direction` is null while standing still, and `height` is how
+   * far a jump has lifted it off the ground.
+   */
+  update: (dt: number, elapsed: number, direction: Flat | null, height: number) => void;
 }
 
 /**
@@ -38,13 +41,15 @@ export function createAvatar(motion: number): Avatar {
   let heading = 0;
   return {
     group,
-    update: (dt, elapsed, direction) => {
+    update: (dt, elapsed, direction, height) => {
       if (direction) heading = turnToward(heading, headingOf(direction), 10, dt);
       body3d.rotation.y = heading;
       // A gentle hover while idle, a quicker bob while walking; both shrink with reduced motion.
       const bob = direction ? Math.sin(elapsed * 12) * 0.05 : Math.sin(elapsed * 2) * 0.04;
-      body3d.position.y = bob * motion;
-      ring.scale.setScalar(1 + Math.sin(elapsed * 3) * 0.06 * motion);
+      // In the air: no bob. The ring stays on the ground and shrinks, like a shadow.
+      body3d.position.y = height > 0 ? height : bob * motion;
+      const shadow = 1 - Math.min(height, 1.2) * 0.35;
+      ring.scale.setScalar(shadow * (1 + Math.sin(elapsed * 3) * 0.06 * motion));
     },
   };
 }

@@ -17,10 +17,14 @@ import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
 import {
   clampToDisc,
+  GROUNDED,
   keyDirection,
+  startJump,
+  stepJump,
   stepToward,
   WALK_SPEED,
   type Flat,
+  type Jump,
   type MoveKeys,
 } from './movement';
 
@@ -65,7 +69,9 @@ export function createWorld(
   const campus = createCampus();
   const gitWorld = createGitWorld();
   const avatar = createAvatar(motion);
-  scene.add(campus.island.group, gitWorld.island.group, avatar.group, createStars(600));
+  // The stars follow the camera (see update), so the sky surrounds whichever island you're on.
+  const stars = createStars(1400);
+  scene.add(campus.island.group, gitWorld.island.group, avatar.group, stars);
 
   // Key + rim + low ambient (DESIGN.md section 14); the lights follow the player between islands.
   const lights = new THREE.Group();
@@ -92,6 +98,7 @@ export function createWorld(
   let zone: ZoneId = 'campus';
   let position: Flat = { ...campus.spawn };
   let walkTarget: Flat | null = null;
+  let jump: Jump = GROUNDED;
   let travelling = false;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
 
@@ -240,6 +247,14 @@ export function createWorld(
       pendingPortal = null;
     }
   };
+  // Space jumps, but not while typing, and not when a HUD button has focus (Space presses it).
+  const onJumpKey = (event: KeyboardEvent) => {
+    if (event.code !== 'Space' || event.repeat) return;
+    const { target } = event;
+    if (target !== document.body && !(target instanceof HTMLCanvasElement)) return;
+    event.preventDefault();
+    if (!travelling) jump = startJump(jump);
+  };
   const onKeyDown = onKey(true);
   const onKeyUp = onKey(false);
   // Keys released while the window is in the background never send keyup.
@@ -251,6 +266,7 @@ export function createWorld(
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointermove', onPointerMove);
   window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keydown', onJumpKey);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', releaseAll);
 
@@ -304,8 +320,9 @@ export function createWorld(
       }
       position = clampToDisc(position, zoneCenter(), zoneRadius());
       if (direction && !worldState.get().hasMoved) worldState.update({ hasMoved: true });
+      jump = stepJump(jump, dt);
       avatar.group.position.set(position.x, 0, position.z);
-      avatar.update(dt, elapsed, direction);
+      avatar.update(dt, elapsed, direction, jump.height);
 
       // The camera keeps its orbit but follows the player, easing rather than snapping.
       follow
@@ -316,6 +333,7 @@ export function createWorld(
       camera.position.add(follow);
       controls.update(dt);
       lights.position.set(position.x, 0, position.z);
+      stars.position.copy(camera.position);
     },
     resize: (width, height) => {
       viewSize = { width, height };
@@ -330,6 +348,7 @@ export function createWorld(
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onJumpKey);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', releaseAll);
       controls.dispose();

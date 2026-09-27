@@ -2,7 +2,8 @@ import { worldState } from '../game/worldState';
 import { useStore } from './useStore';
 
 const HINTS = {
-  campus: 'WASD or click to walk · drag to look around · step through the glowing Act 2 portal',
+  campus:
+    'WASD or click to walk · Space to jump · drag to look around · step through the glowing Act 2 portal',
   gitworld: 'Workbench · Loading Dock · Vault. Try git status in the terminal.',
 } as const;
 
