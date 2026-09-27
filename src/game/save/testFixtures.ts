@@ -67,7 +67,7 @@ export function createSampleSave(): SaveData {
   };
 }
 
-/** A save as the earliest prototype wrote it: no schemaVersion, and xp at the top level. */
+/** The sample version 0 shape (see migrations.ts): no schemaVersion, and xp at the top level. */
 export function createLegacyV0Save(): Record<string, unknown> {
   const { profile, ...current } = createSampleSave();
   const legacy: Record<string, unknown> = {
