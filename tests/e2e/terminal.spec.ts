@@ -30,6 +30,31 @@ test('runs git in the in-game terminal', async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+test('edits a file with code and git sees the change', async ({ page }) => {
+  const problems = collectConsoleProblems(page);
+  await page.goto('./');
+  await run(
+    page,
+    'git init',
+    'git add .',
+    'git commit -m "feat: first commit"',
+    'code src/config.ts',
+  );
+
+  const editor = page.locator('.cm-content');
+  await editor.click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.insertText('export const HOST = "localhost";');
+  await page.keyboard.press('Control+s');
+  await expect(page.locator('.editor-panel__header')).toContainText('Saved');
+
+  await run(page, 'git status -s');
+  await expect(page.locator('.xterm-rows')).toContainText('M src/config.ts');
+  await page.getByRole('button', { name: 'Close editor' }).click();
+  await expect(page.locator('.editor-panel')).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
 test('toggles the terminal with Ctrl+backquote', async ({ page }) => {
   await page.goto('./');
   const panel = page.getByRole('region', { name: 'Terminal' });
