@@ -649,3 +649,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/59
 3. `MissionInput` is what authors write, where defaults like `xp` and `timeLimitSeconds` can be left out. `Mission` is the parsed result, with every default filled in, which is what the runner uses.
 
 </details>
+
+---
+
+## #60 feat: mission sandboxes and grading for drills, questions, and placement
+
+https://github.com/KyleBuildsAI/ship-it/pull/60
+
+1. A drill's time limit is 90 s. You reach the target state in 95 s. What does `scoreDrill` say, and where does the drill go?
+2. You get 11 of 13 placement questions right. Do you test out?
+3. Why does `applySteps` call `stagePaths` instead of writing to the index directly?
+
+<details><summary>Answers</summary>
+
+1. Correct but overtime, so it's scored as a miss, and the drill joins the review queue. Drills train recall speed, and a slow answer means it isn't automatic yet.
+2. No. 11/13 is about 84.6%, below 85%. The check uses the exact fraction, so rounding can't turn it into a pass.
+3. `stagePaths` is what `git add` uses, and it fires the `staged` event. The 3D world listens for events to redraw crates. Writing the index directly would change the repo silently, and the world would show the wrong state.
+
+</details>
