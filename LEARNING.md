@@ -1099,3 +1099,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/86
 3. The steal arrived while that tab was still loading. The "stop writing" flag was set, but when the load finished it set the status back to "ready" and the badge to "saved", hiding the notice. Now "handed over" is final, and the load checks it before touching the status.
 
 </details>
+
+---
+
+## #88 feat: jump with space, and stars all around the islands
+
+https://github.com/KyleBuildsAI/ship-it/pull/88
+
+1. Why can't you jump again while already in the air?
+2. Why does `stepJump` use the average of the old and new velocity?
+3. Why do the stars follow the camera instead of staying still in the world?
+
+<details><summary>Answers</summary>
+
+1. `startJump` only takes off when `isGrounded` is true, meaning at height 0 with no upward speed. In the air it returns the jump unchanged.
+2. Using only the old velocity makes the jump slightly too high. Using only the new one makes it too low, and by an amount that depends on the frame rate. The average (the trapezoid rule) gives the same arc whether frames are long or short, as the "same arc at any frame rate" test checks.
+3. They're "infinitely far away" scenery. Moving them with the camera keeps a full sky around the player on any island. Fixed in the world, they'd be off-centre for the Git World, 140 units from Campus.
+
+</details>
