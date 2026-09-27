@@ -114,7 +114,7 @@ export function createApp({ models, usage, mentor, logger }: AppDependencies): H
         const cap = String(usage.dailyCallCap);
         return c.json(
           errorReply(
-            `Sage has answered ${cap} questions today, the daily limit. It resets at midnight. Pre-written hints still work.`,
+            `Sage has used all ${cap} of today's calls. The count resets at midnight. Pre-written hints still work.`,
           ),
           429,
         );

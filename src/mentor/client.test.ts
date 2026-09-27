@@ -272,13 +272,13 @@ describe('askHint', () => {
   it('passes the server message through when the cap is hit mid-session', async () => {
     routeFetch(
       () => json(health()),
-      () => json({ error: 'Sage has answered 50 questions today.' }, 429),
+      () => json({ error: "Sage has used all 50 of today's calls." }, 429),
     );
 
     expect(await client.askHint(HINT_CONTEXT)).toEqual({
       offline: true,
       reason: 'daily-cap',
-      message: 'Sage has answered 50 questions today.',
+      message: "Sage has used all 50 of today's calls.",
     });
     expect(devStatus.get().mentor).toBe('offline');
   });

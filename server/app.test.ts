@@ -241,7 +241,10 @@ describe('POST /api/mentor', () => {
     const response = await postMentor(app, { mode: 'hint', context: HINT_CONTEXT });
 
     expect(response.status).toBe(429);
-    expect(((await response.json()) as { error: string }).error).toContain('daily limit');
+    expect(await response.json()).toEqual({
+      error:
+        "Sage has used all 1 of today's calls. The count resets at midnight. Pre-written hints still work.",
+    });
     expect(mentor.hint).toHaveBeenCalledOnce();
   });
 
