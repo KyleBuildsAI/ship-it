@@ -14,6 +14,7 @@ import { createDefaultSave, type Settings } from '../../game/save/schema';
 import { replayTutorial } from '../../game/tutorial';
 import { download, saveFileName } from '../download';
 import { useStore } from '../useStore';
+import { MusicSettings } from './MusicSettings';
 import { Overlay } from './Overlay';
 
 function changeSetting<K extends keyof Settings>(key: K, value: Settings[K]): void {
@@ -144,6 +145,8 @@ export function SettingsPanel() {
         Reduced motion and graphics apply to the 3D world when the game next loads.
       </p>
       <SageUsage />
+
+      <MusicSettings />
 
       <p className="play-panel__eyebrow">Tutorial</p>
       <div className="play-panel__actions">

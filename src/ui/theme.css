@@ -370,12 +370,15 @@ body {
   outline-offset: 2px;
 }
 
-/* The play panel: the Act menu, or the mission being played, above the terminal. */
+/*
+ * The play panel: the Act menu, or the mission being played, above the terminal. It starts
+ * below the status badge (five rows since the Music row) with a little air.
+ */
 .play-panel {
   position: absolute;
-  top: 118px;
+  top: 140px;
   left: 16px;
-  max-height: calc(100vh - 134px);
+  max-height: calc(100vh - 156px);
   box-sizing: border-box;
   width: min(400px, 34vw);
   padding: 14px 16px;
@@ -387,7 +390,7 @@ body {
 }
 
 .play-panel--above-terminal {
-  max-height: calc(62vh - 194px);
+  max-height: calc(62vh - 216px);
 }
 
 .play-panel__header {
@@ -896,4 +899,43 @@ html[data-reduced-motion='on'] *::after {
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
+}
+
+/* Music settings (MusicSettings.tsx): a volume slider with its value, and the credits. */
+.settings-slider {
+  display: grid;
+  grid-template-columns: auto 1fr 3.5em;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.settings-slider input[type='range'] {
+  accent-color: var(--accent);
+}
+
+.settings-slider output {
+  color: var(--text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.music-credits {
+  margin: 6px 0 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.music-credits summary {
+  cursor: pointer;
+}
+
+.music-credits ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.45;
+}
+
+.music-credits a {
+  color: var(--accent);
 }

@@ -1261,3 +1261,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/100
 3. Where the portal lands on screen depends on the window size and the camera. A fixed pixel would break on a different screen. The test hook projects the ring's real 3D position through the camera, so the test clicks exactly where the portal is drawn.
 
 </details>
+
+---
+
+## #101 feat: music settings, a hud music button, and credits
+
+https://github.com/KyleBuildsAI/ship-it/pull/101
+
+1. How do the end-to-end tests play music without reaching Wikimedia?
+2. Why does unmuting restore the old volume instead of a fixed one?
+3. The music test checks that no music request happens before the first click. Why is that worth testing?
+
+<details><summary>Answers</summary>
+
+1. The shared fixture calls `context.route('https://upload.wikimedia.org/**', …)` for every test's browser context. Chrome's request for a music file is answered on the spot with a generated one-second WAV of silence.
+2. Muting only sets the volume to 0, so the old volume would be lost. `mute.ts` remembers the last volume above 0 on this page, and unmuting puts it back.
+3. Browsers refuse sound before an interaction, so loading earlier would waste bandwidth and could log autoplay errors. The test proves the player really waits.
+
+</details>

@@ -1,3 +1,4 @@
+import type { MusicState } from '../game/audio/music';
 import type { DevStatus, MentorState, RenderBackend, SaveState } from '../game/devStatus';
 
 export type Tone = 'ok' | 'warn' | 'neutral';
@@ -28,6 +29,14 @@ const SAVE: Record<SaveState, Omit<StatusRow, 'label'>> = {
   elsewhere: { value: 'other tab', tone: 'warn' },
 };
 
+const MUSIC: Record<MusicState, Omit<StatusRow, 'label'>> = {
+  off: { value: 'off', tone: 'neutral' },
+  waiting: { value: 'click to start', tone: 'neutral' },
+  loading: { value: 'loading', tone: 'neutral' },
+  playing: { value: 'playing', tone: 'ok' },
+  unavailable: { value: 'offline', tone: 'warn' },
+};
+
 /** Turns raw dev status into the labeled rows the badge displays. */
 export function statusRows(status: DevStatus): StatusRow[] {
   const rows: StatusRow[] = [{ label: 'Render', ...BACKEND[status.backend] }];
@@ -36,5 +45,6 @@ export function statusRows(status: DevStatus): StatusRow[] {
   }
   rows.push({ label: 'Sage', ...MENTOR[status.mentor] });
   rows.push({ label: 'Save', ...SAVE[status.save] });
+  rows.push({ label: 'Music', ...MUSIC[status.music] });
   return rows;
 }
