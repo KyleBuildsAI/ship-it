@@ -361,3 +361,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/43
 3. `.git` is the repository: every commit, branch, and the staging area live inside it. It's hidden because you should never edit it by hand, and deleting it deletes the project's whole history. `-Force` shows hidden items.
 
 </details>
+
+---
+
+## #44 feat: in-game terminal with line editing and tab completion
+
+https://github.com/KyleBuildsAI/ship-it/pull/44
+
+1. xterm.js already shows a blinking cursor. Why does the game still need its own `LineEditor`?
+2. How does the terminal make `git status` output green and red without the engine knowing anything about colors?
+3. Why does hiding the terminal use `inert` instead of just `aria-hidden`?
+
+<details><summary>Answers</summary>
+
+1. xterm.js is only an emulator: it draws characters and reports raw keystrokes (`\x7f` for Backspace, `\x1b[A` for Up). Something has to keep the line being typed, move the cursor, recall history, and decide when a line is finished. That's what a shell's line editor does, and `LineEditor` is ours.
+2. The engine tags each output line with a tone (`staged`, `untracked`, `hunk`...). `tones.ts` maps each tone to an ANSI color code, and xterm renders those codes as colors. The engine stays color-free and testable with plain text.
+3. `aria-hidden` only hides content from screen readers. The hidden textarea kept keyboard focus, so typing still went into an invisible terminal (Chrome warns about exactly that). `inert` makes the whole panel unfocusable and non-interactive, and removes focus from it.
+
+</details>
