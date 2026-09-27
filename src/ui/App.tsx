@@ -1,5 +1,11 @@
+import { StatusBadge } from './StatusBadge';
 import { TitleCard } from './TitleCard';
 
 export function App() {
-  return <TitleCard />;
+  return (
+    <>
+      <StatusBadge />
+      <TitleCard />
+    </>
+  );
 }

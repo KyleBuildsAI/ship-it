@@ -60,6 +60,49 @@ body {
   pointer-events: none;
 }
 
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-stroke);
+  border-radius: var(--radius);
+}
+
+/* Read-only readout, so it keeps inheriting pointer-events: none from #ui. */
+.status-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  margin: 0;
+  padding: 8px 12px;
+  display: grid;
+  gap: 2px;
+  font: 12px/1.5 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-badge__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.status-badge dt {
+  color: var(--text-muted);
+}
+
+.status-badge dd {
+  margin: 0;
+  color: var(--text);
+}
+
+.status-badge dd[data-tone='ok'] {
+  color: var(--ok);
+}
+
+.status-badge dd[data-tone='warn'] {
+  color: var(--warn);
+}
+
 .title-card {
   position: absolute;
   top: 18vh;
