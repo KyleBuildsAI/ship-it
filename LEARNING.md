@@ -901,3 +901,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/73
 3. Run `Copy-Item .env.example .env`, then `notepad .env`, paste the key after `ANTHROPIC_API_KEY=`, save, and run `npm run dev`. Never paste it into a chat, an issue, a commit, code, or a `VITE_` variable.
 
 </details>
+
+---
+
+## #74 feat: load the save at startup and autosave every change
+
+https://github.com/KyleBuildsAI/ship-it/pull/74
+
+1. The stored save is corrupted. What does the game do with it, and what does the player see?
+2. Why do changes go through `updateSave(change)` instead of editing `progress.get().save` directly?
+3. When does a pending autosave get written early, and why then?
+
+<details><summary>Answers</summary>
+
+1. It leaves it untouched in IndexedDB, marks progress as `failed`, shows "Your save could not be read. Import a backup from Settings, or start over there.", and the badge shows `Save error`.
+2. Editing the snapshot directly would change data other code is holding, never trigger an autosave, and never re-render the UI. `updateSave` makes a new snapshot, notifies subscribers, and schedules the write.
+3. When the tab is hidden (`visibilitychange` to `hidden`), for example when switching tabs or closing the browser. It's the last reliable chance to write before the page may be killed.
+
+</details>
