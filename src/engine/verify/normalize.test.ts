@@ -28,6 +28,11 @@ describe('promptCommand', () => {
     expect(promptCommand('PS> git log --oneline')).toBe('git log --oneline');
   });
 
+  it('reads the prompt PowerShell shows on a network share, emoji and all', () => {
+    const prompt = 'PS Microsoft.PowerShell.Core\\FileSystem::\\\\nas\\code\\SandCastles 🏰>';
+    expect(promptCommand(`${prompt} git status`)).toBe('git status');
+  });
+
   it('reads cmd.exe and Unix-style prompts', () => {
     expect(promptCommand('C:\\repo>git status')).toBe('git status');
     expect(promptCommand('$ git status --short')).toBe('git status --short');
