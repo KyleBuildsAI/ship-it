@@ -15,6 +15,8 @@ export interface GitWorldLayout {
   readonly dockTop: THREE.Vector3;
   /** The Vault's door, where committed crates fly in. */
   readonly vaultDoor: THREE.Vector3;
+  /** The Vault's building and door, for clicks. */
+  readonly vaultMeshes: readonly THREE.Object3D[];
   /** The door's material, so a commit can make it flash. */
   readonly vaultDoorMaterial: THREE.MeshStandardMaterial;
   /** Ground spot beside the Workbench where ignored crates are kept. */
@@ -83,7 +85,7 @@ export function createGitWorld(): GitWorldLayout {
   group.add(
     dock,
     stripe,
-    areaLabel('Loading Dock', 'staging area', new THREE.Vector3(0, 2.6, 1.5)),
+    areaLabel('Loading Dock', 'staging area', new THREE.Vector3(0, 1.5, 3.6)),
   );
 
   // Vault: a heavy building with a round door that seals snapshots.
@@ -110,7 +112,8 @@ export function createGitWorld(): GitWorldLayout {
   const exitLabel = new Label('Campus', { height: 0.3 });
   exitLabel.sprite.position.y = 2.7;
   exitGroup.add(exitRing, exitLabel.sprite);
-  exitGroup.position.set(0, 0, 14.5);
+  exitGroup.position.set(-10, 0, 10.5);
+  exitGroup.rotation.y = -0.6;
   group.add(exitGroup);
 
   const world = (x: number, y: number, z: number) =>
@@ -118,16 +121,17 @@ export function createGitWorld(): GitWorldLayout {
 
   return {
     island,
-    spawn: { x: GIT_WORLD_CENTER.x, z: GIT_WORLD_CENTER.z + 9 },
+    spawn: { x: GIT_WORLD_CENTER.x - 2.5, z: GIT_WORLD_CENTER.z + 5 },
     workbenchTop: world(-7, 1.03, 1.5),
     dockTop: world(0, 0.4, 1.5),
     vaultDoor: world(0, 1.8, -4.25),
     vaultDoorMaterial: doorMaterial,
+    vaultMeshes: [vault, door],
     blocklistGround: world(-13, 0, 1.5),
     pathStart: world(4.2, 0.6, -8.5),
     // The path climbs away up and to the right, where the default camera can see it.
     pathDirection: new THREE.Vector3(0.55, 0, -0.83).normalize(),
-    exit: { group: exitGroup, doorstep: { x: GIT_WORLD_CENTER.x, z: GIT_WORLD_CENTER.z + 12.8 } },
+    exit: { group: exitGroup, doorstep: { x: GIT_WORLD_CENTER.x - 9, z: GIT_WORLD_CENTER.z + 9 } },
     update: (elapsed) => {
       door.rotation.z = Math.sin(elapsed * 0.4) * 0.05;
     },

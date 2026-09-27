@@ -2,6 +2,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three/webgpu';
 import type { Workspace } from '../../engine/workspace';
 import { isTypingTarget } from '../../ui/focus';
+import { shortId } from '../../engine/git/hash';
+import { suggest } from '../hud';
 import { sandbox } from '../sandbox';
 import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
@@ -11,6 +13,7 @@ import { CommitPath } from './commitPath';
 import { CrateYard } from './crateYard';
 import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
 import { describeHistory } from './historyLayout';
+import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
 import {
   clampToDisc,
@@ -92,9 +95,11 @@ export function createWorld(
   let travelling = false;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
 
+  // The Git World needs a wider view than Campus so the Workbench, Dock, and Vault all fit.
   const placeCamera = (at: Flat) => {
+    const [height, back] = zone === 'campus' ? [5.5, 10] : [8, 13.5];
     controls.target.set(at.x, 1.2, at.z);
-    camera.position.set(at.x, 5.5, at.z + 10);
+    camera.position.set(at.x, height, at.z + back);
   };
   placeCamera(position);
 
@@ -121,11 +126,62 @@ export function createWorld(
     window.setTimeout(arrive, 350);
   };
 
-  // What the player can click: the ground to walk, open portals to travel.
+  // The Git World mirrors the sandbox: any engine event marks the crates for a redraw,
+  // done at most once per frame however many events a command produced.
+  const yard = new CrateYard(gitWorld, scene);
+  const path = new CommitPath(gitWorld, scene);
+  let watched: Workspace | null = null;
+  let stopWatching: () => void = () => {
+    // Nothing to stop until the first workspace is watched.
+  };
+  let cratesDirty = true;
+  let committedSinceSync = false;
+  const watch = () => {
+    const ws = sandbox.get().shell.ws;
+    if (ws === watched) return;
+    stopWatching();
+    watched = ws;
+    cratesDirty = true;
+    stopWatching = ws.events.on((event) => {
+      cratesDirty = true;
+      if (event.type === 'committed') committedSinceSync = true;
+    });
+  };
+  watch();
+  const stopSandbox = sandbox.subscribe(watch);
+
+  // What the player can click: things in the Git World suggest a command, open portals
+  // travel, and the ground walks.
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let pressed: { x: number; y: number; at: number } | null = null;
   let pendingPortal: { doorstep: Flat; to: ZoneId } | null = null;
+
+  /** What in the Git World the ray hits: a crate, a commit platform, or the Vault. */
+  const pickTarget = (): WorldTarget | null => {
+    const crate = yard.pick(raycaster);
+    if (crate) return { kind: 'crate', path: crate.path, area: crate.area, look: crate.look };
+    const commit = path.pick(raycaster);
+    if (commit) return { kind: 'commit', shortId: shortId(commit) };
+    if (raycaster.intersectObjects([...gitWorld.vaultMeshes], false)[0]) return { kind: 'vault' };
+    return null;
+  };
+
+  const aimAt = (event: PointerEvent) => {
+    const bounds = canvas.getBoundingClientRect();
+    pointer.set(
+      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+      -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+    );
+    raycaster.setFromCamera(pointer, camera);
+  };
+
+  // A pointer cursor over anything clickable in the Git World, so it reads as interactive.
+  const onPointerMove = (event: PointerEvent) => {
+    if (zone !== 'gitworld' || pressed) return;
+    aimAt(event);
+    canvas.style.cursor = pickTarget() ? 'pointer' : '';
+  };
 
   const onPointerDown = (event: PointerEvent) => {
     pressed = { x: event.clientX, y: event.clientY, at: performance.now() };
@@ -137,12 +193,11 @@ export function createWorld(
     pressed = null;
     if (moved > CLICK_MAX_PIXELS || !quick) return;
 
-    const bounds = canvas.getBoundingClientRect();
-    pointer.set(
-      ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
-      -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
-    );
-    raycaster.setFromCamera(pointer, camera);
+    aimAt(event);
+
+    const target = zone === 'gitworld' ? pickTarget() : null;
+    suggest(target ? suggestFor(target) : null);
+    if (target) return;
 
     const portalTargets =
       zone === 'campus'
@@ -191,33 +246,10 @@ export function createWorld(
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointermove', onPointerMove);
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', releaseAll);
-
-  // The Git World mirrors the sandbox: any engine event marks the crates for a redraw,
-  // done at most once per frame however many events a command produced.
-  const yard = new CrateYard(gitWorld, scene);
-  const path = new CommitPath(gitWorld, scene);
-  let watched: Workspace | null = null;
-  let stopWatching: () => void = () => {
-    // Nothing to stop until the first workspace is watched.
-  };
-  let cratesDirty = true;
-  let committedSinceSync = false;
-  const watch = () => {
-    const ws = sandbox.get().shell.ws;
-    if (ws === watched) return;
-    stopWatching();
-    watched = ws;
-    cratesDirty = true;
-    stopWatching = ws.events.on((event) => {
-      cratesDirty = true;
-      if (event.type === 'committed') committedSinceSync = true;
-    });
-  };
-  watch();
-  const stopSandbox = sandbox.subscribe(watch);
 
   const focus = new THREE.Vector3();
   return {
@@ -279,6 +311,7 @@ export function createWorld(
       stopSandbox();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', releaseAll);

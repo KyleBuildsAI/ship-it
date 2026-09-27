@@ -111,6 +111,14 @@ describe('LineEditor', () => {
     expect(editor().handle('\t').output).toBe('\r\x1b[K> ');
   });
 
+  it('replaces the whole line and places the cursor from the end', () => {
+    const line = editor(['old']);
+    line.handle('draft\x1b[A');
+    expect(line.replaceLine('git commit -m ""', 1)).toBe('\r\x1b[K> git commit -m ""\x1b[1D');
+    line.handle('feat: x');
+    expect(line.line).toBe('git commit -m "feat: x"');
+  });
+
   it('ignores other control characters', () => {
     const line = editor();
     line.handle('a\x07b');

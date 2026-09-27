@@ -43,6 +43,7 @@ interface Flight {
 }
 
 interface CrateView {
+  spec: CrateSpec;
   readonly group: THREE.Group;
   readonly box: THREE.Mesh;
   readonly label: Label;
@@ -150,12 +151,31 @@ export class CrateYard {
     group.add(box, label.sprite);
     group.userData = { path: spec.path, area: spec.area };
     this.root.add(group);
-    const view: CrateView = { group, box, label, look: spec.look, flight: null, leaving: null };
+    const view: CrateView = {
+      spec,
+      group,
+      box,
+      label,
+      look: spec.look,
+      flight: null,
+      leaving: null,
+    };
     this.views.set(spec.key, view);
     return view;
   }
 
+  /** The crate under the pointer, if any (crates on their way out don't count). */
+  pick(raycaster: THREE.Raycaster): CrateSpec | null {
+    const live = [...this.views.values()].filter((view) => !view.leaving);
+    const hit = raycaster.intersectObjects(
+      live.map((view) => view.box),
+      false,
+    )[0];
+    return live.find((view) => view.box === hit?.object)?.spec ?? null;
+  }
+
   private restyle(view: CrateView, spec: CrateSpec): void {
+    view.spec = spec;
     view.look = spec.look;
     view.box.material = this.materials[spec.look];
     view.group.userData = { path: spec.path, area: spec.area };

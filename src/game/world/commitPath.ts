@@ -4,9 +4,9 @@ import type { GitWorldLayout } from './gitWorld';
 import type { HistorySpec, PlatformSpec } from './historyLayout';
 import { Label } from './labels';
 
-const SPACING = 3.4;
+const SPACING = 3.1;
 const LANE_WIDTH = 3.4;
-const RISE = 0.18;
+const RISE = 0.45;
 const HOLOGRAM = 0x6fd3ff;
 
 interface PlatformView {
@@ -104,6 +104,18 @@ export class CommitPath {
     for (const banner of this.banners.values()) glide(banner.group, banner.target, dt);
     if (this.hologramTarget) glide(this.hologram, this.hologramTarget, dt);
     this.hologram.children[0]?.position.set(0, 0.9 + Math.sin(elapsed * 2) * 0.05, 0);
+  }
+
+  /** The commit whose platform is under the pointer, if any. */
+  pick(raycaster: THREE.Raycaster): ObjectId | null {
+    const entries = [...this.platforms.entries()];
+    const hit = raycaster.intersectObjects(
+      entries.map(([, view]) => view.group),
+      true,
+    )[0];
+    if (!hit) return null;
+    const found = entries.find(([, view]) => view.group === hit.object.parent);
+    return found ? found[0] : null;
   }
 
   private positionFor(spec: PlatformSpec): THREE.Vector3 {
