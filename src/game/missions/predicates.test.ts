@@ -66,6 +66,15 @@ describe('staging', () => {
     expect(holds(ws, { kind: 'staged', paths: ['app.ts'], exact: true })).toBe(true);
   });
 
+  it('counts both names of a staged rename', () => {
+    const ws = repo().commit('init', { 'b.ts': 'b\n' }).build(testDeps());
+    git(ws, ['mv', 'b.ts', 'c.ts']);
+    // git status shows one line, "renamed: b.ts -> c.ts", but b.ts's removal is staged too.
+    expect(holds(ws, { kind: 'staged', paths: ['b.ts', 'c.ts'], exact: true })).toBe(true);
+    expect(holds(ws, { kind: 'staged', paths: ['c.ts'], exact: true })).toBe(false);
+    expect(holds(ws, { kind: 'notStaged', paths: ['b.ts'] })).toBe(false);
+  });
+
   it('notStaged fails if any listed path is staged', () => {
     const ws = project();
     expect(holds(ws, { kind: 'notStaged', paths: ['.env', 'app.ts'] })).toBe(true);

@@ -14,7 +14,10 @@ export type Predicate =
   | { kind: 'isRepo'; label?: string }
   /** Nothing staged, no unstaged edits, no untracked files. Ignored files don't count. */
   | { kind: 'clean'; label?: string }
-  /** Every path has a staged change. With `exact`, nothing else is staged. */
+  /**
+   * Every path has a staged change. With `exact`, nothing else is staged. A staged
+   * rename is a change to both names: the old one is deleted, the new one added.
+   */
   | { kind: 'staged'; paths: string[]; exact?: boolean; label?: string }
   | { kind: 'notStaged'; paths: string[]; label?: string }
   | { kind: 'untracked'; paths: string[]; label?: string }
@@ -86,6 +89,18 @@ function sameSet(paths: readonly string[], list: readonly string[]): boolean {
   return wanted.size === actual.size && [...wanted].every((path) => actual.has(path));
 }
 
+/**
+ * Every path whose staged version differs from HEAD. `stagedPaths()` lists a rename
+ * once, under its new name, so after `git mv b.ts c.ts` it would say b.ts has nothing
+ * staged, when in fact its deletion is. Adding the old name back fixes that.
+ */
+function stagedChangePaths(q: GitQueries): string[] {
+  const { staged } = q.status();
+  return staged.flatMap((change) =>
+    change.kind === 'renamed' ? [change.path, change.from] : [change.path],
+  );
+}
+
 function matches(text: string, pattern: string, flags = ''): boolean {
   return new RegExp(pattern, flags).test(text);
 }
@@ -150,10 +165,10 @@ export function evaluate(predicate: Predicate, q: GitQueries): boolean {
       return q.isRepo() && q.isClean();
     case 'staged':
       return predicate.exact === true
-        ? sameSet(predicate.paths, q.stagedPaths())
-        : everyIn(predicate.paths, q.stagedPaths());
+        ? sameSet(predicate.paths, stagedChangePaths(q))
+        : everyIn(predicate.paths, stagedChangePaths(q));
     case 'notStaged':
-      return noneIn(predicate.paths, q.stagedPaths());
+      return noneIn(predicate.paths, stagedChangePaths(q));
     case 'untracked':
       return everyIn(predicate.paths, q.untrackedPaths());
     case 'tracked':
