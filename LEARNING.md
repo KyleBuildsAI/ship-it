@@ -631,3 +631,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/58
 3. `{ kind: 'all', of: [{ kind: 'clean' }, { kind: 'headMessage', pattern: '^feat:' }] }`
 
 </details>
+
+---
+
+## #59 feat: mission and act schemas validated with zod
+
+https://github.com/KyleBuildsAI/ship-it/pull/59
+
+1. A content author writes a step with only two hints. What happens, and when?
+2. Why reject unknown keys instead of ignoring them?
+3. What's the difference between `MissionInput` and `Mission`?
+
+<details><summary>Answers</summary>
+
+1. Parsing fails with an error at that step's `hints` path (a tuple of exactly 3). It happens in the content tests, long before any player sees the mission.
+2. An ignored key is usually a typo, and a typo can silently flip a check's meaning (`exist: false` is ignored, so the file is checked to exist). Rejecting it turns a silent grading bug into a loud test failure.
+3. `MissionInput` is what authors write, where defaults like `xp` and `timeLimitSeconds` can be left out. `Mission` is the parsed result, with every default filled in, which is what the runner uses.
+
+</details>
