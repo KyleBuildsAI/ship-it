@@ -304,3 +304,15 @@ body {
 .editor-panel .cm-activeLineGutter {
   background-color: rgba(111, 211, 255, 0.06);
 }
+
+.title-card--compact {
+  top: 16px;
+}
+
+.title-card__zone {
+  margin: 0 0 4px;
+  color: var(--accent);
+  font-size: 22px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
