@@ -757,3 +757,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/65
 3. A `## branch...upstream [ahead N, behind M]` header line. The parser reads the branch name, the upstream, and the ahead/behind counts.
 
 </details>
+
+---
+
+## #66 feat: parse the default git status output
+
+https://github.com/KyleBuildsAI/ship-it/pull/66
+
+1. A paste has one line the parser doesn't recognize, and otherwise says "nothing to commit". Is it clean? Why?
+2. What does "Your branch and 'origin/main' have diverged" mean for Kyle's next push?
+3. Why is the stash count note recognized explicitly instead of ignoring every unknown line?
+
+<details><summary>Answers</summary>
+
+1. No. The unknown line becomes a warning, and a paste with warnings is never clean. It could be something important (a merge in progress, say), so the parser refuses to guess.
+2. Both sides have commits the other doesn't. A plain `git push` will be rejected, and he must integrate origin's commits first (merge or rebase, taught in Act 3).
+3. Ignoring every unknown line could hide a real problem and pass a dirty tree. Listing known-safe notes one by one keeps the parser strict everywhere else.
+
+</details>
