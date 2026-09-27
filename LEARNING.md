@@ -379,3 +379,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/44
 3. `aria-hidden` only hides content from screen readers. The hidden textarea kept keyboard focus, so typing still went into an invisible terminal (Chrome warns about exactly that). `inert` makes the whole panel unfocusable and non-interactive, and removes focus from it.
 
 </details>
+
+---
+
+## #45 feat: code editor opened with code <file>
+
+https://github.com/KyleBuildsAI/ship-it/pull/45
+
+1. You edit `app.ts` in the editor but don't press Ctrl+S, then run `git add app.ts` and commit. What ends up in the commit?
+2. Why is the editor loaded with `React.lazy` while the terminal loads right away?
+3. What does the `key={openFile}` on `<EditorPanel>` accomplish when you run `code a.ts` and then `code b.ts`?
+
+<details><summary>Answers</summary>
+
+1. The old version. `git add` copies what's on disk, and your edit was only in the editor's memory. Saving writes it to the Workbench, and only then can git stage it.
+2. The terminal is visible from the first frame and used constantly. The editor is ~600 kB of code that many sessions never open. Loading it on first use keeps the first screen fast.
+3. A different `key` makes React throw away the old editor and mount a fresh one. The new file starts with its own content and a clean "unsaved" state, instead of inheriting `a.ts`'s editor.
+
+</details>

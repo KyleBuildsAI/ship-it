@@ -1,12 +1,19 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { hud, toggleTerminal } from '../game/hud';
+import { sandbox } from '../game/sandbox';
 import { StatusBadge } from './StatusBadge';
 import { TerminalPanel } from './terminal/TerminalPanel';
 import { TitleCard } from './TitleCard';
 import { useStore } from './useStore';
 
+// CodeMirror is large and only needed once the player runs `code <file>`, so it loads on demand.
+const EditorPanel = lazy(() =>
+  import('./editor/EditorPanel').then((module) => ({ default: module.EditorPanel })),
+);
+
 export function App() {
   const { terminalOpen } = useStore(hud);
+  const { openFile } = useStore(sandbox);
 
   useEffect(() => {
     // Ctrl+` toggles the terminal, the same shortcut as VS Code.
@@ -35,6 +42,14 @@ export function App() {
         Terminal <kbd>Ctrl</kbd>+<kbd>`</kbd>
       </button>
       <TerminalPanel open={terminalOpen} />
+      {openFile !== null ? (
+        <div className={terminalOpen ? 'editor-dock editor-dock--above-terminal' : 'editor-dock'}>
+          {/* A new key per file gives each file a fresh editor with its own unsaved state. */}
+          <Suspense fallback={null}>
+            <EditorPanel key={openFile} path={openFile} />
+          </Suspense>
+        </div>
+      ) : null}
     </>
   );
 }
