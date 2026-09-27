@@ -1,7 +1,9 @@
 import type { Workspace } from '../../workspace';
 import { addCommand } from './commands/add';
 import { initCommand } from './commands/init';
+import { mvCommand } from './commands/mv';
 import { restoreCommand } from './commands/restore';
+import { rmCommand } from './commands/rm';
 import { statusCommand } from './commands/status';
 import { fatal, line, ok, type CommandResult } from './output';
 import type { CommandContext } from './pathspec';
@@ -14,7 +16,9 @@ const NO_REPO_NEEDED = new Set(['init']);
 const COMMANDS: Record<string, Command> = {
   add: addCommand,
   init: initCommand,
+  mv: mvCommand,
   restore: restoreCommand,
+  rm: rmCommand,
   status: statusCommand,
 };
 
