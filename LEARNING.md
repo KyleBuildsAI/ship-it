@@ -271,3 +271,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/38
 3. The last line of the file has no newline character after it. That counts as a real difference: adding a line later then shows a change to the *previous* line too, and some tools misbehave. Most editors add the final newline automatically.
 
 </details>
+
+---
+
+## #39 feat: git commit
+
+https://github.com/KyleBuildsAI/ship-it/pull/39
+
+1. You edited `a.ts` and created `new.ts`, then ran `git commit -am "wip"`. What's in the commit, and what's left over?
+2. What does `git commit -m "feat: add login" -m "Uses the session API so tokens refresh."` produce as the message?
+3. Why does `git commit` with nothing staged fail instead of making an empty commit?
+
+<details><summary>Answers</summary>
+
+1. The commit has the edit to `a.ts` (it's tracked, so `-a` staged it). `new.ts` is left untracked, because `-a` never stages new files. You'd need `git add new.ts` first.
+2. A two-paragraph message: the subject line `feat: add login`, a blank line, then the body `Uses the session API so tokens refresh.`.
+3. An empty commit is almost always a mistake (you forgot to `git add`), and it would add noise to history. Git refuses, prints the status so you can see what isn't staged, and requires `--allow-empty` if you really mean it.
+
+</details>
