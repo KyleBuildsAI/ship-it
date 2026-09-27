@@ -1,14 +1,44 @@
 import react from '@vitejs/plugin-react';
+import { loadEnv, type ProxyOptions } from 'vite';
 import { defineConfig } from 'vitest/config';
+// With the .ts extension, because Vite's upcoming native config loader requires one.
+import { DEFAULT_PORT, parsePort } from './server/port.ts';
 
 // GitHub Pages serves this repo from https://kylebuildsai.github.io/ship-it/, so
 // production builds need that path prefix or every asset URL 404s. `vite preview`
 // serves the production build, so it must use the same prefix. Dev stays at "/".
 const PAGES_BASE = '/ship-it/';
 
-export default defineConfig(({ command, isPreview }) => ({
+/**
+ * Where Sage listens. MENTOR_PORT goes through the server's own parser, so a typo in .env
+ * sends the proxy to the same fallback port Sage uses (Sage prints the warning).
+ */
+function sageUrl(mode: string): string {
+  const raw = loadEnv(mode, process.cwd(), 'MENTOR_PORT').MENTOR_PORT;
+  return `http://127.0.0.1:${String(parsePort(raw) ?? DEFAULT_PORT)}`;
+}
+
+// When the Sage server isn't running (say, only `npm run dev:web`), answer the game the way
+// Sage answers without a key: offline. Status 200 on purpose, because Chrome logs every
+// 4xx/5xx response as a console error and DESIGN.md section 14 wants a clean console.
+// Vite still prints the proxy error in the terminal, where it's useful.
+const answerOfflineWhenSageIsDown: ProxyOptions['configure'] = (proxy) => {
+  proxy.on('error', (_error, _request, response) => {
+    if (!('writeHead' in response) || response.headersSent) return;
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ offline: true, error: 'The Sage server is not running.' }));
+  });
+};
+
+export default defineConfig(({ command, mode, isPreview }) => ({
   base: command === 'build' || isPreview ? PAGES_BASE : '/',
   plugins: [react()],
+  server: {
+    // The game calls /api/...; in dev, Vite forwards those to the local Sage server.
+    proxy: {
+      '/api': { target: sageUrl(mode), configure: answerOfflineWhenSageIsDown },
+    },
+  },
   resolve: {
     // three.js addons import from 'three'. Point that at the WebGPU build our code uses,
     // so only one copy of the three.js core loads (two copies break instanceof checks).
