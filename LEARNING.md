@@ -739,3 +739,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/64
 3. Colored output wraps words in invisible escape sequences, so `modified:` would really be `\x1b[31mmodified:` and never match the parser's patterns.
 
 </details>
+
+---
+
+## #65 feat: parse git status --short, -sb, and --porcelain pastes
+
+https://github.com/KyleBuildsAI/ship-it/pull/65
+
+1. What does `MM src/app.ts` mean in `git status --short`?
+2. Why isn't an empty paste treated as a clean tree by default?
+3. What does the `-b` in `git status -sb` add, and what does the parser read from it?
+
+<details><summary>Answers</summary>
+
+1. `src/app.ts` has staged changes (first M, the index) and further unstaged edits on top (second M, the worktree). Committing now would record only the staged version.
+2. An empty paste could mean "clean tree" or "you pasted nothing". Passing it would let an empty text box pass a Field Mission check. It counts as clean only with proof: a branch header or the copied command.
+3. A `## branch...upstream [ahead N, behind M]` header line. The parser reads the branch name, the upstream, and the ahead/behind counts.
+
+</details>
