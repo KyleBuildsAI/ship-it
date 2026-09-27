@@ -307,3 +307,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/40
 3. `git show HEAD~1` prints that commit's header and the diff it introduced. `git show HEAD~1:app.ts` prints the full content of `app.ts` as it was at that commit, with no header and no diff.
 
 </details>
+
+---
+
+## #41 feat: git reset and git reflog
+
+https://github.com/KyleBuildsAI/ship-it/pull/41
+
+1. After `git reset --soft HEAD~1`, where are the changes from the undone commit? And after `--mixed`? And after `--hard`?
+2. You ran `git reset --hard HEAD~2` and regret it. How do you get the commits back, and why does that work?
+3. Why is `git reset` on commits you've already pushed a bad idea, even though it works locally?
+
+<details><summary>Answers</summary>
+
+1. `--soft`: staged (on the Loading Dock), ready to commit again. `--mixed`: in your working files but unstaged. `--hard`: gone from both, and only the reflog remembers the commit.
+2. Run `git reflog` to find the entry from before the reset (for example `HEAD@{1}`), then `git reset --hard HEAD@{1}`. It works because reset only moved the branch pointer: the commit objects still exist, and the reflog still points at them.
+3. Other people's copies still contain those commits. Rewriting your branch makes it disagree with theirs, and your next push is rejected or forces them into messy fixes. For shared history, `git revert` adds an undo commit instead of removing anything.
+
+</details>
