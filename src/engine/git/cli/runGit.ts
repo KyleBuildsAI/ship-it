@@ -5,6 +5,8 @@ import { diffCommand } from './commands/diff';
 import { initCommand } from './commands/init';
 import { logCommand } from './commands/log';
 import { mvCommand } from './commands/mv';
+import { reflogCommand } from './commands/reflog';
+import { resetCommand } from './commands/reset';
 import { restoreCommand } from './commands/restore';
 import { rmCommand } from './commands/rm';
 import { showCommand } from './commands/show';
@@ -24,6 +26,8 @@ const COMMANDS: Record<string, Command> = {
   init: initCommand,
   log: logCommand,
   mv: mvCommand,
+  reflog: reflogCommand,
+  reset: resetCommand,
   restore: restoreCommand,
   rm: rmCommand,
   show: showCommand,
