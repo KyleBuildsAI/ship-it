@@ -7,8 +7,10 @@ import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
 import { createCampus } from './campus';
 import { describeCrates } from './crateLayout';
+import { CommitPath } from './commitPath';
 import { CrateYard } from './crateYard';
 import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
+import { describeHistory } from './historyLayout';
 import { createStars } from './island';
 import {
   clampToDisc,
@@ -121,9 +123,10 @@ export function createWorld(
     window.setTimeout(arrive, 350);
   };
 
-  // The Git World mirrors the sandbox: any engine event marks the crates for a redraw,
-  // done at most once per frame however many events a command produced.
+  // The Git World mirrors the sandbox: any engine event marks the crates and the commit
+  // path for a redraw, done at most once per frame however many events a command produced.
   const yard = new CrateYard(gitWorld, scene);
+  const path = new CommitPath(gitWorld, scene);
   let watched: Workspace | null = null;
   let stopWatching: () => void = () => {
     // Nothing to stop until the first workspace is watched.
@@ -229,10 +232,12 @@ export function createWorld(
       gitWorld.update(elapsed);
       if (cratesDirty && watched) {
         yard.sync(describeCrates(watched), committedSinceSync);
+        path.sync(watched.repo ? describeHistory(watched.repo) : null);
         cratesDirty = false;
         committedSinceSync = false;
       }
       yard.update(dt);
+      path.update(dt, elapsed);
 
       let direction = travelling ? null : keyDirection(keys, controls.getAzimuthalAngle());
       if (direction) {

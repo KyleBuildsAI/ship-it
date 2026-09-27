@@ -19,6 +19,10 @@ export interface GitWorldLayout {
   readonly vaultDoorMaterial: THREE.MeshStandardMaterial;
   /** Ground spot beside the Workbench where ignored crates are kept. */
   readonly blocklistGround: THREE.Vector3;
+  /** Where the first commit platform goes. */
+  readonly pathStart: THREE.Vector3;
+  /** Which way the commit path runs from there (a unit vector on the ground). */
+  readonly pathDirection: THREE.Vector3;
   /** The portal back to Campus. */
   readonly exit: { readonly group: THREE.Group; readonly doorstep: Flat };
   update: (elapsed: number) => void;
@@ -121,6 +125,9 @@ export function createGitWorld(): GitWorldLayout {
     vaultDoor: world(0, 1.8, -4.25),
     vaultDoorMaterial: doorMaterial,
     blocklistGround: world(-13, 0, 1.5),
+    pathStart: world(5, 0.6, -3.5),
+    // The path climbs away up and to the right, where the default camera can see it.
+    pathDirection: new THREE.Vector3(0.8, 0, -0.6).normalize(),
     exit: { group: exitGroup, doorstep: { x: GIT_WORLD_CENTER.x - 9, z: GIT_WORLD_CENTER.z + 9 } },
     update: (elapsed) => {
       door.rotation.z = Math.sin(elapsed * 0.4) * 0.05;
