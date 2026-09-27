@@ -7,8 +7,33 @@ export interface FrameRenderer {
 }
 
 /**
- * Bloom + vignette post stack (DESIGN.md section 12), built from TSL nodes. If the
- * node graph fails to build or render, it drops to plain rendering so the player
+ * three.js reports shader build failures through its own console hook instead of
+ * throwing: it logs a `THREE.TSL` error and draws with a blank material. Counting those
+ * errors is the only way to notice that the post stack turned the screen black.
+ * Every message is still forwarded to the real console.
+ */
+function countThreeErrors(): () => number {
+  let errors = 0;
+  // The type says this is always a function, but three.js returns null until someone sets one.
+  const previous = THREE.getConsoleFunction() as ReturnType<typeof THREE.getConsoleFunction> | null;
+  THREE.setConsoleFunction((type, message, ...params) => {
+    if (type === 'error') errors++;
+    if (previous) {
+      previous(type, message, ...params);
+    } else if (type === 'error') {
+      console.error(message, ...params);
+    } else if (type === 'warn') {
+      console.warn(message, ...params);
+    } else {
+      console.log(message, ...params);
+    }
+  });
+  return () => errors;
+}
+
+/**
+ * Bloom + vignette post stack (DESIGN.md section 12), built from TSL nodes. If building
+ * or rendering the pipeline fails, every later frame renders directly, so the player
  * sees an unpolished frame instead of a black screen.
  */
 export function createFrameRenderer(
@@ -16,6 +41,7 @@ export function createFrameRenderer(
   scene: THREE.Scene,
   camera: THREE.Camera,
 ): FrameRenderer {
+  const threeErrorCount = countThreeErrors();
   let pipeline: THREE.RenderPipeline | null = null;
 
   try {
@@ -34,14 +60,21 @@ export function createFrameRenderer(
   return {
     render: () => {
       if (pipeline) {
+        // RenderPipeline switches these off mid-render and only restores them if it
+        // finishes, so remember them in case it fails partway through.
+        const { toneMapping, outputColorSpace } = renderer;
+        const errorsBefore = threeErrorCount();
         try {
           pipeline.render();
-          return;
+          if (threeErrorCount() === errorsBefore) return;
+          console.warn('[ship-it] post-processing shaders failed to build, rendering directly');
         } catch (error: unknown) {
           console.warn('[ship-it] post-processing failed, rendering directly', error);
-          pipeline.dispose();
-          pipeline = null;
         }
+        renderer.toneMapping = toneMapping;
+        renderer.outputColorSpace = outputColorSpace;
+        pipeline.dispose();
+        pipeline = null;
       }
       renderer.render(scene, camera);
     },
