@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getMentorStatus, type MentorStatus } from '../../mentor/client';
+import { openMenu } from '../../game/hud';
 import { leavePlay } from '../../game/play/play';
 import {
   flushProgress,
@@ -10,6 +11,7 @@ import {
 } from '../../game/progress';
 import { exportSave, ImportError, importSave } from '../../game/save/exportImport';
 import { createDefaultSave, type Settings } from '../../game/save/schema';
+import { replayTutorial } from '../../game/tutorial';
 import { download, saveFileName } from '../download';
 import { useStore } from '../useStore';
 import { Overlay } from './Overlay';
@@ -142,6 +144,21 @@ export function SettingsPanel() {
         Reduced motion and graphics apply to the 3D world when the game next loads.
       </p>
       <SageUsage />
+
+      <p className="play-panel__eyebrow">Tutorial</p>
+      <div className="play-panel__actions">
+        <button
+          type="button"
+          className="play-button"
+          onClick={() => {
+            // Close Settings so the world is in view and gets the keys for the first step.
+            openMenu(null);
+            replayTutorial();
+          }}
+        >
+          Replay tutorial
+        </button>
+      </div>
 
       <p className="play-panel__eyebrow">Save file</p>
       <div className="play-panel__actions">

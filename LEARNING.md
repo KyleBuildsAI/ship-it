@@ -1153,3 +1153,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/92
 3. Saving updates the progress store, which calls `check()` synchronously. If the last step were still showing, `check()` would see it done, save again, and recurse until the stack overflowed. Hiding first means the nested `check()` sees no tutorial running and a finished save, and does nothing.
 
 </details>
+
+---
+
+## #93 feat: first-run tutorial card, with skip and replay
+
+https://github.com/KyleBuildsAI/ship-it/pull/93
+
+1. Why couldn't **Skip tutorial** be clicked at first, even though it was visible?
+2. Why does Replay close Settings before starting?
+3. What does the `return` inside the card's `useEffect` do?
+
+<details><summary>Answers</summary>
+
+1. The HUD layer (`#ui`) has `pointer-events: none`, so clicks pass through it to the 3D canvas. The card inherited that, so the canvas got the click. Adding `pointer-events: auto` to `.tutorial-card` opts it back in, like the terminal and menus.
+2. The first step is walking. With Settings open, its panel has the keyboard, and it covers the world. Closing it puts the world back in view with the keys going to it, so WASD works straight away.
+3. It's the effect's cleanup. React runs it when the card stops being "finished" (you pressed Close) or unmounts. It clears the 8-second timer so it can't fire later and close something it shouldn't.
+
+</details>

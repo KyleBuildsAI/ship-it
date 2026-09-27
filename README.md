@@ -47,7 +47,8 @@ The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't availabl
 
 ## How to play
 
-- **Move:** WASD or the arrow keys, or click the ground to walk there. Drag to look around.
+- **First time?** A short tutorial in the top right teaches the controls by having you use them: walk, jump, look around, run a command, hide and show the terminal, then step into an Act. Each step moves on by itself once you've done it. **Skip tutorial** ends it; **Settings, Replay tutorial** runs it again.
+- **Move:** WASD or the arrow keys, or click the ground to walk there. Space jumps. Drag to look around.
 - **Terminal:** `` Ctrl+` `` opens and closes it. It speaks PowerShell (`ls`, `cat`, `echo x > file`, `code file`) and git.
 - **Act 2:** walk through the glowing Act 2 portal on Campus, or press **Act 2** at the bottom left.
   - **Placement test:** already know git? Score 85% on 12 timed drills to test out of the Act.
@@ -55,7 +56,7 @@ The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't availabl
   - **Boss, The Dirty Tree:** Dex deploys from a clean checkout in 3:00. Commit the right things before he does.
   - **Field Mission:** clean the dirty tree on your real SandCastles repo, then paste PowerShell output to verify it.
 - **The Git World mirrors your repo:** files are crates on the Workbench, `git add` moves them to the Loading Dock, `git commit` seals them into the Vault, and commits become platforms behind it. Click anything there to see the git command it maps to.
-- **Standup** brings back drills you missed, spaced out so they stick. **Trophies** shows your rank and stats. **Settings** has text size, reduced motion, graphics quality, Sage on or off, and your save file.
+- **Standup** brings back drills you missed, spaced out so they stick. **Trophies** shows your rank and stats. **Settings** has text size, reduced motion, graphics quality, Sage on or off, the tutorial, and your save file.
 - **Your progress saves itself** in the browser (IndexedDB) after every step. Settings, Export save gives you a backup file; Import save brings it back.
 
 ## Sage (optional AI mentor)
