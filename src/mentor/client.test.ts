@@ -127,6 +127,21 @@ describe('getMentorStatus', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('skips even the health check while a drill is running', async () => {
+    const fetchMock = routeFetch(
+      () => json(health()),
+      () => json({}),
+    );
+    devStatus.update({ mentor: 'online' });
+    beginDrill('placement-act-2');
+
+    const status = await client.getMentorStatus();
+
+    expect(status).toMatchObject({ offline: true, reason: 'drill' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(devStatus.get().mentor).toBe('online');
+  });
+
   it('goes offline quietly when the server cannot be reached', async () => {
     vi.stubGlobal(
       'fetch',
@@ -209,6 +224,18 @@ describe('askHint', () => {
     beginDrill('drill-42');
 
     const result = await client.askHint(HINT_CONTEXT);
+
+    expect(result).toMatchObject({ offline: true, reason: 'drill' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a context marked inDrill without contacting Sage', async () => {
+    const fetchMock = routeFetch(
+      () => json(health()),
+      () => json({ level: 1, text: 'Nope' }),
+    );
+
+    const result = await client.askHint({ ...HINT_CONTEXT, inDrill: true });
 
     expect(result).toMatchObject({ offline: true, reason: 'drill' });
     expect(fetchMock).not.toHaveBeenCalled();

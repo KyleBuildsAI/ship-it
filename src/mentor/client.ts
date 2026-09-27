@@ -159,6 +159,9 @@ export function createMentorClient({
   }
 
   async function getMentorStatus(): Promise<MentorStatus> {
+    // No network at all during a drill, not even a health check. The badge stays as it was,
+    // because the server itself hasn't changed.
+    if (activeDrillSession() !== null) return offline('drill');
     if (!serverExpected) return goOffline(offline('no-server'));
     const received = await send('/api/health');
     if ('offline' in received) return goOffline(received);
@@ -182,7 +185,11 @@ export function createMentorClient({
     request: MentorRequest,
     isReply: (body: unknown) => body is T,
   ): Promise<(T & { offline: false }) | MentorOffline> {
-    if (activeDrillSession() !== null) return offline('drill');
+    // A drill shows up two ways: the drill guard, or a context the caller marked inDrill.
+    // The server would refuse either one, so don't even ask.
+    if (activeDrillSession() !== null || request.context.inDrill === true) {
+      return offline('drill');
+    }
 
     const health = await getMentorStatus();
     if (health.offline) return health;
