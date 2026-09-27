@@ -1,6 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { devStatus } from './game/devStatus';
+import { act2, act2Missions } from './content';
+import { setCatalog } from './game/play/catalog';
+import { startPlay } from './game/play/play';
 import { flushProgress, startProgress } from './game/progress';
 import { getMentorStatus } from './mentor/client';
 import { App } from './ui/App';
@@ -23,6 +26,10 @@ void getMentorStatus();
 // Load the save (a new game on first launch) and autosave from then on. Leaving the tab
 // writes any change still waiting, so closing the browser mid-step loses nothing.
 void startProgress();
+
+// Act 2 is the content Milestone 1 ships. Play grades the sandbox after every change.
+setCatalog({ act: act2, missions: act2Missions });
+startPlay();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushProgress().catch((error: unknown) => {
