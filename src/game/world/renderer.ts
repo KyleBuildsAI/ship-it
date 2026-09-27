@@ -19,6 +19,15 @@ async function hasWebGPUAdapter(): Promise<boolean> {
 }
 
 /**
+ * Matches the canvas to its container. Also re-reads the pixel ratio, which changes
+ * with browser zoom or when the window moves to a different monitor.
+ */
+export function fitToContainer(renderer: THREE.WebGPURenderer, container: HTMLElement): void {
+  renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio));
+  renderer.setSize(container.clientWidth, container.clientHeight);
+}
+
+/**
  * Creates the renderer, preferring WebGPU. The adapter probe is explicit so the
  * fallback decision is ours and visible in the status badge.
  */
@@ -29,8 +38,7 @@ export async function createRenderer(container: HTMLElement): Promise<RendererHa
     antialias: true,
     forceWebGL: chooseBackend(forced, adapterAvailable) === 'webgl2',
   });
-  renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio));
-  renderer.setSize(container.clientWidth, container.clientHeight);
+  fitToContainer(renderer, container);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   container.appendChild(renderer.domElement);

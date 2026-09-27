@@ -3,7 +3,7 @@ import * as THREE from 'three/webgpu';
 import { devStatus } from '../devStatus';
 import { createPlaceholderScene } from './placeholderScene';
 import { createFrameRenderer } from './post';
-import { createRenderer } from './renderer';
+import { createRenderer, fitToContainer } from './renderer';
 
 /** Starts the 3D world inside `container` and keeps it rendering every frame. */
 export async function bootWorld(container: HTMLElement): Promise<void> {
@@ -28,11 +28,21 @@ export async function bootWorld(container: HTMLElement): Promise<void> {
 
   const frame = createFrameRenderer(renderer, world.scene, world.camera);
 
-  window.addEventListener('resize', () => {
+  const fit = () => {
     world.camera.aspect = container.clientWidth / container.clientHeight;
     world.camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
-  });
+    fitToContainer(renderer, container);
+  };
+  window.addEventListener('resize', fit);
+  // The window may have resized while the GPU device was being created.
+  fit();
+
+  // A lost GPU device (driver reset, sleep, GPU switch) stops rendering for good, so the
+  // badge must stop claiming a live backend.
+  renderer.onDeviceLost = (info) => {
+    devStatus.update({ backend: 'failed' });
+    console.error('[ship-it] GPU device lost; reload the page to restart the 3D world', info);
+  };
 
   const timer = new THREE.Timer();
   // Pauses elapsed time while the tab is hidden, so animations don't jump on return.
