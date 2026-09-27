@@ -1,0 +1,117 @@
+/*
+ * Design tokens for every HUD panel. Change a color or radius here and every
+ * panel follows. See DESIGN.md section 14 for the visual bar.
+ */
+:root {
+  color-scheme: dark;
+
+  --bg-deep: #05060b;
+  --bg-sky: #0b1226;
+  --bg-horizon: #1a1440;
+
+  --text: #e8ecf5;
+  --text-muted: #8f9bb3;
+  --accent: #6fd3ff;
+  --amber: #ffb347;
+  --ok: #7ee2a8;
+  --warn: #ffcf6b;
+
+  --glass-bg: rgba(14, 20, 36, 0.55);
+  --glass-stroke: rgba(160, 200, 255, 0.14);
+  --glass-blur: 14px;
+  --radius: 12px;
+
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The 3D canvas mounts here. Until then, a drifting night sky keeps the first frame alive. */
+#scene {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at 50% 120%,
+    var(--bg-horizon) 0%,
+    var(--bg-sky) 45%,
+    var(--bg-deep) 80%
+  );
+  background-size: 160% 160%;
+  animation: sky-drift 18s ease-in-out infinite alternate;
+}
+
+/*
+ * The HUD layer lets clicks fall through to the 3D world.
+ * Interactive panels opt back in with pointer-events: auto.
+ */
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.title-card {
+  position: absolute;
+  top: 18vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+.title-card__eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 14px;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+
+.title-card__title {
+  margin: 8px 0;
+  font-size: clamp(48px, 9vw, 112px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  animation: title-glow 4s ease-in-out infinite;
+}
+
+.title-card__tagline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+@keyframes sky-drift {
+  from {
+    background-position: 30% 50%;
+  }
+  to {
+    background-position: 70% 50%;
+  }
+}
+
+@keyframes title-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 18px rgba(111, 211, 255, 0.25);
+  }
+  50% {
+    text-shadow: 0 0 36px rgba(111, 211, 255, 0.6);
+  }
+}
+
+/* Keep the gentle glow (no movement), drop the drifting background. */
+@media (prefers-reduced-motion: reduce) {
+  #scene {
+    animation: none;
+  }
+}
