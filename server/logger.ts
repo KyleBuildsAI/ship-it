@@ -8,15 +8,18 @@ export interface Logger {
   error: (message: string) => void;
 }
 
-/** Prefixes every line so Sage's output is easy to spot next to Vite's in `npm run dev`. */
+/**
+ * Plain console output. No prefix of its own: `npm run dev` already labels every line
+ * from this process with [sage], next to Vite's [web] lines.
+ */
 export const consoleLogger: Logger = {
   info: (message) => {
-    console.info(`[sage] ${message}`);
+    console.info(message);
   },
   warn: (message) => {
-    console.warn(`[sage] ${message}`);
+    console.warn(message);
   },
   error: (message) => {
-    console.error(`[sage] ${message}`);
+    console.error(message);
   },
 };

@@ -6,7 +6,7 @@ describe('consoleLogger', () => {
     vi.restoreAllMocks();
   });
 
-  it('prefixes every line with [sage] and keeps the matching console level', () => {
+  it('writes each level to the matching console method', () => {
     const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -15,8 +15,8 @@ describe('consoleLogger', () => {
     consoleLogger.warn('cap is odd');
     consoleLogger.error('disk full');
 
-    expect(info).toHaveBeenCalledWith('[sage] listening');
-    expect(warn).toHaveBeenCalledWith('[sage] cap is odd');
-    expect(error).toHaveBeenCalledWith('[sage] disk full');
+    expect(info).toHaveBeenCalledWith('listening');
+    expect(warn).toHaveBeenCalledWith('cap is odd');
+    expect(error).toHaveBeenCalledWith('disk full');
   });
 });

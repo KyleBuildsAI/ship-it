@@ -56,11 +56,11 @@ const app = createApp({ models: config.models, usage, mentor, logger });
 const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: config.port }, (info) => {
   const keyState =
     mentor === null
-      ? 'no ANTHROPIC_API_KEY, so Sage is offline (the game still works)'
+      ? 'no ANTHROPIC_API_KEY, so Sage answers offline (the game still works)'
       : `model ${config.models.default}`;
   const { calls } = usage.current();
-  logger.info(`listening on http://127.0.0.1:${String(info.port)} with ${keyState}.`);
-  logger.info(`${String(calls)}/${String(config.dailyCallCap)} calls used today.`);
+  logger.info(`Sage is listening on http://127.0.0.1:${String(info.port)} with ${keyState}.`);
+  logger.info(`${String(calls)}/${String(config.dailyCallCap)} Sage calls used today.`);
 });
 
 server.on('error', (error: NodeJS.ErrnoException) => {
