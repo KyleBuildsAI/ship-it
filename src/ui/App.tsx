@@ -3,6 +3,7 @@ import { hud, toggleTerminal } from '../game/hud';
 import { sandbox } from '../game/sandbox';
 import { CommandChip } from './CommandChip';
 import { ElsewhereNotice } from './ElsewhereNotice';
+import { releaseMouseFocus } from './focus';
 import { HudMenu } from './menus/HudMenu';
 import { PlayPanel } from './play/PlayPanel';
 import { StatusBadge } from './StatusBadge';
@@ -45,7 +46,10 @@ export function App() {
         type="button"
         className="glass hud-button terminal-toggle"
         aria-pressed={terminalOpen}
-        onClick={toggleTerminal}
+        onClick={(event) => {
+          toggleTerminal();
+          releaseMouseFocus(event);
+        }}
       >
         Terminal <kbd>Ctrl</kbd>+<kbd>`</kbd>
       </button>
