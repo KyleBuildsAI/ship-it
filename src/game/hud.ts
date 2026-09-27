@@ -34,6 +34,10 @@ export interface HudState {
   menu: MenuId | null;
   /** Act 2's menu, opened from the HUD so it's reachable outside the Git World too. */
   actMenuOpen: boolean;
+  /** Commands the player has run this session. The tutorial watches it grow. */
+  commandsRun: number;
+  /** Times the terminal was shown or hidden this session, also for the tutorial. */
+  terminalToggles: number;
 }
 
 export const hud = createStore<HudState>({
@@ -44,14 +48,22 @@ export const hud = createStore<HudState>({
   notice: null,
   menu: null,
   actMenuOpen: false,
+  commandsRun: 0,
+  terminalToggles: 0,
 });
 
 export function toggleTerminal(): void {
-  const { terminalOpen, terminalFocusRequests } = hud.get();
+  const { terminalOpen, terminalFocusRequests, terminalToggles } = hud.get();
   hud.update({
     terminalOpen: !terminalOpen,
     terminalFocusRequests: terminalOpen ? terminalFocusRequests : terminalFocusRequests + 1,
+    terminalToggles: terminalToggles + 1,
   });
+}
+
+/** Counts a command the player ran in the terminal. */
+export function countCommand(): void {
+  hud.update({ commandsRun: hud.get().commandsRun + 1 });
 }
 
 export function suggest(suggestion: Suggestion | null): void {

@@ -11,8 +11,16 @@ export const worldState = createStore<{
   hasMoved: boolean;
   /** How many pixels of the view's left edge a HUD panel covers, so the camera can frame around it. */
   leftInset: number;
+  // Counters for the tutorial. Each goes up once per action (a walk, not every step of it),
+  // so the HUD re-renders on a key press rather than on every frame.
+  walks: number;
+  jumps: number;
+  looks: number;
 }>({
   zone: 'campus',
   hasMoved: false,
   leftInset: 0,
+  walks: 0,
+  jumps: 0,
+  looks: 0,
 });

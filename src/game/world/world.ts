@@ -18,6 +18,7 @@ import { createStars } from './island';
 import {
   clampToDisc,
   GROUNDED,
+  isGrounded,
   keyDirection,
   startJump,
   stepJump,
@@ -99,6 +100,7 @@ export function createWorld(
   let position: Flat = { ...campus.spawn };
   let walkTarget: Flat | null = null;
   let jump: Jump = GROUNDED;
+  let walking = false;
   let travelling = false;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
 
@@ -199,7 +201,12 @@ export function createWorld(
     const moved = Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y);
     const quick = performance.now() - pressed.at < CLICK_MAX_MS;
     pressed = null;
-    if (moved > CLICK_MAX_PIXELS || !quick) return;
+    if (moved > CLICK_MAX_PIXELS) {
+      // That was a drag, which turned the camera.
+      worldState.update({ looks: worldState.get().looks + 1 });
+      return;
+    }
+    if (!quick) return;
 
     aimAt(event);
 
@@ -253,7 +260,9 @@ export function createWorld(
     const { target } = event;
     if (target !== document.body && !(target instanceof HTMLCanvasElement)) return;
     event.preventDefault();
-    if (!travelling) jump = startJump(jump);
+    if (travelling || !isGrounded(jump)) return;
+    jump = startJump(jump);
+    worldState.update({ jumps: worldState.get().jumps + 1 });
   };
   const onKeyDown = onKey(true);
   const onKeyUp = onKey(false);
@@ -319,7 +328,10 @@ export function createWorld(
         }
       }
       position = clampToDisc(position, zoneCenter(), zoneRadius());
-      if (direction && !worldState.get().hasMoved) worldState.update({ hasMoved: true });
+      // Count each walk once, when it starts, rather than touching the store every frame.
+      if (direction && !walking)
+        worldState.update({ hasMoved: true, walks: worldState.get().walks + 1 });
+      walking = direction !== null;
       jump = stepJump(jump, dt);
       avatar.group.position.set(position.x, 0, position.z);
       avatar.update(dt, elapsed, direction, jump.height);

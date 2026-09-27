@@ -2,7 +2,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import { useEffect, useRef } from 'react';
-import { hud } from '../../game/hud';
+import { countCommand, hud } from '../../game/hud';
 import { progress } from '../../game/progress';
 import { sandbox } from '../../game/sandbox';
 import { useStore } from '../useStore';
@@ -80,6 +80,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
       terminal.write(result.output);
       if (result.clear) terminal.clear();
       for (const line of result.submitted) {
+        if (line.trim() !== '') countCommand();
         const outcome = shell().run(line);
         if (outcome.clear) terminal.clear();
         for (const output of outcome.lines)
