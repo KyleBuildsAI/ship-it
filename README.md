@@ -38,5 +38,10 @@ It runs these in order and stops at the first failure:
 | `npm run typecheck` | TypeScript strict compile, no output files. |
 | `npm run test:coverage` | Vitest unit tests with a coverage report in `coverage/`. `npm test` runs them without coverage. |
 | `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. |
+| `npm run e2e` | Playwright smoke test in your installed Chrome against the build in `dist/`. Run `npm run build` first. |
 
 To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:4173/ship-it/`.
+
+## CI and deploys
+
+Every pull request and every push to `main` runs [CI](.github/workflows/ci.yml): the same gates as `npm run check`, plus a gitleaks scan of the full history for committed secrets. When CI passes on `main`, the [deploy workflow](.github/workflows/deploy.yml) builds that exact commit and publishes it to https://kylebuildsai.github.io/ship-it/.

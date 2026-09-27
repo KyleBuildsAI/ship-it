@@ -55,3 +55,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/17
 3. `vi.fn()` is a spy: it records every call and its arguments. That lets you assert the listener ran exactly once, or never. The tests "stays quiet when the patch changes nothing" and "stops notifying after unsubscribe" both check that something did *not* happen, and that's impossible to observe without a spy.
 
 </details>
+
+---
+
+## #18 chore: Playwright smoke test, CI with gitleaks, and Pages deploy
+
+https://github.com/KyleBuildsAI/ship-it/pull/18
+
+1. CI runs `npm ci`, not `npm install`. What's the difference, and why does it matter on a CI server?
+2. Why does the deploy workflow trigger on `workflow_run` of CI instead of simply `push` to `main`, and why does it check out `head_sha`?
+3. The gitleaks job checks out with `fetch-depth: 0`. What would it miss with the default shallow checkout?
+
+<details><summary>Answers</summary>
+
+1. `npm ci` installs exactly the versions in `package-lock.json`, deletes any existing `node_modules` first, and fails if `package.json` and the lockfile disagree. `npm install` may resolve newer versions within the allowed ranges and rewrite the lockfile. CI must test exactly what was committed, or a green build proves nothing about your code.
+2. With `push`, deploy and CI would run at the same time, and a broken commit could go live before CI finished. `workflow_run` waits for CI to complete, and the job only runs if it succeeded. `head_sha` pins the deploy to the commit CI tested. If `main` moved on in the meantime, the untested newer commit doesn't slip out.
+3. The default checkout fetches only the latest commit. A secret that was committed and then deleted in a later commit is still in the history, so anyone can recover it. The full history (`fetch-depth: 0`) lets gitleaks scan every commit ever made.
+
+</details>
