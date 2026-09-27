@@ -239,3 +239,68 @@ body {
     transition: none;
   }
 }
+
+.editor-dock {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(44vw, 640px);
+  pointer-events: auto;
+}
+
+.editor-dock--above-terminal {
+  bottom: calc(38vh + 32px);
+}
+
+.editor-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: rgba(10, 15, 28, 0.86);
+}
+
+.editor-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--glass-stroke);
+  font: 13px var(--font-mono);
+}
+
+.editor-panel__path {
+  flex: 1;
+  color: var(--text);
+}
+
+.editor-panel__hint {
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+}
+
+.editor-panel__close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.editor-panel__close:hover,
+.editor-panel__close:focus-visible {
+  color: var(--text);
+}
+
+.editor-panel__body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* CodeMirror's One Dark paints solid panels; keep the gutter and active line translucent. */
+.editor-panel .cm-activeLine,
+.editor-panel .cm-activeLineGutter {
+  background-color: rgba(111, 211, 255, 0.06);
+}
