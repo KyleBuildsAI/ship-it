@@ -9,6 +9,12 @@ export interface PendingCommand {
   readonly id: number;
 }
 
+/** A line the game prints in the terminal, like "Mission 2.1: a fresh project is ready". */
+export interface TerminalNotice {
+  readonly text: string;
+  readonly id: number;
+}
+
 export interface HudState {
   /** The terminal panel is docked at the bottom of the screen. */
   terminalOpen: boolean;
@@ -20,6 +26,7 @@ export interface HudState {
   /** The command a click in the world maps to, shown as a chip until run or dismissed. */
   suggestion: Suggestion | null;
   pendingCommand: PendingCommand | null;
+  notice: TerminalNotice | null;
 }
 
 export const hud = createStore<HudState>({
@@ -27,6 +34,7 @@ export const hud = createStore<HudState>({
   terminalFocusRequests: 0,
   suggestion: null,
   pendingCommand: null,
+  notice: null,
 });
 
 export function toggleTerminal(): void {
@@ -50,4 +58,10 @@ export function sendToTerminal(text: string, run: boolean, cursorFromEnd = 0): v
     suggestion: null,
     pendingCommand: { text, run, cursorFromEnd, id: (pendingCommand?.id ?? 0) + 1 },
   });
+}
+
+/** Prints a line from the game in the terminal, e.g. when a mission swaps the sandbox. */
+export function announce(text: string): void {
+  const { notice } = hud.get();
+  hud.update({ notice: { text, id: (notice?.id ?? 0) + 1 } });
 }

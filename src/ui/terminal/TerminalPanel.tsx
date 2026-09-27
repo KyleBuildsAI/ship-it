@@ -102,7 +102,17 @@ export function TerminalPanel({ open }: { open: boolean }) {
     };
   }, []);
 
-  const { pendingCommand, terminalFocusRequests } = useStore(hud);
+  const { pendingCommand, terminalFocusRequests, notice } = useStore(hud);
+
+  // Game messages print above a fresh prompt, in the accent color, so they read as the game
+  // talking rather than command output.
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    const editor = editorRef.current;
+    if (!notice || !terminal || !editor) return;
+    terminal.write(`\r\x1b[K\x1b[36m${notice.text}\x1b[0m\r\n`);
+    terminal.write(editor.render());
+  }, [notice]);
 
   // A click in the world can ask the terminal to type (and maybe run) a command.
   useEffect(() => {

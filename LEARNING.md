@@ -937,3 +937,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/75
 3. Placement attempts +1, best percent 90, `testedOut: true`. Every unfinished Act 2 mission becomes "tested out", you get 50% of the Act's mission XP once, and the Act's `completedAt` is stamped.
 
 </details>
+
+---
+
+## #76 feat: play a mission end to end, graded by the sandbox's state
+
+https://github.com/KyleBuildsAI/ship-it/pull/76
+
+1. How does the game know a step is done, without knowing which command Kyle typed?
+2. A drill's time runs out while Kyle is mid-command. What happens?
+3. Kyle asks for a hint, then solves the step before Sage answers. What does he see?
+
+<details><summary>Answers</summary>
+
+1. Every change to the sandbox fires engine events. `watchSandbox` calls back once per burst, and the runner evaluates the step's success predicate against the sandbox's current state. If it's true, the step is done.
+2. `missionTick` sees the elapsed time pass the limit and grades the drill as the sandbox stands at that moment. If the target state isn't reached, it's a miss, recorded and queued for review.
+3. Nothing stale. When Sage's reply arrives, the controller sees the step index changed and drops it, and the next step starts with no hint shown.
+
+</details>
