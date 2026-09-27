@@ -1,5 +1,5 @@
 /*
- * Which port Sage listens on. Both the server (config.ts) and Vite's /api proxy
+ * Which ports SHIP IT uses on this computer: the game's dev server, and Sage. Both the server (config.ts) and Vite's /api proxy
  * (vite.config.ts) read MENTOR_PORT through this file, so the proxy always points where
  * Sage actually is, even when .env has a typo. It imports nothing on purpose: vite.config.ts
  * loads it directly, without the rest of the server.
@@ -9,6 +9,13 @@
 // its dynamic port range, and tools like Docker often widen that range down to 1024. Ports
 // in those blocks fail with EACCES, so the default stays above where they usually land.
 export const DEFAULT_PORT = 18787;
+
+/**
+ * The game's dev server port, for the same reason. It never falls back to another port
+ * (strictPort in vite.config.ts): the save lives in the browser under this exact address,
+ * so a different port would open an empty game.
+ */
+export const GAME_PORT = 18173;
 
 /**
  * The port MENTOR_PORT asks for. Blank or missing means the default. Returns null when the
