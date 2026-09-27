@@ -221,6 +221,16 @@ describe('parseStatusShort robustness', () => {
     expect(parseStatusShort(pasted)).toEqual(parseStatusShort(sbMixed));
   });
 
+  it('skips a stray blank line in the middle of a paste', () => {
+    expect(parseStatusShort('A  a.ts\n\n?? b.ts')).toMatchObject({
+      entries: [
+        { index: 'A', worktree: ' ', path: 'a.ts' },
+        { index: '?', worktree: '?', path: 'b.ts' },
+      ],
+      warnings: [],
+    });
+  });
+
   it('reports lines it does not understand instead of guessing', () => {
     const parsed = parseStatusShort('## main\n M app.ts\nfatal: something odd\n## other');
     expect(parsed.entries).toHaveLength(1);

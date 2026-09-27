@@ -120,7 +120,7 @@ const ENV_TEMPLATES = new Set(['.env.example', '.env.sample', '.env.template']);
 
 /** True for a path whose file name usually holds secrets, like `.env` or `id_rsa`. */
 export function isSecretPath(path: string): boolean {
-  const name = (path.split('/').pop() ?? '').toLowerCase();
+  const name = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
   // .env.local, .env.production, and friends hold real values too.
   if (name.startsWith('.env.')) return !ENV_TEMPLATES.has(name);
   return SECRET_NAMES.has(name) || SECRET_EXTENSIONS.some((extension) => name.endsWith(extension));

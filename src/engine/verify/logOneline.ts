@@ -28,8 +28,8 @@ const COMMIT_LINE = /^([0-9a-f]{4,64})(?: \(([^)]*)\))?(?: (.*))?$/;
  * `abc1234 (wip) fix`, reads as if "wip" were a ref. Plain text can't tell them apart.
  */
 export function parseOnelineLine(line: string): OnelineCommit | 'graph' | null {
-  const prefix = GRAPH_PREFIX.exec(line)?.[0] ?? '';
-  const rest = line.slice(prefix.length);
+  const rest = line.replace(GRAPH_PREFIX, '');
+  const prefix = line.slice(0, line.length - rest.length);
   if (rest === '') return prefix.trim() === '' ? null : 'graph';
   // With --graph, every commit line has a "*" marking the commit. Without it, no prefix.
   if (prefix !== '' && !prefix.includes('*')) return null;

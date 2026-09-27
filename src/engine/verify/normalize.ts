@@ -20,7 +20,7 @@ const NON_BREAKING_SPACE = /\u00a0/g;
 
 // Prompts people copy along with the output: PowerShell ("PS C:\repo> git status", or a
 // bare "PS>"), cmd.exe ("C:\repo>git status"), and Unix-style shells ("$ git status").
-const PROMPTS = [/^PS(?: [^>]*)?>(.*)$/, /^[A-Za-z]:\\[^>]*>(.*)$/, /^\$ (.*)$/];
+const PROMPTS = [/^PS(?: [^>]*)?>/, /^[A-Za-z]:\\[^>]*>/, /^\$ /];
 
 // What `less`, git's pager, leaves at the bottom of the screen when output is long.
 const PAGER_MARKERS = new Set(['(END)', ':']);
@@ -34,13 +34,18 @@ export function stripAnsi(text: string): string {
 export function promptCommand(line: string): string | null {
   for (const prompt of PROMPTS) {
     const match = prompt.exec(line);
-    if (match) return (match[1] ?? '').trim();
+    if (match) return line.slice(match[0].length).trim();
   }
   return null;
 }
 
 function isBlank(line: string): boolean {
   return line.trim() === '';
+}
+
+/** Lines a copy picks up after the output: blanks, the next prompt, the pager's marker. */
+function isTrailingNoise(line: string): boolean {
+  return isBlank(line) || PAGER_MARKERS.has(line) || promptCommand(line) !== null;
 }
 
 /**
@@ -53,22 +58,18 @@ export function normalizePaste(text: string): NormalizedPaste {
     .split(/\r\n|\r|\n/)
     .map((line) => line.trimEnd());
 
-  let command: string | null = null;
   const firstContent = lines.findIndex((line) => !isBlank(line));
-  const typed = firstContent === -1 ? null : promptCommand(lines[firstContent] ?? '');
-  if (typed !== null) {
-    command = typed === '' ? null : typed;
-    lines.splice(firstContent, 1);
-  }
+  if (firstContent === -1) return { lines: [], command: null };
 
-  // The bottom of a copy often catches the next prompt or the pager's marker. Blank lines
-  // go too, since git never ends its output with one that matters.
-  while (lines.length > 0) {
-    const last = lines[lines.length - 1] ?? '';
-    if (isBlank(last) || PAGER_MARKERS.has(last) || promptCommand(last) !== null) lines.pop();
-    else break;
-  }
-  while (lines.length > 0 && isBlank(lines[0] ?? '')) lines.shift();
+  // A copy that starts at the prompt brings the typed command along. It isn't output,
+  // but it is a useful hint about what produced the output.
+  const typed = promptCommand(lines[firstContent] ?? '');
+  if (typed !== null) lines.splice(firstContent, 1);
 
-  return { lines, command };
+  const start = lines.findIndex((line) => !isBlank(line));
+  const end = lines.findLastIndex((line) => !isTrailingNoise(line));
+  return {
+    lines: end === -1 ? [] : lines.slice(start, end + 1),
+    command: typed === '' ? null : typed,
+  };
 }
