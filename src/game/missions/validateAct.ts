@@ -1,3 +1,4 @@
+import type { Predicate } from './predicates';
 import { countWords, MAX_SCREEN_WORDS, type Act, type Mission } from './schema';
 
 /** One problem in an Act's content, with where to find it. */
@@ -18,9 +19,27 @@ function duplicates(values: readonly string[]): string[] {
   return [...repeated];
 }
 
+/**
+ * Every `label` in a predicate, including ones nested inside all, any, and not. Labels
+ * replace the generated text in the objective checklist, so the player reads them too.
+ */
+function labelsIn(predicate: Predicate): string[] {
+  const own = predicate.label === undefined ? [] : [predicate.label];
+  if (predicate.kind === 'all' || predicate.kind === 'any') {
+    return [...own, ...predicate.of.flatMap(labelsIn)];
+  }
+  if (predicate.kind === 'not') return [...own, ...labelsIn(predicate.predicate)];
+  return own;
+}
+
 /** Each piece of text the player reads on screen, labelled with where it lives. */
 function screenTexts(act: Act, missions: readonly Mission[]): [string, string][] {
   const texts: [string, string][] = [];
+  const addLabels = (where: string, predicates: readonly Predicate[]) => {
+    predicates.flatMap(labelsIn).forEach((label, index) => {
+      texts.push([`${where} > label ${String(index + 1)}`, label]);
+    });
+  };
   for (const mission of missions) {
     const at = `mission ${mission.id}`;
     mission.briefing.captions.forEach((caption, index) => {
@@ -31,8 +50,12 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
       step.hints.forEach((hint, index) => {
         texts.push([`${at} > step ${step.id} > hint ${String(index + 1)}`, hint]);
       });
+      addLabels(`${at} > step ${step.id}`, [step.success]);
     }
-    for (const drill of mission.drills) texts.push([`${at} > drill ${drill.id}`, drill.prompt]);
+    for (const drill of mission.drills) {
+      texts.push([`${at} > drill ${drill.id}`, drill.prompt]);
+      addLabels(`${at} > drill ${drill.id}`, [drill.success]);
+    }
     texts.push([`${at} > ticket`, mission.questionRound.ticket.body]);
     for (const candidate of mission.questionRound.candidates) {
       texts.push([`${at} > candidate ${candidate.id}`, candidate.text]);
@@ -45,6 +68,7 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
   act.boss.twists.forEach((twist, index) => {
     texts.push([`boss > twist ${String(index + 1)}`, twist.message]);
   });
+  addLabels('boss', [...act.boss.objectives, ...act.boss.failIf]);
   act.fieldMission.briefing.forEach((caption, index) => {
     texts.push([`field mission > briefing caption ${String(index + 1)}`, caption]);
   });

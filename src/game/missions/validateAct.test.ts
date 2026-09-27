@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sampleAct, sampleMission, secondMission, thirdMission } from './sample.test-mission';
+import type { Predicate } from './predicates';
 import type { Act, Mission } from './schema';
 import { validateAct } from './validateAct';
 
@@ -114,6 +115,27 @@ describe('validateAct', () => {
       { where: 'mission sample-three-rooms > ticket', problem: '70 words; the limit is 60.' },
       { where: 'boss > twist 1', problem: '61 words; the limit is 60.' },
       { where: 'field mission > checklist long', problem: '62 words; the limit is 60.' },
+    ]);
+  });
+
+  it('checks predicate labels too, even nested ones, since the checklist shows them', () => {
+    const wordyCheck: Predicate = { kind: 'not', predicate: { kind: 'clean', label: words(61) } };
+    const labelled: Mission = {
+      ...sampleMission,
+      steps: sampleMission.steps.map((step, index) =>
+        index === 0 ? { ...step, success: { kind: 'all', of: [step.success, wordyCheck] } } : step,
+      ),
+    };
+    const act: Act = {
+      ...sampleAct,
+      boss: { ...sampleAct.boss, failIf: [{ kind: 'tracked', paths: ['.env'], label: words(65) }] },
+    };
+    expect(validateAct(act, [labelled, secondMission, thirdMission])).toEqual([
+      {
+        where: 'mission sample-three-rooms > step init > label 1',
+        problem: '61 words; the limit is 60.',
+      },
+      { where: 'boss > label 1', problem: '65 words; the limit is 60.' },
     ]);
   });
 });
