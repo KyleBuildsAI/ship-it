@@ -1,7 +1,12 @@
 import { collectConsoleProblems } from './consoleProblems';
 import { expect, test } from './fixtures';
 
+// Starting a piece waits on the browser's media pipeline, which is slow on a busy machine
+// and in CI's software rendering; allow it time.
+const STARTS = { timeout: 20_000 };
+
 test('music waits for a click, then plays, and the Music button mutes it', async ({ page }) => {
+  test.slow();
   const problems = collectConsoleProblems(page);
   const musicRequests: string[] = [];
   page.on('request', (request) => {
@@ -19,7 +24,7 @@ test('music waits for a click, then plays, and the Music button mutes it', async
   expect(musicRequests).toEqual([]);
 
   await page.locator('#scene canvas').click({ position: { x: 5, y: 5 } });
-  await expect(musicRow).toContainText('playing');
+  await expect(musicRow).toContainText('playing', STARTS);
   expect(musicRequests.length).toBeGreaterThan(0);
 
   const button = page.getByRole('button', { name: 'Music', exact: true });
@@ -29,11 +34,12 @@ test('music waits for a click, then plays, and the Music button mutes it', async
   await expect(musicRow).toContainText('off');
 
   await button.click();
-  await expect(musicRow).toContainText('playing');
+  await expect(musicRow).toContainText('playing', STARTS);
   expect(problems).toEqual([]);
 });
 
 test('Settings shows the volume, what is playing, and the credits', async ({ page }) => {
+  test.slow();
   const problems = collectConsoleProblems(page);
   await page.goto('./');
   await expect(page.getByLabel('Developer status')).toContainText('saved');
@@ -42,7 +48,7 @@ test('Settings shows the volume, what is playing, and the credits', async ({ pag
   const volume = page.getByRole('slider', { name: 'Music volume' });
   await expect(volume).toHaveValue('70');
   // Clicking Settings was the first interaction, so the music has started.
-  await expect(page.getByText(/^Now playing: /)).toBeVisible();
+  await expect(page.getByText(/^Now playing: /)).toBeVisible(STARTS);
 
   await volume.fill('0');
   await expect(page.getByText('Music is off. Raise the volume to hear it.')).toBeVisible();
