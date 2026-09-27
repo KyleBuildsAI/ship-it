@@ -6,6 +6,27 @@ SHIP IT is a 3D browser game that is also a complete course in professional soft
 
 Milestone 1 is complete: Act 2, Git Core, is playable from start to finish. Play it at https://kylebuildsai.github.io/ship-it/ (Sage is offline there; every hint still works) or run it locally below. See [DESIGN.md](DESIGN.md) section 15 for the roadmap.
 
+## Start SHIP IT (the easy way)
+
+Double-click **`start-ship-it.bat`** in the repo folder.
+
+- The first time, it installs the packages (a minute or two). It also repairs them if a later `git pull` brought new ones.
+- It starts the game and Sage, then opens Chrome at http://localhost:18173 by itself.
+- Keep its window open while you play. To stop, close the window, or press `Ctrl+C` in it and then `Y`.
+- Double-clicking it again while the game is running just opens Chrome. If a SHIP IT tab is already open, keep playing in that one.
+- If the folder is on a work-in-progress branch (not `main`), it warns you first, because playing unfinished code uses your real save.
+
+For a desktop icon, right-click `start-ship-it.bat`, then **Show more options**, then **Send to**, then **Desktop (create shortcut)**. Keep the file itself in the repo folder.
+
+### Does it save my progress?
+
+Yes, automatically, in Chrome's storage for this game (IndexedDB). Closing Chrome, closing the launcher, or rebooting loses nothing.
+
+- Every finished step, drill, mission, placement test, boss, and Field Mission check is saved the moment it happens. Settings save within half a second.
+- A mission you leave halfway starts again from its briefing next time, with a fresh Workbench. Steps you already finished don't pay XP twice.
+- The save belongs to **this Chrome profile at this address**. The launcher always opens http://localhost:18173, and the game never runs on any other port. The online version (https://kylebuildsai.github.io/ship-it/), `127.0.0.1` instead of `localhost`, another browser, and Incognito windows each keep their own separate save.
+- Clearing Chrome's "Cookies and other site data" deletes the save. Now and then, use **Settings, Export save** for a backup; **Import save** brings it back, on this computer or another.
+
 ## How to run
 
 Requirements: Windows 11 with PowerShell, Node.js 24 LTS or newer, npm, and Chrome.
@@ -17,7 +38,7 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts two things side by side: the game (lines labeled `[web]`) and Sage, the optional AI mentor server (lines labeled `[sage]`). Open the URL Vite prints (usually `http://localhost:5173`) in Chrome.
+`npm run dev` starts two things side by side: the game (lines labeled `[web]`) and Sage, the optional AI mentor server (lines labeled `[sage]`). Then open http://localhost:18173 in Chrome. The game always uses this address, because your save is tied to it: if something else holds the port, it stops with a message instead of moving to another one.
 
 To run only one half, use `npm run dev:web` (the game) or `npm run dev:server` (Sage).
 
@@ -105,6 +126,7 @@ Every pull request and every push to `main` runs [CI](.github/workflows/ci.yml):
 
 ## Troubleshooting
 
+- **The game won't start: "EACCES" or "Port 18173 is already in use".** Another program, or a Windows reservation, holds the game's port. Close the other program (maybe a second SHIP IT window), or restart the computer. See Windows' reserved ranges with `netsh interface ipv4 show excludedportrange protocol=tcp`. The game doesn't move to another port, because your save is tied to this one.
 - **Sage says a port is reserved (EACCES).** Windows reserves blocks of ports for Hyper-V and WSL. See them with `netsh interface ipv4 show excludedportrange protocol=tcp`, then set `MENTOR_PORT` in `.env` to a port outside every range.
 - **The badge says WebGL2 fallback.** WebGPU isn't available in this browser or on this GPU driver. The game works the same; update Chrome and your NVIDIA driver to get WebGPU back.
 - **"Your save could not be read."** The save is kept untouched. Open Settings to import a backup, or Start over.
