@@ -1,9 +1,10 @@
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as THREE from 'three/webgpu';
 import { isTypingTarget } from '../../ui/focus';
-import { worldState } from '../worldState';
+import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
 import { createCampus } from './campus';
+import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
 import { createStars } from './island';
 import {
   clampToDisc,
@@ -38,20 +39,26 @@ const CLICK_MAX_PIXELS = 6;
 const CLICK_MAX_MS = 400;
 
 /**
- * Builds the explorable world: the Campus island, the player's avatar, a third-person
- * camera with damped orbit, WASD and click-to-walk.
+ * Builds the explorable world: Campus and the Git World as two floating islands, the
+ * player's avatar, a third-person camera with damped orbit, WASD and click-to-walk.
+ * `fadeTarget` fades out and back in while the player travels between islands.
  */
-export function createWorld(canvas: HTMLCanvasElement, reducedMotion: boolean): World {
+export function createWorld(
+  canvas: HTMLCanvasElement,
+  fadeTarget: HTMLElement,
+  reducedMotion: boolean,
+): World {
   const motion = reducedMotion ? 0.25 : 1;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x05060b);
   scene.fog = new THREE.FogExp2(0x070a14, 0.022);
 
   const campus = createCampus();
+  const gitWorld = createGitWorld();
   const avatar = createAvatar(motion);
-  scene.add(campus.island.group, avatar.group, createStars(600));
+  scene.add(campus.island.group, gitWorld.island.group, avatar.group, createStars(600));
 
-  // Key + rim + low ambient (DESIGN.md section 14); the lights follow the player.
+  // Key + rim + low ambient (DESIGN.md section 14); the lights follow the player between islands.
   const lights = new THREE.Group();
   const key = new THREE.DirectionalLight(0xbfd8ff, 2.2);
   key.position.set(8, 14, 6);
@@ -73,19 +80,49 @@ export function createWorld(canvas: HTMLCanvasElement, reducedMotion: boolean): 
   controls.maxDistance = 20;
   controls.maxPolarAngle = Math.PI * 0.46;
 
+  let zone: ZoneId = 'campus';
   let position: Flat = { ...campus.spawn };
   let walkTarget: Flat | null = null;
+  let travelling = false;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
-  const center: Flat = { x: 0, z: 0 };
-  const walkRadius = campus.island.radius - 1;
 
-  controls.target.set(position.x, 1.2, position.z);
-  camera.position.set(position.x, 5.5, position.z + 10);
+  // The Git World needs a wider view than Campus so the Workbench, Dock, and Vault all fit.
+  const placeCamera = (at: Flat) => {
+    const [height, back] = zone === 'campus' ? [5.5, 10] : [8, 13.5];
+    controls.target.set(at.x, 1.2, at.z);
+    camera.position.set(at.x, height, at.z + back);
+  };
+  placeCamera(position);
 
-  // Clicking the ground walks there. A drag turns the camera instead, so tell them apart.
+  const zoneCenter = (): Flat => (zone === 'campus' ? { x: 0, z: 0 } : GIT_WORLD_CENTER);
+  const zoneRadius = () => (zone === 'campus' ? campus.island.radius : gitWorld.island.radius) - 1;
+
+  const travel = (to: ZoneId) => {
+    if (travelling) return;
+    travelling = true;
+    walkTarget = null;
+    const arrive = () => {
+      zone = to;
+      position = { ...(to === 'campus' ? campus.spawn : gitWorld.spawn) };
+      placeCamera(position);
+      worldState.update({ zone });
+      fadeTarget.style.opacity = '1';
+      travelling = false;
+    };
+    if (reducedMotion) {
+      arrive();
+      return;
+    }
+    fadeTarget.style.opacity = '0';
+    window.setTimeout(arrive, 350);
+  };
+
+  // Clicking an open portal walks to its doorstep and steps through; clicking the ground
+  // walks there. A drag turns the camera instead, so tell clicks and drags apart.
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   let pressed: { x: number; y: number; at: number } | null = null;
+  let pendingPortal: { doorstep: Flat; to: ZoneId } | null = null;
 
   const onPointerDown = (event: PointerEvent) => {
     pressed = { x: event.clientX, y: event.clientY, at: performance.now() };
@@ -103,9 +140,32 @@ export function createWorld(canvas: HTMLCanvasElement, reducedMotion: boolean): 
       -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
     );
     raycaster.setFromCamera(pointer, camera);
-    const groundHit = raycaster.intersectObject(campus.island.ground, false)[0];
+
+    const portalTargets =
+      zone === 'campus'
+        ? campus.portals.filter((portal) => !portal.locked).map((portal) => portal.group)
+        : [gitWorld.exit.group];
+    const portalHit = raycaster.intersectObjects(portalTargets, true)[0];
+    if (portalHit) {
+      pendingPortal =
+        zone === 'campus'
+          ? {
+              doorstep: campus.portals.find((portal) => !portal.locked)?.doorstep ?? campus.spawn,
+              to: 'gitworld',
+            }
+          : { doorstep: gitWorld.exit.doorstep, to: 'campus' };
+      walkTarget = pendingPortal.doorstep;
+      return;
+    }
+    const ground = zone === 'campus' ? campus.island.ground : gitWorld.island.ground;
+    const groundHit = raycaster.intersectObject(ground, false)[0];
     if (groundHit) {
-      walkTarget = clampToDisc({ x: groundHit.point.x, z: groundHit.point.z }, center, walkRadius);
+      pendingPortal = null;
+      walkTarget = clampToDisc(
+        { x: groundHit.point.x, z: groundHit.point.z },
+        zoneCenter(),
+        zoneRadius(),
+      );
     }
   };
 
@@ -115,7 +175,10 @@ export function createWorld(canvas: HTMLCanvasElement, reducedMotion: boolean): 
     // Keys typed into the terminal or editor never move the avatar.
     if (down && isTypingTarget(event.target)) return;
     keys[binding] = down;
-    if (down) walkTarget = null;
+    if (down) {
+      walkTarget = null;
+      pendingPortal = null;
+    }
   };
   const onKeyDown = onKey(true);
   const onKeyUp = onKey(false);
@@ -136,20 +199,28 @@ export function createWorld(canvas: HTMLCanvasElement, reducedMotion: boolean): 
     camera,
     update: (dt, elapsed) => {
       campus.update(elapsed);
+      gitWorld.update(elapsed);
 
-      let direction = keyDirection(keys, controls.getAzimuthalAngle());
+      let direction = travelling ? null : keyDirection(keys, controls.getAzimuthalAngle());
       if (direction) {
         position = {
           x: position.x + direction.x * WALK_SPEED * dt,
           z: position.z + direction.z * WALK_SPEED * dt,
         };
-      } else if (walkTarget) {
+      } else if (walkTarget && !travelling) {
         const step = stepToward(position, walkTarget, WALK_SPEED, dt);
         direction = { x: walkTarget.x - position.x, z: walkTarget.z - position.z };
         position = step.position;
-        if (step.arrived) walkTarget = null;
+        if (step.arrived) {
+          walkTarget = null;
+          if (pendingPortal) {
+            const destination = pendingPortal.to;
+            pendingPortal = null;
+            travel(destination);
+          }
+        }
       }
-      position = clampToDisc(position, center, walkRadius);
+      position = clampToDisc(position, zoneCenter(), zoneRadius());
       if (direction && !worldState.get().hasMoved) worldState.update({ hasMoved: true });
       avatar.group.position.set(position.x, 0, position.z);
       avatar.update(dt, elapsed, direction);

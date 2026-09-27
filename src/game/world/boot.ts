@@ -10,7 +10,7 @@ export async function bootWorld(container: HTMLElement): Promise<void> {
 
   const { renderer, backend } = await createRenderer(container);
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const world = createWorld(renderer.domElement, reducedMotion);
+  const world = createWorld(renderer.domElement, container, reducedMotion);
   const frame = createFrameRenderer(renderer, world.scene, world.camera);
 
   const fit = () => {
