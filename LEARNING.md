@@ -577,3 +577,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/55
 3. 185. The total is 370, and 50% of that is 185 (rounded, which changes nothing here).
 
 </details>
+
+---
+
+## #56 feat: sm-2 review queue for missed drills
+
+https://github.com/KyleBuildsAI/ship-it/pull/56
+
+1. You miss drill `stage-one` today. When is it due, and what happens if you then get it right quickly three reviews in a row?
+2. Only 2 items are due today, and 8 more are coming up. What's in today's daily set?
+3. Why is there a one-year cap on the gap?
+
+<details><summary>Answers</summary>
+
+1. It's due today. First pass: the gap is 1 day. Second: 6 days. Third: about 6 × easiness, which is around 16 days, because each quality-5 answer also nudges easiness up by 0.1.
+2. The 2 due items, plus the 3 coming up soonest, making 5, the minimum. It's never more than 10.
+3. Without it, gaps multiply forever. The daily set's top-up means small queues get reviewed daily, so gaps explode within weeks and the dates overflow. A year also keeps every drill coming back eventually.
+
+</details>
