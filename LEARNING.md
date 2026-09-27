@@ -1081,3 +1081,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/84
 3. The repo stores every text file with LF endings, but cmd.exe misreads LF-only batch files (labels and `goto` break). `*.bat text eol=crlf` makes git check them out with CRLF, which Windows expects.
 
 </details>
+
+---
+
+## #86 fix: only the newest tab saves, handing over in order
+
+https://github.com/KyleBuildsAI/ship-it/pull/86
+
+1. You change a setting and, within half a second, the launcher opens a new tab. Why doesn't the new tab lose that setting?
+2. What happens if the old tab is frozen in the background and never answers?
+3. Why did the first version show "saved" in a tab that wasn't saving anything?
+
+<details><summary>Answers</summary>
+
+1. The new tab asks first and waits for the lock. The old tab stops writing, flushes the pending setting to IndexedDB, and only then releases the lock. The new tab loads after that, so it reads the save with the setting in it.
+2. The new tab waits 1.5 s for an answer, then takes the lock anyway with `steal`. The frozen tab can't write while frozen, and when it wakes, its lock request fails with an AbortError, so it shows the notice and stops.
+3. The steal arrived while that tab was still loading. The "stop writing" flag was set, but when the load finished it set the status back to "ready" and the badge to "saved", hiding the notice. Now "handed over" is final, and the load checks it before touching the status.
+
+</details>
