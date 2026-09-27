@@ -145,3 +145,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/31
 3. None. On a detached HEAD, `commitIndex` moves only HEAD itself, and every branch stays where it was. The commit is still recorded in the reflog, so `git reflog` shows it, and `HEAD@{N}` or its id can bring it back.
 
 </details>
+
+---
+
+## #32 feat: engine workspace and status computation
+
+https://github.com/KyleBuildsAI/ship-it/pull/32
+
+1. A file shows under both "Changes to be committed" and "Changes not staged for commit". How did it get into that state, and which version will `git commit` record?
+2. You committed `.env`, then added `.env` to `.gitignore`. Does git now ignore it? What does the test in `status.test.ts` show?
+3. Why does `computeStatus` rename detection require the content to be *identical*?
+
+<details><summary>Answers</summary>
+
+1. You changed the file and staged it (`git add`), then edited it again without staging the new edit. `git commit` records the **staged** version (the index), not what's on disk now. The newer edit stays unstaged.
+2. No. `.gitignore` only affects untracked files. The test "keeps showing a tracked file even when a rule would ignore it" proves the file still appears as modified. To stop tracking it you need `git rm --cached .env`, which is Mission 2.4.
+3. Git infers renames by comparing content, because it never records "I renamed this". Identical content (the same blob id) is a certain match. Real git also allows *similar* content above a threshold, which is harder to explain and to test. The sandbox starts with the exact case, which is what `git mv` produces.
+
+</details>
