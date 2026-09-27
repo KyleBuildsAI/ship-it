@@ -1279,3 +1279,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/101
 3. Browsers refuse sound before an interaction, so loading earlier would waste bandwidth and could log autoplay errors. The test proves the player really waits.
 
 </details>
+
+---
+
+## #102 fix: move the tutorial card off the act 2 portal
+
+https://github.com/KyleBuildsAI/ship-it/pull/102
+
+1. Why is the top left a better spot for the card than the top right?
+2. How does the card know where the Act panel ends?
+3. Why wasn't the bottom right used?
+
+<details><summary>Answers</summary>
+
+1. From the spawn point, the open Act 2 portal is on the right and the locked portals are on the left. Top right hid the portal the last step points at. Top left only covers locked ones.
+2. `PlayPanel` measures its own right edge and stores it as `worldState.leftInset` (the camera already uses it to frame the scene). `TutorialCard` reads it and sets `left` to 16px past it.
+3. In a narrower window, a card above the terminal on the right overlapped the HUD buttons (Trophies, Settings) and the avatar.
+
+</details>
