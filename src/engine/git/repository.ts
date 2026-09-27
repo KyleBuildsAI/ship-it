@@ -37,6 +37,11 @@ export class Repository implements RevisionContext {
     return id;
   }
 
+  /** The id a file's content would get, without storing it. Used to spot edited files. */
+  idFor(content: string): ObjectId {
+    return blobId(content, this.deps.hash);
+  }
+
   readBlob(id: ObjectId): string {
     const content = this.blobs.get(id);
     if (content === undefined) throw new Error(`missing blob ${id}`);
