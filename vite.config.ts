@@ -1,8 +1,8 @@
 import react from '@vitejs/plugin-react';
-import { loadEnv, type ProxyOptions } from 'vite';
+import { loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import { defineConfig } from 'vitest/config';
 // With the .ts extension, because Vite's upcoming native config loader requires one.
-import { DEFAULT_PORT, parsePort } from './server/port.ts';
+import { DEFAULT_PORT, GAME_PORT, parsePort } from './server/port.ts';
 
 // GitHub Pages serves this repo from https://kylebuildsai.github.io/ship-it/, so
 // production builds need that path prefix or every asset URL 404s. `vite preview`
@@ -30,10 +30,31 @@ const answerOfflineWhenSageIsDown: ProxyOptions['configure'] = (proxy) => {
   });
 };
 
+/**
+ * Answers /__ship-it/checkout with this checkout's folder, in dev only. start-ship-it.bat
+ * uses it to tell "SHIP IT from this folder is already running" apart from any other app
+ * (or another copy of the repo) holding the port.
+ */
+function identifyCheckout(): Plugin {
+  return {
+    name: 'ship-it-identify-checkout',
+    configureServer(server) {
+      server.middlewares.use('/__ship-it/checkout', (_request, response) => {
+        response.setHeader('content-type', 'text/plain; charset=utf-8');
+        response.end(process.cwd());
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command, mode, isPreview }) => ({
   base: command === 'build' || isPreview ? PAGES_BASE : '/',
-  plugins: [react()],
+  plugins: [react(), identifyCheckout()],
   server: {
+    // Always the same port, never a fallback: the save lives in the browser under this exact
+    // address, so another port would open an empty game. Better to fail loudly.
+    port: GAME_PORT,
+    strictPort: true,
     // The game calls /api/...; in dev, Vite forwards those to the local Sage server.
     proxy: {
       '/api': { target: sageUrl(mode), configure: answerOfflineWhenSageIsDown },

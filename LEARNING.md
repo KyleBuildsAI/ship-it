@@ -1063,3 +1063,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/82
 3. By counting `requestAnimationFrame` callbacks over 3 seconds in the running game. On a weaker GPU, set Settings, Graphics quality to Medium or Low, which caps the pixel ratio (1.5 or 1), the biggest cost on high-DPI screens.
 
 </details>
+
+---
+
+## #84 feat: one-click launcher that starts ship it and opens chrome
+
+https://github.com/KyleBuildsAI/ship-it/pull/84
+
+1. Why does the game refuse to start rather than moving to port 18174 when 18173 is busy?
+2. How does the launcher know the server on 18173 is *your* SHIP IT and not some other app?
+3. Why is a `.bat` file's line ending a special case in `.gitattributes`?
+
+<details><summary>Answers</summary>
+
+1. Your save lives in Chrome under the exact address `http://localhost:18173`. On 18174 the game would load with an empty save and look like your progress was gone. A clear failure message is better than a silent empty game.
+2. The dev server answers `/__ship-it/checkout` with the folder it runs from, and the helper compares that with its own repo folder. Any other app either doesn't answer that path (a 404), or answers with a different folder.
+3. The repo stores every text file with LF endings, but cmd.exe misreads LF-only batch files (labels and `goto` break). `*.bat text eol=crlf` makes git check them out with CRLF, which Windows expects.
+
+</details>
