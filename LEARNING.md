@@ -793,3 +793,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/67
 3. Commit lines have a `*` in the graph prefix followed by a hash and a subject. Connector lines are only `|`, `/`, `\`, and spaces.
 
 </details>
+
+---
+
+## #68 feat: field mission checks over parsed pastes
+
+https://github.com/KyleBuildsAI/ship-it/pull/68
+
+1. Your last 4 commits are `feat: x`, `Merge branch 'y'`, `fix: z`, and `wip`. What's the Conventional ratio, and why?
+2. Why can't `git status` prove that `.env` isn't tracked?
+3. What would the sandbox parity test catch?
+
+<details><summary>Answers</summary>
+
+1. 2 of 3 is about 67%. The merge subject was written by git, so it doesn't count. Of `feat: x`, `fix: z`, and `wip`, two are Conventional.
+2. Status only lists files that differ from HEAD or aren't tracked. A tracked `.env` that hasn't changed since it was committed doesn't appear at all, so an empty status proves nothing about it.
+3. Any difference between the simulated git's output format and real git's, such as a changed hint line or different spacing, which would mean the game is teaching output that doesn't match reality.
+
+</details>
