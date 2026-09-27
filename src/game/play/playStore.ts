@@ -31,6 +31,8 @@ export type FreeTextGrade =
 
 export interface MissionActivity {
   readonly kind: 'mission';
+  /** Unique per start, so a late Sage reply can't land on a replay of the same mission. */
+  readonly attempt: number;
   readonly mission: Mission;
   readonly run: MissionRun;
   readonly hint: ShownHint | null;

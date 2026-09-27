@@ -131,6 +131,21 @@ describe('playing a mission', () => {
   });
 });
 
+describe('late Sage replies', () => {
+  it('never land on a replay of the same mission', async () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    const pending = askForHint();
+    // Leave and replay before the reply arrives: same mission, same step, new attempt.
+    leavePlay();
+    startMission(sampleMission.id);
+    endBriefing();
+    await pending;
+    expect(mission().hint).toBeNull();
+    expect(mission().hintLoading).toBe(false);
+  });
+});
+
 describe('the placement test', () => {
   it('tests out of the act at 85% or better', () => {
     startPlacement();
