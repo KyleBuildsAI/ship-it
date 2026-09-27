@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { sampleAct, sampleMission, secondMission } from './sample.test-mission';
+import { sampleAct, sampleMission, secondMission, thirdMission } from './sample.test-mission';
 import type { Act, Mission } from './schema';
 import { validateAct } from './validateAct';
 
-const missions = [sampleMission, secondMission];
+const missions = [sampleMission, secondMission, thirdMission];
 const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
 
 /** The sample act with the placement test replaced. */
@@ -18,7 +18,7 @@ describe('validateAct', () => {
   });
 
   it('finds missions that are listed but missing, or present but not listed', () => {
-    expect(validateAct(sampleAct, [sampleMission])).toEqual([
+    expect(validateAct(sampleAct, [sampleMission, thirdMission])).toEqual([
       { where: 'act > missionIds', problem: 'No mission has the id "sample-reading-history".' },
       // The placement test also borrows drills from the missing mission.
       {
@@ -42,21 +42,24 @@ describe('validateAct', () => {
 
   it('catches a mission filed under the wrong Act', () => {
     const wrongAct: Mission = { ...secondMission, act: 3 };
-    expect(validateAct(sampleAct, [sampleMission, wrongAct])).toEqual([
+    expect(validateAct(sampleAct, [sampleMission, wrongAct, thirdMission])).toEqual([
       { where: 'mission sample-reading-history', problem: 'Says act 3, not 2.' },
     ]);
   });
 
   it('catches ids that collide', () => {
     const twin: Mission = { ...secondMission, id: sampleMission.id };
-    const act: Act = { ...sampleAct, missionIds: [sampleMission.id, sampleMission.id] };
-    expect(validateAct(act, [sampleMission, twin])).toEqual([
+    const act: Act = {
+      ...sampleAct,
+      missionIds: [sampleMission.id, sampleMission.id, thirdMission.id],
+    };
+    expect(validateAct(act, [sampleMission, twin, thirdMission])).toEqual([
       { where: 'mission sample-three-rooms', problem: 'Two missions share this id.' },
       { where: 'act > missionIds', problem: '"sample-three-rooms" is listed more than once.' },
     ]);
     // The placement test names drills by id alone, so two missions can't share one.
     const copycat: Mission = { ...secondMission, drills: sampleMission.drills };
-    expect(validateAct(sampleAct, [sampleMission, copycat])).toEqual(
+    expect(validateAct(sampleAct, [sampleMission, copycat, thirdMission])).toEqual(
       expect.arrayContaining([
         { where: 'drill sample-init', problem: 'Two drills in this Act share this id.' },
       ]),
@@ -103,7 +106,7 @@ describe('validateAct', () => {
         checklist: [{ id: 'long', text: words(62) }],
       },
     };
-    expect(validateAct(act, [wordy, secondMission])).toEqual([
+    expect(validateAct(act, [wordy, secondMission, thirdMission])).toEqual([
       {
         where: 'mission sample-three-rooms > step init > hint 2',
         problem: '61 words; the limit is 60.',

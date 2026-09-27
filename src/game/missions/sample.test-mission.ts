@@ -194,20 +194,34 @@ export const sampleMissionInput: MissionInput = {
 
 export const sampleMission = MissionSchema.parse(sampleMissionInput);
 
-/** A second mission for Act-level tests: the first with its ids changed. */
-export const secondMissionInput: MissionInput = {
-  ...sampleMissionInput,
-  id: 'sample-reading-history',
-  title: 'Reading History (sample)',
-  drills: sampleMissionInput.drills.map((drill) => ({ ...drill, id: `history-${drill.id}` })),
-};
+/**
+ * The first mission under a new id. Its drill ids get a prefix, because the placement
+ * test names drills by id alone, so they must be unique across the whole Act.
+ */
+function copyOfSample(id: string, title: string, drillPrefix: string): MissionInput {
+  return {
+    ...sampleMissionInput,
+    id,
+    title,
+    drills: sampleMissionInput.drills.map((drill) => ({
+      ...drill,
+      id: `${drillPrefix}-${drill.id}`,
+    })),
+  };
+}
 
-export const secondMission = MissionSchema.parse(secondMissionInput);
+// Two more missions for Act-level tests, because an Act has 3 to 6 (DESIGN.md section 5).
+export const secondMission = MissionSchema.parse(
+  copyOfSample('sample-reading-history', 'Reading History (sample)', 'history'),
+);
+export const thirdMission = MissionSchema.parse(
+  copyOfSample('sample-good-commits', 'Good Commits (sample)', 'commits'),
+);
 
 export const sampleActInput: ActInput = {
   act: 2,
   title: 'Git Core (sample)',
-  missionIds: ['sample-three-rooms', 'sample-reading-history'],
+  missionIds: ['sample-three-rooms', 'sample-reading-history', 'sample-good-commits'],
   placementTest: {
     drillIds: [
       'sample-init',

@@ -238,6 +238,14 @@ describe('ActSchema', () => {
     expect(ActSchema.parse({ ...sampleActInput, boss: bossWithoutRules }).boss.failIf).toEqual([]);
   });
 
+  it('has 3 to 6 missions (DESIGN.md section 5)', () => {
+    const ids = (count: number) => Array.from({ length: count }, (_, i) => `mission-${String(i)}`);
+    expect(act({ missionIds: ids(2) }).success).toBe(false);
+    expect(act({ missionIds: ids(3) }).success).toBe(true);
+    expect(act({ missionIds: ids(6) }).success).toBe(true);
+    expect(act({ missionIds: ids(7) }).success).toBe(false);
+  });
+
   it('has 8 to 12 placement drills at 85% (DESIGN.md section 5)', () => {
     const placement = (drillIds: string[], passPercent?: number) =>
       act({ placementTest: { drillIds, passPercent } });

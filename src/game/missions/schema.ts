@@ -438,7 +438,8 @@ const FieldMissionSchema = z
 export const ActSchema = z.strictObject({
   act: z.int().positive(),
   title: NameSchema,
-  missionIds: z.array(IdSchema).min(1),
+  /** DESIGN.md section 5: each Act has 3 to 6 missions. */
+  missionIds: z.array(IdSchema).min(3).max(6),
   placementTest: z.strictObject({
     /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
     drillIds: z.array(IdSchema).min(8).max(12),
