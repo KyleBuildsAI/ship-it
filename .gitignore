@@ -14,6 +14,7 @@ dist-ssr/
 
 # Mentor server usage tracking (per-machine, may reveal spend)
 server/usage.json
+server/usage.json.tmp
 
 # Test output
 coverage/
