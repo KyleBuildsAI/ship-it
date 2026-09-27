@@ -1,3 +1,4 @@
+import { tutorial } from '../game/tutorial';
 import { worldState } from '../game/worldState';
 import { useStore } from './useStore';
 
@@ -9,6 +10,9 @@ const HINTS = {
 
 export function TitleCard() {
   const { zone, hasMoved } = useStore(worldState);
+  const { step, finished } = useStore(tutorial);
+  // The tutorial card teaches the same controls one at a time, so the hint steps aside for it.
+  const showHint = step === null && !finished;
   // The big title greets the player, then steps aside once they start exploring.
   const showTitle = zone === 'campus' && !hasMoved;
   return (
@@ -21,7 +25,7 @@ export function TitleCard() {
       ) : (
         <h1 className="title-card__zone">{zone === 'campus' ? 'Campus' : 'Git World'}</h1>
       )}
-      <p className="title-card__tagline">{HINTS[zone]}</p>
+      {showHint ? <p className="title-card__tagline">{HINTS[zone]}</p> : null}
     </header>
   );
 }

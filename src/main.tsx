@@ -5,6 +5,7 @@ import { act2, act2Missions } from './content';
 import { setCatalog } from './game/play/catalog';
 import { startPlay } from './game/play/play';
 import { flushProgress, startProgress } from './game/progress';
+import { startTutorial } from './game/tutorial';
 import { getMentorStatus } from './mentor/client';
 import { App } from './ui/App';
 import './ui/theme.css';
@@ -30,6 +31,9 @@ void startProgress();
 // Act 2 is the content Milestone 1 ships. Play grades the sandbox after every change.
 setCatalog({ act: act2, missions: act2Missions });
 startPlay();
+
+// A new save starts the first-run tutorial once it has loaded (DESIGN.md section 4).
+startTutorial();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushProgress().catch((error: unknown) => {

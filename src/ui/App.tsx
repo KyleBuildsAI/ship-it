@@ -8,6 +8,7 @@ import { PlayPanel } from './play/PlayPanel';
 import { StatusBadge } from './StatusBadge';
 import { TerminalPanel } from './terminal/TerminalPanel';
 import { TitleCard } from './TitleCard';
+import { TutorialCard } from './TutorialCard';
 import { useSettingsEffects } from './useSettingsEffects';
 import { useStore } from './useStore';
 
@@ -39,6 +40,7 @@ export function App() {
     <>
       <StatusBadge />
       <TitleCard />
+      <TutorialCard />
       <button
         type="button"
         className="glass hud-button terminal-toggle"

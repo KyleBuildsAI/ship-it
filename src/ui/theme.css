@@ -837,3 +837,63 @@ html[data-reduced-motion='on'] *::after {
 .elsewhere::backdrop {
   background: rgba(5, 6, 11, 0.75);
 }
+
+/* First-run tutorial (TutorialCard.tsx): top right, clear of the badge, title, and menus. */
+.tutorial-card {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: min(320px, calc(100vw - 32px));
+  padding: 14px 16px;
+  border-radius: 12px;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+.tutorial-card__eyebrow {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tutorial-card__title {
+  margin: 4px 0 6px;
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.tutorial-card__instruction {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.tutorial-card__progress {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tutorial-card__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--glass-stroke);
+}
+
+.tutorial-card__dot--done {
+  background: var(--text-muted);
+}
+
+.tutorial-card__dot--current {
+  background: var(--accent);
+}
+
+.tutorial-card__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
