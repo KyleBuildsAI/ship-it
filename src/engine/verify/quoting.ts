@@ -32,29 +32,33 @@ export function closingQuote(text: string): number {
   return -1;
 }
 
+/** Writes the inside of a quoted path as %XX bytes, turning each escape into its byte. */
+function percentEncode(body: string): string {
+  let encoded = '';
+  for (const [whole, escape] of body.matchAll(ESCAPE_OR_TEXT)) {
+    if (escape === undefined) {
+      encoded += encodeURIComponent(whole);
+    } else if (OCTAL_BYTE.test(escape)) {
+      encoded += `%${parseInt(escape, 8).toString(16).padStart(2, '0')}`;
+    } else {
+      encoded += encodeURIComponent(SIMPLE_ESCAPES[escape] ?? escape);
+    }
+  }
+  return encoded;
+}
+
 /** Turns git's quoted form of a path back into the real name. Unquoted paths come back as-is. */
 export function unquotePath(raw: string): string {
   if (raw.length < 2 || closingQuote(raw) !== raw.length - 1) return raw;
   const body = raw.slice(1, -1);
-
-  // One letter can take several octal bytes. Writing every byte as %XX and handing the
-  // result to decodeURIComponent reuses the standard library's UTF-8 decoder.
-  let percentEncoded = '';
-  for (const [whole, escape] of body.matchAll(ESCAPE_OR_TEXT)) {
-    if (escape === undefined) {
-      percentEncoded += encodeURIComponent(whole);
-    } else if (OCTAL_BYTE.test(escape)) {
-      percentEncoded += `%${parseInt(escape, 8).toString(16).padStart(2, '0')}`;
-    } else {
-      percentEncoded += encodeURIComponent(SIMPLE_ESCAPES[escape] ?? escape);
-    }
-  }
-
   try {
-    return decodeURIComponent(percentEncoded);
+    // One letter can take several octal bytes. Writing every byte as %XX and handing the
+    // result to decodeURIComponent reuses the standard library's UTF-8 decoder.
+    return decodeURIComponent(percentEncode(body));
   } catch (error) {
     // Bytes that aren't valid UTF-8 (a file named on an old system, say) can't become
-    // letters. Git's escaped spelling is still a faithful, readable name for the file.
+    // letters, and neither can half of an emoji. Git's escaped spelling is still a
+    // faithful, readable name for the file.
     if (error instanceof URIError) return body;
     throw error;
   }

@@ -45,6 +45,10 @@ describe('unquotePath', () => {
     expect(unquotePath('"bad\\377name"')).toBe('bad\\377name');
   });
 
+  it('keeps a broken half of an emoji instead of crashing', () => {
+    expect(unquotePath('"half\ud83d.txt"')).toBe('half\ud83d.txt');
+  });
+
   it('keeps non-ASCII letters that arrive unescaped (core.quotePath off)', () => {
     expect(unquotePath('"naïve \\"x\\""')).toBe('naïve "x"');
   });
