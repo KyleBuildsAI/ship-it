@@ -919,3 +919,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/74
 3. When the tab is hidden (`visibilitychange` to `hidden`), for example when switching tabs or closing the browser. It's the last reliable chance to write before the page may be killed.
 
 </details>
+
+---
+
+## #75 feat: rules for how play changes the save
+
+https://github.com/KyleBuildsAI/ship-it/pull/75
+
+1. You finish mission 2.1, then replay it and finish again. How much XP does the replay pay, and what can still improve?
+2. What happens to a drill you miss, and when does it come back?
+3. You test out of Act 2 at 90%. What changes in the save?
+
+<details><summary>Answers</summary>
+
+1. Zero XP: steps, mission, and Question Round XP are one-time. The best drill score can still go up, and drill passes still earn their per-drill XP and practice days.
+2. It's recorded in drill history and added to the review queue, due today. The Standup Board brings it back, then SM-2 spaces it out as you get it right.
+3. Placement attempts +1, best percent 90, `testedOut: true`. Every unfinished Act 2 mission becomes "tested out", you get 50% of the Act's mission XP once, and the Act's `completedAt` is stamped.
+
+</details>
