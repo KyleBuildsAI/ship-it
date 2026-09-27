@@ -191,6 +191,7 @@ describe('gradeQuestion', () => {
     ['a fractional score', { ...GOOD_GRADE, score: 2.5 }],
     ['a missing field', { score: 2, whyItMatters: 'Because.' }],
     ['an empty explanation', { ...GOOD_GRADE, whyItMatters: '' }],
+    ['an array instead of an object', [GOOD_GRADE]],
   ])('refuses JSON with %s', async (_label, grade) => {
     const { mentor } = setup(() => Promise.resolve(textResponse(JSON.stringify(grade))));
 
@@ -205,6 +206,12 @@ describe('Anthropic errors', () => {
     [
       'a rejected key',
       new Anthropic.AuthenticationError(401, undefined, 'invalid x-api-key', headers),
+      502,
+      'ANTHROPIC_API_KEY',
+    ],
+    [
+      'a key without access',
+      new Anthropic.PermissionDeniedError(403, undefined, 'permission denied', headers),
       502,
       'ANTHROPIC_API_KEY',
     ],

@@ -116,6 +116,27 @@ describe('openUsageStore', () => {
     expect(await readSaved()).toMatchObject({ date: '2026-09-28', calls: 1 });
   });
 
+  it('adds tokens reported after midnight to the new day, not yesterday', async () => {
+    const store = await open();
+    await store.recordTokens({ inputTokens: 100, outputTokens: 20 });
+
+    today = '2026-09-28';
+    await store.recordTokens({ inputTokens: 7, outputTokens: 3 });
+
+    expect(await readSaved()).toEqual({
+      date: '2026-09-28',
+      calls: 0,
+      inputTokens: 7,
+      outputTokens: 3,
+    });
+  });
+
+  it('uses the real local date when no clock is passed in', async () => {
+    const store = await openUsageStore({ filePath, dailyCallCap: 3, logger });
+
+    expect(store.current().date).toBe(localDateStamp());
+  });
+
   it('resets with a warning instead of crashing when the file is not JSON', async () => {
     await writeFile(filePath, '{"date": "2026-09-27", "calls": 4', 'utf8');
 

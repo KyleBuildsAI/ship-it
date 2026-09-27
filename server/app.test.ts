@@ -112,6 +112,21 @@ describe('localhost guard', () => {
     expect(response.status).toBe(403);
   });
 
+  it('refuses a cross-site POST before it can spend a call', async () => {
+    const mentor = fakeMentor();
+    const { app, usage } = setup({ mentor });
+
+    const response = await postMentor(
+      app,
+      { mode: 'hint', context: HINT_CONTEXT },
+      { origin: 'https://evil.example' },
+    );
+
+    expect(response.status).toBe(403);
+    expect(mentor.hint).not.toHaveBeenCalled();
+    expect(usage.current().calls).toBe(0);
+  });
+
   it.each(['http://localhost:5173', 'http://127.0.0.1:5173', 'http://[::1]:5173'])(
     'accepts the local Origin %s',
     async (origin) => {
@@ -170,6 +185,18 @@ describe('POST /api/mentor', () => {
       expect(usage.current().calls).toBe(0);
     });
 
+    it('answers "off during drills" even when Sage has no key', async () => {
+      const { app } = setup({ mentor: null });
+
+      const response = await postMentor(app, {
+        mode: 'hint',
+        context: HINT_CONTEXT,
+        drillSessionId: 'drill-1',
+      });
+
+      expect(response.status).toBe(403);
+    });
+
     it('allows inDrill: false', async () => {
       const { app } = setup();
 
@@ -215,12 +242,13 @@ describe('POST /api/mentor', () => {
     });
 
     it('rejects a body over the size limit before parsing it', async () => {
-      const { app } = setup();
+      const { app, usage } = setup();
       const huge = { mode: 'hint', context: { ...HINT_CONTEXT, gitStatus: 'x'.repeat(40_000) } };
 
       const response = await postMentor(app, huge);
 
       expect(response.status).toBe(413);
+      expect(usage.current().calls).toBe(0);
     });
   });
 
@@ -264,6 +292,19 @@ describe('POST /api/mentor', () => {
       error: 'Anthropic took too long to answer. Try again.',
     });
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Request timed out.'));
+  });
+
+  it('logs a MentorError that has no underlying cause', async () => {
+    const mentor = fakeMentor();
+    mentor.hint.mockRejectedValue(new MentorError('Sage returned an empty hint. Ask again.'));
+    const { app, logger } = setup({ mentor });
+
+    const response = await postMentor(app, { mode: 'hint', context: HINT_CONTEXT });
+
+    expect(response.status).toBe(502);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'hint failed: Sage returned an empty hint. Ask again.',
+    );
   });
 
   it('hides unexpected errors behind a generic 500', async () => {
