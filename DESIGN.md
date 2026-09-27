@@ -234,7 +234,7 @@ ship-it/
     workflows/deploy.yml
     pull_request_template.md
   src/
-    main.ts
+    main.tsx
     engine/git/        pure TS git simulation + tests
     engine/shell/      shell commands + parser + tests
     engine/verify/     Field Mission output parsers + tests
