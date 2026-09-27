@@ -8,7 +8,7 @@ Milestone 1 (Act 2: Git Core vertical slice) is in progress. See [DESIGN.md](DES
 
 ## How to run
 
-Requirements: Windows 11 with PowerShell, Node.js LTS, npm, and Chrome.
+Requirements: Windows 11 with PowerShell, Node.js 24 LTS or newer, npm, and Chrome.
 
 Open a terminal in the repo folder, then:
 
@@ -20,3 +20,22 @@ npm run dev
 Open the URL Vite prints (usually `http://localhost:5173`) in Chrome.
 
 The Sage mentor is optional. To enable it, copy `.env.example` to `.env` and fill in the values. Without a key, the game stays fully playable with pre-written hints.
+
+## Checks
+
+Before opening a pull request, run every local quality gate in one command:
+
+```powershell
+npm run check
+```
+
+It runs these in order and stops at the first failure:
+
+| Script | What it does |
+|---|---|
+| `npm run lint` | ESLint with type-aware rules. Fails on any warning. |
+| `npm run format:check` | Prettier formatting check. `npm run format` fixes it. |
+| `npm run typecheck` | TypeScript strict compile, no output files. |
+| `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. |
+
+To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:4173/ship-it/`.
