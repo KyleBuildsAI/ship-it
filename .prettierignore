@@ -1,0 +1,9 @@
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+
+# Docs are hand-written. Keep Prettier from re-aligning their tables and
+# rewriting list and emphasis markers.
+*.md
