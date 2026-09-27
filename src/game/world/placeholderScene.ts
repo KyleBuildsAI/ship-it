@@ -37,23 +37,21 @@ function createIsland(): THREE.Group {
   return island;
 }
 
-function createPortal(): THREE.Group {
+function createPortal(): { portal: THREE.Group; ringMaterial: THREE.MeshStandardMaterial } {
   const portal = new THREE.Group();
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(1.4, 0.08, 16, 96),
-    new THREE.MeshStandardMaterial({
-      color: PORTAL_CYAN,
-      emissive: PORTAL_CYAN,
-      emissiveIntensity: 3,
-    }),
-  );
+  const ringMaterial = new THREE.MeshStandardMaterial({
+    color: PORTAL_CYAN,
+    emissive: PORTAL_CYAN,
+    emissiveIntensity: 3,
+  });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.08, 16, 96), ringMaterial);
   const veil = new THREE.Mesh(
     new THREE.CircleGeometry(1.35, 48),
     new THREE.MeshBasicMaterial({ color: PORTAL_CYAN, transparent: true, opacity: 0.12 }),
   );
   portal.add(ring, veil);
   portal.position.set(0, 2.1, -2.5);
-  return portal;
+  return { portal, ringMaterial };
 }
 
 function createCrates(): THREE.Mesh[] {
@@ -76,7 +74,8 @@ function createStars(count: number): THREE.InstancedMesh {
   const random = seededRandom(184);
   const stars = new THREE.InstancedMesh(
     new THREE.IcosahedronGeometry(0.08, 0),
-    new THREE.MeshBasicMaterial({ color: 0xdfe8ff }),
+    // Stars sit far outside the fog; without fog: false they would fade to nothing.
+    new THREE.MeshBasicMaterial({ color: 0xdfe8ff, fog: false }),
     count,
   );
   const placement = new THREE.Object3D();
@@ -106,7 +105,7 @@ export function createPlaceholderScene(aspect: number, reducedMotion: boolean): 
   camera.position.set(0, 6, 15.5);
 
   const island = createIsland();
-  const portal = createPortal();
+  const { portal, ringMaterial: portalRing } = createPortal();
   const crates = createCrates();
   scene.add(island, portal, ...crates, createStars(500));
 
@@ -128,7 +127,9 @@ export function createPlaceholderScene(aspect: number, reducedMotion: boolean): 
     update: (elapsed) => {
       const t = elapsed * motion;
       island.position.y = Math.sin(t * 0.5) * 0.15;
-      portal.rotation.z = t * 0.4;
+      // The ring is symmetric around its own axis, so it sways and pulses instead of spinning.
+      portal.rotation.y = Math.sin(t * 0.4) * 0.35;
+      portalRing.emissiveIntensity = 2.6 + Math.sin(t * 2) * 0.6;
       portal.position.y = 2.1 + island.position.y;
       crates.forEach((crate, index) => {
         crate.position.y = 0.8 + island.position.y + Math.sin(t * 1.2 + index) * 0.08;
