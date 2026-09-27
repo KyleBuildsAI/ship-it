@@ -106,7 +106,8 @@ function browserStorage(): PersistableStorage | undefined {
 /**
  * Asks the browser not to delete our data when the disk runs low. Without this, the browser
  * may treat IndexedDB as a cache and evict it. Resolves true if the browser agreed, and false
- * if it refused or can't be asked.
+ * if it refused or can't be asked. If the browser's persist() call itself fails, this rejects
+ * with that error so the caller can report it.
  */
 export async function requestPersistentStorage(
   storage: PersistableStorage | undefined = browserStorage(),

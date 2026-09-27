@@ -85,7 +85,7 @@ export const reviewItemSchema = z.object({
   easiness: z.number().min(MIN_EASINESS),
   // Correct reviews in a row. A wrong answer resets it to 0.
   repetitions: countSchema,
-  // Days between the last review and dueOn. 0 means "never reviewed yet".
+  // Days between the last review and dueOn. 0 means "not reviewed since it was last missed".
   intervalDays: countSchema,
   dueOn: dayStringSchema,
 });
