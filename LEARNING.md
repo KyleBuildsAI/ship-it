@@ -559,3 +559,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/54
 3. An `ImportError` with reason `newer-version` and a plain message saying the file comes from a newer version of SHIP IT. The current save is untouched, because loading a newer save could drop fields this version doesn't know about.
 
 </details>
+
+---
+
+## #55 feat: xp awards, ranks, and calendar day helpers
+
+https://github.com/KyleBuildsAI/ship-it/pull/55
+
+1. You've completed Acts 1, 2, and 4 (Act 4 by placement test). What's your rank, and what does `nextRank` say?
+2. Why does `addDays` do its maths in UTC instead of your local timezone?
+3. An Act's missions are worth 100, 120, and 150 XP. How much XP does testing out give?
+
+<details><summary>Answers</summary>
+
+1. Mid. The highest completed Act is 4, which unlocks Mid. `nextRank` returns `{ rank: 'Senior', unlockedByAct: 6 }`.
+2. On a daylight-saving night, a local day is 23 or 25 hours long, so "add 24 hours" can land on the same day or skip one. A UTC day is always exactly 24 hours.
+3. 185. The total is 370, and 50% of that is 185 (rounded, which changes nothing here).
+
+</details>
