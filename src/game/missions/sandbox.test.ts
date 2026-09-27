@@ -16,10 +16,12 @@ function snapshot(ws: Workspace) {
   };
 }
 
-// Uses every kind of fixture step, including staging a deleted file.
+// Uses every kind of fixture step, including staging a deleted file and appending to a
+// file that doesn't exist yet.
 const everyStep = repo()
   .commit('chore: init', { 'app.ts': 'v1\n', 'old.ts': 'old\n' })
   .modify('app.ts')
+  .modify('notes.md')
   .write('.env', 'TOKEN=dev-only\n')
   .delete('old.ts')
   .stage('app.ts', 'old.ts')
@@ -30,7 +32,7 @@ describe('createSandbox', () => {
   it('replays a mission setup into a fresh workspace', () => {
     const q = gitQueries(createSandbox(everyStep, testDeps()));
     expect(q.log().map((commit) => commit.message)).toEqual(['refactor: tidy', 'chore: init']);
-    expect(q.untrackedPaths()).toEqual(['.env']);
+    expect(q.untrackedPaths()).toEqual(['.env', 'notes.md']);
   });
 
   it('uses the real clock and hash when no test dependencies are given', () => {
