@@ -1765,3 +1765,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/129
 3. Yes. `Remove-Item Env:TEMP` changes only this tab's copy. The saved User variable is untouched, and a new tab copies it again.
 
 </details>
+
+---
+
+## #130 fix: remove-item declares all its parameters and keeps hidden or read-only items
+
+https://github.com/KyleBuildsAI/ship-it/pull/130
+
+1. Why is `rm -f notes.txt` refused?
+2. After `rm tmp -Recurse` where `tmp` holds a hidden folder, what's left?
+3. Why doesn't another tab's folder count as in use?
+
+<details><summary>Answers</summary>
+
+1. Remove-Item has both `-Filter` and `-Force`, so `-f` could mean either. PowerShell refuses ambiguous shortened names.
+2. `tmp` with the hidden folder inside, now empty. The visible files are gone, the hidden folder stays with the access error, and so does `tmp`, because it isn't empty.
+3. `Set-Location` only changes PowerShell's idea of where the tab is. The pwsh process's working folder doesn't move, so nothing holds the folder open.
+
+</details>
