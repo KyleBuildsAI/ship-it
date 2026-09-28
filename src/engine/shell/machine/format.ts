@@ -1,4 +1,6 @@
+import { baseName } from '../../fs/paths';
 import { line, type OutputLine } from '../../git/cli/output';
+import type { WindowsFs } from '../../machine/windowsFs';
 
 /**
  * When every item on the laptop was last written, as PowerShell's en-US tables show it.
@@ -51,6 +53,17 @@ export function itemTable(sections: readonly ItemSection[]): OutputLine[] {
   return lines;
 }
 
+/** One item on the drive, as a row of Get-ChildItem's table. */
+export function itemRow(drive: WindowsFs, path: string): ItemRow {
+  const isDir = drive.isDir(path);
+  return {
+    name: baseName(path),
+    kind: isDir ? 'dir' : 'file',
+    hidden: drive.isHidden(path),
+    readOnly: drive.isReadOnly(path),
+    length: isDir ? 0 : windowsLength(drive.readFile(path)),
+  };
+}
 /**
  * Name/Value tables, like Get-ChildItem Env:. The Name column is 30 wide, as PowerShell's,
  * and a row longer than the terminal is cut short with an ellipsis, as PowerShell does,
