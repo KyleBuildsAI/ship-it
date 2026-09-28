@@ -149,23 +149,27 @@ describe('late Sage replies', () => {
   });
 });
 
+/** Plays the whole placement test in progress, solving every drill by reaching its state. */
+function passPlacement(): void {
+  const total = series().drills.length;
+  for (let index = 0; index < total; index++) {
+    startNextSeriesDrill(T0 + index * 1000);
+    const drill = series().drills[index];
+    if (drill?.id.endsWith('init')) run('git init');
+    else if (drill?.id.endsWith('stage-one')) run('git add notes.md');
+    else if (drill?.id.endsWith('commit')) run('git commit -m "feat: a"');
+    else if (drill?.id.endsWith('unstage')) run('git restore --staged .env');
+    else run('git commit -am "fix: v2"');
+    seriesSandboxChanged(T0 + index * 1000 + 500);
+  }
+}
+
 describe('the placement test', () => {
   it('tests out of the act at 85% or better', () => {
     startPlacement(sampleAct.act);
-    const total = series().drills.length;
-    for (let index = 0; index < total; index++) {
-      startNextSeriesDrill(T0 + index * 1000);
-      const drill = series().drills[index];
-      // Solve every drill by reaching its target state.
-      if (drill?.id.endsWith('init')) run('git init');
-      else if (drill?.id.endsWith('stage-one')) run('git add notes.md');
-      else if (drill?.id.endsWith('commit')) run('git commit -m "feat: a"');
-      else if (drill?.id.endsWith('unstage')) run('git restore --staged .env');
-      else run('git commit -am "fix: v2"');
-      seriesSandboxChanged(T0 + index * 1000 + 500);
-    }
+    passPlacement();
     expect(series().placement).toEqual({ percent: 100, testedOut: true });
-    expect(progress.get().save?.acts['2']?.completedAt).not.toBeNull();
+    expect(progress.get().save?.acts['2']?.completedAt).toEqual(expect.any(String));
   });
 });
 
@@ -209,6 +213,15 @@ describe('two Acts in one catalog', () => {
     startPlacement(3);
     expect(series().act).toBe(3);
     expect(series().drills.every((drill) => drill.id.startsWith('other-'))).toBe(true);
+
+    passPlacement();
+
+    expect(progress.get().save?.acts['3']?.placement).toMatchObject({
+      attempts: 1,
+      testedOut: true,
+    });
+    expect(progress.get().save?.acts['3']?.completedAt).toEqual(expect.any(String));
+    expect(progress.get().save?.acts['2']).toBeUndefined();
   });
 
   it("fights each Act's own boss", () => {
