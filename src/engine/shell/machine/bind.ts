@@ -7,6 +7,7 @@ const DOTNET_TYPE = {
   'string[]': 'System.String[]',
   int: 'System.Int32',
   'int[]': 'System.Int32[]',
+  uint: 'System.UInt32',
 } as const;
 
 export type ParamType = keyof typeof DOTNET_TYPE;
@@ -258,28 +259,48 @@ function checkValue(parameter: ParamSpec, items: readonly string[]): readonly st
     return bindError(
       `Cannot convert 'System.Object[]' to the type '${DOTNET_TYPE[parameter.type]}' required by parameter '${parameter.name}'. Specified method is not supported.`,
     );
-  if (parameter.type !== 'int' && parameter.type !== 'int[]') return items;
+  const range = WHOLE_NUMBERS[parameter.type];
+  if (range === undefined) return items;
   const numbers: string[] = [];
   for (const item of items) {
-    const converted = toInt32(item);
+    const converted = toWhole(item, range);
     if (typeof converted === 'string')
       return bindError(
-        `Cannot bind parameter '${parameter.name}'. Cannot convert value "${item}" to type "System.Int32". Error: "${converted}"`,
+        `Cannot bind parameter '${parameter.name}'. Cannot convert value "${item}" to type "${range.type}". Error: "${converted}"`,
       );
     numbers.push(String(converted));
   }
   return numbers;
 }
 
-const INT32_MIN = -2147483648;
-const INT32_MAX = 2147483647;
+interface WholeRange {
+  readonly type: string;
+  readonly short: string;
+  readonly min: number;
+  readonly max: number;
+}
+
+const INT32: WholeRange = {
+  type: 'System.Int32',
+  short: 'an Int32',
+  min: -2147483648,
+  max: 2147483647,
+};
+const UINT32: WholeRange = { type: 'System.UInt32', short: 'a UInt32', min: 0, max: 4294967295 };
+
+/** The whole-number types, and the range each holds. */
+const WHOLE_NUMBERS: Partial<Record<ParamType, WholeRange>> = {
+  int: INT32,
+  'int[]': INT32,
+  uint: UINT32,
+};
 
 /**
  * Text to a whole number the way PowerShell's binder converts it: spaces trimmed, empty
  * is 0, a sign or 0x allowed, and decimals rounded half to even (1.5 is 2, 2.5 is 2).
  * Returns .NET's reason when it can't.
  */
-function toInt32(text: string): number | string {
+function toWhole(text: string, range: WholeRange): number | string {
   const trimmed = text.trim();
   if (trimmed === '') return 0;
   const hex = /^([+-]?)0x([0-9a-f]+)$/i.exec(trimmed);
@@ -287,8 +308,8 @@ function toInt32(text: string): number | string {
   if (hex) value = Number.parseInt(`${hex[1] ?? ''}${hex[2] ?? ''}`, 16);
   else if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(trimmed)) value = roundHalfToEven(Number(trimmed));
   else return `The input string '${trimmed}' was not in a correct format.`;
-  if (value < INT32_MIN || value > INT32_MAX)
-    return 'Value was either too large or too small for an Int32.';
+  if (value < range.min || value > range.max)
+    return `Value was either too large or too small for ${range.short}.`;
   return value;
 }
 

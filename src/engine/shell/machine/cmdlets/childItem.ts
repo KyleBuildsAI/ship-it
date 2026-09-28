@@ -20,8 +20,13 @@ interface Options {
   readonly depth: number;
   readonly showHidden: boolean;
   readonly onlyHidden: boolean;
+  readonly onlyReadOnly: boolean;
+  readonly nameOnly: boolean;
   readonly kind: 'file' | 'dir' | null;
 }
+
+/** Parameters PowerShell has that this sandbox refuses rather than quietly ignores. */
+const NOT_YET = ['Include', 'Exclude', 'Attributes', 'FollowSymlink', 'System'];
 
 /** cmd's dir switches, and what PowerShell calls them. */
 const CMD_SWITCHES: Readonly<Record<string, string>> = {
@@ -38,29 +43,51 @@ const CMD_SWITCHES: Readonly<Record<string, string>> = {
 export const GET_CHILD_ITEM: Cmdlet = {
   spec: {
     name: 'Get-ChildItem',
+    // All of PowerShell's parameters, in its order, so shortened names match as they do
+    // there: -d is -Depth, and -a is ambiguous.
     parameters: [
       { name: 'Path', type: 'string[]', position: 0 },
+      { name: 'LiteralPath', type: 'string[]', aliases: ['PSPath', 'LP'] },
       { name: 'Filter', type: 'string', position: 1 },
+      { name: 'Include', type: 'string[]' },
+      { name: 'Exclude', type: 'string[]' },
       { name: 'Recurse', type: 'switch', aliases: ['s'] },
-      { name: 'Depth', type: 'int' },
+      { name: 'Depth', type: 'uint' },
       { name: 'Force', type: 'switch' },
       { name: 'Name', type: 'switch' },
+      { name: 'Attributes', type: 'string', provider: true },
+      { name: 'FollowSymlink', type: 'switch', provider: true },
       { name: 'Directory', type: 'switch', aliases: ['ad'], provider: true },
       { name: 'File', type: 'switch', aliases: ['af'], provider: true },
       { name: 'Hidden', type: 'switch', aliases: ['ah', 'h'], provider: true },
+      { name: 'ReadOnly', type: 'switch', aliases: ['ar'], provider: true },
+      { name: 'System', type: 'switch', aliases: ['as'], provider: true },
     ],
   },
   run: ({ machine, session }, bound) => {
+    const missing = NOT_YET.find((name) => bound.has(name));
+    if (missing !== undefined)
+      return {
+        lines: [line(`This sandbox doesn't run Get-ChildItem -${missing} yet.`, 'error')],
+        exitCode: 1,
+      };
     const options = readOptions(bound);
     const errors: OutputLine[] = [];
     const sections: ItemSection[] = [];
     const names: string[] = [];
     const variables: { name: string; value: string }[] = [];
-    for (const typed of bound.texts('Path') ?? ['.']) {
+    const literal = (bound.texts('LiteralPath') ?? []).map((typed) => ({ typed, literal: true }));
+    const paths = [
+      ...(bound.texts('Path') ?? []).map((typed) => ({ typed, literal: false })),
+      ...literal,
+    ];
+    for (const { typed, literal: exact } of paths.length > 0
+      ? paths
+      : [{ typed: '.', literal: false }]) {
       const env = /^env:\\?(.*)$/i.exec(typed);
       const listed = env
         ? listVariables(session, env[1] ?? '', variables)
-        : listItems(machine, session, typed, options, sections, names);
+        : listItems(machine, session, typed, exact, options, sections, names);
       errors.push(...listed);
     }
     const nameOnly = bound.flag('Name');
@@ -81,6 +108,9 @@ function readOptions(bound: Bound): Options {
     depth: depth ?? Number.POSITIVE_INFINITY,
     showHidden: bound.flag('Force') || bound.flag('Hidden'),
     onlyHidden: bound.flag('Hidden'),
+    onlyReadOnly: bound.flag('ReadOnly'),
+    // Bare names; they also keep a wildcard at the top level (see listItems).
+    nameOnly: bound.flag('Name'),
     kind: bound.flag('File') ? 'file' : bound.flag('Directory') ? 'dir' : null,
   };
 }
@@ -90,6 +120,7 @@ function listItems(
   machine: Machine,
   session: Session,
   typed: string,
+  literal: boolean,
   options: Options,
   sections: ItemSection[],
   names: string[],
@@ -101,7 +132,7 @@ function listItems(
       : failure(`Cannot find path '${target.network}' because it does not exist.`);
 
   const last = baseName(target.path);
-  const pattern = /[*?[]/.test(last) ? wildcard(last) : null;
+  const pattern = !literal && /[*?[]/.test(last) ? wildcard(last) : null;
   const path = pattern === null ? target.path : parentDir(target.path);
   const found = resolveExisting(machine.drive, path);
   if (found === null) {
@@ -119,9 +150,16 @@ function listItems(
     }
     return [];
   }
-  // A wildcard picks items in its folder; with -Recurse it filters every level below.
+  // A wildcard picks items in its folder; with -Recurse it filters every level below,
+  // except with -Name, where PowerShell 7.6 matches it at the top only (checked).
   const listing =
-    pattern === null ? options : { ...options, filters: [...options.filters, pattern] };
+    pattern === null
+      ? options
+      : {
+          ...options,
+          filters: [...options.filters, pattern],
+          recurse: options.recurse && !options.nameOnly,
+        };
   walk(machine, found, '', 0, listing, sections, names);
   return [];
 }
@@ -157,12 +195,14 @@ function rowFor(machine: Machine, path: string): ItemRow {
     name: baseName(path),
     kind: isDir ? 'dir' : 'file',
     hidden: machine.drive.isHidden(path),
+    readOnly: machine.drive.isReadOnly(path),
     length: isDir ? 0 : windowsLength(machine.drive.readFile(path)),
   };
 }
 
 function keeps(row: ItemRow, options: Options): boolean {
   if (options.onlyHidden && !row.hidden) return false;
+  if (options.onlyReadOnly && !row.readOnly) return false;
   if (options.kind !== null && row.kind !== options.kind) return false;
   return options.filters.every((filter) => filter.test(row.name));
 }
