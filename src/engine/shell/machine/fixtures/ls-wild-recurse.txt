@@ -1,0 +1,7 @@
+
+    Directory: C:\Users\kyle\quillwork\api
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM             49 package.json
+
