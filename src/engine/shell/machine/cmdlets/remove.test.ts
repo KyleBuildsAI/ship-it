@@ -4,6 +4,10 @@ import { testDeps } from '../../../git/testDeps';
 import type { EngineEvent } from '../../../workspace';
 import { Shell, type ShellResult } from '../../shell';
 import { CHOICES } from '../confirm';
+import rmBare from '../fixtures/error-rm-bare.txt?raw';
+import rmF from '../fixtures/error-rm-f.txt?raw';
+import rmHidden from '../fixtures/error-rm-hidden.txt?raw';
+import rmReadOnly from '../fixtures/error-rm-readonly.txt?raw';
 import rmRf from '../fixtures/error-rm-rf.txt?raw';
 
 function laptop() {
@@ -27,6 +31,7 @@ function laptop() {
 }
 
 const texts = (result: ShellResult) => result.lines.map((line) => line.text);
+const printed = (result: ShellResult) => result.lines.map((line) => `${line.text}\n`).join('');
 
 const QUESTION = (folder: string) =>
   `The item at C:\\Users\\kyle\\${folder} has children and the Recurse parameter was not specified. If you continue, all children will be removed with the item. Are you sure you want to continue?`;
@@ -85,13 +90,18 @@ describe('Remove-Item', () => {
     expect(refusals('rm Q:\\x')).toEqual([
       "Remove-Item: Cannot find drive. A drive with the name 'Q' does not exist.",
     ]);
-    // Any tab standing in a folder keeps it in use, as a process does on Windows.
-    machine.openSession();
+    // The folder this tab stands in is in use, and so is home.
     shell.run('cd old');
     expect(refusals('rm ~\\old -Recurse')).toEqual([
       "Remove-Item: Cannot remove the item at 'C:\\Users\\kyle\\old' because it is in use.",
     ]);
     expect(drive.exists('Users/kyle/old')).toBe(true);
+    expect(refusals('rm \\Users -Recurse')).toEqual([
+      "Remove-Item: Cannot remove the item at 'C:\\Users' because it is in use.",
+    ]);
+    // Another tab's folder isn't: Set-Location doesn't move the pwsh process (checked).
+    machine.openSession();
+    expect(shell.run('rm ~\\old -Recurse').exitCode).toBe(0);
     expect(shell.run('rm -rf notes.txt').lines[0]?.text).toBe(rmRf.trimEnd());
   });
 
@@ -103,6 +113,70 @@ describe('Remove-Item', () => {
     expect(texts(shell.run('rm env:TEMP'))).toEqual([
       "Remove-Item: Cannot find path 'Env:\\TEMP' because it does not exist.",
     ]);
+  });
+});
+
+describe('Remove-Item, as PowerShell 7.6 answers', () => {
+  it('matches the captures: -f is ambiguous, a bare rm asks for a path, and marked items stay', () => {
+    const { shell, drive } = laptop();
+    expect(printed(shell.run('rm -f notes.txt'))).toBe(rmF);
+    expect(printed(shell.run('rm -r -f tmp'))).toBe(rmF);
+    expect(drive.exists('Users/kyle/tmp')).toBe(true);
+    expect(printed(shell.run('Remove-Item'))).toBe(rmBare);
+    expect(printed(shell.run('rm .cache'))).toBe(rmHidden);
+    expect(printed(shell.run('rm Downloads'))).toBe(rmReadOnly);
+    expect(drive.isDir('Users/kyle/Downloads')).toBe(true);
+    shell.run('rm Downloads -Force');
+    expect(drive.exists('Users/kyle/Downloads')).toBe(false);
+  });
+
+  it('empties a folder but keeps what is hidden, children first, as PowerShell does', () => {
+    const { shell, drive } = laptop();
+    drive.hide('Users/kyle/tmp/deep');
+    expect(texts(shell.run('rm tmp -Recurse'))).toEqual([
+      'Remove-Item: You do not have sufficient access rights to perform this operation or the item is hidden, system, or read only.',
+      'Remove-Item: Directory C:\\Users\\kyle\\tmp cannot be removed because it is not empty.',
+    ]);
+    // The hidden folder was emptied, then kept; the visible file went.
+    expect(drive.listDir('Users/kyle/tmp').map((entry) => entry.name)).toEqual(['deep']);
+    expect(drive.listDir('Users/kyle/tmp/deep')).toEqual([]);
+  });
+
+  it('asks about a hidden folder with children first, then keeps the folder', () => {
+    const { shell, drive } = laptop();
+    drive.hide('Users/kyle/old');
+    expect(texts(shell.run('rm old'))[0]).toBe('Confirm');
+    expect(texts(shell.run('y'))).toEqual([
+      'Remove-Item: You do not have sufficient access rights to perform this operation or the item is hidden, system, or read only.',
+    ]);
+    expect(drive.listDir('Users/kyle/old')).toEqual([]);
+  });
+
+  it('deals with paths in the order typed, even when one sits inside another', () => {
+    const { shell, drive } = laptop();
+    expect(texts(shell.run('rm nope, tmp'))).toEqual([
+      "Remove-Item: Cannot find path 'C:\\Users\\kyle\\nope' because it does not exist.",
+      'Confirm',
+      QUESTION('tmp'),
+    ]);
+    shell.run('n');
+    expect(texts(shell.run('rm tmp -Recurse; rm tmp\\one.txt'))).toEqual([
+      "Remove-Item: Cannot find path 'C:\\Users\\kyle\\tmp\\one.txt' because it does not exist.",
+    ]);
+    expect(drive.exists('Users/kyle/tmp')).toBe(false);
+  });
+
+  it('takes -LiteralPath without wildcards, and refuses what the sandbox lacks', () => {
+    const { shell, drive } = laptop();
+    expect(texts(shell.run('rm -LiteralPath *.log'))).toEqual([
+      "Remove-Item: Cannot find path 'C:\\Users\\kyle\\*.log' because it does not exist.",
+    ]);
+    shell.run('rm -LiteralPath a.log');
+    expect(drive.exists('Users/kyle/a.log')).toBe(false);
+    expect(texts(shell.run('rm * -Exclude notes.txt'))).toEqual([
+      "This sandbox doesn't run Remove-Item -Exclude yet.",
+    ]);
+    expect(drive.exists('Users/kyle/notes.txt')).toBe(true);
   });
 });
 
