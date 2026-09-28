@@ -4,6 +4,7 @@ import type { ShellResult } from '../shell';
 import { ALIASES } from './aliases';
 import type { Bound, CmdletSpec } from './bind';
 import { GET_CHILD_ITEM } from './cmdlets/childItem';
+import { ADD_CONTENT, GET_CONTENT, SET_CONTENT, WRITE_OUTPUT } from './cmdlets/content';
 import { COPY_ITEM, MOVE_ITEM, RENAME_ITEM } from './cmdlets/copyMove';
 import { MKDIR, NEW_ITEM, TEST_PATH } from './cmdlets/items';
 import { CD_ROOT, CD_UP, GET_LOCATION, SET_LOCATION } from './cmdlets/location';
@@ -27,16 +28,20 @@ export interface Cmdlet {
 const CMDLETS: readonly Cmdlet[] = [
   CD_ROOT,
   CD_UP,
+  ADD_CONTENT,
   COPY_ITEM,
   GET_CHILD_ITEM,
+  GET_CONTENT,
   GET_LOCATION,
   MKDIR,
   MOVE_ITEM,
   NEW_ITEM,
   REMOVE_ITEM,
   RENAME_ITEM,
+  SET_CONTENT,
   SET_LOCATION,
   TEST_PATH,
+  WRITE_OUTPUT,
 ];
 
 /** A cmdlet by its name or one of its aliases, ignoring case as PowerShell does. */

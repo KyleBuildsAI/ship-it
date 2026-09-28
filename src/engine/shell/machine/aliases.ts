@@ -4,6 +4,8 @@
  * for a cmdlet with a longer one.
  */
 export const ALIASES: Readonly<Record<string, string>> = {
+  ac: 'Add-Content',
+  cat: 'Get-Content',
   cd: 'Set-Location',
   chdir: 'Set-Location',
   copy: 'Copy-Item',
@@ -11,7 +13,9 @@ export const ALIASES: Readonly<Record<string, string>> = {
   cpi: 'Copy-Item',
   del: 'Remove-Item',
   dir: 'Get-ChildItem',
+  echo: 'Write-Output',
   erase: 'Remove-Item',
+  gc: 'Get-Content',
   gci: 'Get-ChildItem',
   gl: 'Get-Location',
   ls: 'Get-ChildItem',
@@ -28,4 +32,6 @@ export const ALIASES: Readonly<Record<string, string>> = {
   rmdir: 'Remove-Item',
   rni: 'Rename-Item',
   sl: 'Set-Location',
+  type: 'Get-Content',
+  write: 'Write-Output',
 };
