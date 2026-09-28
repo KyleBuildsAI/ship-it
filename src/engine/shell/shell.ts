@@ -62,16 +62,27 @@ export class Shell {
   readonly ws: Workspace;
   /** Shown in the prompt, Windows style: C:\Users\kyle\quillwork\app */
   readonly displayRoot: string;
-  /** Act 1's PowerShell profile, when the sandbox is a laptop. */
-  readonly machineShell: MachineShell | null;
   private directory = '';
   private readonly past: string[] = [];
+  /** One PowerShell per laptop tab, as each tab is its own pwsh process. */
+  private readonly tabShells = new Map<number, MachineShell>();
 
   constructor(ws: Workspace, displayRoot: string) {
     this.ws = ws;
     this.displayRoot = displayRoot;
-    this.machineShell =
-      ws.machine === null ? null : new MachineShell(ws, ws.machine, ws.machine.active().id);
+  }
+
+  /** Act 1's PowerShell for the tab the player is typing in, when the sandbox is a laptop. */
+  get machineShell(): MachineShell | null {
+    const machine = this.ws.machine;
+    if (machine === null) return null;
+    const id = machine.active().id;
+    let tab = this.tabShells.get(id);
+    if (tab === undefined) {
+      tab = new MachineShell(this.ws, machine, id);
+      this.tabShells.set(id, tab);
+    }
+    return tab;
   }
 
   /**
@@ -92,7 +103,8 @@ export class Shell {
 
   run(input: string): ShellResult {
     if (input.trim() !== '') this.past.push(input);
-    if (this.machineShell) return this.machineShell.run(input);
+    const machineShell = this.machineShell;
+    if (machineShell) return machineShell.run(input);
     let tokens: Token[];
     try {
       tokens = tokenize(input);

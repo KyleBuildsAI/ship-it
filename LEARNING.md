@@ -1639,3 +1639,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/122
 3. That's what PowerShell 7.6 prints (captured in `error-cd-file.txt` and `error-cd-missing.txt`). The sandbox copies it rather than tidying it, because Kyle will see the real one.
 
 </details>
+
+---
+
+## #123 fix: wildcard cd, cd.. and cd\, and one powershell per tab
+
+https://github.com/KyleBuildsAI/ship-it/pull/123
+
+1. Why does `cd *` fail when there are several folders?
+2. What happens to the history step when `cd -` finds its folder deleted?
+3. Why does the Shell look up the active tab on every call?
+
+<details><summary>Answers</summary>
+
+1. A terminal can stand in only one folder. PowerShell refuses: "resolved to multiple containers. You can only set the location to a single container at a time."
+2. It's used up, as in PowerShell. The tab stays where it was, and the next `cd -` goes to the entry before.
+3. You or Otto can switch tabs at any time. Each tab is a separate pwsh process, so a line must run in the tab that's active now.
+
+</details>

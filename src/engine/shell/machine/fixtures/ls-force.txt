@@ -4,7 +4,7 @@
 Mode                 LastWriteTime         Length Name
 ----                 -------------         ------ ----
 d--h-           9/27/2026 10:15 AM                .cache
-d----           9/27/2026 10:15 AM                Downloads
+d-r--           9/27/2026 10:15 AM                Downloads
 d----           9/27/2026 10:15 AM                quillwork
 -a---           9/27/2026 10:15 AM              9 notes.txt
 
