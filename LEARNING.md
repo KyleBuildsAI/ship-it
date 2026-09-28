@@ -1549,3 +1549,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/116
 3. `echo hi >>a.txt`. A `>` only redirects at the start of a token. Inside the word `hi>>a.txt` it's just a character, so the first command prints `hi>>a.txt`.
 
 </details>
+
+---
+
+## #118 feat: a parameter binder that works in powershell's passes and speaks its errors
+
+https://github.com/KyleBuildsAI/ship-it/pull/118
+
+1. Why does `-fi` bind `-Filter` but `-file` bind `-File`?
+2. In `Remove-Item -rf -Path`, which error does PowerShell report, and why that one?
+3. Why is `-Force:false` refused, when `-Force:$false` works?
+
+<details><summary>Answers</summary>
+
+1. `-File` comes from the file system provider, not from `Get-ChildItem` itself. PowerShell tries a shortened name against the cmdlet's own parameters first, and `-fi` matches only `-Filter` there. `-file` is an exact name, and an exact name always wins.
+2. `Missing an argument for parameter 'Path'`. PowerShell resolves names first, and `-Path` with nothing after it fails in that pass. The unknown `-rf` is only reported in the last pass.
+3. `$false` is a boolean value. `false` without the `$` is just text, and a switch can't be set from text. Only `$true`, `$false`, `$null` or a number can set one.
+
+</details>

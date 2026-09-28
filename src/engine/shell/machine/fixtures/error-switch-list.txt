@@ -1,0 +1,1 @@
+Remove-Item: Cannot convert 'System.Object[]' to the type 'System.Management.Automation.SwitchParameter' required by parameter 'Force'. 
