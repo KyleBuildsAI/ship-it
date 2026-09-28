@@ -1513,3 +1513,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/115
 3. Only when the SHIP IT window is hidden or you've lost track of it. Closing that window stops everything too.
 
 </details>
+
+---
+
+## #117 feat: variables in the lexer, and reading words as parameters and values
+
+https://github.com/KyleBuildsAI/ship-it/pull/117
+
+1. Why doesn't the lexer replace `$HOME` with `C:\Users\kyle` itself?
+2. `'-Force'` and `-Force` have the same text after lexing. How does `toArgs()` tell them apart?
+3. What would the parity test catch if someone changed how the new lexer handles `>>`?
+
+<details><summary>Answers</summary>
+
+1. The value depends on the terminal tab. Each tab has its own copy of the environment, and a `$env:` change in one tab doesn't reach the others. The lexer runs before that is known, so it only records the name, and the shell expands it.
+2. Each word part remembers whether it came from quotes (or a backtick escape). Only a word whose first part is bare text starting with `-` and a letter becomes a parameter.
+3. Any Act 2 solution line such as `echo "*.log" >> .gitignore` would lex differently from `tokenize()`, and that line's test case would fail. That shows Act 2 can't move to the new lexer until the difference is resolved.
+
+</details>
