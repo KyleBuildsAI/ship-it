@@ -5,7 +5,7 @@ import {
   type QuestionRoundScore,
 } from './grading';
 import { evaluate, type SandboxQueries } from './predicates';
-import type { Act, BossTwist, Mission } from './schema';
+import { requireBoss, type Act, type Boss, type BossTwist, type Mission } from './schema';
 
 /**
  * The mission loop from DESIGN.md section 5 as a pure state machine. Every function
@@ -246,21 +246,24 @@ export interface BossRun {
   readonly firedTwists: readonly number[];
 }
 
-function expectBoss(boss: BossRun, act: Act): void {
-  if (boss.bossId !== act.boss.id) {
-    throw new MissionRunError(`This boss run is for "${boss.bossId}", not "${act.boss.id}".`);
+/** The Act's boss, after checking this run is a fight against it. */
+function expectBoss(boss: BossRun, act: Act): Boss {
+  const definition = requireBoss(act);
+  if (boss.bossId !== definition.id) {
+    throw new MissionRunError(`This boss run is for "${boss.bossId}", not "${definition.id}".`);
   }
+  return definition;
 }
 
 export function startBoss(act: Act, nowMs: number): BossRun {
-  return { bossId: act.boss.id, startedAtMs: nowMs, firedTwists: [] };
+  return { bossId: requireBoss(act).id, startedAtMs: nowMs, firedTwists: [] };
 }
 
 /** Whole seconds left on the boss clock, never below zero. */
 export function secondsRemaining(boss: BossRun, act: Act, nowMs: number): number {
-  expectBoss(boss, act);
+  const { timeLimitSeconds } = expectBoss(boss, act);
   const elapsed = (nowMs - boss.startedAtMs) / 1000;
-  return Math.max(0, Math.ceil(act.boss.timeLimitSeconds - elapsed));
+  return Math.max(0, Math.ceil(timeLimitSeconds - elapsed));
 }
 
 export interface BossTick {
@@ -271,10 +274,10 @@ export interface BossTick {
 
 /** Called on a timer by the UI. Returns the twists whose moment has arrived. */
 export function tick(boss: BossRun, act: Act, nowMs: number): BossTick {
-  expectBoss(boss, act);
-  const remaining = act.boss.timeLimitSeconds - (nowMs - boss.startedAtMs) / 1000;
+  const { timeLimitSeconds, twists } = expectBoss(boss, act);
+  const remaining = timeLimitSeconds - (nowMs - boss.startedAtMs) / 1000;
   // Keep each twist's index, because the index is what marks it as fired.
-  const ready = act.boss.twists
+  const ready = twists
     .map((twist, index) => ({ twist, index }))
     .filter(
       ({ twist, index }) =>
@@ -300,9 +303,9 @@ export function checkBoss(
   queries: SandboxQueries,
   nowMs: number,
 ): BossOutcome {
-  expectBoss(boss, act);
-  if (act.boss.failIf.some((rule) => evaluate(rule, queries))) return 'lost-rule';
-  if (nowMs - boss.startedAtMs >= act.boss.timeLimitSeconds * 1000) return 'lost-time';
-  if (act.boss.objectives.every((objective) => evaluate(objective, queries))) return 'won';
+  const { failIf, timeLimitSeconds, objectives } = expectBoss(boss, act);
+  if (failIf.some((rule) => evaluate(rule, queries))) return 'lost-rule';
+  if (nowMs - boss.startedAtMs >= timeLimitSeconds * 1000) return 'lost-time';
+  if (objectives.every((objective) => evaluate(objective, queries))) return 'won';
   return 'running';
 }

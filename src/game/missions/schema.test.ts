@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { repo } from '../../engine/git/fixtures';
 import {
   ActSchema,
+  ContentError,
   countWords,
   DEFAULT_DRILL_SECONDS,
   DEFAULT_STEP_XP,
@@ -11,6 +12,11 @@ import {
   PLACEMENT_PASS_PERCENT,
   PredicateSchema,
   regexProblem,
+  requireBoss,
+  requireComplete,
+  requireFieldMission,
+  requirePlacement,
+  type Act,
   type MissionInput,
 } from './schema';
 import {
@@ -302,7 +308,16 @@ describe('ActSchema', () => {
     expect(sampleAct.placementTest.passPercent).toBe(PLACEMENT_PASS_PERCENT);
     expect(sampleAct.boss.twists[0]?.apply).toEqual([]);
     const bossWithoutRules = { ...sampleActInput.boss, failIf: undefined };
-    expect(ActSchema.parse({ ...sampleActInput, boss: bossWithoutRules }).boss.failIf).toEqual([]);
+    const parsed = ActSchema.parse({ ...sampleActInput, boss: bossWithoutRules });
+    expect(requireBoss(parsed).failIf).toEqual([]);
+  });
+
+  it('needs a placement test, a boss, and a Field Mission, naming each one missing', () => {
+    expect(problems(act({ boss: undefined }))).toEqual(['An Act needs a boss.']);
+    expect(problems(act({ placementTest: undefined, fieldMission: undefined }))).toEqual([
+      'An Act needs a placement test.',
+      'An Act needs a Field Mission.',
+    ]);
   });
 
   it('has 3 to 6 missions (DESIGN.md section 5)', () => {
@@ -370,5 +385,27 @@ describe('ActSchema', () => {
       fieldMission: { ...field, checklist: [item, item], verifications: [check, check] },
     });
     expect(problems(result)).toEqual(['Duplicate id "commit-work".', 'Duplicate id "status".']);
+  });
+});
+
+describe("an Act's parts", () => {
+  it('are handed out when the Act has them', () => {
+    expect(requirePlacement(sampleAct)).toBe(sampleAct.placementTest);
+    expect(requireBoss(sampleAct)).toBe(sampleAct.boss);
+    expect(requireFieldMission(sampleAct)).toBe(sampleAct.fieldMission);
+    expect(requireComplete(sampleAct)).toEqual(sampleAct);
+  });
+
+  it('throw a ContentError when they are not built yet', () => {
+    const bare: Act = {
+      ...sampleAct,
+      placementTest: undefined,
+      boss: undefined,
+      fieldMission: undefined,
+    };
+    expect(() => requirePlacement(bare)).toThrow('Act 2 has no placement test yet.');
+    expect(() => requireBoss(bare)).toThrow('Act 2 has no boss yet.');
+    expect(() => requireFieldMission(bare)).toThrow('Act 2 has no Field Mission yet.');
+    expect(() => requireComplete(bare)).toThrow(ContentError);
   });
 });

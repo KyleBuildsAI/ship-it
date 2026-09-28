@@ -1,4 +1,5 @@
 import { endDrill } from '../../mentor/drillGuard';
+import { requireFieldMission } from '../missions/schema';
 import { saveProgressNow } from '../progress';
 import { getAct } from './catalog';
 import { verifyPaste, type FieldVerdict } from './fieldCheck';
@@ -10,6 +11,8 @@ import { recordFieldMission } from './saveRules';
  * what he pastes back, so there is no sandbox to load here.
  */
 export function startFieldMission(act: number): void {
+  // Throws before anything changes when this Act's Field Mission isn't built yet.
+  requireFieldMission(getAct(act).act);
   endDrill();
   play.update({ activity: { kind: 'field', act }, checklist: [] });
 }
@@ -25,7 +28,9 @@ export function submitFieldPaste(
     return { passed: false, message: 'No Field Mission is open.' };
   }
   const { act } = getAct(current.act);
-  const verification = act.fieldMission.verifications.find((entry) => entry.id === verificationId);
+  const verification = requireFieldMission(act).verifications.find(
+    (entry) => entry.id === verificationId,
+  );
   if (verification === undefined) {
     return { passed: false, message: 'That check is not part of this Field Mission.' };
   }

@@ -1,4 +1,10 @@
-import { ActSchema, MissionSchema, type Act, type Mission } from '../../game/missions/schema';
+import {
+  ActSchema,
+  MissionSchema,
+  requireComplete,
+  type CompleteAct,
+  type Mission,
+} from '../../game/missions/schema';
 import { act2Input, act2MissionInputs } from './act';
 
 /**
@@ -10,4 +16,5 @@ export const act2Missions: readonly Mission[] = act2MissionInputs.map((input) =>
   MissionSchema.parse(input),
 );
 
-export const act2: Act = ActSchema.parse(act2Input);
+/** Act 2 is finished, so it always has its placement test, boss, and Field Mission. */
+export const act2: CompleteAct = requireComplete(ActSchema.parse(act2Input));

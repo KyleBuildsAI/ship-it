@@ -582,24 +582,87 @@ const FieldMissionSchema = z
     checkUniqueIds(field.verifications, 'verifications', ctx);
   });
 
-export const ActSchema = z.strictObject({
-  act: z.int().positive(),
-  title: NameSchema,
-  /** DESIGN.md section 5: each Act has 3 to 6 missions. */
-  missionIds: z.array(IdSchema).min(3).max(6),
-  placementTest: z.strictObject({
-    /** One line in the Act menu for players who may know this already. */
-    pitch: z.string().min(1),
-    /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
-    drillIds: z.array(IdSchema).min(8).max(12),
-    passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
-  }),
-  boss: BossSchema,
-  fieldMission: FieldMissionSchema,
+const PlacementSchema = z.strictObject({
+  /** One line in the Act menu for players who may know this already. */
+  pitch: z.string().min(1),
+  /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
+  drillIds: z.array(IdSchema).min(8).max(12),
+  passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
 });
+
+/**
+ * An Act's placement test, boss, and Field Mission are optional in the shape and required
+ * by the refinement below, so an Act that ships before it's finished can leave out the
+ * parts it doesn't have yet, and each rule can say what's missing.
+ */
+export const ActSchema = z
+  .strictObject({
+    act: z.int().positive(),
+    title: NameSchema,
+    /** DESIGN.md section 5: each Act has 3 to 6 missions. */
+    missionIds: z.array(IdSchema).min(3).max(6),
+    placementTest: PlacementSchema.optional(),
+    boss: BossSchema.optional(),
+    fieldMission: FieldMissionSchema.optional(),
+  })
+  .superRefine((act, ctx) => {
+    const needs = (path: string, part: string) => {
+      ctx.addIssue({ code: 'custom', path: [path], message: `An Act needs ${part}.` });
+    };
+    if (act.placementTest === undefined) needs('placementTest', 'a placement test');
+    if (act.boss === undefined) needs('boss', 'a boss');
+    if (act.fieldMission === undefined) needs('fieldMission', 'a Field Mission');
+  });
 
 export type Act = z.output<typeof ActSchema>;
 export type ActInput = z.input<typeof ActSchema>;
-export type Boss = Act['boss'];
+export type PlacementTest = NonNullable<Act['placementTest']>;
+export type Boss = NonNullable<Act['boss']>;
 export type BossTwist = Boss['twists'][number];
-export type FieldMission = Act['fieldMission'];
+export type FieldMission = NonNullable<Act['fieldMission']>;
+/** A finished Act, with every part there. Act 2 is one. */
+export type CompleteAct = Act & {
+  placementTest: PlacementTest;
+  boss: Boss;
+  fieldMission: FieldMission;
+};
+
+/**
+ * Thrown when code asks an Act for a part it doesn't have yet, like an unbuilt boss.
+ * Play should only ever offer parts that exist, so this is a bug, not play.
+ */
+export class ContentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ContentError';
+  }
+}
+
+function missing(act: Act, part: string): ContentError {
+  return new ContentError(`Act ${String(act.act)} has no ${part} yet.`);
+}
+
+export function requirePlacement(act: Act): PlacementTest {
+  if (act.placementTest === undefined) throw missing(act, 'placement test');
+  return act.placementTest;
+}
+
+export function requireBoss(act: Act): Boss {
+  if (act.boss === undefined) throw missing(act, 'boss');
+  return act.boss;
+}
+
+export function requireFieldMission(act: Act): FieldMission {
+  if (act.fieldMission === undefined) throw missing(act, 'Field Mission');
+  return act.fieldMission;
+}
+
+/** The same Act, typed as finished, so content and tests can use its parts directly. */
+export function requireComplete(act: Act): CompleteAct {
+  return {
+    ...act,
+    placementTest: requirePlacement(act),
+    boss: requireBoss(act),
+    fieldMission: requireFieldMission(act),
+  };
+}

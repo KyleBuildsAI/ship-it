@@ -8,7 +8,7 @@ import {
   thirdMission,
 } from './sample.test-mission';
 import type { Predicate } from './predicates';
-import type { Act, Mission } from './schema';
+import type { Act, CompleteAct, Mission } from './schema';
 import { validateAct, validateCatalog } from './validateAct';
 
 const missions = [sampleMission, secondMission, thirdMission];
@@ -161,7 +161,7 @@ describe('validateAct', () => {
       ),
     };
     const atHome: Predicate = { kind: 'currentDirectory', path: 'Users/kyle' };
-    const act: Act = { ...sampleAct, boss: { ...sampleAct.boss, failIf: [atHome] } };
+    const act: CompleteAct = { ...sampleAct, boss: { ...sampleAct.boss, failIf: [atHome] } };
     expect(validateAct(act, [onGit, secondMission, thirdMission])).toEqual([
       {
         where: 'mission sample-three-rooms > step init',
@@ -188,6 +188,17 @@ describe('validateAct', () => {
     };
     const laptopAct: Act = { ...act, boss: { ...act.boss, setup: laptop } };
     expect(validateAct(laptopAct, [onLaptop, secondMission, thirdMission])).toEqual([]);
+  });
+
+  it('checks only the parts an Act has', () => {
+    const bare: Act = {
+      ...sampleAct,
+      placementTest: undefined,
+      boss: undefined,
+      fieldMission: undefined,
+    };
+    expect(validateAct(bare, missions)).toEqual([]);
+    expect(validateCatalog([{ act: bare, missions }, otherSampleAct()])).toEqual([]);
   });
 });
 

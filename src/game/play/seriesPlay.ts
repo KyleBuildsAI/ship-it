@@ -1,6 +1,7 @@
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
+import { requirePlacement } from '../missions/schema';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
@@ -45,7 +46,7 @@ function begin(
 
 /** An Act's placement test: 85% or better tests out of the whole Act. */
 export function startPlacement(act: number): void {
-  begin('placement', act, getAct(act).act.placementTest.drillIds);
+  begin('placement', act, requirePlacement(getAct(act).act).drillIds);
 }
 
 /** Today's Standup Board set: 5 to 10 review items, most overdue first. */
@@ -106,7 +107,7 @@ function finish(current: SeriesActivity, nowMs: number): void {
   let placement = current.placement;
   if (done && current.kind === 'placement' && current.act !== null) {
     const { act, missions } = getAct(current.act);
-    placement = placementResult(results, act.placementTest.passPercent);
+    placement = placementResult(results, requirePlacement(act).passPercent);
     const result = placement;
     saveProgressNow((save) => recordPlacement(save, act, missions, result, now));
   }

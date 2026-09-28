@@ -2,8 +2,9 @@ import { folder, repo } from '../../engine/git/fixtures';
 import {
   ActSchema,
   MissionSchema,
-  type Act,
+  requireComplete,
   type ActInput,
+  type CompleteAct,
   type Mission,
   type MissionInput,
 } from './schema';
@@ -225,7 +226,9 @@ export const thirdMission = MissionSchema.parse(
   copyOfSample('sample-good-commits', 'Good Commits (sample)', 'commits'),
 );
 
-export const sampleActInput: ActInput = {
+// `satisfies` checks the shape without widening the type, so tests can read the boss and
+// Field Mission here without first proving they exist.
+export const sampleActInput = {
   act: 2,
   title: 'Git Core (sample)',
   missionIds: ['sample-three-rooms', 'sample-reading-history', 'sample-good-commits'],
@@ -297,15 +300,15 @@ export const sampleActInput: ActInput = {
       },
     ],
   },
-};
+} satisfies ActInput;
 
-export const sampleAct = ActSchema.parse(sampleActInput);
+export const sampleAct: CompleteAct = requireComplete(ActSchema.parse(sampleActInput));
 
 /**
  * A second Act for tests of more than one Act: the sample Act as Act 3, with every mission,
  * drill, boss, and Field Mission id prefixed so nothing clashes with the first.
  */
-export function otherSampleAct(): { act: Act; missions: Mission[] } {
+export function otherSampleAct(): { act: CompleteAct; missions: Mission[] } {
   const rename = (id: string) => `other-${id}`;
   const missions = [sampleMission, secondMission, thirdMission].map((mission) => ({
     ...mission,
@@ -313,7 +316,7 @@ export function otherSampleAct(): { act: Act; missions: Mission[] } {
     act: 3,
     drills: mission.drills.map((drill) => ({ ...drill, id: rename(drill.id) })),
   }));
-  const act: Act = {
+  const act: CompleteAct = {
     ...sampleAct,
     act: 3,
     title: 'Other Sample',

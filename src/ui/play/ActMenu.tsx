@@ -1,4 +1,5 @@
 import { openActMenu } from '../../game/hud';
+import { requireComplete } from '../../game/missions/schema';
 import { startBossFight } from '../../game/play/bossPlay';
 import { getAct, getCatalog } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
@@ -46,6 +47,9 @@ export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   if (save === null) return null;
   const { act, missions } = getAct(number);
+  // Every Act in the catalog has all its parts so far. If one arrives without them before
+  // this menu can leave out missing rows, requireComplete fails loudly instead of drawing blanks.
+  const { placementTest, boss, fieldMission } = requireComplete(act);
   const actProgress = save.acts[String(act.act)];
   const bossUnlocked = act.missionIds.every((id) => missionDone(save, id));
   const reviews = reviewItemsToday();
@@ -71,7 +75,7 @@ export function ActMenu({ act: number }: { act: number }) {
                 ? 'Tested out'
                 : actProgress?.placement.bestPercent != null
                   ? `Best ${String(actProgress.placement.bestPercent)}% · 85% tests out`
-                  : act.placementTest.pitch}
+                  : placementTest.pitch}
             </small>
           </span>
           <button
@@ -110,7 +114,7 @@ export function ActMenu({ act: number }: { act: number }) {
         })}
         <li>
           <span>
-            Boss: {act.boss.title}
+            Boss: {boss.title}
             <small>
               {actProgress?.bossCompletedAt
                 ? 'Beaten'
@@ -132,11 +136,11 @@ export function ActMenu({ act: number }: { act: number }) {
         </li>
         <li>
           <span>
-            Field Mission: {act.fieldMission.title}
+            Field Mission: {fieldMission.title}
             <small>
               {actProgress?.fieldMissionCompletedAt
                 ? 'Verified'
-                : `Real work on your ${act.fieldMission.repoName} repo`}
+                : `Real work on your ${fieldMission.repoName} repo`}
             </small>
           </span>
           <button
