@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { folder, repo } from '../../engine/git/fixtures';
+import { folder, repo, windows } from '../../engine/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { NotARepositoryError, Workspace } from '../../engine/workspace';
@@ -79,5 +79,68 @@ describe('applySteps', () => {
     expect(() => {
       applySteps(ws, [{ op: 'stage', paths: ['a.ts'] }]);
     }).toThrow(NotARepositoryError);
+  });
+});
+
+/** Everything about a laptop that grading or the world could see. */
+function laptopSnapshot(ws: Workspace) {
+  const machine = ws.machine;
+  if (machine === null) throw new Error('expected a laptop');
+  const scope = (table: typeof machine.saved.user) =>
+    table.entries().map((entry) => ({ ...entry, expands: table.expands(entry.name) }));
+  return {
+    drive: machine.drive.allFiles().map((path) => [path, machine.drive.readFile(path)]),
+    saved: { machine: scope(machine.saved.machine), user: scope(machine.saved.user) },
+    tabs: machine.sessions().map((tab) => ({
+      id: tab.id,
+      cwd: tab.cwd,
+      env: tab.env.entries(),
+    })),
+  };
+}
+
+describe('applySteps on a laptop', () => {
+  // A twist uses every laptop step so far (everything after windows() and session()).
+  const twist = windows()
+    .session()
+    .write('Users/kyle/notes/today.txt', 'ship it\n')
+    .modify('Users/kyle/notes/today.txt')
+    .session()
+    .toSpec();
+
+  it('changes a live laptop exactly as building it with those steps would', () => {
+    const live = createSandbox(windows().session().toSpec(), testDeps());
+    applySteps(live, twist.slice(2));
+
+    expect(laptopSnapshot(live)).toEqual(laptopSnapshot(createSandbox(twist, testDeps())));
+  });
+
+  it('announces file changes by their drive path', () => {
+    const live = createSandbox(windows().toSpec(), testDeps());
+    const heard: unknown[] = [];
+    live.events.on((event) => heard.push(event));
+    applySteps(
+      live,
+      windows().write('Users/kyle/a.txt', 'x').delete('Users/kyle/a.txt').toSpec().slice(1),
+    );
+
+    expect(heard).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/a.txt', change: 'created' },
+      { type: 'fileChanged', path: 'Users/kyle/a.txt', change: 'deleted' },
+    ]);
+  });
+
+  it('refuses to start a laptop inside a running sandbox', () => {
+    const live = createSandbox(windows().toSpec(), testDeps());
+    expect(() => {
+      applySteps(live, windows().toSpec());
+    }).toThrow('windows() starts a sandbox; it cannot change one.');
+  });
+
+  it('refuses laptop steps in an Act 2 sandbox', () => {
+    const ws = createSandbox(repo().toSpec(), testDeps());
+    expect(() => {
+      applySteps(ws, [{ op: 'session' }]);
+    }).toThrow('The "session" step needs a windows() sandbox.');
   });
 });
