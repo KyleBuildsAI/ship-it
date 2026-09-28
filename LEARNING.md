@@ -1495,3 +1495,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/114
 3. The stock User Path contains `%USERPROFILE%`. Saving it as plain text would stop that from expanding, a real Windows bug, not a starting state a mission wants by accident. Keeping the kind means only the added folder changes.
 
 </details>
+
+---
+
+## #115 checkpoint: v1 testable
+
+https://github.com/KyleBuildsAI/ship-it/pull/115
+
+1. Why does `LAUNCH.bat` start with `cd /d "%~dp0"`?
+2. Why doesn't `STOP.bat` just end whatever listens on port 18173?
+3. When do you need `STOP.bat` at all?
+
+<details><summary>Answers</summary>
+
+1. A double-click, or a shortcut, can start a batch file in another folder. `%~dp0` is the batch file's own folder, and `/d` also switches the drive, so `npm` runs in the project.
+2. Another program, or another copy of the repo, could be on that port. Matching node processes whose command line points into this folder ends only SHIP IT.
+3. Only when the SHIP IT window is hidden or you've lost track of it. Closing that window stops everything too.
+
+</details>
