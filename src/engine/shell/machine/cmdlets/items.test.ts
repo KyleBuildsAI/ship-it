@@ -128,6 +128,40 @@ describe('mkdir', () => {
   });
 });
 
+describe('new folders are announced', () => {
+  const folderEvents = (events: EngineEvent[]) =>
+    events.filter((event) => event.type === 'folderChanged');
+
+  it('announces each folder mkdir makes, parents first', () => {
+    const { shell, events } = laptop();
+    shell.run('mkdir docs\\adr');
+    expect(folderEvents(events)).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/docs', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/docs/adr', change: 'created' },
+    ]);
+  });
+
+  it('announces a folder from New-Item, but not one that was already there or was refused', () => {
+    const { shell, events } = laptop();
+    shell.run('New-Item -ItemType Directory logs');
+    shell.run('New-Item -ItemType Directory projects -Force; mkdir Projects');
+    shell.run('mkdir notes.txt\\sub');
+    expect(folderEvents(events)).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/logs', change: 'created' },
+    ]);
+  });
+
+  it('announces the folders -Force makes for a new file, before the file', () => {
+    const { shell, events } = laptop();
+    shell.run('New-Item deep\\a\\b.txt -Force');
+    expect(events).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/deep', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/deep/a', change: 'created' },
+      { type: 'fileChanged', path: 'Users/kyle/deep/a/b.txt', change: 'created' },
+    ]);
+  });
+});
+
 describe('Test-Path', () => {
   it('answers True or False, for files, folders and variables', () => {
     const { shell } = laptop();

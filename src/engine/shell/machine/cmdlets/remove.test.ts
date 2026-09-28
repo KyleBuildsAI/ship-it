@@ -180,6 +180,49 @@ describe('Remove-Item, as PowerShell 7.6 answers', () => {
   });
 });
 
+describe('removed folders are announced', () => {
+  it('announces an empty folder it removes', () => {
+    const { shell, events } = laptop();
+    shell.run('rm empty');
+    expect(events).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/empty', change: 'deleted' },
+    ]);
+  });
+
+  it('announces everything inside a folder first, children before their folder', () => {
+    const { shell, events } = laptop();
+    shell.run('rm tmp -Recurse');
+    expect(events).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/tmp/deep/two.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/tmp/deep', change: 'deleted' },
+      { type: 'fileChanged', path: 'Users/kyle/tmp/one.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/tmp', change: 'deleted' },
+    ]);
+  });
+
+  it('announces a folder when the Confirm answer removes it, not when it asks', () => {
+    const { shell, events } = laptop();
+    shell.run('rm old');
+    expect(events).toEqual([]);
+    shell.run('y');
+    expect(events).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/old/three.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/old', change: 'deleted' },
+    ]);
+  });
+
+  it('says nothing about a folder that stays: kept by N, hidden, or holding a hidden item', () => {
+    const { shell, drive, events } = laptop();
+    shell.run('rm old');
+    shell.run('n');
+    shell.run('rm .cache');
+    drive.hide('Users/kyle/tmp/deep');
+    shell.run('rm tmp -Recurse');
+    expect(events.filter((event) => event.type === 'folderChanged')).toEqual([]);
+    expect(drive.isDir('Users/kyle/old') && drive.isDir('Users/kyle/tmp/deep')).toBe(true);
+  });
+});
+
 describe("Remove-Item's Confirm question", () => {
   it('asks before deleting a full folder, and Y (or Enter) deletes it', () => {
     for (const answer of ['y', '', 'Yes']) {

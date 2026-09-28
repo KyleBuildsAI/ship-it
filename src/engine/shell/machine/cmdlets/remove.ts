@@ -199,7 +199,7 @@ function removeTree(
       ...lines,
       failure(`Directory ${display(path)} cannot be removed because it is not empty.`),
     ];
-  drive.removeDir(path, { recursive: false });
+  machine.removeFolder(path);
   return lines;
 }
 

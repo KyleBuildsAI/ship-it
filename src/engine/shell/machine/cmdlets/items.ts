@@ -219,8 +219,7 @@ function create(
   if (type === 'directory') {
     if (existing !== null && !(force && machine.drive.isDir(existing)))
       return { refused: `An item with the specified name ${display(existing)} already exists.` };
-    machine.drive.makeDir(existing ?? path);
-    return { path: machine.drive.stored(path) };
+    return { path: machine.makeFolder(existing ?? path) };
   }
   if (existing !== null && machine.drive.isDir(existing))
     return { refused: `Access to the path '${display(existing)}' is denied.` };
@@ -228,7 +227,8 @@ function create(
     return { refused: `The file '${display(existing)}' already exists.` };
   if (parent === null && !force)
     return { refused: `Could not find a part of the path '${display(path)}'.` };
-  if (parent === null) machine.drive.makeDir(parentDir(path));
+  // -Force makes the missing folders too, so they're announced like any other new folder.
+  if (parent === null) machine.makeFolder(parentDir(path));
   const file = existing ?? joinPath(machine.drive.stored(parentDir(path)), baseName(path));
   const change = machine.drive.writeFile(file, bound.text('Value') ?? '');
   if (change !== 'unchanged') ws.events.emit({ type: 'fileChanged', path: file, change });
