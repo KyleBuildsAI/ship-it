@@ -1477,3 +1477,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/113
 3. It builds one laptop with every step, builds a second with only `windows()` and `session()`, then applies the remaining steps to the second as a twist. A snapshot of each (drive files, saved variables with their kinds, and every tab's folder and variables) must be equal.
 
 </details>
+
+---
+
+## #114 feat: cd, environment, path, and restart setup steps
+
+https://github.com/KyleBuildsAI/ship-it/pull/114
+
+1. `windows().session().pathAdd('user', 'C:\\Program Files\\nodejs\\')`: does the open terminal find Node? Does a new one?
+2. Why does setup code act as an administrator when the player can't?
+3. Why does `pathAdd` keep the Path's expandable kind instead of saving it as plain text?
+
+<details><summary>Answers</summary>
+
+1. No, then yes. The terminal opened first copied the User Path before `nodejs` was added. A new terminal builds its Path from the saved scopes, which now include it.
+2. Setup builds the starting world, like an IT department did before Kyle sat down. Missions need Machine-scope states (say, a Machine Path with Node on it) that the player can't create but can meet.
+3. The stock User Path contains `%USERPROFILE%`. Saving it as plain text would stop that from expanding, a real Windows bug, not a starting state a mission wants by accident. Keeping the kind means only the added folder changes.
+
+</details>
