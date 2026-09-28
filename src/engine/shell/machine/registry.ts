@@ -4,6 +4,7 @@ import type { ShellResult } from '../shell';
 import { ALIASES } from './aliases';
 import type { Bound, CmdletSpec } from './bind';
 import { GET_CHILD_ITEM } from './cmdlets/childItem';
+import { COPY_ITEM, MOVE_ITEM, RENAME_ITEM } from './cmdlets/copyMove';
 import { MKDIR, NEW_ITEM, TEST_PATH } from './cmdlets/items';
 import { CD_ROOT, CD_UP, GET_LOCATION, SET_LOCATION } from './cmdlets/location';
 import { REMOVE_ITEM } from './cmdlets/remove';
@@ -26,11 +27,14 @@ export interface Cmdlet {
 const CMDLETS: readonly Cmdlet[] = [
   CD_ROOT,
   CD_UP,
+  COPY_ITEM,
   GET_CHILD_ITEM,
   GET_LOCATION,
   MKDIR,
+  MOVE_ITEM,
   NEW_ITEM,
   REMOVE_ITEM,
+  RENAME_ITEM,
   SET_LOCATION,
   TEST_PATH,
 ];
