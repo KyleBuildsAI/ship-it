@@ -57,6 +57,16 @@ const CaptionsSchema = z.array(ScreenTextSchema).min(1).max(3);
 
 /** Mirrors the engine's `FixtureStep` union, so mission setups are checked before replay. */
 export const FixtureStepSchema = z.discriminatedUnion('op', [
+  z
+    .strictObject({
+      op: z.literal('windows'),
+      user: NameSchema,
+      computer: NameSchema,
+      mount: RepoPathSchema.optional(),
+    })
+    .readonly(),
+  z.strictObject({ op: z.literal('mkdir'), path: RepoPathSchema }).readonly(),
+  z.strictObject({ op: z.literal('session') }).readonly(),
   z.strictObject({ op: z.literal('init') }).readonly(),
   z.strictObject({ op: z.literal('write'), path: RepoPathSchema, content: z.string() }).readonly(),
   z.strictObject({ op: z.literal('append'), path: RepoPathSchema, text: z.string() }).readonly(),
@@ -84,8 +94,35 @@ export const FIXTURE_SCHEMA_MATCHES_ENGINE: SameType<
   FixtureStep
 > = true;
 
+const MACHINE_ONLY_OPS = new Set(['mkdir', 'session']);
+
+/**
+ * A whole setup. windows() may only come first, and the laptop steps only make sense
+ * after it, so a misplaced step fails validation instead of the game.
+ */
 // Readonly so content can pass a builder's `.toSpec()` result straight in.
-const FixtureSchema = z.array(FixtureStepSchema).readonly();
+const FixtureSchema = z
+  .array(FixtureStepSchema)
+  .readonly()
+  .superRefine((steps, context) => {
+    const onLaptop = steps[0]?.op === 'windows';
+    steps.forEach((step, index) => {
+      if (step.op === 'windows' && index > 0) {
+        context.addIssue({
+          code: 'custom',
+          path: [index],
+          message: 'windows() must be the first step.',
+        });
+      }
+      if (!onLaptop && MACHINE_ONLY_OPS.has(step.op)) {
+        context.addIssue({
+          code: 'custom',
+          path: [index],
+          message: `The "${step.op}" step needs windows() as the first step.`,
+        });
+      }
+    });
+  });
 
 // ---- Predicates -----------------------------------------------------------------------
 
