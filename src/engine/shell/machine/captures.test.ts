@@ -33,6 +33,7 @@ const EXPECTED = [
   'new-item-folder',
   'error-not-recognized',
   'error-cd-missing',
+  'error-cd-file',
   'error-cd-no-drive',
   'error-cd-positional',
   'error-dir-s',
