@@ -172,6 +172,8 @@ describe('Machine', () => {
 
   it('steps back and forward through the history, as PowerShell 7 does with cd - and cd +', () => {
     const machine = testMachine();
+    machine.drive.makeDir('A');
+    machine.drive.makeDir('B');
     const tab = machine.openSession();
     machine.setLocation(tab.id, 'A', 'absolute');
     machine.setLocation(tab.id, 'B', 'absolute');
@@ -192,8 +194,27 @@ describe('Machine', () => {
     ]);
   });
 
+  it('reports a folder deleted since, and uses up that step, as PowerShell does', () => {
+    const machine = testMachine();
+    machine.drive.makeDir('A');
+    machine.drive.makeDir('B');
+    const tab = machine.openSession();
+    machine.setLocation(tab.id, 'A', 'absolute');
+    machine.setLocation(tab.id, 'B', 'absolute');
+    machine.drive.removeDir('A', { recursive: true });
+
+    expect(machine.goBack(tab.id)).toEqual({ missing: 'A' });
+    expect(tab.cwd).toBe('B');
+    expect(machine.goBack(tab.id)).toBe('moved');
+    expect(tab.cwd).toBe('Users/kyle');
+    expect(machine.goForward(tab.id)).toBe('moved');
+    expect(tab.cwd).toBe('B');
+  });
+
   it('forgets the way forward after a new move', () => {
     const machine = testMachine();
+    machine.drive.makeDir('A');
+    machine.drive.makeDir('B');
     const tab = machine.openSession();
     machine.setLocation(tab.id, 'A', 'absolute');
     machine.goBack(tab.id);
