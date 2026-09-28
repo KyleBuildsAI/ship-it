@@ -1,3 +1,4 @@
+import type { FileTree } from './fileTree';
 import { isWithin, joinPath, parentDir } from './paths';
 
 export type FsErrorCode = 'ENOENT' | 'EISDIR' | 'ENOTDIR' | 'EEXIST' | 'ENOTEMPTY';
@@ -26,7 +27,7 @@ export type WriteResult = 'created' | 'modified' | 'unchanged';
  * The sandbox's working directory: an in-memory tree of text files. Directories are
  * tracked separately so `mkdir` works for empty folders, even though git ignores them.
  */
-export class VirtualFs {
+export class VirtualFs implements FileTree {
   private readonly files = new Map<string, string>();
   private readonly dirs = new Set<string>(['']);
 
