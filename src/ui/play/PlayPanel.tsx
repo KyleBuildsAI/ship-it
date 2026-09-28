@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef } from 'react';
 import { hud } from '../../game/hud';
+import { recommendedAct } from '../../game/play/catalog';
 import { play } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { worldState } from '../../game/worldState';
@@ -18,7 +19,7 @@ export function PlayPanel() {
   const { activity, checklist } = useStore(play);
   const { zone } = useStore(worldState);
   const { terminalOpen, actMenuOpen } = useStore(hud);
-  const { status, problem } = useStore(progress);
+  const { status, problem, save } = useStore(progress);
   const panel = useRef<HTMLElement>(null);
 
   let content = null;
@@ -33,9 +34,9 @@ export function PlayPanel() {
   } else if (activity?.kind === 'boss') {
     content = <BossView activity={activity} checklist={checklist} />;
   } else if (activity?.kind === 'field') {
-    content = <FieldView />;
+    content = <FieldView activity={activity} />;
   } else if (zone === 'gitworld' || actMenuOpen) {
-    content = <ActMenu />;
+    content = <ActMenu act={recommendedAct(save)} />;
   }
   const visible = content !== null;
 

@@ -20,7 +20,7 @@ function Summary({ activity }: { activity: SeriesActivity }) {
       {placement ? (
         <p className="play-panel__muted">
           {placement.testedOut
-            ? 'Tested out: Act 2 is complete. Every mission stays open to replay.'
+            ? `Tested out: Act ${String(activity.act)} is complete. Every mission stays open to replay.`
             : 'Not quite 85%. Play the missions, then try again any time.'}
         </p>
       ) : (

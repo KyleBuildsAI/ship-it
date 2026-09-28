@@ -1,5 +1,5 @@
 import { startBossFight } from '../../game/play/bossPlay';
-import { getCatalog } from '../../game/play/catalog';
+import { getAct } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startMission } from '../../game/play/missionPlay';
 import { missionDone } from '../../game/play/saveRules';
@@ -16,11 +16,11 @@ const STATUS: Record<MissionStatus, string> = {
   'tested-out': 'Tested out',
 };
 
-/** Act 2's menu: placement test, the five missions, the boss, and today's reviews. */
-export function ActMenu() {
+/** An Act's menu: placement test, the missions, the boss, the Field Mission, and reviews. */
+export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   if (save === null) return null;
-  const { act, missions } = getCatalog();
+  const { act, missions } = getAct(number);
   const actProgress = save.acts[String(act.act)];
   const bossUnlocked = act.missionIds.every((id) => missionDone(save, id));
   const reviews = reviewItemsToday();
@@ -48,7 +48,13 @@ export function ActMenu() {
                   : 'Already know git? 85% tests out of the Act'}
             </small>
           </span>
-          <button type="button" className="play-button" onClick={startPlacement}>
+          <button
+            type="button"
+            className="play-button"
+            onClick={() => {
+              startPlacement(act.act);
+            }}
+          >
             Take
           </button>
         </li>
@@ -92,7 +98,7 @@ export function ActMenu() {
             className="play-button"
             disabled={!bossUnlocked}
             onClick={() => {
-              startBossFight();
+              startBossFight(act.act);
             }}
           >
             Fight
@@ -107,7 +113,13 @@ export function ActMenu() {
                 : `Real work on your ${act.fieldMission.repoName} repo`}
             </small>
           </span>
-          <button type="button" className="play-button" onClick={startFieldMission}>
+          <button
+            type="button"
+            className="play-button"
+            onClick={() => {
+              startFieldMission(act.act);
+            }}
+          >
             Open
           </button>
         </li>

@@ -1,5 +1,12 @@
 import { folder, repo } from '../../engine/git/fixtures';
-import { ActSchema, MissionSchema, type ActInput, type MissionInput } from './schema';
+import {
+  ActSchema,
+  MissionSchema,
+  type Act,
+  type ActInput,
+  type Mission,
+  type MissionInput,
+} from './schema';
 
 /**
  * A tiny mission and Act used only by tests in this folder. Real content lives in
@@ -292,3 +299,30 @@ export const sampleActInput: ActInput = {
 };
 
 export const sampleAct = ActSchema.parse(sampleActInput);
+
+/**
+ * A second Act for tests of more than one Act: the sample Act as Act 3, with every mission,
+ * drill, boss, and Field Mission id prefixed so nothing clashes with the first.
+ */
+export function otherSampleAct(): { act: Act; missions: Mission[] } {
+  const rename = (id: string) => `other-${id}`;
+  const missions = [sampleMission, secondMission, thirdMission].map((mission) => ({
+    ...mission,
+    id: rename(mission.id),
+    act: 3,
+    drills: mission.drills.map((drill) => ({ ...drill, id: rename(drill.id) })),
+  }));
+  const act: Act = {
+    ...sampleAct,
+    act: 3,
+    title: 'Other Sample',
+    missionIds: sampleAct.missionIds.map(rename),
+    placementTest: {
+      ...sampleAct.placementTest,
+      drillIds: sampleAct.placementTest.drillIds.map(rename),
+    },
+    boss: { ...sampleAct.boss, id: rename(sampleAct.boss.id) },
+    fieldMission: { ...sampleAct.fieldMission, id: rename(sampleAct.fieldMission.id) },
+  };
+  return { act, missions };
+}

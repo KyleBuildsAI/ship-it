@@ -3,7 +3,7 @@ import { explain } from '../missions/predicates';
 import { applySteps } from '../missions/sandbox';
 import { checkBoss, secondsRemaining, startBoss, tick } from '../missions/runner';
 import { saveProgressNow } from '../progress';
-import { getCatalog } from './catalog';
+import { getAct } from './catalog';
 import { play, type BossActivity } from './playStore';
 import { currentQueries, currentWorkspace, loadSandbox } from './sandboxControl';
 import { completeBoss } from './saveRules';
@@ -19,7 +19,7 @@ function activity(): BossActivity | null {
 }
 
 function setActivity(next: BossActivity): void {
-  const { boss } = getCatalog().act;
+  const { boss } = getAct(next.act).act;
   const queries = currentQueries();
   play.update({
     activity: next,
@@ -27,8 +27,8 @@ function setActivity(next: BossActivity): void {
   });
 }
 
-export function startBossFight(nowMs: number = Date.now()): void {
-  const { act } = getCatalog();
+export function startBossFight(actNumber: number, nowMs: number = Date.now()): void {
+  const { act } = getAct(actNumber);
   endDrill();
   loadSandbox(
     act.boss.setup,
@@ -37,6 +37,7 @@ export function startBossFight(nowMs: number = Date.now()): void {
   const boss = startBoss(act, nowMs);
   setActivity({
     kind: 'boss',
+    act: actNumber,
     boss,
     outcome: 'running',
     secondsLeft: act.boss.timeLimitSeconds,
@@ -51,7 +52,7 @@ export function formatClock(seconds: number): string {
 }
 
 function settle(current: BossActivity, nowMs: number): void {
-  const { act } = getCatalog();
+  const { act } = getAct(current.act);
   const outcome = checkBoss(current.boss, act, currentQueries(), nowMs);
   if (outcome === 'won' && current.outcome !== 'won') {
     saveProgressNow((save) => completeBoss(save, act, new Date(nowMs)));
@@ -63,7 +64,7 @@ function settle(current: BossActivity, nowMs: number): void {
 export function bossTick(nowMs: number = Date.now()): void {
   const current = activity();
   if (current?.outcome !== 'running') return;
-  const { act } = getCatalog();
+  const { act } = getAct(current.act);
   const { boss, due } = tick(current.boss, act, nowMs);
   for (const twist of due) applySteps(currentWorkspace(), twist.apply);
   const messages = [...current.messages, ...due.map((twist) => twist.message)];

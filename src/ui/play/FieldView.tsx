@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { getCatalog } from '../../game/play/catalog';
+import { getAct } from '../../game/play/catalog';
 import type { FieldVerdict } from '../../game/play/fieldCheck';
 import { submitFieldPaste } from '../../game/play/fieldPlay';
 import { leavePlay } from '../../game/play/play';
+import type { FieldActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
 
@@ -10,8 +11,8 @@ import { useStore } from '../useStore';
  * The Field Mission (DESIGN.md section 8): a checklist of real work on SandCastles, then
  * paste checks that verify it. Passed checks are saved, so it can be done over days.
  */
-export function FieldView() {
-  const field = getCatalog().act.fieldMission;
+export function FieldView({ activity }: { activity: FieldActivity }) {
+  const field = getAct(activity.act).act.fieldMission;
   const { save } = useStore(progress);
   const [pastes, setPastes] = useState<Record<string, string>>({});
   const [verdicts, setVerdicts] = useState<Record<string, FieldVerdict>>({});

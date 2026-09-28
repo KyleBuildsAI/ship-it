@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  otherSampleAct,
   sampleAct,
   sampleMission,
   secondMission,
@@ -50,7 +51,9 @@ function boss(): BossActivity {
 }
 
 beforeEach(async () => {
-  setCatalog({ act: sampleAct, missions: [sampleMission, secondMission, thirdMission] });
+  setCatalog({
+    acts: [{ act: sampleAct, missions: [sampleMission, secondMission, thirdMission] }],
+  });
   const storage: ProgressStorage = {
     load: () => Promise.resolve(createDefaultSave(NOW)),
     write: () => Promise.resolve(),
@@ -146,29 +149,33 @@ describe('late Sage replies', () => {
   });
 });
 
+/** Plays the whole placement test in progress, solving every drill by reaching its state. */
+function passPlacement(): void {
+  const total = series().drills.length;
+  for (let index = 0; index < total; index++) {
+    startNextSeriesDrill(T0 + index * 1000);
+    const drill = series().drills[index];
+    if (drill?.id.endsWith('init')) run('git init');
+    else if (drill?.id.endsWith('stage-one')) run('git add notes.md');
+    else if (drill?.id.endsWith('commit')) run('git commit -m "feat: a"');
+    else if (drill?.id.endsWith('unstage')) run('git restore --staged .env');
+    else run('git commit -am "fix: v2"');
+    seriesSandboxChanged(T0 + index * 1000 + 500);
+  }
+}
+
 describe('the placement test', () => {
   it('tests out of the act at 85% or better', () => {
-    startPlacement();
-    const total = series().drills.length;
-    for (let index = 0; index < total; index++) {
-      startNextSeriesDrill(T0 + index * 1000);
-      const drill = series().drills[index];
-      // Solve every drill by reaching its target state.
-      if (drill?.id.endsWith('init')) run('git init');
-      else if (drill?.id.endsWith('stage-one')) run('git add notes.md');
-      else if (drill?.id.endsWith('commit')) run('git commit -m "feat: a"');
-      else if (drill?.id.endsWith('unstage')) run('git restore --staged .env');
-      else run('git commit -am "fix: v2"');
-      seriesSandboxChanged(T0 + index * 1000 + 500);
-    }
+    startPlacement(sampleAct.act);
+    passPlacement();
     expect(series().placement).toEqual({ percent: 100, testedOut: true });
-    expect(progress.get().save?.acts['2']?.completedAt).not.toBeNull();
+    expect(progress.get().save?.acts['2']?.completedAt).toEqual(expect.any(String));
   });
 });
 
 describe('the boss', () => {
   it('fires twists on the clock and wins by state', () => {
-    startBossFight(T0);
+    startBossFight(sampleAct.act, T0);
     bossTick(T0 + 121_000);
     expect(boss().messages).toHaveLength(1);
     run('git add app.ts src/logger.ts', 'git commit -m "fix: ship logger"');
@@ -178,16 +185,53 @@ describe('the boss', () => {
   });
 
   it('loses at once when a rule breaks', () => {
-    startBossFight(T0);
+    startBossFight(sampleAct.act, T0);
     run('git add .env', 'git commit -m "chore: oops"');
     bossSandboxChanged(T0 + 1_000);
     expect(boss().outcome).toBe('lost-rule');
   });
 
   it('loses when the clock runs out', () => {
-    startBossFight(T0);
+    startBossFight(sampleAct.act, T0);
     bossTick(T0 + 181_000);
     expect(boss().outcome).toBe('lost-time');
     expect(boss().secondsLeft).toBe(0);
+  });
+});
+
+describe('two Acts in one catalog', () => {
+  beforeEach(() => {
+    setCatalog({
+      acts: [
+        { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] },
+        otherSampleAct(),
+      ],
+    });
+  });
+
+  it("runs each Act's own placement test and records it on that Act", () => {
+    startPlacement(3);
+    expect(series().act).toBe(3);
+    expect(series().drills.every((drill) => drill.id.startsWith('other-'))).toBe(true);
+
+    passPlacement();
+
+    expect(progress.get().save?.acts['3']?.placement).toMatchObject({
+      attempts: 1,
+      testedOut: true,
+    });
+    expect(progress.get().save?.acts['3']?.completedAt).toEqual(expect.any(String));
+    expect(progress.get().save?.acts['2']).toBeUndefined();
+  });
+
+  it("fights each Act's own boss", () => {
+    startBossFight(3, T0);
+    expect(boss().act).toBe(3);
+    bossTick(T0 + 121_000);
+    run('git add app.ts src/logger.ts', 'git commit -m "fix: ship logger"');
+    bossSandboxChanged(T0 + 125_000);
+    expect(boss().outcome).toBe('won');
+    expect(progress.get().save?.acts['3']?.bossCompletedAt).toBeTruthy();
+    expect(progress.get().save?.acts['2']).toBeUndefined();
   });
 });

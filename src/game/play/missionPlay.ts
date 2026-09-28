@@ -14,7 +14,7 @@ import {
 } from '../missions/runner';
 import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
-import { findMission, getCatalog } from './catalog';
+import { findMission, getAct } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
 import { currentQueries, currentWorkspace, loadSandbox } from './sandboxControl';
 import {
@@ -255,7 +255,7 @@ export function submitQuestionRound(
   saveProgressNow((save) =>
     completeMission(
       save,
-      getCatalog().act,
+      getAct(current.mission.act).act,
       current.mission,
       { drillPercent, questionXp: xpFromQuestions },
       new Date(nowMs),

@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { music, startMusic } from './game/audio/music';
 import { devStatus } from './game/devStatus';
-import { act2, act2Missions } from './content';
+import { ACTS } from './content';
 import { setCatalog } from './game/play/catalog';
 import { startPlay } from './game/play/play';
 import { flushProgress, startProgress } from './game/progress';
@@ -29,8 +29,8 @@ void getMentorStatus();
 // writes any change still waiting, so closing the browser mid-step loses nothing.
 void startProgress();
 
-// Act 2 is the content Milestone 1 ships. Play grades the sandbox after every change.
-setCatalog({ act: act2, missions: act2Missions });
+// Every shipped Act, in play order. Play grades the sandbox after every change.
+setCatalog({ acts: ACTS });
 startPlay();
 
 // A new save starts the first-run tutorial once it has loaded (DESIGN.md section 4).
