@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../git/testDeps';
 import { Workspace, type EngineEvent } from '../workspace';
-import { Machine } from './machine';
+import { LOCATION_HISTORY_LIMIT, Machine } from './machine';
 import { recordMachineEvents, testMachine } from './testDeps';
 
 describe('Machine', () => {
@@ -20,7 +20,7 @@ describe('Machine', () => {
     const first = machine.openSession();
     const second = machine.openSession();
 
-    expect(first).toMatchObject({ id: 1, pid: 9000, cwd: 'Users/kyle', previousCwd: null });
+    expect(first).toMatchObject({ id: 1, pid: 9000, cwd: 'Users/kyle', back: [], forward: [] });
     expect(second).toMatchObject({ id: 2, pid: 9004 });
     expect(machine.active()).toBe(second);
     expect(events).toEqual([
@@ -152,13 +152,13 @@ describe('Machine', () => {
     expect(machine.saved.machine.get('JAVA_HOME')).toBe('C:\\jdk');
   });
 
-  it('moves a tab and remembers where it was, for cd -', () => {
+  it('moves a tab and announces the route it took', () => {
     const machine = testMachine();
     const tab = machine.openSession();
     const events = recordMachineEvents(machine);
     machine.setLocation(tab.id, 'Users/kyle/quillwork', 'relative');
 
-    expect(tab).toMatchObject({ cwd: 'Users/kyle/quillwork', previousCwd: 'Users/kyle' });
+    expect(tab.cwd).toBe('Users/kyle/quillwork');
     expect(events).toEqual([
       {
         type: 'cwdChanged',
@@ -168,6 +168,49 @@ describe('Machine', () => {
         via: 'relative',
       },
     ]);
+  });
+
+  it('steps back and forward through the history, as PowerShell 7 does with cd - and cd +', () => {
+    const machine = testMachine();
+    const tab = machine.openSession();
+    machine.setLocation(tab.id, 'A', 'absolute');
+    machine.setLocation(tab.id, 'B', 'absolute');
+    const events = recordMachineEvents(machine);
+
+    expect(machine.goBack(tab.id)).toBe('moved');
+    expect(tab.cwd).toBe('A');
+    // A second cd - keeps going back (bash would toggle to B instead).
+    expect(machine.goBack(tab.id)).toBe('moved');
+    expect(tab.cwd).toBe('Users/kyle');
+    expect(machine.goBack(tab.id)).toBe('empty');
+    expect(machine.goForward(tab.id)).toBe('moved');
+    expect(tab.cwd).toBe('A');
+    expect(events.map((event) => event.type === 'cwdChanged' && event.via)).toEqual([
+      'back',
+      'back',
+      'forward',
+    ]);
+  });
+
+  it('forgets the way forward after a new move', () => {
+    const machine = testMachine();
+    const tab = machine.openSession();
+    machine.setLocation(tab.id, 'A', 'absolute');
+    machine.goBack(tab.id);
+    machine.setLocation(tab.id, 'C', 'absolute');
+
+    expect(machine.goForward(tab.id)).toBe('empty');
+    expect(tab.cwd).toBe('C');
+  });
+
+  it('remembers at most 20 folders back', () => {
+    const machine = testMachine();
+    const tab = machine.openSession();
+    for (let step = 1; step <= 25; step++)
+      machine.setLocation(tab.id, `F${String(step)}`, 'absolute');
+
+    expect(tab.back).toHaveLength(LOCATION_HISTORY_LIMIT);
+    expect(tab.back[0]).toBe('F5');
   });
 
   it('closes tabs, handing the keyboard to the most recent one left', () => {
@@ -185,6 +228,19 @@ describe('Machine', () => {
       { type: 'sessionClosed', session: 2 },
       { type: 'sessionActivated', session: 3 },
     ]);
+  });
+
+  it('has already moved the keyboard when it announces a closed tab', () => {
+    const machine = testMachine();
+    machine.openSession();
+    machine.openSession();
+    let activeWhenClosed = 0;
+    machine.events.on((event) => {
+      if (event.type === 'sessionClosed') activeWhenClosed = machine.active().id;
+    });
+    machine.closeSession(2);
+
+    expect(activeWhenClosed).toBe(1);
   });
 
   it('closing a background tab leaves the active one alone', () => {
@@ -233,7 +289,7 @@ describe('Machine', () => {
     machine.restartTerminals();
 
     const [restarted] = machine.sessions();
-    expect(restarted).toMatchObject({ id: 1, cwd: 'Users/kyle', previousCwd: null });
+    expect(restarted).toMatchObject({ id: 1, cwd: 'Users/kyle', back: [], forward: [] });
     expect(restarted?.pid).not.toBe(tab.pid);
     expect(restarted?.env.get('DATABASE_URL')).toBeNull();
     expect(restarted?.env.get('EDITOR')).toBe('code');

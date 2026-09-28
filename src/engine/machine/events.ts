@@ -16,7 +16,7 @@ export type MachineEvent =
       readonly from: string;
       readonly to: string;
       /** How the player got there, so the world can light the route they took. */
-      readonly via: 'relative' | 'absolute' | 'home' | 'back';
+      readonly via: 'relative' | 'absolute' | 'home' | 'back' | 'forward';
     }
   | {
       readonly type: 'envChanged';

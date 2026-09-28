@@ -12,9 +12,21 @@ export interface Session {
   readonly pid: number;
   /** Canonical, like 'Users/kyle'. */
   cwd: string;
-  /** Where `cd -` goes back to. */
-  previousCwd: string | null;
+  /**
+   * PowerShell 7's location history: `cd -` steps back through `back`, and `cd +` forward
+   * through `forward`, each holding up to 20 folders. Newest last.
+   */
+  readonly back: string[];
+  readonly forward: string[];
   readonly env: EnvTable;
+}
+
+/** How many folders PowerShell 7 remembers each way for `cd -` and `cd +`. */
+export const LOCATION_HISTORY_LIMIT = 20;
+
+function remember(stack: string[], folder: string): void {
+  stack.push(folder);
+  if (stack.length > LOCATION_HISTORY_LIMIT) stack.shift();
 }
 
 export interface MachineOptions {
@@ -102,7 +114,8 @@ export class Machine {
       id: this.nextSessionId++,
       pid: this.allocatePid(),
       cwd: this.home,
-      previousCwd: null,
+      back: [],
+      forward: [],
       env: this.newTerminalEnv(),
     };
     this.tabs.push(session);
@@ -116,12 +129,13 @@ export class Machine {
     const index = this.tabs.findIndex((tab) => tab.id === id);
     if (index === -1) throw new Error(`No terminal tab ${String(id)} is open.`);
     this.tabs.splice(index, 1);
+    // Settle every change before announcing any, so a listener never sees a closed tab
+    // still marked active.
+    const wasActive = this.activeId === id;
+    const next = wasActive ? (this.tabs.at(-1) ?? null) : null;
+    if (wasActive) this.activeId = next?.id ?? null;
     this.events.emit({ type: 'sessionClosed', session: id });
-    if (this.activeId === id) {
-      const next = this.tabs.at(-1);
-      this.activeId = next?.id ?? null;
-      if (next) this.events.emit({ type: 'sessionActivated', session: next.id });
-    }
+    if (next) this.events.emit({ type: 'sessionActivated', session: next.id });
   }
 
   activate(id: number): void {
@@ -142,7 +156,8 @@ export class Machine {
         id: tab.id,
         pid: this.allocatePid(),
         cwd: this.home,
-        previousCwd: null,
+        back: [],
+        forward: [],
         env: this.newTerminalEnv(),
       };
     }
@@ -186,13 +201,45 @@ export class Machine {
     return env;
   }
 
-  /** Moves a tab to another folder, remembering where it was for `cd -`. */
-  setLocation(sessionId: number, path: string, via: 'relative' | 'absolute' | 'home' | 'back') {
+  /**
+   * Moves a tab to another folder. The folder it leaves joins the back history, and the
+   * forward history clears, as a new move does in PowerShell 7.
+   */
+  setLocation(sessionId: number, path: string, via: 'relative' | 'absolute' | 'home') {
     const session = this.session(sessionId);
+    remember(session.back, session.cwd);
+    session.forward.length = 0;
+    this.move(session, path, via);
+  }
+
+  /** `cd -`: back to the previous folder. 'empty' when there's no history left. */
+  goBack(sessionId: number): 'moved' | 'empty' {
+    const session = this.session(sessionId);
+    const to = session.back.pop();
+    if (to === undefined) return 'empty';
+    remember(session.forward, session.cwd);
+    this.move(session, to, 'back');
+    return 'moved';
+  }
+
+  /** `cd +`: forward again, after `cd -`. 'empty' when there's nothing to redo. */
+  goForward(sessionId: number): 'moved' | 'empty' {
+    const session = this.session(sessionId);
+    const to = session.forward.pop();
+    if (to === undefined) return 'empty';
+    remember(session.back, session.cwd);
+    this.move(session, to, 'forward');
+    return 'moved';
+  }
+
+  private move(
+    session: Session,
+    to: string,
+    via: 'relative' | 'absolute' | 'home' | 'back' | 'forward',
+  ) {
     const from = session.cwd;
-    session.previousCwd = from;
-    session.cwd = path;
-    this.events.emit({ type: 'cwdChanged', session: sessionId, from, to: path, via });
+    session.cwd = to;
+    this.events.emit({ type: 'cwdChanged', session: session.id, from, to, via });
   }
 
   /**
