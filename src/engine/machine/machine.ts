@@ -2,7 +2,7 @@ import { Emitter } from '../events';
 import { WindowsFs } from './windowsFs';
 import { EnvTable, expandPercent } from './envTable';
 import type { EnvScope, MachineEvent } from './events';
-import { display } from './winPath';
+import { display, resolveExisting } from './winPath';
 
 /** One PowerShell tab: where it stands and the environment it copied when it opened. */
 export interface Session {
@@ -20,6 +20,9 @@ export interface Session {
   readonly forward: string[];
   readonly env: EnvTable;
 }
+
+/** What `cd -` or `cd +` did: moved, found no history, or found a folder since deleted. */
+export type HistoryMove = 'moved' | 'empty' | { readonly missing: string };
 
 /** How many folders PowerShell 7 remembers each way for `cd -` and `cd +`. */
 export const LOCATION_HISTORY_LIMIT = 20;
@@ -213,23 +216,32 @@ export class Machine {
     this.move(session, path, via);
   }
 
-  /** `cd -`: back to the previous folder. 'empty' when there's no history left. */
-  goBack(sessionId: number): 'moved' | 'empty' {
+  /**
+   * `cd -`: back to the previous folder. 'empty' when there's no history left. A folder
+   * deleted since is reported as missing, and the tab stays put; like PowerShell, the
+   * history step is used up either way.
+   */
+  goBack(sessionId: number): HistoryMove {
     const session = this.session(sessionId);
     const to = session.back.pop();
     if (to === undefined) return 'empty';
     remember(session.forward, session.cwd);
-    this.move(session, to, 'back');
-    return 'moved';
+    return this.moveIfThere(session, to, 'back');
   }
 
-  /** `cd +`: forward again, after `cd -`. 'empty' when there's nothing to redo. */
-  goForward(sessionId: number): 'moved' | 'empty' {
+  /** `cd +`: forward again, after `cd -`, with the same rules as goBack. */
+  goForward(sessionId: number): HistoryMove {
     const session = this.session(sessionId);
     const to = session.forward.pop();
     if (to === undefined) return 'empty';
     remember(session.back, session.cwd);
-    this.move(session, to, 'forward');
+    return this.moveIfThere(session, to, 'forward');
+  }
+
+  private moveIfThere(session: Session, to: string, via: 'back' | 'forward'): HistoryMove {
+    const found = resolveExisting(this.drive, to);
+    if (found === null || !this.drive.isDir(found)) return { missing: to };
+    this.move(session, found, via);
     return 'moved';
   }
 

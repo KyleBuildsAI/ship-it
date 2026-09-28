@@ -3,10 +3,13 @@ import { windows, type FixtureBuilder } from '../../fixtures';
 import { testDeps } from '../../git/testDeps';
 import type { MachineEvent } from '../../machine/events';
 import { Shell, type ShellResult } from '../shell';
+import cdBackMissing from './fixtures/error-cd-back-missing.txt?raw';
 import cdFile from './fixtures/error-cd-file.txt?raw';
 import cdMissing from './fixtures/error-cd-missing.txt?raw';
 import cdNoDrive from './fixtures/error-cd-no-drive.txt?raw';
 import cdPositional from './fixtures/error-cd-positional.txt?raw';
+import cdWildMany from './fixtures/error-cd-wild-many.txt?raw';
+import cdWildMissing from './fixtures/error-cd-wild-missing.txt?raw';
 import getLocation from './fixtures/get-location.txt?raw';
 import notRecognized from './fixtures/error-not-recognized.txt?raw';
 
@@ -153,6 +156,32 @@ describe('Set-Location', () => {
     });
   });
 
+  it("goes where one wildcard match is, and refuses none or several in PowerShell's words", () => {
+    const { shell, session } = laptop();
+    shell.run('cd quill*');
+    expect(session.cwd).toBe('Users/kyle/quillwork');
+    expect(printed(shell.run('Set-Location nope*'))).toBe(cdWildMissing);
+    expect(printed(shell.run('Set-Location *'))).toBe(cdWildMany);
+  });
+
+  it('reports a history folder deleted since, as PowerShell does', () => {
+    const { shell, machine, session } = laptop();
+    shell.run('cd quillwork\\web; cd ..');
+    machine.drive.removeDir('Users/kyle/quillwork/web', { recursive: true });
+    const result = shell.run('Set-Location -');
+    expect(printed(result).replace('quillwork\\web', 'tmp')).toBe(cdBackMissing);
+    expect(result.exitCode).toBe(1);
+    expect(session.cwd).toBe('Users/kyle/quillwork');
+  });
+
+  it("runs cmd's cd.. and cd\\, which PowerShell keeps as functions", () => {
+    const { shell, session } = laptop();
+    shell.run('cd quillwork\\api; cd..');
+    expect(session.cwd).toBe('Users/kyle/quillwork');
+    shell.run('CD\\');
+    expect(session.cwd).toBe('');
+  });
+
   it('keeps the player on C: with a pointer for Env: and the registry', () => {
     const { shell } = laptop();
     expect(shell.run('cd Env:').lines.map((line) => line.text)).toEqual([
@@ -164,5 +193,21 @@ describe('Set-Location', () => {
       "Set-Location: Cannot find path '\\\\server\\share' because it does not exist.",
       'This laptop has no network drives.',
     ]);
+  });
+});
+
+describe('terminal tabs', () => {
+  it('runs each line in the active tab, which keeps its own folder', () => {
+    const { shell, machine } = laptop();
+    const first = machine.active();
+    shell.run('cd quillwork');
+    const second = machine.openSession();
+    expect(shell.prompt()).toBe('PS C:\\Users\\kyle> ');
+    shell.run('cd \\Program*');
+    expect(second.cwd).toBe('Program Files');
+    machine.activate(first.id);
+    expect(shell.prompt()).toBe('PS C:\\Users\\kyle\\quillwork> ');
+    machine.closeSession(second.id);
+    expect(shell.run('pwd').exitCode).toBe(0);
   });
 });
