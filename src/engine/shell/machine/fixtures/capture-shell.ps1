@@ -138,6 +138,7 @@ try {
     }
 
     # ---- Errors, word for word ----
+    Save-Error 'error-not-recognized' 'nope-not-a-command'
     Save-Error 'error-cd-missing' 'Set-Location nope'
     Save-Error 'error-cd-no-drive' "Set-Location 'Q:\games'"
     Save-Error 'error-cd-positional' 'Set-Location C:\Program Files\nodejs'
