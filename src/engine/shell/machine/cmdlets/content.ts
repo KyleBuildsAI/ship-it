@@ -3,13 +3,21 @@ import { line, type OutputLine } from '../../../git/cli/output';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
 import type { ShellResult } from '../../shell';
 import type { Bound } from '../bind';
-import type { Cmdlet, CommandContext } from '../registry';
+import { heldMessage } from '../redirect';
+import type { Cmdlet, CmdletResult, CommandContext } from '../registry';
 import { hasWildcard } from '../wildcard';
-import { resolveItems } from './driveOps';
+import { isHeld, resolveItems } from './driveOps';
 
-/** PowerShell's non-interactive error for mandatory parameters left out, in its order. */
-const missingMandatory = (...names: readonly string[]) =>
-  `Cannot process command because of one or more missing mandatory parameters: ${names.join(' ')}.`;
+/**
+ * PowerShell's non-interactive error for mandatory parameters left out, in its order. It
+ * comes from binding, so it stops the command and prints past 2> (checked in 7.6.6).
+ */
+const missingMandatory = (cmdlet: string, ...names: readonly string[]): CmdletResult => ({
+  ...failed(cmdlet, [
+    `Cannot process command because of one or more missing mandatory parameters: ${names.join(' ')}.`,
+  ]),
+  stopped: true,
+});
 
 /**
  * Get-Content (cat, type, gc): a file's lines. -TotalCount (or -Head) keeps the first N,
@@ -27,7 +35,7 @@ export const GET_CONTENT: Cmdlet = {
   },
   run: (context, bound) => {
     const typed = bound.texts('Path');
-    if (typed === null) return failed('Get-Content', [missingMandatory('Path')]);
+    if (typed === null) return missingMandatory('Get-Content', 'Path');
     // Both of these come before PowerShell looks for any file (checked in pwsh 7.6.6).
     if (bound.has('TotalCount') && bound.has('Tail'))
       return failed('Get-Content', [
@@ -37,13 +45,17 @@ export const GET_CONTENT: Cmdlet = {
     if (bound.numbers('TotalCount')?.[0] === 0) return { lines: [], exitCode: 0 };
     const { paths, errors } = findAll(context, typed, false);
     // -Raw refuses a line count at the first file found, after every path was looked up,
-    // and stops there: a folder or a second file gets no error of its own.
+    // and stops there: a folder or a second file gets no error of its own. Being what
+    // stopped it, that error prints past 2> (checked in 7.6.6).
     const count = bound.has('Tail') ? 'Tail' : bound.has('TotalCount') ? 'TotalCount' : null;
     if (bound.flag('Raw') && count !== null && paths.length > 0)
-      return failed('Get-Content', [
-        ...errors,
-        `The 'Raw' and '${count}' parameters cannot be specified in the same command.`,
-      ]);
+      return {
+        ...failed('Get-Content', [
+          ...errors,
+          `The 'Raw' and '${count}' parameters cannot be specified in the same command.`,
+        ]),
+        stopped: true,
+      };
     const lines: OutputLine[] = [];
     for (const file of paths) {
       if (context.machine.drive.isDir(file)) {
@@ -94,7 +106,7 @@ export const WRITE_OUTPUT: Cmdlet = {
   run: (_context, bound) => {
     const values = bound.texts('InputObject');
     // The name stays Write-Output even when typed as echo (checked in pwsh 7.6.6).
-    if (values === null) return failed('Write-Output', [missingMandatory('InputObject')]);
+    if (values === null) return missingMandatory('Write-Output', 'InputObject');
     return { lines: values.map((text) => line(text)), exitCode: 0 };
   },
 };
@@ -161,7 +173,7 @@ function findAll(
  *   3. it opens each file, refusing a missing folder, a folder, or a read-only file;
  *   4. it writes the values to every file it opened.
  */
-function write(context: CommandContext, bound: Bound, cmdlet: string): ShellResult {
+function write(context: CommandContext, bound: Bound, cmdlet: string): CmdletResult {
   const { ws, machine } = context;
   const { drive } = machine;
   const typed = bound.texts('Path');
@@ -169,13 +181,12 @@ function write(context: CommandContext, bound: Bound, cmdlet: string): ShellResu
   if (typed === null || values === null) {
     // PowerShell lists Value before Path (checked in 7.6.6).
     const missing = [values === null ? 'Value' : null, typed === null ? 'Path' : null];
-    return failed(cmdlet, [
-      missingMandatory(...missing.filter((name): name is string => name !== null)),
-    ]);
+    return missingMandatory(cmdlet, ...missing.filter((name): name is string => name !== null));
   }
   if (cmdlet === 'Set-Content') {
     const refusal = emptyFirst(context, typed);
-    if (refusal !== null) return failed(cmdlet, [refusal]);
+    // A terminating error, so it prints past 2> (checked in 7.6.6).
+    if (refusal !== null) return { ...failed(cmdlet, [refusal]), stopped: true };
   }
   const { paths, errors } = findAll(context, typed, true);
   const opened: string[] = [];
@@ -189,6 +200,7 @@ function write(context: CommandContext, bound: Bound, cmdlet: string): ShellResu
       errors.push(`Unable to write content because it is a directory: '${display(existing)}'.`);
     else if (existing !== null && drive.isReadOnly(existing))
       errors.push(`Access to the path '${display(existing)}' is denied.`);
+    else if (existing !== null && isHeld(context, existing)) errors.push(heldMessage(existing));
     else opened.push(existing ?? drive.stored(path));
   }
   const text = values.map((value) => `${value}\n`).join('');
@@ -202,8 +214,9 @@ function write(context: CommandContext, bound: Bound, cmdlet: string): ShellResu
 
 /**
  * Set-Content empties every file it names before writing any. At the first item it can't
- * empty, a folder or a read-only file, the whole command stops: the files before it stay
- * empty and nothing is written (checked in pwsh 7.6.6). Returns that refusal, or null.
+ * empty, a folder, a read-only file, or one a redirect holds, the whole command stops: the
+ * files before it stay empty and nothing is written (checked in pwsh 7.6.6). Returns that
+ * refusal, or null.
  * A path that names nothing is skipped here; looking it up again reports it.
  */
 function emptyFirst(context: CommandContext, typed: readonly string[]): string | null {
@@ -217,7 +230,9 @@ function emptyFirst(context: CommandContext, typed: readonly string[]): string |
         ? `Unable to clear content of '${display(item)}' because it is a directory. Clear-Content is only supported on files.`
         : drive.isReadOnly(item)
           ? `Access to the path '${display(item)}' is denied.`
-          : null;
+          : isHeld(context, item)
+            ? heldMessage(item)
+            : null;
       if (refusal === null) {
         emptied.push(item);
         continue;

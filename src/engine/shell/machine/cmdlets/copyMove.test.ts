@@ -316,6 +316,30 @@ describe('Move-Item', () => {
     shell.run('mv src moved');
     expect(drive.isHidden('Users/kyle/moved/sub')).toBe(true);
   });
+
+  it('finishes each path before the next, so errors come in the order typed (7.6.6)', () => {
+    const { shell } = laptop();
+    const nope = "Cannot find path 'C:\\Users\\kyle\\nope.txt' because it does not exist.";
+    expect(texts(shell.run('mv a.txt, nope.txt nodir\\x.txt'))).toEqual([
+      'Move-Item: Could not find a part of the path.',
+      `Move-Item: ${nope}`,
+    ]);
+    expect(texts(shell.run('mv nope.txt, a.txt nodir\\x.txt'))).toEqual([
+      `Move-Item: ${nope}`,
+      'Move-Item: Could not find a part of the path.',
+    ]);
+    // A destination on no drive fails once for each path that found something.
+    const noDrive = "Cannot find drive. A drive with the name 'Q' does not exist.";
+    expect(texts(shell.run('mv a.txt, nope.txt, src Q:\\x'))).toEqual([
+      `Move-Item: ${noDrive}`,
+      `Move-Item: ${nope}`,
+      `Move-Item: ${noDrive}`,
+    ]);
+    expect(texts(shell.run('cp src\\*.txt, src\\* Q:\\x'))).toEqual([
+      `Copy-Item: ${noDrive}`,
+      `Copy-Item: ${noDrive}`,
+    ]);
+  });
 });
 
 describe('Rename-Item', () => {

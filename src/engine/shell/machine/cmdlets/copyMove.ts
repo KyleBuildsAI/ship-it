@@ -4,7 +4,7 @@ import { display, resolveExisting, toCanonical } from '../../../machine/winPath'
 import type { ShellResult } from '../../shell';
 import type { Bound } from '../bind';
 import type { Cmdlet, CommandContext } from '../registry';
-import { copyItem, deleteItem, inUse, moveItem, resolveItems } from './driveOps';
+import { copyItem, deleteItem, holdsHeld, inUse, isHeld, moveItem, resolveItems } from './driveOps';
 
 type Mode = 'copy' | 'move';
 
@@ -55,10 +55,14 @@ export const RENAME_ITEM: Cmdlet = {
   run: (context, bound) => {
     const typed = bound.text('Path');
     const newName = bound.text('NewName');
+    // Left out, a mandatory parameter stops the command while binding, so it prints past 2>.
     if (typed === null || newName === null)
-      return failed('Rename-Item', [
-        `Cannot process command because of one or more missing mandatory parameters: ${typed === null ? 'Path NewName' : 'NewName'}.`,
-      ]);
+      return {
+        ...failed('Rename-Item', [
+          `Cannot process command because of one or more missing mandatory parameters: ${typed === null ? 'Path NewName' : 'NewName'}.`,
+        ]),
+        stopped: true,
+      };
     const found = resolveItems(context, typed, bound.flag('Force'));
     if ('refused' in found) return failed('Rename-Item', [found.refused]);
     const [from] = found.paths;
@@ -71,10 +75,14 @@ export const RENAME_ITEM: Cmdlet = {
         `Cannot rename the item at '${display(from)}' because it is in use.`,
       ]);
     const name = leafName(newName, from);
+    // This one stops the command, so it prints past 2> (checked in 7.6.6).
     if (name === null)
-      return failed('Rename-Item', [
-        'Cannot rename the specified target, because it represents a path or device name.',
-      ]);
+      return {
+        ...failed('Rename-Item', [
+          'Cannot rename the specified target, because it represents a path or device name.',
+        ]),
+        stopped: true,
+      };
     const { drive } = context.machine;
     const to = renamed(from, name);
     // The very same name: a file is left alone, a folder is refused (checked in 7.6.6).
@@ -91,6 +99,13 @@ export const RENAME_ITEM: Cmdlet = {
           ? `Cannot create '${display(to)}' because a file or directory with the same name already exists.`
           : 'Cannot create a file when that file already exists.',
       ]);
+    // What a redirect holds can't be renamed, nor can the folder it's in (checked in 7.6.6).
+    if (isHeld(context, from))
+      return failed('Rename-Item', [
+        'The process cannot access the file because it is being used by another process.',
+      ]);
+    if (holdsHeld(context, from))
+      return failed('Rename-Item', [`Access to the path '${display(from)}' is denied.`]);
     moveOne(context, from, to);
     return { lines: [], exitCode: 0 };
   },
@@ -127,36 +142,41 @@ function transfer(context: CommandContext, bound: Bound, mode: Mode): ShellResul
   const force = bound.flag('Force');
   const recurse = bound.flag('Recurse');
   const errors: string[] = [];
-  const sources: string[] = [];
-  for (const typed of bound.texts('Path') ?? []) {
-    const found = resolveItems(context, typed, force);
-    if ('refused' in found) errors.push(found.refused);
-    else sources.push(...found.paths);
-  }
   const typedDestination = bound.text('Destination') ?? '.';
   const destination = toCanonical(typedDestination, { cwd: session.cwd, home: machine.home });
-  if (!destination.ok) {
-    errors.push(
-      'drive' in destination
-        ? `Cannot find drive. A drive with the name '${destination.drive}' does not exist.`
-        : `Cannot find path '${destination.network}' because it does not exist.`,
-    );
-    return failed(cmdlet, errors);
-  }
-  const into = resolveExisting(machine.drive, destination.path);
-  for (const from of sources) {
-    const to = landing(context, from, into, destination.path, mode);
-    if (mode === 'copy') {
-      const refusal = checkCopy(context, from, to, into, recurse);
-      if (refusal !== null) errors.push(refusal);
-      else errors.push(...copyOne(context, from, to, recurse, force));
+  const into = destination.ok ? resolveExisting(machine.drive, destination.path) : null;
+  // PowerShell finishes each path before it looks up the next, so errors print in the
+  // order the paths were typed (checked in 7.6.6).
+  for (const typed of bound.texts('Path') ?? []) {
+    const found = resolveItems(context, typed, force);
+    if ('refused' in found) {
+      errors.push(found.refused);
       continue;
     }
-    // Moving a file to where it already is does nothing and says nothing (checked in 7.6.6).
-    if (to === from && machine.drive.isFile(from)) continue;
-    const refusal = checkMove(context, from, to, force);
-    if (refusal !== null) errors.push(refusal);
-    else moveOne(context, from, to);
+    if (!destination.ok) {
+      // Once for each path that found something, however many items (checked in 7.6.6).
+      if (found.paths.length > 0)
+        errors.push(
+          'drive' in destination
+            ? `Cannot find drive. A drive with the name '${destination.drive}' does not exist.`
+            : `Cannot find path '${destination.network}' because it does not exist.`,
+        );
+      continue;
+    }
+    for (const from of found.paths) {
+      const to = landing(context, from, into, destination.path, mode);
+      if (mode === 'copy') {
+        const refusal = checkCopy(context, from, to, into, recurse);
+        if (refusal !== null) errors.push(refusal);
+        else errors.push(...copyOne(context, from, to, recurse, force));
+        continue;
+      }
+      // Moving a file to where it already is does nothing and says nothing (checked in 7.6.6).
+      if (to === from && machine.drive.isFile(from)) continue;
+      const refusal = checkMove(context, from, to, force);
+      if (refusal !== null) errors.push(refusal);
+      else moveOne(context, from, to);
+    }
   }
   return errors.length > 0 ? failed(cmdlet, errors) : { lines: [], exitCode: 0 };
 }
@@ -224,12 +244,16 @@ function checkMove(
   const existing = resolveExisting(drive, to);
   if (existing !== null && existing !== from) {
     // A folder never replaces anything, and a file never replaces a folder, -Force or not;
-    // -Force lets a file replace only a file.
+    // -Force lets a file replace only a file, and not one a redirect holds.
     if (drive.isDir(from))
       return `Cannot create '${display(to)}' because a file or directory with the same name already exists.`;
-    if (!force || drive.isDir(existing))
+    if (!force || drive.isDir(existing) || isHeld(context, existing))
       return 'Cannot create a file when that file already exists.';
   }
+  // A held file, or a folder with one inside, can't move. The whole folder stays here,
+  // where PowerShell would move the rest of what's in it (7.6.6 names no path).
+  if (isHeld(context, from) || holdsHeld(context, from))
+    return 'The process cannot access the file because it is being used by another process.';
   return null;
 }
 
