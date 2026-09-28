@@ -10,6 +10,7 @@ export interface ItemRow {
   readonly name: string;
   readonly kind: 'file' | 'dir';
   readonly hidden: boolean;
+  readonly readOnly: boolean;
   /** Bytes on disk. */
   readonly length: number;
 }
@@ -41,7 +42,7 @@ export function itemTable(sections: readonly ItemSection[]): OutputLine[] {
       line(row('----', '-------------', '------', '----'), 'meta'),
     );
     for (const item of section.rows) {
-      const mode = `${item.kind === 'dir' ? 'd' : '-'}${item.kind === 'dir' ? '-' : 'a'}-${item.hidden ? 'h' : '-'}-`;
+      const mode = `${item.kind === 'dir' ? 'd' : '-'}${item.kind === 'dir' ? '-' : 'a'}${item.readOnly ? 'r' : '-'}${item.hidden ? 'h' : '-'}-`;
       const length = item.kind === 'dir' ? '' : String(item.length);
       lines.push(line(row(mode, LAST_WRITE_TIME, length, item.name)));
     }
@@ -50,10 +51,19 @@ export function itemTable(sections: readonly ItemSection[]): OutputLine[] {
   return lines;
 }
 
-/** Name/Value tables, like Get-ChildItem Env:. The Name column is 30 wide, as PowerShell's. */
-export function nameValueTable(entries: readonly { name: string; value: string }[]): OutputLine[] {
+/**
+ * Name/Value tables, like Get-ChildItem Env:. The Name column is 30 wide, as PowerShell's,
+ * and a row longer than the terminal is cut short with an ellipsis, as PowerShell does,
+ * so a long Path shows only its start. 120 columns is Windows Terminal's default width.
+ */
+export function nameValueTable(
+  entries: readonly { name: string; value: string }[],
+  width = 120,
+): OutputLine[] {
   if (entries.length === 0) return [];
-  const pair = (name: string, value: string) => `${name.padEnd(30)} ${value}`;
+  const fit = (text: string, room: number) =>
+    text.length > room ? `${text.slice(0, room - 1)}…` : text;
+  const pair = (name: string, value: string) => fit(`${fit(name, 30).padEnd(30)} ${value}`, width);
   return [
     line(''),
     line(pair('Name', 'Value'), 'meta'),

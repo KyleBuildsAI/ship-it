@@ -14,6 +14,8 @@ export class WindowsFs implements FileTree {
   private readonly tree = new VirtualFs();
   /** Items with the Hidden attribute, by lower-case path. */
   private readonly hiddenPaths = new Set<string>();
+  /** Items with the ReadOnly attribute, by lower-case path. */
+  private readonly readOnlyPaths = new Set<string>();
 
   /** The path with every existing part spelled as stored; missing parts as typed. */
   stored(path: string): string {
@@ -52,7 +54,7 @@ export class WindowsFs implements FileTree {
   }
 
   deleteFile(path: string): void {
-    this.forgetHidden(path);
+    this.forgetAttributes(path);
     this.tree.deleteFile(this.stored(path));
   }
 
@@ -62,7 +64,7 @@ export class WindowsFs implements FileTree {
 
   removeDir(path: string, options: { recursive: boolean }): void {
     this.tree.removeDir(this.stored(path), options);
-    this.forgetHidden(path);
+    this.forgetAttributes(path);
   }
 
   listDir(path: string): DirEntry[] {
@@ -85,11 +87,25 @@ export class WindowsFs implements FileTree {
     return this.hiddenPaths.has(this.stored(path).toLowerCase());
   }
 
-  /** A deleted item takes its attribute with it, and so does everything inside it. */
-  private forgetHidden(path: string): void {
+  /**
+   * Sets the ReadOnly attribute, like `attrib +r`. Windows marks a home's shell folders
+   * (Desktop, Documents, Downloads) this way, which listings show as d-r--.
+   */
+  setReadOnly(path: string): void {
+    this.readOnlyPaths.add(this.stored(path).toLowerCase());
+  }
+
+  isReadOnly(path: string): boolean {
+    return this.readOnlyPaths.has(this.stored(path).toLowerCase());
+  }
+
+  /** A deleted item takes its attributes with it, and so does everything inside it. */
+  private forgetAttributes(path: string): void {
     const gone = this.stored(path).toLowerCase();
-    for (const hidden of [...this.hiddenPaths]) {
-      if (hidden === gone || hidden.startsWith(`${gone}/`)) this.hiddenPaths.delete(hidden);
+    for (const attributes of [this.hiddenPaths, this.readOnlyPaths]) {
+      for (const marked of [...attributes]) {
+        if (marked === gone || marked.startsWith(`${gone}/`)) attributes.delete(marked);
+      }
     }
   }
 }
