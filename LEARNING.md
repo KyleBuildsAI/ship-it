@@ -1441,3 +1441,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/111
 3. Act 2's project folder and git are case-sensitive in the existing engine, and their tests depend on it. Only the Windows laptop should ignore case, so the behaviour belongs to the laptop's drive.
 
 </details>
+
+---
+
+## #112 refactor: move the fixture builder into the engine root
+
+https://github.com/KyleBuildsAI/ship-it/pull/112
+
+1. Why does `src/engine/git/fixtures.ts` still exist?
+2. How can you check that this PR changes no behaviour?
+3. Why move the builder before adding the laptop steps, instead of both at once?
+
+<details><summary>Answers</summary>
+
+1. Twelve files import the builder from it, including every Act 2 mission. The re-export keeps those imports working without touching Act 2.
+2. Every existing test (unit and end-to-end) passes unchanged. The diff of `src/engine/fixtures.ts` against the old `git/fixtures.ts` shows only the import lines differ.
+3. A move plus new features in one diff hides the new code among moved lines. Moving first makes the next PR's diff show exactly what's new.
+
+</details>
