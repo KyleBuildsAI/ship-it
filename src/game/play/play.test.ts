@@ -1,17 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  earlySampleAct,
   otherSampleAct,
   sampleAct,
   sampleMission,
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
+import { ContentError } from '../missions/schema';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
 import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
 import { createDefaultSave } from '../save/schema';
 import { bossTick, bossSandboxChanged, startBossFight } from './bossPlay';
 import { setCatalog } from './catalog';
+import { startFieldMission } from './fieldPlay';
 import {
   askForHint,
   endBriefing,
@@ -233,5 +236,44 @@ describe('two Acts in one catalog', () => {
     expect(boss().outcome).toBe('won');
     expect(progress.get().save?.acts['3']?.bossCompletedAt).toBeTruthy();
     expect(progress.get().save?.acts['2']).toBeUndefined();
+  });
+});
+
+describe('an early-access Act', () => {
+  const early = earlySampleAct();
+
+  beforeEach(() => {
+    setCatalog({
+      acts: [early, { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] }],
+    });
+  });
+
+  it('has no placement test, boss, or Field Mission to start, and play is left alone', () => {
+    expect(() => {
+      startPlacement(1);
+    }).toThrow(ContentError);
+    expect(() => {
+      startBossFight(1, T0);
+    }).toThrow(ContentError);
+    expect(() => {
+      startFieldMission(1);
+    }).toThrow(ContentError);
+    expect(play.get().activity).toBeNull();
+  });
+
+  it('plays its missions, and finishing them leaves the Act in progress', () => {
+    for (const entry of early.missions) {
+      startMission(entry.id);
+      endBriefing();
+      run('git init', 'git add app.ts', 'git commit -m "feat: add app"');
+      missionSandboxChanged(T0);
+      for (let index = 0; index < entry.drills.length; index++) {
+        startNextDrill(T0 + index * 200_000);
+        missionTick(T0 + index * 200_000 + 999_000);
+      }
+      submitQuestionRound(['when-lost'], '', T0 + 2_000_000);
+      expect(progress.get().save?.missions[entry.id]?.status).toBe('completed');
+    }
+    expect(progress.get().save?.acts['1']?.completedAt ?? null).toBeNull();
   });
 });
