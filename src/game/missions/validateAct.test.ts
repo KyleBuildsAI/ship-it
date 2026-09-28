@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
 import {
+  earlySampleAct,
   otherSampleAct,
   sampleAct,
   sampleMission,
@@ -200,6 +201,17 @@ describe('validateAct', () => {
     expect(validateAct(bare, missions)).toEqual([]);
     expect(validateCatalog([{ act: bare, missions }, otherSampleAct()])).toEqual([]);
   });
+
+  it('flags an upcoming title that has already shipped, or runs long', () => {
+    const early = earlySampleAct();
+    expect(validateAct(early.act, early.missions)).toEqual([]);
+    const shipped = early.missions[0]?.title ?? '';
+    const stale: Act = { ...early.act, upcoming: [shipped, words(61)] };
+    expect(validateAct(stale, early.missions)).toEqual([
+      { where: 'act > upcoming', problem: `"${shipped}" has shipped, so it isn't upcoming.` },
+      { where: 'act > upcoming 2', problem: '61 words; the limit is 60.' },
+    ]);
+  });
 });
 
 describe('validateCatalog', () => {
@@ -207,6 +219,10 @@ describe('validateCatalog', () => {
 
   it('passes Acts whose ids are all different', () => {
     expect(validateCatalog([first, otherSampleAct()])).toEqual([]);
+  });
+
+  it('passes an early-access Act without a boss or Field Mission beside finished ones', () => {
+    expect(validateCatalog([earlySampleAct(), first, otherSampleAct()])).toEqual([]);
   });
 
   it('catches an Act number used twice', () => {
