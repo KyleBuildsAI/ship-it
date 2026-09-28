@@ -1351,3 +1351,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/106
 3. The table has steps "every file" and "files under a folder". On `VirtualFs` they return `['src/app.ts']`, and a broken view would return `['Users/kyle/quillwork/app/src/app.ts']`. The outcomes differ, so the test fails and names the step.
 
 </details>
+
+---
+
+## #107 feat: windows paths and case-insensitive environment tables
+
+https://github.com/KyleBuildsAI/ship-it/pull/107
+
+1. What does `toCanonical('C:', …)` return, and why isn't it the root?
+2. Why does setting a variable to `''` delete it?
+3. Why does `resolveExisting` return the stored spelling instead of what was typed?
+
+<details><summary>Answers</summary>
+
+1. The current folder. On Windows, `C:` without a backslash means "the current directory on drive C", so `cd C:` from `C:\Users\kyle` stays put. Only `C:\` means the root.
+2. That's Windows' rule: an environment variable can't have an empty value, and PowerShell's `$env:NAME = ''` removes it. The table matches it, so `Test-Path env:NAME` answers the way Kyle's machine does.
+3. The prompt and listings show the folder's real name (`C:\Users\kyle\Documents`), not however it was typed. Windows keeps the stored casing, and so does the simulation.
+
+</details>
