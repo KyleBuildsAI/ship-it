@@ -4,6 +4,7 @@ import type { ShellResult } from '../shell';
 import { ALIASES } from './aliases';
 import type { Bound, CmdletSpec } from './bind';
 import { GET_CHILD_ITEM } from './cmdlets/childItem';
+import { MKDIR, NEW_ITEM, TEST_PATH } from './cmdlets/items';
 import { CD_ROOT, CD_UP, GET_LOCATION, SET_LOCATION } from './cmdlets/location';
 
 /** What a cmdlet can see and change: the sandbox, its laptop, and the tab it runs in. */
@@ -18,7 +19,16 @@ export interface Cmdlet {
   run(context: CommandContext, bound: Bound): ShellResult;
 }
 
-const CMDLETS: readonly Cmdlet[] = [CD_ROOT, CD_UP, GET_CHILD_ITEM, GET_LOCATION, SET_LOCATION];
+const CMDLETS: readonly Cmdlet[] = [
+  CD_ROOT,
+  CD_UP,
+  GET_CHILD_ITEM,
+  GET_LOCATION,
+  MKDIR,
+  NEW_ITEM,
+  SET_LOCATION,
+  TEST_PATH,
+];
 
 /** A cmdlet by its name or one of its aliases, ignoring case as PowerShell does. */
 export function findCmdlet(name: string): Cmdlet | null {
