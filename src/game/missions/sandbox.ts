@@ -8,8 +8,11 @@ import {
   type FixtureStep,
 } from '../../engine/fixtures';
 import { applyMachineStep, isMachineStep } from '../../engine/machine/fixtures';
+import { gitQueries } from '../../engine/git/queries';
 import type { RepositoryDeps } from '../../engine/git/repository';
+import { machineQueries } from '../../engine/machine/queries';
 import type { Workspace } from '../../engine/workspace';
+import type { SandboxQueries } from './predicates';
 
 /**
  * A fresh sandbox for a mission, drill, or boss, built from its setup steps. Tests pass
@@ -20,6 +23,15 @@ export function createSandbox(
   deps: RepositoryDeps = defaultDeps(),
 ): Workspace {
   return buildWorkspace(steps, deps);
+}
+
+/**
+ * Everything a check can ask about a sandbox: git's view of the project, and on a laptop,
+ * the machine too. An Act 2 sandbox has no machine, so it gets git's questions alone.
+ */
+export function sandboxQueries(ws: Workspace): SandboxQueries {
+  const git = gitQueries(ws);
+  return ws.machine === null ? git : { ...git, machine: machineQueries(ws.machine) };
 }
 
 /**

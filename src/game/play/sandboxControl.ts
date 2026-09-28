@@ -1,9 +1,9 @@
 import type { FixtureStep } from '../../engine/git/fixtures';
-import { gitQueries, type GitQueries } from '../../engine/git/queries';
 import { Shell } from '../../engine/shell/shell';
 import type { Workspace } from '../../engine/workspace';
 import { announce } from '../hud';
-import { createSandbox } from '../missions/sandbox';
+import type { SandboxQueries } from '../missions/predicates';
+import { createSandbox, sandboxQueries } from '../missions/sandbox';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
 
 /**
@@ -21,9 +21,9 @@ export function currentWorkspace(): Workspace {
   return sandbox.get().shell.ws;
 }
 
-/** What predicates are checked against: the sandbox as it is right now. */
-export function currentQueries(): GitQueries {
-  return gitQueries(currentWorkspace());
+/** What predicates are checked against: the sandbox as it is right now, laptop included. */
+export function currentQueries(): SandboxQueries {
+  return sandboxQueries(currentWorkspace());
 }
 
 /**
