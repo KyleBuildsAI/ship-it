@@ -51,5 +51,6 @@ export function stockMachine(user: string, computer: string): Machine {
   for (const folder of STOCK_FOLDERS) {
     machine.drive.makeDir(folder.replace(/^~/, machine.home));
   }
+  machine.drive.hide(`${machine.home}/AppData`);
   return machine;
 }

@@ -56,4 +56,27 @@ describe('WindowsFs', () => {
 
     expect(drive.stored('A.TXT/inside')).toBe('a.txt/inside');
   });
+
+  it('hides an item with the Hidden attribute, in any case, and forgets it when deleted', () => {
+    const drive = new WindowsFs();
+    drive.makeDir('Users/kyle/AppData/Local');
+    drive.writeFile('Users/kyle/.cache', 'x');
+    drive.hide('users/KYLE/appdata');
+
+    expect(drive.isHidden('Users/kyle/AppData')).toBe(true);
+    // A leading dot hides nothing on Windows.
+    expect(drive.isHidden('Users/kyle/.cache')).toBe(false);
+    expect(drive.isHidden('Users/kyle/AppData/Local')).toBe(false);
+
+    drive.hide('Users/kyle/AppData/Local');
+    drive.removeDir('Users/kyle/AppData', { recursive: true });
+    drive.makeDir('Users/kyle/AppData/Local');
+    expect(drive.isHidden('Users/kyle/AppData')).toBe(false);
+    expect(drive.isHidden('Users/kyle/AppData/Local')).toBe(false);
+
+    drive.hide('Users/kyle/.cache');
+    drive.deleteFile('Users/kyle/.cache');
+    drive.writeFile('Users/kyle/.cache', 'y');
+    expect(drive.isHidden('Users/kyle/.cache')).toBe(false);
+  });
 });
