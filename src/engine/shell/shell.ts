@@ -3,6 +3,7 @@ import { FsError } from '../fs/virtualFs';
 import { line, type OutputLine } from '../git/cli/output';
 import { runGit } from '../git/cli/runGit';
 import type { Workspace } from '../workspace';
+import { MachineShell } from './machine/machineShell';
 import { tokenize, TokenizeError, type Token } from './tokenize';
 
 export interface ShellResult {
@@ -52,19 +53,31 @@ const HELP: OutputLine[] = [
 /**
  * A small PowerShell-flavoured shell over a Workspace. The commands are the ones that
  * also work in real PowerShell, so habits learned here carry over to Kyle's terminal.
+ *
+ * It has two profiles. Act 2's project sandboxes get the handful of commands below. An
+ * Act 1 laptop sandbox (one with a machine) gets fuller PowerShell 7, in `machineShell`,
+ * running in the laptop's active terminal tab.
  */
 export class Shell {
   readonly ws: Workspace;
   /** Shown in the prompt, Windows style: C:\Users\kyle\quillwork\app */
   readonly displayRoot: string;
+  /** Act 1's PowerShell profile, when the sandbox is a laptop. */
+  readonly machineShell: MachineShell | null;
   private directory = '';
   private readonly past: string[] = [];
 
   constructor(ws: Workspace, displayRoot: string) {
     this.ws = ws;
     this.displayRoot = displayRoot;
+    this.machineShell =
+      ws.machine === null ? null : new MachineShell(ws, ws.machine, ws.machine.active().id);
   }
 
+  /**
+   * The folder inside the project, for Act 2's commands and completion. On a laptop the
+   * tab's folder lives on the machine instead (machineShell.session.cwd), and this stays ''.
+   */
   get cwd(): string {
     return this.directory;
   }
@@ -74,11 +87,12 @@ export class Shell {
   }
 
   prompt(): string {
-    return `PS ${this.displayPath(this.directory)}> `;
+    return this.machineShell?.prompt() ?? `PS ${this.displayPath(this.directory)}> `;
   }
 
   run(input: string): ShellResult {
     if (input.trim() !== '') this.past.push(input);
+    if (this.machineShell) return this.machineShell.run(input);
     let tokens: Token[];
     try {
       tokens = tokenize(input);
