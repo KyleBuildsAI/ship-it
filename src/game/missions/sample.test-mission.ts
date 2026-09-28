@@ -3,6 +3,7 @@ import {
   ActSchema,
   MissionSchema,
   requireComplete,
+  type Act,
   type ActInput,
   type CompleteAct,
   type Mission,
@@ -329,4 +330,22 @@ export function otherSampleAct(): { act: CompleteAct; missions: Mission[] } {
     fieldMission: { ...sampleAct.fieldMission, id: rename(sampleAct.fieldMission.id) },
   };
   return { act, missions };
+}
+
+/** An Act in early access: one mission so far, two on the way, and no other parts yet. */
+export const earlyActInput = {
+  act: 1,
+  title: 'Early Sample',
+  earlyAccess: true,
+  missionIds: ['early-three-rooms'],
+  upcoming: ['Reading History (sample)', 'Good Commits (sample)'],
+} satisfies ActInput;
+
+/** The early-access Act as Act 1, with its one mission: a copy of the first sample. */
+export function earlySampleAct(): { act: Act; missions: Mission[] } {
+  const mission = MissionSchema.parse({
+    ...copyOfSample('early-three-rooms', 'Three Rooms (early sample)', 'early'),
+    act: 1,
+  });
+  return { act: ActSchema.parse(earlyActInput), missions: [mission] };
 }

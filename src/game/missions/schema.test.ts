@@ -20,6 +20,7 @@ import {
   type MissionInput,
 } from './schema';
 import {
+  earlyActInput,
   sampleAct,
   sampleActInput,
   sampleMission,
@@ -39,6 +40,7 @@ const mission = (changes: Partial<MissionInput>) =>
 
 /** Takes any object, because most act tests deliberately pass data the types would refuse. */
 const act = (changes: object) => ActSchema.safeParse({ ...sampleActInput, ...changes });
+const earlyAct = (changes: object) => ActSchema.safeParse({ ...earlyActInput, ...changes });
 
 /** The first item of a list the sample data guarantees is non-empty. */
 function first<T>(items: readonly T[]): T {
@@ -305,6 +307,7 @@ describe('MissionSchema', () => {
 
 describe('ActSchema', () => {
   it('accepts the sample act and fills in defaults', () => {
+    expect(sampleAct).toMatchObject({ earlyAccess: false, upcoming: [] });
     expect(sampleAct.placementTest.passPercent).toBe(PLACEMENT_PASS_PERCENT);
     expect(sampleAct.boss.twists[0]?.apply).toEqual([]);
     const bossWithoutRules = { ...sampleActInput.boss, failIf: undefined };
@@ -313,10 +316,12 @@ describe('ActSchema', () => {
   });
 
   it('needs a placement test, a boss, and a Field Mission, naming each one missing', () => {
-    expect(problems(act({ boss: undefined }))).toEqual(['An Act needs a boss.']);
+    expect(problems(act({ boss: undefined }))).toEqual([
+      'A finished Act needs a boss. Set earlyAccess until then.',
+    ]);
     expect(problems(act({ placementTest: undefined, fieldMission: undefined }))).toEqual([
-      'An Act needs a placement test.',
-      'An Act needs a Field Mission.',
+      'A finished Act needs a placement test. Set earlyAccess until then.',
+      'A finished Act needs a Field Mission. Set earlyAccess until then.',
     ]);
   });
 
@@ -385,6 +390,45 @@ describe('ActSchema', () => {
       fieldMission: { ...field, checklist: [item, item], verifications: [check, check] },
     });
     expect(problems(result)).toEqual(['Duplicate id "commit-work".', 'Duplicate id "status".']);
+  });
+});
+
+describe('early access', () => {
+  it('ships an Act with its first missions, adding the boss and Field Mission when built', () => {
+    const early = ActSchema.parse(earlyActInput);
+    expect(early).toMatchObject({ earlyAccess: true, missionIds: ['early-three-rooms'] });
+    expect([early.placementTest, early.boss, early.fieldMission]).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    const { boss, fieldMission } = sampleActInput;
+    expect(earlyAct({ boss, fieldMission }).success).toBe(true);
+  });
+
+  it('has no placement test, because testing out would skip unbuilt missions', () => {
+    expect(problems(earlyAct({ placementTest: sampleActInput.placementTest }))).toEqual([
+      'An early-access Act has no placement test yet.',
+    ]);
+  });
+
+  it('counts upcoming missions toward the limit of 6', () => {
+    const titles = (count: number) => Array.from({ length: count }, (_, i) => `M${String(i)}`);
+    expect(earlyAct({ upcoming: titles(5) }).success).toBe(true);
+    expect(problems(earlyAct({ missionIds: ['a', 'b'], upcoming: titles(5) }))).toEqual([
+      'An Act has at most 6 missions, counting the upcoming ones.',
+    ]);
+  });
+
+  it('must be over before an Act is finished: every part, and nothing upcoming', () => {
+    const setEarlyAccess = (message: string) => `${message} Set earlyAccess until then.`;
+    expect(problems(earlyAct({ earlyAccess: false }))).toEqual([
+      setEarlyAccess('A finished Act needs 3 to 6 missions.'),
+      setEarlyAccess('A finished Act needs a placement test.'),
+      setEarlyAccess('A finished Act needs a boss.'),
+      setEarlyAccess('A finished Act needs a Field Mission.'),
+      'Only an early-access Act has upcoming missions.',
+    ]);
   });
 });
 

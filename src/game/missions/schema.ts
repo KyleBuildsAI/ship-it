@@ -590,28 +590,52 @@ const PlacementSchema = z.strictObject({
   passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
 });
 
+/** DESIGN.md section 5: an Act has 3 to 6 missions. In early access it may have fewer so far. */
+const MIN_MISSIONS = 3;
+const MAX_MISSIONS = 6;
+
 /**
- * An Act's placement test, boss, and Field Mission are optional in the shape and required
- * by the refinement below, so an Act that ships before it's finished can leave out the
- * parts it doesn't have yet, and each rule can say what's missing.
+ * An Act is either finished, with every part, or in early access: it ships the missions
+ * built so far, and its boss and Field Mission once they exist. The parts are optional in
+ * the shape and required by the refinement below, so each rule can say what's missing.
  */
 export const ActSchema = z
   .strictObject({
     act: z.int().positive(),
     title: NameSchema,
-    /** DESIGN.md section 5: each Act has 3 to 6 missions. */
-    missionIds: z.array(IdSchema).min(3).max(6),
+    /** Ships before it is finished. It never counts as complete while this is true. */
+    earlyAccess: z.boolean().default(false),
+    missionIds: z.array(IdSchema).min(1).max(MAX_MISSIONS),
+    /** Titles of missions still being built, shown as "Coming soon" in early access. */
+    upcoming: z.array(NameSchema).default([]),
     placementTest: PlacementSchema.optional(),
     boss: BossSchema.optional(),
     fieldMission: FieldMissionSchema.optional(),
   })
   .superRefine((act, ctx) => {
-    const needs = (path: string, part: string) => {
-      ctx.addIssue({ code: 'custom', path: [path], message: `An Act needs ${part}.` });
+    const problem = (path: string, message: string) => {
+      ctx.addIssue({ code: 'custom', path: [path], message });
     };
+    if (act.missionIds.length + act.upcoming.length > MAX_MISSIONS) {
+      problem('upcoming', 'An Act has at most 6 missions, counting the upcoming ones.');
+    }
+    if (act.earlyAccess) {
+      // Testing out completes every mission, and some of this Act's aren't built yet.
+      if (act.placementTest !== undefined) {
+        problem('placementTest', 'An early-access Act has no placement test yet.');
+      }
+      return;
+    }
+    const needs = (path: string, part: string) => {
+      problem(path, `A finished Act needs ${part}. Set earlyAccess until then.`);
+    };
+    if (act.missionIds.length < MIN_MISSIONS) needs('missionIds', '3 to 6 missions');
     if (act.placementTest === undefined) needs('placementTest', 'a placement test');
     if (act.boss === undefined) needs('boss', 'a boss');
     if (act.fieldMission === undefined) needs('fieldMission', 'a Field Mission');
+    if (act.upcoming.length > 0) {
+      problem('upcoming', 'Only an early-access Act has upcoming missions.');
+    }
   });
 
 export type Act = z.output<typeof ActSchema>;
