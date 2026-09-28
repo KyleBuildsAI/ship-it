@@ -44,8 +44,7 @@ describe('itemTable', () => {
         folder: 'C:\\Users\\kyle\\quillwork\\api',
         rows: [
           dir('docs'),
-          // The capture script wrote this file with a bare LF inside, so it's 18 bytes.
-          { name: '.env.example', kind: 'file', hidden: false, length: 18 },
+          file('.env.example', 'PORT=\nLOG_LEVEL=\n'),
           file('package.json', '{ "name": "quillwork-api", "version": "1.0.0" }\n'),
           file('server.js', "require('dotenv').config();\n"),
         ],
