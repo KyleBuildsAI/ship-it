@@ -79,18 +79,6 @@ export interface MachineSnapshot {
   readonly tabs: ReadonlyMap<number, SnapshotTab>;
 }
 
-/**
- * What Copy-Item, Move-Item and Rename-Item announce. It's declared here because those
- * cmdlets arrive later, in chain 2, where MachineEvent gains this same shape.
- */
-export interface ItemMovedEvent {
-  readonly type: 'itemMoved';
-  readonly from: string;
-  readonly to: string;
-  readonly kind: 'file' | 'folder';
-  readonly copy: boolean;
-}
-
 export function snapshotMachine(machine: Machine): MachineSnapshot {
   const items = new Map<string, SnapshotItem>();
   // A folder goes in before what's inside it, which is what lets deletes collapse later.
@@ -134,7 +122,7 @@ function copyEnv(table: EnvTable): SnapshotEnv {
 export function diffSnapshots(
   before: MachineSnapshot,
   after: MachineSnapshot,
-  events: readonly (EngineEvent | ItemMovedEvent)[] = [],
+  events: readonly EngineEvent[] = [],
 ): MachineChange[] {
   return [
     ...diffItems(before.items, after.items, followMoves(before.items, events)),
@@ -164,7 +152,7 @@ interface Placed {
  */
 function followMoves(
   before: SnapshotItems,
-  events: readonly (EngineEvent | ItemMovedEvent)[],
+  events: readonly EngineEvent[],
 ): ReadonlyMap<string, Placed> {
   const where = new Map<string, Placed>();
   for (const path of before.keys()) where.set(path, { origin: path, copy: false });

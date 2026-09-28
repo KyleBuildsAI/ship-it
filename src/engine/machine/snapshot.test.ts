@@ -4,12 +4,7 @@ import { testDeps } from '../git/testDeps';
 import { Shell } from '../shell/shell';
 import type { EngineEvent } from '../workspace';
 import type { Machine } from './machine';
-import {
-  diffSnapshots,
-  snapshotMachine,
-  type ItemMovedEvent,
-  type MachineChange,
-} from './snapshot';
+import { diffSnapshots, snapshotMachine, type MachineChange } from './snapshot';
 import { testMachine } from './testDeps';
 
 /** A small laptop: one terminal open at home, a project, and some notes. */
@@ -30,7 +25,7 @@ function laptop(): Machine {
 /** What `act` changes on a fresh laptop, given the events it would have announced. */
 function changesAfter(
   act: (machine: Machine) => void,
-  events: readonly (EngineEvent | ItemMovedEvent)[] = [],
+  events: readonly EngineEvent[] = [],
 ): MachineChange[] {
   const machine = laptop();
   const before = snapshotMachine(machine);
