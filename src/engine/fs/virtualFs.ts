@@ -1,7 +1,8 @@
 import type { FileTree } from './fileTree';
 import { isWithin, joinPath, parentDir } from './paths';
 
-export type FsErrorCode = 'ENOENT' | 'EISDIR' | 'ENOTDIR' | 'EEXIST' | 'ENOTEMPTY';
+/** Node's names for what went wrong. EINVAL is a folder moved inside itself. */
+export type FsErrorCode = 'ENOENT' | 'EISDIR' | 'ENOTDIR' | 'EEXIST' | 'ENOTEMPTY' | 'EINVAL';
 
 /** A filesystem failure with a machine-readable code, so the shell can word its own message. */
 export class FsError extends Error {
