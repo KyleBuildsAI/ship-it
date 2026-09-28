@@ -49,13 +49,87 @@ describe('machineQueries', () => {
     expect(q.env('QUILLWORK_ENV', 'newTerminal')).toBe('dev');
   });
 
+  it('lists a folder as Get-ChildItem does: folders first, then files, by name in any case', () => {
+    const { machine, q } = laptop();
+    machine.drive.makeDir('Users/kyle/Notes/zeta');
+    machine.drive.makeDir('Users/kyle/Notes/Archive');
+    machine.drive.writeFile('Users/kyle/Notes/Plan.md', '');
+    expect(q.list('users/KYLE/notes')).toEqual([
+      { name: 'Archive', kind: 'folder' },
+      { name: 'zeta', kind: 'folder' },
+      { name: 'Plan.md', kind: 'file' },
+      { name: 'today.txt', kind: 'file' },
+    ]);
+    expect(q.list('').map((listed) => listed.name)).toEqual(['Program Files', 'Users', 'Windows']);
+  });
+
+  it('orders names by character, not by language rules, so every computer agrees', () => {
+    const { machine, q } = laptop();
+    // Word's lock file: language rules put ~ first, character order (and dir) puts it last.
+    machine.drive.writeFile('Users/kyle/Notes/~$plan.docx', '');
+    machine.drive.writeFile('Users/kyle/Notes/Plan.md', '');
+    expect(q.list('Users/kyle/Notes').map((listed) => listed.name)).toEqual([
+      'Plan.md',
+      'today.txt',
+      '~$plan.docx',
+    ]);
+  });
+
+  it('lists everything that is really there, even what a plain dir leaves out', () => {
+    const { q } = laptop();
+    // A stock laptop hides AppData, so a plain dir skips it. Grading still sees it.
+    expect(q.list('Users/kyle').map((listed) => listed.name)).toEqual([
+      'AppData',
+      'Desktop',
+      'Documents',
+      'Downloads',
+      'Notes',
+      'quillwork',
+    ]);
+  });
+
+  it('has nothing to list at a file or a missing path, and item tells those apart', () => {
+    const { machine, q } = laptop();
+    machine.drive.makeDir('Users/kyle/empty');
+    expect(q.list('Users/kyle/Notes/today.txt')).toEqual([]);
+    expect(q.list('Users/kyle/nope')).toEqual([]);
+    expect(q.list('Users/kyle/empty')).toEqual([]);
+    expect(q.item('Users/kyle/empty')).toEqual({ kind: 'folder', content: null });
+  });
+
+  it('reports every tab, where it stands, and which one is active', () => {
+    const { machine, q } = laptop();
+    expect(q.tabs()).toEqual([{ tab: 1, cwd: 'Users/kyle/Notes', active: true }]);
+    machine.openSession();
+    expect(q.tabs()).toEqual([
+      { tab: 1, cwd: 'Users/kyle/Notes', active: false },
+      { tab: 2, cwd: 'Users/kyle', active: true },
+    ]);
+    machine.activate(1);
+    expect(q.tabs().map((open) => open.active)).toEqual([true, false]);
+  });
+
+  it('keeps tab numbers when a tab closes, and reports none once all are closed', () => {
+    const { machine, q } = laptop();
+    machine.openSession();
+    machine.closeSession(1);
+    // Tab 2 stays "PS 2": numbers name tabs, they aren't positions.
+    expect(q.tabs()).toEqual([{ tab: 2, cwd: 'Users/kyle', active: true }]);
+    machine.closeSession(2);
+    expect(q.tabs()).toEqual([]);
+  });
+
   it('only looks: asking changes nothing and announces nothing', () => {
     const { machine, q } = laptop();
     const events = recordMachineEvents(machine);
     q.item('Users/kyle/Notes');
     q.env('Path', 'newTerminal');
     q.cwd();
+    q.list('Users/kyle');
+    q.list('Users/kyle/nope');
+    q.tabs();
     expect(events).toEqual([]);
     expect(machine.sessions()).toHaveLength(1);
+    expect(machine.drive.exists('Users/kyle/nope')).toBe(false);
   });
 });

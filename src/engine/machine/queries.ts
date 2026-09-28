@@ -2,6 +2,23 @@ import type { EnvScope } from './events';
 import type { Machine } from './machine';
 import { display, resolveExisting } from './winPath';
 
+/** One item inside a folder. */
+export interface ListedItem {
+  /** The name as it was created: 'Notes', not 'notes'. */
+  readonly name: string;
+  readonly kind: 'file' | 'folder';
+}
+
+/** One open terminal tab. */
+export interface TabState {
+  /** The tab's number, as the terminal shows it: PS 1, PS 2. */
+  readonly tab: number;
+  /** The folder the tab stands in, canonical, with its stored casing. */
+  readonly cwd: string;
+  /** The tab that runs the next line typed. Exactly one is, while any tab is open. */
+  readonly active: boolean;
+}
+
 /**
  * Read-only questions about the laptop, for grading. Like GitQueries, they only look:
  * asking never changes the machine or emits an event, so a checklist can ask as often as
@@ -21,6 +38,15 @@ export interface MachineQueries {
    * user, or as a terminal opened now would see it (`newTerminal`). Null when unset.
    */
   readonly env: (name: string, scope: EnvScope | 'newTerminal') => string | null;
+  /**
+   * What a folder holds, in the order Get-ChildItem prints it. Hidden items are included
+   * (a plain `dir` skips them), because grading looks at what is really on the drive.
+   * Empty for a path that isn't a folder; ask `item` to tell an empty folder from a
+   * missing one.
+   */
+  readonly list: (path: string) => readonly ListedItem[];
+  /** Every open terminal tab, in the order they were opened. */
+  readonly tabs: () => readonly TabState[];
 }
 
 export function machineQueries(machine: Machine): MachineQueries {
@@ -46,5 +72,37 @@ export function machineQueries(machine: Machine): MachineQueries {
           return machine.newTerminalEnv().get(name);
       }
     },
+    list: (path) => {
+      const folder = resolveExisting(machine.drive, path);
+      if (folder === null || !machine.drive.isDir(folder)) return [];
+      return machine.drive
+        .listDir(folder)
+        .map((entry): ListedItem => ({
+          name: entry.name,
+          kind: entry.kind === 'dir' ? 'folder' : 'file',
+        }))
+        .sort(foldersFirstByName);
+    },
+    tabs: () => {
+      const open = machine.sessions();
+      // active() throws when no tab is open, so only ask it when one is.
+      const activeId = open.length > 0 ? machine.active().id : null;
+      return open.map((session) => ({
+        tab: session.id,
+        cwd: session.cwd,
+        active: session.id === activeId,
+      }));
+    },
   };
+}
+
+/**
+ * Folders first, then files, each by name ignoring case, as Get-ChildItem lists them. The
+ * compare is plain character order rather than the computer's language rules, so the
+ * order is the same on every machine. Two names in one folder never match ignoring case
+ * (the drive is like NTFS), so there is never a tie.
+ */
+function foldersFirstByName(a: ListedItem, b: ListedItem): number {
+  if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
+  return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
 }
