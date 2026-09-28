@@ -3,13 +3,7 @@ import { line, type OutputLine } from '../../../git/cli/output';
 import type { Machine, Session } from '../../../machine/machine';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
 import type { Bound } from '../bind';
-import {
-  itemTable,
-  nameValueTable,
-  windowsLength,
-  type ItemRow,
-  type ItemSection,
-} from '../format';
+import { itemRow, itemTable, nameValueTable, type ItemRow, type ItemSection } from '../format';
 import type { Cmdlet } from '../registry';
 
 /** What the listing keeps, from the switches. */
@@ -143,7 +137,7 @@ function listItems(
     );
   }
   if (machine.drive.isFile(found)) {
-    const row = rowFor(machine, found);
+    const row = itemRow(machine.drive, found);
     if (keeps(row, options)) {
       sections.push({ folder: display(parentDir(found)), rows: [row] });
       names.push(row.name);
@@ -175,7 +169,7 @@ function walk(
 ): void {
   const children = machine.drive
     .listDir(dir)
-    .map((entry) => rowFor(machine, joinPath(dir, entry.name)))
+    .map((entry) => itemRow(machine.drive, joinPath(dir, entry.name)))
     .filter((row) => options.showHidden || !row.hidden)
     .sort(byKindThenName);
   const rows = children.filter((row) => keeps(row, options));
@@ -187,17 +181,6 @@ function walk(
     const inside = relative === '' ? child.name : `${relative}\\${child.name}`;
     walk(machine, joinPath(dir, child.name), inside, level + 1, options, sections, names);
   }
-}
-
-function rowFor(machine: Machine, path: string): ItemRow {
-  const isDir = machine.drive.isDir(path);
-  return {
-    name: baseName(path),
-    kind: isDir ? 'dir' : 'file',
-    hidden: machine.drive.isHidden(path),
-    readOnly: machine.drive.isReadOnly(path),
-    length: isDir ? 0 : windowsLength(machine.drive.readFile(path)),
-  };
 }
 
 function keeps(row: ItemRow, options: Options): boolean {
