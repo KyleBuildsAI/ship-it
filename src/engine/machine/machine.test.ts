@@ -20,7 +20,7 @@ describe('Machine', () => {
     const first = machine.openSession();
     const second = machine.openSession();
 
-    expect(first).toMatchObject({ id: 1, pid: 9000, cwd: 'Users/kyle' });
+    expect(first).toMatchObject({ id: 1, pid: 9000, cwd: 'Users/kyle', previousCwd: null });
     expect(second).toMatchObject({ id: 2, pid: 9004 });
     expect(machine.active()).toBe(second);
     expect(events).toEqual([
@@ -152,8 +152,92 @@ describe('Machine', () => {
     expect(machine.saved.machine.get('JAVA_HOME')).toBe('C:\\jdk');
   });
 
+  it('moves a tab and remembers where it was, for cd -', () => {
+    const machine = testMachine();
+    const tab = machine.openSession();
+    const events = recordMachineEvents(machine);
+    machine.setLocation(tab.id, 'Users/kyle/quillwork', 'relative');
+
+    expect(tab).toMatchObject({ cwd: 'Users/kyle/quillwork', previousCwd: 'Users/kyle' });
+    expect(events).toEqual([
+      {
+        type: 'cwdChanged',
+        session: 1,
+        from: 'Users/kyle',
+        to: 'Users/kyle/quillwork',
+        via: 'relative',
+      },
+    ]);
+  });
+
+  it('closes tabs, handing the keyboard to the most recent one left', () => {
+    const machine = testMachine();
+    machine.openSession();
+    machine.openSession();
+    machine.openSession();
+    machine.activate(2);
+    const events = recordMachineEvents(machine);
+    machine.closeSession(2);
+
+    expect(machine.sessions().map((tab) => tab.id)).toEqual([1, 3]);
+    expect(machine.active().id).toBe(3);
+    expect(events).toEqual([
+      { type: 'sessionClosed', session: 2 },
+      { type: 'sessionActivated', session: 3 },
+    ]);
+  });
+
+  it('closing a background tab leaves the active one alone', () => {
+    const machine = testMachine();
+    machine.openSession();
+    machine.openSession();
+    machine.closeSession(1);
+
+    expect(machine.active().id).toBe(2);
+  });
+
+  it('has no active tab once the last one closes', () => {
+    const machine = testMachine();
+    machine.closeSession(machine.openSession().id);
+
+    expect(() => machine.active()).toThrow('No terminal is open.');
+  });
+
+  it('switching to the tab already active changes nothing', () => {
+    const machine = testMachine();
+    machine.openSession();
+    const events = recordMachineEvents(machine);
+    machine.activate(1);
+
+    expect(events).toEqual([]);
+  });
+
   it('refuses a tab that is not open', () => {
-    expect(() => testMachine().session(4)).toThrow('No terminal tab 4 is open.');
+    const machine = testMachine();
+
+    expect(() => {
+      machine.activate(4);
+    }).toThrow('No terminal tab 4 is open.');
+    expect(() => {
+      machine.closeSession(4);
+    }).toThrow('No terminal tab 4 is open.');
+  });
+
+  it('restarts every tab: same numbers, new processes, home again, fresh variables', () => {
+    const machine = testMachine();
+    const tab = machine.openSession();
+    machine.setEnv('session', 'DATABASE_URL', 'postgres://localhost/dev');
+    machine.setLocation(tab.id, 'Users/kyle/quillwork', 'relative');
+    machine.setEnv('user', 'EDITOR', 'code');
+    const events = recordMachineEvents(machine);
+    machine.restartTerminals();
+
+    const [restarted] = machine.sessions();
+    expect(restarted).toMatchObject({ id: 1, cwd: 'Users/kyle', previousCwd: null });
+    expect(restarted?.pid).not.toBe(tab.pid);
+    expect(restarted?.env.get('DATABASE_URL')).toBeNull();
+    expect(restarted?.env.get('EDITOR')).toBe('code');
+    expect(events).toEqual([{ type: 'terminalsRestarted' }]);
   });
 });
 

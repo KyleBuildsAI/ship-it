@@ -12,6 +12,8 @@ export interface Session {
   readonly pid: number;
   /** Canonical, like 'Users/kyle'. */
   cwd: string;
+  /** Where `cd -` goes back to. */
+  previousCwd: string | null;
   readonly env: EnvTable;
 }
 
@@ -100,12 +102,51 @@ export class Machine {
       id: this.nextSessionId++,
       pid: this.allocatePid(),
       cwd: this.home,
+      previousCwd: null,
       env: this.newTerminalEnv(),
     };
     this.tabs.push(session);
     this.activeId = session.id;
     this.events.emit({ type: 'sessionOpened', session: session.id });
     return session;
+  }
+
+  /** Closes a tab. If it was the active one, the most recently opened tab left takes over. */
+  closeSession(id: number): void {
+    const index = this.tabs.findIndex((tab) => tab.id === id);
+    if (index === -1) throw new Error(`No terminal tab ${String(id)} is open.`);
+    this.tabs.splice(index, 1);
+    this.events.emit({ type: 'sessionClosed', session: id });
+    if (this.activeId === id) {
+      const next = this.tabs.at(-1);
+      this.activeId = next?.id ?? null;
+      if (next) this.events.emit({ type: 'sessionActivated', session: next.id });
+    }
+  }
+
+  activate(id: number): void {
+    this.session(id);
+    if (this.activeId === id) return;
+    this.activeId = id;
+    this.events.emit({ type: 'sessionActivated', session: id });
+  }
+
+  /**
+   * Every tab closes and reopens, as after Windows Update restarts the terminals: same tab
+   * numbers, new processes, back in the home folder, with freshly copied variables.
+   * Anything that lived only in a tab (a `$env:` note, a folder you'd walked to) is gone.
+   */
+  restartTerminals(): void {
+    for (const [index, tab] of this.tabs.entries()) {
+      this.tabs[index] = {
+        id: tab.id,
+        pid: this.allocatePid(),
+        cwd: this.home,
+        previousCwd: null,
+        env: this.newTerminalEnv(),
+      };
+    }
+    this.events.emit({ type: 'terminalsRestarted' });
   }
 
   /**
@@ -143,6 +184,15 @@ export class Machine {
       [machinePath, userPath].filter((part): part is string => part !== null).join(';'),
     );
     return env;
+  }
+
+  /** Moves a tab to another folder, remembering where it was for `cd -`. */
+  setLocation(sessionId: number, path: string, via: 'relative' | 'absolute' | 'home' | 'back') {
+    const session = this.session(sessionId);
+    const from = session.cwd;
+    session.previousCwd = from;
+    session.cwd = path;
+    this.events.emit({ type: 'cwdChanged', session: sessionId, from, to: path, via });
   }
 
   /**
