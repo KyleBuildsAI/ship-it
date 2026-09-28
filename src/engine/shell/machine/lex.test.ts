@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { lex, LexError, type LexToken, type WordPart } from './lex';
 
-/** A readable form of each token: words as their text, operators in <angle brackets>. */
+/**
+ * A readable form of each token: words as their text, operators in <angle brackets>, and
+ * variables in {braces}, which bare text can't contain.
+ */
 function show(input: string): string[] {
   return lex(input).map((token) => {
     switch (token.kind) {
       case 'word':
-        return token.parts.map((part) => part.text).join('');
+        return token.parts
+          .map((part) => (part.kind === 'text' ? part.text : `{$${part.name}}`))
+          .join('');
       case 'redirect':
         return `${token.stream === 'error' ? '2' : ''}${token.append ? '>>' : '>'}`;
       default:
@@ -113,6 +118,69 @@ describe('lex: words and quotes', () => {
   });
 });
 
+describe('lex: variables', () => {
+  it('names variables outside and inside double quotes, but not in single quotes', () => {
+    expect(parts('$env:USERPROFILE\\Desktop')).toEqual([
+      { kind: 'variable', name: 'env:USERPROFILE' },
+      { kind: 'text', text: '\\Desktop', quoted: false },
+    ]);
+    expect(parts('"$HOME\\notes"')).toEqual([
+      { kind: 'text', text: '', quoted: true },
+      { kind: 'variable', name: 'HOME' },
+      { kind: 'text', text: '\\notes', quoted: true },
+    ]);
+    expect(parts("'$HOME'")).toEqual([{ kind: 'text', text: '$HOME', quoted: true }]);
+  });
+
+  it('keeps an escaped `$ as text', () => {
+    expect(show('echo `$HOME "`$HOME"')).toEqual(['echo', '$HOME', '$HOME']);
+  });
+
+  it('joins a variable and the quotes after it into one word', () => {
+    expect(show('echo $HOME"\\x" "$HOME"\\Desktop')).toEqual([
+      'echo',
+      '{$HOME}\\x',
+      '{$HOME}',
+      '\\Desktop',
+    ]);
+  });
+
+  it('reads ${braced} names, the specials, and ? inside a name', () => {
+    expect(show('echo ${env:ProgramFiles(x86)} $? $$ $^ $ok?')).toEqual([
+      'echo',
+      '{$env:ProgramFiles(x86)}',
+      '{$?}',
+      '{$$}',
+      '{$^}',
+      '{$ok?}',
+    ]);
+  });
+
+  it('reads a name before a colon as a drive: $env:Path, and $HOME:x', () => {
+    expect(show('echo $envx $env:Path $HOME:x $a::b')).toEqual([
+      'echo',
+      '{$envx}',
+      '{$env:Path}',
+      '{$HOME:x}',
+      '{$a}::b',
+    ]);
+  });
+
+  it('keeps a $ with no name after it as text', () => {
+    expect(show('echo $ "costs $"')).toEqual(['echo', '$', 'costs $']);
+    expect(parts('"costs $"')).toEqual([{ kind: 'text', text: 'costs $', quoted: true }]);
+  });
+
+  it("refuses the variable forms PowerShell refuses, in PowerShell's words", () => {
+    expect(lexError('echo "$HOME: is home"').message).toBe(
+      "Variable reference is not valid. ':' was not followed by a valid variable name character. Consider using ${} to delimit the name.",
+    );
+    expect(lexError('echo "$HOME: is home"').hint).toContain('${HOME}:');
+    expect(lexError('echo ${}').message).toContain('An empty ${} variable reference');
+    expect(lexError('echo ${env:Path').message).toContain("missing its closing '}'");
+  });
+});
+
 describe('lex: operators', () => {
   it('reads pipes, statement ends, lists, groups and the call operator', () => {
     expect(show('Get-Process node | Stop-Process; cd ~')).toEqual([
@@ -143,7 +211,7 @@ describe('lex: operators', () => {
     expect(show('echo hi >>a.txt')).toEqual(['echo', 'hi', '>>', 'a.txt']);
     expect(show('echo "hi">a.txt')).toEqual(['echo', 'hi', '>', 'a.txt']);
     expect(show('echo hi 1>a.txt')).toEqual(['echo', 'hi', '>', 'a.txt']);
-    expect(show('where.exe nope 2>$null')).toEqual(['where.exe', 'nope', '2>', '$null']);
+    expect(show('where.exe nope 2>$null')).toEqual(['where.exe', 'nope', '2>', '{$null}']);
     expect(show('npm run dev 2>> errors.log > out.log')).toEqual([
       'npm',
       'run',
@@ -179,8 +247,13 @@ describe('lex: errors', () => {
     );
   });
 
-  it('points script blocks at what to type instead', () => {
-    for (const line of ['Get-Process | Where-Object { $_.CPU -gt 1 }', 'git show HEAD@{1}']) {
+  it('points script blocks and $( ) at what to type instead', () => {
+    for (const line of [
+      'Get-Process | Where-Object { $_.CPU -gt 1 }',
+      'echo $(pwd)',
+      'echo "in $(pwd)"',
+      'git show HEAD@{1}',
+    ]) {
       const error = lexError(line);
       expect(error.message).toBe("This sandbox doesn't run script blocks.");
       expect(error.hint).toContain("'HEAD@{1}'");

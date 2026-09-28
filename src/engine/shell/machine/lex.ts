@@ -2,12 +2,12 @@
  * One piece of a word. Text is final: quotes are gone and backtick escapes are applied.
  * `quoted` matters to the parameter binder: -Force is a parameter, but '-Force' and
  * `-Force are just text. So text from quotes or from a backtick escape is quoted.
+ * A variable is only named here; the shell expands it later, because only the terminal
+ * tab knows its value.
  */
-export interface WordPart {
-  readonly kind: 'text';
-  readonly text: string;
-  readonly quoted: boolean;
-}
+export type WordPart =
+  | { readonly kind: 'text'; readonly text: string; readonly quoted: boolean }
+  | { readonly kind: 'variable'; readonly name: string };
 
 export type LexToken =
   | { readonly kind: 'word'; readonly parts: readonly WordPart[] }
@@ -71,15 +71,23 @@ const ESCAPES: Readonly<Record<string, string>> = {
   v: '\v',
 };
 
+/**
+ * A variable's name: letters, digits, _ and ? ($name? is one name in PowerShell 7). A name
+ * followed by a colon and more name is drive-qualified, like $env:Path; after the drive,
+ * a single colon stays in the name and :: ends it.
+ */
+const VARIABLE = /^[\p{L}\p{Nd}_?]+(?::(?=[\p{L}\p{Nd}_?])(?:[\p{L}\p{Nd}_?]|:(?!:))*)?/u;
+
 const isSpace = (char: string) => /\s/.test(char);
 
 /**
  * Splits a line into tokens the way PowerShell reads a command line. 'Single quotes' keep
- * text exactly ('' is one quote). "Double quotes" apply backtick escapes (`n, `t, `").
- * Outside quotes, whitespace separates words, a backtick escapes the next character, and
- * # starts a comment. A word that starts with a quote ends where the quote closes, so
- * "C:\Program Files"\nodejs is two words, as in PowerShell. Throws a LexError for an
- * unclosed quote and for syntax this sandbox doesn't run, like { }.
+ * text exactly ('' is one quote). "Double quotes" name variables and apply backtick
+ * escapes (`n, `t, `", `$). Outside quotes, whitespace separates words, $name is a
+ * variable, a backtick escapes the next character, and # starts a comment. A word that
+ * starts with a quote ends where the quote closes, so "C:\Program Files"\nodejs is two
+ * words, as in PowerShell. Throws a LexError for an unclosed quote and for syntax this
+ * sandbox doesn't run, like { } and $( ).
  */
 export function lex(input: string): LexToken[] {
   const tokens: LexToken[] = [];
@@ -150,6 +158,10 @@ class PartList {
       this.parts.push({ kind: 'text', text, quoted });
     }
   }
+
+  variable(name: string): void {
+    this.parts.push({ kind: 'variable', name });
+  }
 }
 
 function readWord(input: string, start: number): { parts: WordPart[]; end: number } {
@@ -167,6 +179,8 @@ function readWord(input: string, start: number): { parts: WordPart[]; end: numbe
       if (opensWord) break;
     } else if (char === '`') {
       index = readEscape(input, index, parts);
+    } else if (char === '$') {
+      index = readVariable(input, index, parts, false);
     } else {
       parts.text(char, false);
       index++;
@@ -211,6 +225,8 @@ function readDoubleQuoted(input: string, start: number, parts: PartList): number
       return index + 1;
     } else if (char === '`') {
       index = readEscape(input, index, parts);
+    } else if (char === '$') {
+      index = readVariable(input, index, parts, true);
     } else {
       parts.text(char, true);
       index++;
@@ -227,6 +243,48 @@ function readEscape(input: string, start: number, parts: PartList): number {
     );
   parts.text(ESCAPES[next] ?? next, true);
   return start + 2;
+}
+
+/** A variable, or a plain $ when no name follows it (echo $ prints $). */
+function readVariable(input: string, start: number, parts: PartList, quoted: boolean): number {
+  const next = input.charAt(start + 1);
+  if (next === '(') throw scriptBlocks();
+  if (next === '{') return readBracedVariable(input, start, parts);
+  if (next === '$' || next === '^') {
+    parts.variable(next);
+    return start + 2;
+  }
+  const name = VARIABLE.exec(input.slice(start + 1))?.[0];
+  if (name === undefined) {
+    parts.text('$', quoted);
+    return start + 1;
+  }
+  const end = start + 1 + name.length;
+  // "$HOME:" reads as a drive with no name after it, which PowerShell refuses.
+  if (input.charAt(end) === ':' && input.charAt(end + 1) !== ':')
+    throw new LexError(
+      "Variable reference is not valid. ':' was not followed by a valid variable name character. Consider using ${} to delimit the name.",
+      `Put the name in braces so the colon stays text: \${${name}}:`,
+    );
+  parts.variable(name);
+  return end;
+}
+
+/** ${name}: any characters up to the closing brace, like ${env:ProgramFiles(x86)}. */
+function readBracedVariable(input: string, start: number, parts: PartList): number {
+  const close = input.indexOf('}', start + 2);
+  if (close === -1)
+    throw new LexError(
+      "The variable name that starts with ${ is missing its closing '}'.",
+      'Close it like this: ${env:ProgramFiles(x86)}',
+    );
+  if (close === start + 2)
+    throw new LexError(
+      'An empty ${} variable reference was found. A name is required inside the braces.',
+      'Put the name inside the braces: ${HOME}',
+    );
+  parts.variable(input.slice(start + 2, close));
+  return close + 1;
 }
 
 function unterminated(quote: string): LexError {
