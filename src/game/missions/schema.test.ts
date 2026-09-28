@@ -146,6 +146,43 @@ describe('PredicateSchema', () => {
       'A file that must not exist cannot also have content to check.',
     ]);
   });
+
+  it('accepts the four laptop checks with every option', () => {
+    const checks = [
+      { kind: 'currentDirectory', path: 'Users/kyle' },
+      { kind: 'currentDirectory', path: 'Users/kyle', tab: 2 },
+      { kind: 'currentDirectory', path: 'Users/kyle', tab: 'any' },
+      { kind: 'driveFolder', path: 'Users/kyle/notes', exists: false },
+      { kind: 'driveFile', path: 'Users/kyle/a.txt', equals: '', label: 'a.txt is empty' },
+      { kind: 'driveFile', path: 'Users/kyle/a.txt', contains: 'x', pattern: '^x', flags: 'i' },
+      { kind: 'envVar', name: 'PORT', scope: 'newTerminal', equals: '4000' },
+      { kind: 'envVar', name: 'ProgramFiles(x86)', scope: 'machine', exists: false },
+    ];
+    for (const check of checks) expect(PredicateSchema.parse(check)).toEqual(check);
+  });
+
+  it('rejects laptop checks that could never pass or would be ignored', () => {
+    const check = (value: object) => problems(PredicateSchema.safeParse(value));
+    const file = { kind: 'driveFile', path: 'Users/kyle/a.txt' };
+    expect(check({ ...file, exists: false, contains: 'x' })).toEqual([
+      'A file that must not exist cannot also have content to check.',
+    ]);
+    expect(check({ ...file, flags: 'i' })).toEqual(['flags need a pattern.']);
+    expect(check({ ...file, pattern: '(unclosed' })[0]).toMatch(/^Invalid regex: /);
+    const port = { kind: 'envVar', name: 'PORT' };
+    expect(check({ ...port, exists: false, equals: '4000' })).toEqual([
+      'A variable that must be unset cannot also have a value to check.',
+    ]);
+    // Windows deletes a variable set to '', so "equals ''" could never pass.
+    expect(PredicateSchema.safeParse({ ...port, equals: '' }).success).toBe(false);
+    expect(PredicateSchema.safeParse({ ...port, scope: 'newterminal' }).success).toBe(false);
+    expect(PredicateSchema.safeParse({ ...port, name: 'MY PORT' }).success).toBe(false);
+    const here = { kind: 'currentDirectory', path: 'Users/kyle' };
+    for (const tab of [0, 1.5, 'all']) {
+      expect(PredicateSchema.safeParse({ ...here, tab }).success).toBe(false);
+    }
+    expect(PredicateSchema.safeParse({ ...here, path: 'C:\\Users\\kyle' }).success).toBe(false);
+  });
 });
 
 describe('regexProblem', () => {

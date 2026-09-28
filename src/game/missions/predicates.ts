@@ -1,5 +1,19 @@
 import type { GitQueries } from '../../engine/git/queries';
 import type { Commit } from '../../engine/git/types';
+import type { MachineQueries } from '../../engine/machine/queries';
+import {
+  describeMachine,
+  evaluateMachine,
+  isMachinePredicate,
+  requireMachine,
+  type MachinePredicate,
+} from './machinePredicates';
+
+/**
+ * What a check can ask about a sandbox: git's view of the project, and in an Act 1
+ * sandbox, the laptop's too. Act 2's `gitQueries(ws)` still fits, with no machine.
+ */
+export type SandboxQueries = GitQueries & { readonly machine?: MachineQueries };
 
 /**
  * The mission success language. A predicate is plain data that describes a state of the
@@ -63,7 +77,9 @@ export type Predicate =
   | { kind: 'headMessageIs'; message: string; label?: string }
   | { kind: 'all'; of: Predicate[]; label?: string }
   | { kind: 'any'; of: Predicate[]; label?: string }
-  | { kind: 'not'; predicate: Predicate; label?: string };
+  | { kind: 'not'; predicate: Predicate; label?: string }
+  /** Act 1's laptop checks, graded in `machinePredicates.ts`. */
+  | MachinePredicate;
 
 export type PredicateKind = Predicate['kind'];
 
@@ -160,7 +176,8 @@ function allMessagesMatch(q: GitQueries, pattern: string, flags?: string, last?:
 }
 
 /** Is the predicate true of the sandbox right now? */
-export function evaluate(predicate: Predicate, q: GitQueries): boolean {
+export function evaluate(predicate: Predicate, q: SandboxQueries): boolean {
+  if (isMachinePredicate(predicate)) return evaluateMachine(predicate, requireMachine(q.machine));
   switch (predicate.kind) {
     case 'isRepo':
       return q.isRepo();
@@ -255,9 +272,16 @@ function commitName(ref: string | undefined): string {
   return ref === undefined || ref === 'HEAD' ? 'The latest commit' : `Commit ${ref}`;
 }
 
-/** A short plain-English sentence for the objective checklist, e.g. "Working tree is clean". */
-export function describe(predicate: Predicate): string {
+/**
+ * A short plain-English sentence for the objective checklist, e.g. "Working tree is clean".
+ * `display` shows a laptop path the way Windows prints it (C:\Users\kyle\notes).
+ */
+export function describe(
+  predicate: Predicate,
+  display: (path: string) => string = (path) => path,
+): string {
   if (predicate.label !== undefined) return predicate.label;
+  if (isMachinePredicate(predicate)) return describeMachine(predicate, display);
   switch (predicate.kind) {
     case 'isRepo':
       return 'This folder is a git repository';
@@ -309,14 +333,14 @@ export function describe(predicate: Predicate): string {
     case 'any':
       return 'At least one of these is true';
     case 'not':
-      return `Not true: ${describe(predicate.predicate)}`;
+      return `Not true: ${describe(predicate.predicate, display)}`;
   }
 }
 
 // ---- Objective checklist ----------------------------------------------------------
 
-function explainOne(predicate: Predicate, q: GitQueries): CheckRow {
-  const row = { label: describe(predicate), passed: evaluate(predicate, q) };
+function explainOne(predicate: Predicate, q: SandboxQueries): CheckRow {
+  const row = { label: describe(predicate, q.machine?.display), passed: evaluate(predicate, q) };
   if (predicate.kind === 'all' || predicate.kind === 'any') {
     return { ...row, children: predicate.of.map((child) => explainOne(child, q)) };
   }
@@ -328,7 +352,7 @@ function explainOne(predicate: Predicate, q: GitQueries): CheckRow {
  * An unlabelled `all` at the top is how missions list several objectives, so each of its
  * children becomes its own row instead of one "All of these are true" row.
  */
-export function explain(predicate: Predicate, q: GitQueries): CheckRow[] {
+export function explain(predicate: Predicate, q: SandboxQueries): CheckRow[] {
   if (predicate.kind === 'all' && predicate.label === undefined) {
     return predicate.of.map((child) => explainOne(child, q));
   }
