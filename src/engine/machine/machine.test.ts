@@ -56,6 +56,36 @@ describe('Machine', () => {
     expect(env.has('Path')).toBe(false);
   });
 
+  it('expands the Machine scope before any User variable exists, as Windows does', () => {
+    const machine = new Machine({
+      user: 'kyle',
+      computer: 'QUILL-LT-7',
+      saved: { machine: { Path: 'C:\\%TOOLS%\\bin' }, user: { TOOLS: 'tools' } },
+    });
+
+    expect(machine.newTerminalEnv().get('Path')).toBe('C:\\%TOOLS%\\bin');
+  });
+
+  it('sets plain values before expanding the others, whatever their names', () => {
+    const machine = new Machine({
+      user: 'kyle',
+      computer: 'QUILL-LT-7',
+      saved: { user: { A_HOME: '%Z_ROOT%\\a', Z_ROOT: 'C:\\z' } },
+    });
+
+    expect(machine.newTerminalEnv().get('A_HOME')).toBe('C:\\z\\a');
+  });
+
+  it("never expands a value saved as plain text, like SetEnvironmentVariable's", () => {
+    const machine = testMachine();
+    machine.setEnv('user', 'Path', '%USERPROFILE%\\bin');
+
+    // The real trap: a tool rewrote the User Path as plain text, and %USERPROFILE% broke.
+    expect(machine.newTerminalEnv().get('Path')).toContain(';%USERPROFILE%\\bin');
+    machine.setEnv('user', 'Path', '%USERPROFILE%\\bin', { expand: true });
+    expect(machine.newTerminalEnv().get('Path')).toContain(';C:\\Users\\kyle\\bin');
+  });
+
   it('keeps a tab on the variables it copied when it opened', () => {
     const machine = testMachine();
     const old = machine.openSession();
@@ -87,11 +117,16 @@ describe('Machine', () => {
     const events = recordMachineEvents(machine);
     machine.setEnv('session', 'FEATURE_X', 'on');
     machine.setEnv('session', 'FEATURE_X', '');
+    expect(tab.env.get('FEATURE_X')).toBeNull();
+    machine.setEnv('session', 'FEATURE_X', 'on');
     machine.setEnv('session', 'FEATURE_X', null);
-
     expect(tab.env.get('FEATURE_X')).toBeNull();
     // Removing what's already gone changes nothing, so it announces nothing.
+    machine.setEnv('session', 'FEATURE_X', null);
+
     expect(events.map((event) => event.type === 'envChanged' && event.change)).toEqual([
+      'set',
+      'removed',
       'set',
       'removed',
     ]);

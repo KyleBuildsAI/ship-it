@@ -29,6 +29,8 @@ export interface MachineOptions {
 export interface SetEnvOptions {
   readonly session?: number;
   readonly admin?: boolean;
+  /** Save as expandable (REG_EXPAND_SZ) rather than plain text. Saved scopes only. */
+  readonly expand?: boolean;
 }
 
 /** New process ids count up from here in steps of 4, as Windows hands them out. */
@@ -123,16 +125,23 @@ export class Machine {
       COMPUTERNAME: this.computer,
     });
     const expand = (value: string) => expandPercent(value, (name) => env.get(name));
-    for (const scope of [this.saved.machine, this.saved.user]) {
-      for (const { name, value } of scope.entries()) {
-        if (name.toUpperCase() !== 'PATH') env.set(name, expand(value));
-      }
-    }
-    const path = [this.saved.machine.get('Path'), this.saved.user.get('Path')]
-      .filter((part): part is string => part !== null)
-      .map(expand)
-      .join(';');
-    env.set('Path', path);
+    // Windows' order: the Machine scope first, then the User scope. Within each, plain
+    // values are set before expandable ones expand, so a reference to a plain variable
+    // always resolves; and a scope's Path expands before the next scope exists.
+    const applyScope = (scope: EnvTable): string | null => {
+      const entries = scope.entries().filter(({ name }) => name.toUpperCase() !== 'PATH');
+      for (const { name, value } of entries) if (!scope.expands(name)) env.set(name, value);
+      for (const { name, value } of entries) if (scope.expands(name)) env.set(name, expand(value));
+      const path = scope.get('Path');
+      if (path === null) return null;
+      return scope.expands('Path') ? expand(path) : path;
+    };
+    const machinePath = applyScope(this.saved.machine);
+    const userPath = applyScope(this.saved.user);
+    env.set(
+      'Path',
+      [machinePath, userPath].filter((part): part is string => part !== null).join(';'),
+    );
     return env;
   }
 
@@ -155,7 +164,7 @@ export class Machine {
     const before = table.get(name);
     const after = value === '' ? null : value;
     if (after === null) table.delete(name);
-    else table.set(name, after);
+    else table.set(name, after, { expand: options.expand === true });
     if (before !== after) {
       const change = after === null ? 'removed' : 'set';
       this.events.emit({ type: 'envChanged', scope, session, name, change });
