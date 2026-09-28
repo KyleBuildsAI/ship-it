@@ -424,6 +424,39 @@ describe('validateAct on a directed mission', () => {
       onGit('sample-approve-notes', 'driveFile'),
     ]);
   });
+
+  it("finds a laptop check in a fix's failIf, even when its goal checks git", () => {
+    const goal: Predicate = { kind: 'isRepo' };
+    const failIf: Predicate[] = [{ kind: 'driveFolder', path: 'Users/kyle/api' }];
+    const drills = directedMission.drills.map((drill) =>
+      drill.id === 'sample-fix-cd' ? { ...drill, setup: repo().toSpec(), goal, failIf } : drill,
+    );
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      {
+        where: 'mission sample-where-things-live > drill sample-fix-cd',
+        problem:
+          '"driveFolder" checks the laptop, so the drill\'s setup must start with windows().',
+      },
+    ]);
+  });
+
+  it("holds the labels in a judgment drill's answer key to 60 words", () => {
+    const label = words(61);
+    const changed: Record<string, object> = {
+      'sample-fix-cd': { failIf: [{ kind: 'driveFolder', path: 'Users/kyle/api', label }] },
+      'sample-approve-stray': {
+        guards: [{ kind: 'driveFile', path: 'Users/kyle/quillwork/api/package.json', label }],
+      },
+    };
+    const drills = directedMission.drills.map((drill) => ({ ...drill, ...changed[drill.id] }));
+    const at = 'mission sample-where-things-live > drill';
+    const over = { problem: '61 words; the limit is 60.' };
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      // The fix's goal has no label, so the label in its failIf is the first.
+      { where: `${at} sample-fix-cd > label 1`, ...over },
+      { where: `${at} sample-approve-stray > label 1`, ...over },
+    ]);
+  });
 });
 
 describe('validateCatalog', () => {
