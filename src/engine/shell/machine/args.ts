@@ -5,7 +5,17 @@ import type { LexToken, WordPart } from './lex';
  * Values joined by commas arrive as one value with several items: node, npm.
  */
 export type Arg =
-  | { readonly kind: 'parameter'; readonly name: string; readonly value: readonly string[] | null }
+  | {
+      readonly kind: 'parameter';
+      readonly name: string;
+      readonly value: readonly string[] | null;
+      /**
+       * Set when the value after the colon was $true, $false, $null or a bare number: the
+       * only values a switch takes. -Force:$false is off, but -Force:false is text, and
+       * PowerShell refuses it.
+       */
+      readonly switchValue?: boolean | number;
+    }
   | { readonly kind: 'value'; readonly items: readonly string[] };
 
 /** A command PowerShell refuses before it runs, like a parameter it doesn't have. */
@@ -26,7 +36,12 @@ export function bindError(message: string, ...hints: string[]): BindError {
  */
 const PARAMETER = /^[-–—―]([\p{L}_?][^:]*)(?::(.*))?$/su;
 
-const MISSING_AFTER_COMMA = "Missing expression after ','.";
+/** A number as PowerShell reads one bare: 1, +2, 1.5, 0x10. */
+const NUMBER = /^[+-]?(\d+(\.\d*)?|\.\d+|0x[0-9a-f]+)$/i;
+
+// PowerShell's parser messages for a comma with nothing on one side.
+const MISSING_ARGUMENT = 'Missing argument in parameter list.';
+const MISSING_AFTER_COMMA = "Missing expression after ',' in pipeline element.";
 
 /**
  * Turns a command's words and commas into Args. `expand` gives a variable's value. Only a
@@ -40,38 +55,80 @@ export function toArgs(
     parts.map((part) => (part.kind === 'text' ? part.text : expand(part.name))).join('');
   const args: Arg[] = [];
   let joining = false;
+  // After a bare `-Name:`, the next word is its value, even one that starts with -.
+  let colonWaiting = false;
   for (const token of tokens) {
+    const last = args.at(-1);
     if (token.kind === 'comma') {
-      const last = args.at(-1);
-      if (joining || last === undefined || (last.kind === 'parameter' && last.value === null))
-        return bindError(MISSING_AFTER_COMMA);
+      if (joining) return bindError(MISSING_AFTER_COMMA);
+      if (last === undefined || colonWaiting || (last.kind === 'parameter' && last.value === null))
+        return bindError(MISSING_ARGUMENT);
       joining = true;
       continue;
     }
     if (token.kind !== 'word') throw new Error(`toArgs takes words and commas, not ${token.kind}`);
-    const last = args.at(-1);
     if (joining && last !== undefined) {
       args[args.length - 1] = withItem(last, text(token.parts));
       joining = false;
+      continue;
+    }
+    if (colonWaiting && last?.kind === 'parameter') {
+      args[args.length - 1] = attach(last.name, token.parts, text);
+      colonWaiting = false;
       continue;
     }
     const [first, ...rest] = token.parts;
     const match = first?.kind === 'text' && !first.quoted ? PARAMETER.exec(first.text) : null;
     const name = match?.[1];
     const attached = match?.[2];
-    if (name !== undefined && (rest.length === 0 || attached !== undefined)) {
-      // -Path:value carries its value. A bare -Path: waits for the next word, like -Path.
-      const value = attached === undefined ? '' : attached + text(rest);
-      const waits = attached === undefined || (value === '' && rest.length === 0);
-      args.push({ kind: 'parameter', name, value: waits ? null : [value] });
-    } else {
+    if (name === undefined || (rest.length > 0 && attached === undefined)) {
       args.push({ kind: 'value', items: [text(token.parts)] });
+    } else if (attached === undefined) {
+      args.push({ kind: 'parameter', name, value: null });
+    } else if (attached === '' && rest.length === 0) {
+      args.push({ kind: 'parameter', name, value: null });
+      colonWaiting = true;
+    } else {
+      const valueParts: WordPart[] =
+        attached === '' ? rest : [{ kind: 'text', text: attached, quoted: false }, ...rest];
+      args.push(attach(name, valueParts, text));
     }
   }
-  return joining ? bindError(MISSING_AFTER_COMMA) : args;
+  if (joining)
+    return bindError(
+      MISSING_AFTER_COMMA,
+      'Finish the list on this line, or remove the last comma.',
+    );
+  return args;
+}
+
+function attach(
+  name: string,
+  parts: readonly WordPart[],
+  text: (parts: readonly WordPart[]) => string,
+): Arg {
+  const switchValue = switchValueOf(parts);
+  const value = [text(parts)];
+  return switchValue === undefined
+    ? { kind: 'parameter', name, value }
+    : { kind: 'parameter', name, value, switchValue };
+}
+
+/** $true, $false and $null, or a bare number, are values a switch accepts. */
+function switchValueOf(parts: readonly WordPart[]): boolean | number | undefined {
+  const [only] = parts;
+  if (only === undefined || parts.length > 1) return undefined;
+  if (only.kind === 'variable') {
+    const name = only.name.toLowerCase();
+    if (name === 'true') return true;
+    return name === 'false' || name === 'null' ? false : undefined;
+  }
+  if (only.quoted || !NUMBER.test(only.text)) return undefined;
+  const hex = /^([+-]?)0x(.+)$/i.exec(only.text);
+  return hex ? Number.parseInt(`${hex[1] ?? ''}${hex[2] ?? ''}`, 16) : Number(only.text);
 }
 
 function withItem(arg: Arg, item: string): Arg {
   if (arg.kind === 'value') return { kind: 'value', items: [...arg.items, item] };
-  return { ...arg, value: [...(arg.value ?? []), item] };
+  return { kind: 'parameter', name: arg.name, value: [...(arg.value ?? []), item] };
 }
