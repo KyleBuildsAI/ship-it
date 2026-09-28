@@ -57,11 +57,31 @@ describe('lex: words and quotes', () => {
     expect(show('echo `$HOME')).toEqual(['echo', '$HOME']);
   });
 
-  it('joins quoted and bare pieces into one word', () => {
-    expect(show('echo "a"b\'c\'')).toEqual(['echo', 'abc']);
+  it('joins quoted pieces onto a word that starts bare', () => {
+    expect(show('echo a"b"\'c\'')).toEqual(['echo', 'abc']);
     expect(show("Set-Location -Path:'C:\\Program Files'")).toEqual([
       'Set-Location',
       '-Path:C:\\Program Files',
+    ]);
+  });
+
+  it('ends a word that starts with a quote where the quote closes', () => {
+    expect(show('echo "a"b\'c\'')).toEqual(['echo', 'a', 'bc']);
+    expect(show('cd "C:\\Program Files"\\nodejs')).toEqual(['cd', 'C:\\Program Files', '\\nodejs']);
+    expect(show('echo "a""b"')).toEqual(['echo', 'a"b']);
+  });
+
+  it('reads curly quotes pasted from the web as quotes', () => {
+    expect(show('git commit -m \u201Cfirst commit\u201D')).toEqual([
+      'git',
+      'commit',
+      '-m',
+      'first commit',
+    ]);
+    expect(show('echo \u2018it\u2019\u2019s\u2019 \u201Esay \u201C\u201Chi\u201D')).toEqual([
+      'echo',
+      'it\u2019s',
+      'say \u201Chi',
     ]);
   });
 
@@ -77,12 +97,19 @@ describe('lex: words and quotes', () => {
       { kind: 'text', text: '-Path:', quoted: false },
       { kind: 'text', text: 'a b', quoted: true },
     ]);
+    // A backtick escape counts as quoted, so `-Force is text too.
+    expect(parts('`-Force')).toEqual([
+      { kind: 'text', text: '-', quoted: true },
+      { kind: 'text', text: 'Force', quoted: false },
+    ]);
+    expect(parts('"a`tb"')).toEqual([{ kind: 'text', text: 'a\tb', quoted: true }]);
   });
 
   it('starts a comment at # at the start of a token, but not inside a word', () => {
     expect(show('ls # list the folder')).toEqual(['ls']);
     expect(show('echo issue#12')).toEqual(['echo', 'issue#12']);
     expect(show('git commit -m "fix #12"')).toEqual(['git', 'commit', '-m', 'fix #12']);
+    expect(show('echo "a"#b')).toEqual(['echo', 'a']);
   });
 });
 
@@ -112,8 +139,10 @@ describe('lex: operators', () => {
     ]);
   });
 
-  it('reads > >> 2> and 2>>, with or without spaces', () => {
-    expect(show('echo hi>>a.txt')).toEqual(['echo', 'hi', '>>', 'a.txt']);
+  it('reads > >> 1> 2> and 2>> at the start of a token', () => {
+    expect(show('echo hi >>a.txt')).toEqual(['echo', 'hi', '>>', 'a.txt']);
+    expect(show('echo "hi">a.txt')).toEqual(['echo', 'hi', '>', 'a.txt']);
+    expect(show('echo hi 1>a.txt')).toEqual(['echo', 'hi', '>', 'a.txt']);
     expect(show('where.exe nope 2>$null')).toEqual(['where.exe', 'nope', '2>', '$null']);
     expect(show('npm run dev 2>> errors.log > out.log')).toEqual([
       'npm',
@@ -125,6 +154,10 @@ describe('lex: operators', () => {
       'out.log',
     ]);
     expect(show('echo 2 "a > b"')).toEqual(['echo', '2', 'a > b']);
+  });
+
+  it('keeps > inside a bare word, as PowerShell does', () => {
+    expect(show('echo hi>>a.txt a2>b')).toEqual(['echo', 'hi>>a.txt', 'a2>b']);
   });
 
   it('marks redirects with their stream', () => {
@@ -156,5 +189,12 @@ describe('lex: errors', () => {
 
   it('explains a backtick at the very end', () => {
     expect(lexError('echo a `').hint).toContain('one line at a time');
+  });
+
+  it('only redirects output and errors', () => {
+    expect(lexError('npm run dev *> all.log').message).toBe(
+      "This sandbox doesn't redirect stream *.",
+    );
+    expect(lexError('npm run dev 3> warnings.log').hint).toContain('2>');
   });
 });
