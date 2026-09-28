@@ -123,7 +123,7 @@ describe('Get-ChildItem', () => {
     expect(printed(shell.run('Get-ChildItem -a'))).toBe(lsA);
     expect(printed(shell.run('Get-ChildItem -d'))).toBe(lsD);
     expect(texts(shell.run('ls -Depth -1'))).toEqual([
-      'Get-ChildItem: Cannot bind parameter ''Depth''. Cannot convert value "-1" to type "System.UInt32". Error: "Value was either too large or too small for a UInt32."',
+      `Get-ChildItem: Cannot bind parameter 'Depth'. Cannot convert value "-1" to type "System.UInt32". Error: "Value was either too large or too small for a UInt32."`,
     ]);
   });
 
