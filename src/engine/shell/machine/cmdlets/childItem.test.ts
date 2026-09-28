@@ -3,11 +3,15 @@ import { windows } from '../../../fixtures';
 import { testDeps } from '../../../git/testDeps';
 import { Shell, type ShellResult } from '../../shell';
 import dirS from '../fixtures/error-dir-s.txt?raw';
+import lsA from '../fixtures/error-ls-a.txt?raw';
+import lsD from '../fixtures/error-ls-d.txt?raw';
+import lsL from '../fixtures/error-ls-l.txt?raw';
 import ls from '../fixtures/ls.txt?raw';
 import lsEnvTemp from '../fixtures/ls-env-temp.txt?raw';
 import lsForce from '../fixtures/ls-force.txt?raw';
 import lsName from '../fixtures/ls-name.txt?raw';
 import lsRecurse from '../fixtures/ls-recurse.txt?raw';
+import lsWildRecurse from '../fixtures/ls-wild-recurse.txt?raw';
 
 /** A laptop whose home folder holds exactly what capture-shell.ps1 builds. */
 function laptop(): Shell {
@@ -91,9 +95,36 @@ describe('Get-ChildItem', () => {
     expect(names('ls *.TXT')).toEqual(['notes.txt']);
     expect(names('ls quill*')).toEqual(['quillwork']);
     expect(names('ls quillwork -Recurse -Filter *.md')).toEqual(['api\\docs\\setup.md']);
-    expect(names('ls quillwork\\*.json -Recurse')).toEqual(['api\\package.json']);
+    // With -Name, a wildcard matches at the top only, as in PowerShell 7.6 (checked).
+    expect(names('ls quillwork\\*.json -Recurse')).toEqual([]);
+    expect(names('ls -ReadOnly')).toEqual(['Downloads']);
     expect(names('ls quillwork\\web\\ind?x.[h]tml')).toEqual(['index.html']);
     expect(names('ls *.nothing')).toEqual([]);
+  });
+
+  it('filters every level with a wildcard and -Recurse, as PowerShell 7.6 prints it', () => {
+    expect(printed(laptop().run('Get-ChildItem quillwork\\*.json -Recurse'))).toBe(lsWildRecurse);
+  });
+
+  it('takes -LiteralPath without wildcards, and refuses what the sandbox lacks', () => {
+    const shell = laptop();
+    expect(texts(shell.run('ls -LiteralPath quillwork -Name'))).toEqual(['api', 'web']);
+    expect(texts(shell.run('ls -LiteralPath quill*'))).toEqual([
+      "Get-ChildItem: Cannot find path 'C:\\Users\\kyle\\quill*' because it does not exist.",
+    ]);
+    expect(texts(shell.run('ls -Include *.md'))).toEqual([
+      "This sandbox doesn't run Get-ChildItem -Include yet.",
+    ]);
+  });
+
+  it('matches shortened names as PowerShell 7.6 does, with all its parameters', () => {
+    const shell = laptop();
+    expect(printed(shell.run('Get-ChildItem -l'))).toBe(lsL);
+    expect(printed(shell.run('Get-ChildItem -a'))).toBe(lsA);
+    expect(printed(shell.run('Get-ChildItem -d'))).toBe(lsD);
+    expect(texts(shell.run('ls -Depth -1'))).toEqual([
+      `Get-ChildItem: Cannot bind parameter 'Depth'. Cannot convert value "-1" to type "System.UInt32". Error: "Value was either too large or too small for a UInt32."`,
+    ]);
   });
 
   it('lists a single file in its folder', () => {
