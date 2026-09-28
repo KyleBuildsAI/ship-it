@@ -79,4 +79,18 @@ describe('WindowsFs', () => {
     drive.writeFile('Users/kyle/.cache', 'y');
     expect(drive.isHidden('Users/kyle/.cache')).toBe(false);
   });
+
+  it('keeps a ReadOnly attribute beside Hidden, and forgets both on delete', () => {
+    const drive = new WindowsFs();
+    drive.makeDir('Users/kyle/Downloads/inner');
+    drive.setReadOnly('users/kyle/downloads');
+    drive.hide('Users/kyle/Downloads/inner');
+
+    expect(drive.isReadOnly('Users/kyle/Downloads')).toBe(true);
+    expect(drive.isReadOnly('Users/kyle/Downloads/inner')).toBe(false);
+    drive.removeDir('Users/kyle/Downloads', { recursive: true });
+    drive.makeDir('Users/kyle/Downloads/inner');
+    expect(drive.isReadOnly('Users/kyle/Downloads')).toBe(false);
+    expect(drive.isHidden('Users/kyle/Downloads/inner')).toBe(false);
+  });
 });

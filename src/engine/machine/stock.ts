@@ -52,5 +52,7 @@ export function stockMachine(user: string, computer: string): Machine {
     machine.drive.makeDir(folder.replace(/^~/, machine.home));
   }
   machine.drive.hide(`${machine.home}/AppData`);
+  for (const folder of ['Desktop', 'Documents', 'Downloads'])
+    machine.drive.setReadOnly(`${machine.home}/${folder}`);
   return machine;
 }

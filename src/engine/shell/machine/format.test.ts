@@ -8,23 +8,31 @@ import lsRecurse from './fixtures/ls-recurse.txt?raw';
 
 const printed = (lines: readonly OutputLine[]) => lines.map((line) => `${line.text}\n`).join('');
 
-const dir = (name: string, hidden = false): ItemRow => ({ name, kind: 'dir', hidden, length: 0 });
+const dir = (name: string, hidden = false, readOnly = false): ItemRow => ({
+  name,
+  kind: 'dir',
+  hidden,
+  readOnly,
+  length: 0,
+});
 const file = (name: string, content: string): ItemRow => ({
   name,
   kind: 'file',
   hidden: false,
+  readOnly: false,
   length: windowsLength(content),
 });
 
-// The same tree capture-shell.ps1 builds, so the tables can match its captures.
-const HOME = [dir('Downloads'), dir('quillwork'), file('notes.txt', 'ship it\n')];
+// The same tree capture-shell.ps1 builds, so the tables can match its captures. Downloads is
+// read-only, as on a stock Windows home.
+const HOME = [dir('Downloads', false, true), dir('quillwork'), file('notes.txt', 'ship it\n')];
 
 describe('itemTable', () => {
   it("prints a folder exactly as PowerShell 7.6's Get-ChildItem does", () => {
     expect(printed(itemTable([{ folder: 'C:\\Users\\kyle', rows: HOME }]))).toBe(ls);
   });
 
-  it('marks hidden folders d--h-', () => {
+  it('marks hidden folders d--h-, and read-only ones d-r--', () => {
     const rows = [dir('.cache', true), ...HOME];
     expect(printed(itemTable([{ folder: 'C:\\Users\\kyle', rows }]))).toBe(lsForce);
   });
@@ -75,6 +83,16 @@ describe('nameValueTable', () => {
     ]);
     expect(printed(lines)).toBe(lsEnvTemp);
     expect(nameValueTable([])).toEqual([]);
+  });
+
+  it('cuts a row longer than the terminal with an ellipsis, as PowerShell does', () => {
+    // Checked in pwsh 7.6.6 at -Width 120: the row ends at column 120 with …
+    const long = 'abcdefghij'.repeat(12);
+    const [, , , row] = nameValueTable([{ name: 'LONGVAR', value: long }]);
+    expect(row?.text).toBe(`${'LONGVAR'.padEnd(31)}${long.slice(0, 88)}…`);
+    expect(row?.text).toHaveLength(120);
+    const [, , , narrow] = nameValueTable([{ name: 'X'.repeat(40), value: 'v' }], 60);
+    expect(narrow?.text).toBe(`${'X'.repeat(29)}… v`);
   });
 });
 
