@@ -1,11 +1,10 @@
-import type { GitQueries } from '../../engine/git/queries';
 import {
   scoreDrill,
   scoreQuestionRound,
   type DrillScore,
   type QuestionRoundScore,
 } from './grading';
-import { evaluate } from './predicates';
+import { evaluate, type SandboxQueries } from './predicates';
 import type { Act, BossTwist, Mission } from './schema';
 
 /**
@@ -101,7 +100,7 @@ export function finishBriefing(run: MissionRun): MissionRun {
  * keeps moving through any following steps that are already true: one `git commit -am`
  * can finish both "stage it" and "commit it" at once. After the last step, drills begin.
  */
-export function checkStep(run: MissionRun, mission: Mission, queries: GitQueries): MissionRun {
+export function checkStep(run: MissionRun, mission: Mission, queries: SandboxQueries): MissionRun {
   expectMission(run, mission);
   expectPhase(run, 'sim', 'check a step');
 
@@ -182,7 +181,7 @@ export function startDrill(
 export function submitDrill(
   run: MissionRun,
   mission: Mission,
-  queries: GitQueries,
+  queries: SandboxQueries,
   nowMs: number,
 ): MissionRun {
   expectMission(run, mission);
@@ -298,7 +297,7 @@ export function tick(boss: BossRun, act: Act, nowMs: number): BossTick {
 export function checkBoss(
   boss: BossRun,
   act: Act,
-  queries: GitQueries,
+  queries: SandboxQueries,
   nowMs: number,
 ): BossOutcome {
   expectBoss(boss, act);
