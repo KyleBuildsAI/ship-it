@@ -1369,3 +1369,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/107
 3. The prompt and listings show the folder's real name (`C:\Users\kyle\Documents`), not however it was typed. Windows keeps the stored casing, and so does the simulation.
 
 </details>
+
+---
+
+## #108 feat: machine model with a drive, env scopes, and terminal tabs
+
+https://github.com/KyleBuildsAI/ship-it/pull/108
+
+1. You run `setx EDITOR code` in tab 1. Does tab 1 see `$env:EDITOR`? Does a tab opened afterwards?
+2. Why does the Machine Path come before the User Path in a new tab's `Path`?
+3. Why do `envChanged` events carry the name but not the value?
+
+<details><summary>Answers</summary>
+
+1. No, then yes. `setx` writes the saved User scope. Tab 1's environment is the copy it made when it opened, so it doesn't change. A new tab builds its copy from the saved scopes, so it has `EDITOR`.
+2. That's how Windows builds it: system entries first, then the user's. It matters when two folders hold a program with the same name, because the first one on the Path wins. Act 1's PATH mission is built on that.
+3. Anything can listen to events: the 3D world, logs, and later Sage's context. A value might be an API key. With no field for it, no listener can leak it. The world reads values straight from the machine when it needs them, and masks secret-looking names.
+
+</details>
