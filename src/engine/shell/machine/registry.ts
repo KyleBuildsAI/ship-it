@@ -6,12 +6,16 @@ import type { Bound, CmdletSpec } from './bind';
 import { GET_CHILD_ITEM } from './cmdlets/childItem';
 import { MKDIR, NEW_ITEM, TEST_PATH } from './cmdlets/items';
 import { CD_ROOT, CD_UP, GET_LOCATION, SET_LOCATION } from './cmdlets/location';
+import { REMOVE_ITEM } from './cmdlets/remove';
+import type { ConfirmRequest } from './confirm';
 
 /** What a cmdlet can see and change: the sandbox, its laptop, and the tab it runs in. */
 export interface CommandContext {
   readonly ws: Workspace;
   readonly machine: Machine;
   readonly session: Session;
+  /** Asks the player a yes/no question; the next line typed answers it. */
+  readonly confirm: (request: ConfirmRequest) => void;
 }
 
 export interface Cmdlet {
@@ -26,6 +30,7 @@ const CMDLETS: readonly Cmdlet[] = [
   GET_LOCATION,
   MKDIR,
   NEW_ITEM,
+  REMOVE_ITEM,
   SET_LOCATION,
   TEST_PATH,
 ];

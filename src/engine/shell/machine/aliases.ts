@@ -5,13 +5,19 @@
  */
 export const ALIASES: Readonly<Record<string, string>> = {
   cd: 'Set-Location',
+  chdir: 'Set-Location',
+  del: 'Remove-Item',
   dir: 'Get-ChildItem',
+  erase: 'Remove-Item',
   gci: 'Get-ChildItem',
+  gl: 'Get-Location',
   ls: 'Get-ChildItem',
   md: 'mkdir',
   ni: 'New-Item',
-  chdir: 'Set-Location',
-  sl: 'Set-Location',
-  gl: 'Get-Location',
   pwd: 'Get-Location',
+  rd: 'Remove-Item',
+  ri: 'Remove-Item',
+  rm: 'Remove-Item',
+  rmdir: 'Remove-Item',
+  sl: 'Set-Location',
 };

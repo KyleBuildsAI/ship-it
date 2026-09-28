@@ -1747,3 +1747,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/128
 3. Otherwise part of the path could be made before a bad name fails, leaving half an operation behind.
 
 </details>
+
+---
+
+## #129 feat: remove-item with powershell's confirm question
+
+https://github.com/KyleBuildsAI/ship-it/pull/129
+
+1. Why can't you delete a folder while a terminal tab stands inside it?
+2. What's the difference between answering A and answering Y?
+3. After `Remove-Item Env:TEMP`, does a new tab have TEMP?
+
+<details><summary>Answers</summary>
+
+1. On Windows, a process's current folder is in use and can't be deleted. Each tab is a pwsh process, so the sandbox refuses: `Cannot remove the item ... because it is in use.`
+2. Y deletes this folder and asks again for the next one. A (Yes to All) deletes this one and every later one without asking.
+3. Yes. `Remove-Item Env:TEMP` changes only this tab's copy. The saved User variable is untouched, and a new tab copies it again.
+
+</details>
