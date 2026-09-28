@@ -1693,3 +1693,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/125
 3. The wildcard matches `PATH` anywhere in the name, ignoring case, and all three names contain it.
 
 </details>
+
+---
+
+## #126 fix: get-childitem declares all of powershell's parameters
+
+https://github.com/KyleBuildsAI/ship-it/pull/126
+
+1. Why does `ls -d` bind `-Depth` rather than `-Directory`?
+2. Why refuse `-Include` instead of ignoring it?
+3. What does `-Depth -1` print, and why?
+
+<details><summary>Answers</summary>
+
+1. `-Depth` belongs to Get-ChildItem itself, and `-Directory` comes from the file system provider. PowerShell tries a shortened name against the cmdlet's own parameters first.
+2. Ignoring it would list more than you asked for and look right. A refusal is honest.
+3. A binding error: the value is too small for a UInt32. A depth can't be negative.
+
+</details>
