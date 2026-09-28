@@ -48,7 +48,7 @@ test('Space jumps, even right after clicking a HUD button', async ({ page }) => 
   await expect.poll(height).toBe(0);
 
   // A mouse click leaves no focus on the button, so Space jumps instead of pressing it again.
-  const actButton = page.getByRole('button', { name: 'Act 2', exact: true });
+  const actButton = page.getByRole('button', { name: 'Acts', exact: true });
   await actButton.click();
   await expect(actButton).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Space');

@@ -38,7 +38,7 @@ test('the first-run tutorial moves on as the player does each thing', async ({ p
   await page.keyboard.press('Control+Backquote');
   await expect(card).toContainText('step 6 of 6');
 
-  await page.getByRole('button', { name: 'Act 2' }).click();
+  await page.getByRole('button', { name: 'Acts', exact: true }).click();
   await expect(card).toContainText('You know the controls');
 
   // Finishing is saved: after a reload the tutorial stays away.

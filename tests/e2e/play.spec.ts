@@ -13,7 +13,7 @@ async function run(page: Page, ...commands: string[]): Promise<void> {
 }
 
 async function openAct2(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Act 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Acts', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Act 2 · Git Core' })).toBeVisible();
 }
 

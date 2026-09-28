@@ -1,5 +1,6 @@
 import { toggleMusicMuted } from '../../game/audio/mute';
 import { hud, openMenu, toggleActMenu } from '../../game/hud';
+import { recommendedAct } from '../../game/play/catalog';
 import { progress } from '../../game/progress';
 import { releaseMouseFocus } from '../focus';
 import { useStore } from '../useStore';
@@ -8,12 +9,12 @@ import { StandupBoard } from './StandupBoard';
 import { TrophyWall } from './TrophyWall';
 
 /**
- * The Campus places (DESIGN.md section 4) as HUD buttons: Act 2's menu, the Standup
+ * The Campus places (DESIGN.md section 4) as HUD buttons: the Act menus, the Standup
  * Board, the Trophy Wall, and Settings, reachable from anywhere in the world. Plus a
  * quick music switch, so silence is one click away.
  */
 export function HudMenu() {
-  const { menu, actMenuOpen, terminalOpen } = useStore(hud);
+  const { menu, actMenu, terminalOpen } = useStore(hud);
   const musicOn = (useStore(progress).save?.settings.audioVolume ?? 0) > 0;
   return (
     <>
@@ -24,13 +25,13 @@ export function HudMenu() {
         <button
           type="button"
           className="glass hud-menu__button"
-          aria-pressed={actMenuOpen}
+          aria-pressed={actMenu !== null}
           onClick={(event) => {
-            toggleActMenu();
+            toggleActMenu(recommendedAct(progress.get().save));
             releaseMouseFocus(event);
           }}
         >
-          Act 2
+          Acts
         </button>
         <button
           type="button"

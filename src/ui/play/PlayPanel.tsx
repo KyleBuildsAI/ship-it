@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef } from 'react';
 import { hud } from '../../game/hud';
-import { recommendedAct } from '../../game/play/catalog';
 import { play } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
+import { actForZone } from '../../game/world/zones';
 import { worldState } from '../../game/worldState';
 import { useStore } from '../useStore';
 import { ActMenu } from './ActMenu';
@@ -12,14 +12,16 @@ import { MissionView } from './MissionView';
 import { SeriesView } from './SeriesView';
 
 /**
- * The play panel on the left: the Act menu while exploring the Git World, or whatever is
- * being played. It sits above the terminal, which is where the real work happens.
+ * The play panel on the left: an Act's menu (the one opened from the HUD, or the island's
+ * own Act while you stand on it), or whatever is being played. It sits above the terminal,
+ * which is where the real work happens.
  */
 export function PlayPanel() {
   const { activity, checklist } = useStore(play);
   const { zone } = useStore(worldState);
-  const { terminalOpen, actMenuOpen } = useStore(hud);
-  const { status, problem, save } = useStore(progress);
+  const { terminalOpen, actMenu } = useStore(hud);
+  const menuAct = actMenu ?? actForZone(zone);
+  const { status, problem } = useStore(progress);
   const panel = useRef<HTMLElement>(null);
 
   let content = null;
@@ -35,8 +37,8 @@ export function PlayPanel() {
     content = <BossView activity={activity} checklist={checklist} />;
   } else if (activity?.kind === 'field') {
     content = <FieldView activity={activity} />;
-  } else if (zone === 'gitworld' || actMenuOpen) {
-    content = <ActMenu act={recommendedAct(save)} />;
+  } else if (menuAct !== null) {
+    content = <ActMenu act={menuAct} />;
   }
   const visible = content !== null;
 

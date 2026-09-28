@@ -123,7 +123,8 @@ export const tutorial = createStore<TutorialState>({ step: null, finished: false
 
 export function readSignals(): TutorialSignals {
   const { walks, jumps, looks, zone } = worldState.get();
-  const { commandsRun, terminalToggles, terminalOpen, actMenuOpen } = hud.get();
+  const { commandsRun, terminalToggles, terminalOpen, actMenu } = hud.get();
+  const actMenuOpen = actMenu !== null;
   return { walks, jumps, looks, commandsRun, terminalToggles, terminalOpen, zone, actMenuOpen };
 }
 

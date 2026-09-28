@@ -944,3 +944,30 @@ html[data-reduced-motion='on'] *::after {
 .music-credits a {
   color: var(--accent);
 }
+
+/* Act tabs (ActMenu.tsx), shown once more than one Act ships. */
+.act-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.act-tabs__tab {
+  padding: 5px 10px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.act-tabs__tab[aria-selected='true'] {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.act-tabs__tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
