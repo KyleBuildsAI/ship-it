@@ -157,6 +157,7 @@ function rowFor(machine: Machine, path: string): ItemRow {
     name: baseName(path),
     kind: isDir ? 'dir' : 'file',
     hidden: machine.drive.isHidden(path),
+    readOnly: machine.drive.isReadOnly(path),
     length: isDir ? 0 : windowsLength(machine.drive.readFile(path)),
   };
 }
