@@ -14,6 +14,14 @@ function problems(result: { success: boolean; error?: { issues: { message: strin
   return result.error?.issues.map((issue) => issue.message) ?? [];
 }
 
+/** The messages with where they point, for rules whose path matters to an author. */
+function issues(result: {
+  success: boolean;
+  error?: { issues: { path: PropertyKey[]; message: string }[] };
+}) {
+  return result.error?.issues.map(({ path, message }) => ({ path, message })) ?? [];
+}
+
 const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
 const times = <T>(count: number, item: T) => Array.from({ length: count }, () => item);
 const windows = { op: 'windows', user: 'kyle', computer: 'QUILL-LT-7' };
@@ -167,15 +175,22 @@ describe('AgentTaskSchema', () => {
   });
 
   it('rejects an id used twice, even once as a plan and once as a fix', () => {
-    expect(problems(task({ fixes: [{ ...fix, id: 'guess' }] }))).toEqual([
-      'Duplicate id "guess": a start plan uses it.',
+    // Each issue points at the second id, so an author is sent to the right line.
+    expect(issues(task({ fixes: [{ ...fix, id: 'guess' }] }))).toEqual([
+      { path: ['fixes', 0, 'id'], message: 'Duplicate id "guess": a start plan uses it.' },
     ]);
-    expect(problems(task({ fixes: [fix, fix] }))).toEqual(['Duplicate id "fix-full-path".']);
+    expect(issues(task({ fixes: [fix, fix] }))).toEqual([
+      { path: ['fixes', 1, 'id'], message: 'Duplicate id "fix-full-path".' },
+    ]);
     const [api] = sampleAgentTaskInput.check.options;
     const check = { ...sampleAgentTaskInput.check, options: [api, api] };
-    expect(problems(task({ check }))).toEqual(['Duplicate id "api".']);
+    expect(issues(task({ check }))).toEqual([
+      { path: ['check', 'options', 1, 'id'], message: 'Duplicate id "api".' },
+    ]);
     const [where] = sampleAgentTaskInput.looks;
-    expect(problems(task({ looks: [where, where] }))).toEqual(['Duplicate id "where".']);
+    expect(issues(task({ looks: [where, where] }))).toEqual([
+      { path: ['looks', 1, 'id'], message: 'Duplicate id "where".' },
+    ]);
   });
 
   it('asks one check with 2 to 4 options, each graded by its own truth', () => {

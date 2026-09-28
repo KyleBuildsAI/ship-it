@@ -210,10 +210,15 @@ export const AgentTaskSchema = z
     fixes: z.array(PlanSchema).min(1).max(3),
     /** The start plan the last hint points at. It must be strong. */
     hintPlan: IdSchema,
-    check: z.strictObject({
-      question: ScreenTextSchema,
-      options: z.array(CheckOptionSchema).min(2).max(4),
-    }),
+    check: z
+      .strictObject({
+        question: ScreenTextSchema,
+        options: z.array(CheckOptionSchema).min(2).max(4),
+      })
+      .superRefine((check, ctx) => {
+        // Checked here, not on the task, so a duplicate points at check.options[i].id.
+        checkUniqueIds(check.options, 'options', ctx);
+      }),
     /** Must stay true. Denying a line is right exactly when a dry run of it breaks one. */
     guards: z.array(PredicateSchema).max(4).default([]),
     looks: z.array(LookSchema).max(3).default([]),
@@ -233,7 +238,6 @@ export const AgentTaskSchema = z
         });
       }
     });
-    checkUniqueIds(task.check.options, 'check', ctx);
     checkUniqueIds(task.looks, 'looks', ctx);
     const hint = task.plans.find((plan) => plan.id === task.hintPlan);
     if (hint?.quality !== 'strong') {
