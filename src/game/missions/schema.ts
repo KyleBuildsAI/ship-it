@@ -448,6 +448,8 @@ export const ActSchema = z.strictObject({
   /** DESIGN.md section 5: each Act has 3 to 6 missions. */
   missionIds: z.array(IdSchema).min(3).max(6),
   placementTest: z.strictObject({
+    /** One line in the Act menu for players who may know this already. */
+    pitch: z.string().min(1),
     /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
     drillIds: z.array(IdSchema).min(8).max(12),
     passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),

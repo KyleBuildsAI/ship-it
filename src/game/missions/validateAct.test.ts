@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { sampleAct, sampleMission, secondMission, thirdMission } from './sample.test-mission';
+import {
+  otherSampleAct,
+  sampleAct,
+  sampleMission,
+  secondMission,
+  thirdMission,
+} from './sample.test-mission';
 import type { Predicate } from './predicates';
 import type { Act, Mission } from './schema';
-import { validateAct } from './validateAct';
+import { validateAct, validateCatalog } from './validateAct';
 
 const missions = [sampleMission, secondMission, thirdMission];
 const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
@@ -137,5 +143,30 @@ describe('validateAct', () => {
       },
       { where: 'boss > label 1', problem: '65 words; the limit is 60.' },
     ]);
+  });
+});
+
+describe('validateCatalog', () => {
+  const first = { act: sampleAct, missions };
+
+  it('passes Acts whose ids are all different', () => {
+    expect(validateCatalog([first, otherSampleAct()])).toEqual([]);
+  });
+
+  it('catches an Act number used twice', () => {
+    expect(
+      validateCatalog([first, { ...otherSampleAct(), act: { ...otherSampleAct().act, act: 2 } }]),
+    ).toEqual([{ where: 'catalog', problem: 'Act 2 appears more than once.' }]);
+  });
+
+  it('catches missions, bosses, and drills shared between Acts', () => {
+    const copy = { act: { ...sampleAct, act: 3 }, missions };
+    const problems = validateCatalog([first, copy]).map((issue) => issue.problem);
+
+    expect(problems).toContain(`The id "${sampleMission.id}" is used in more than one place.`);
+    expect(problems).toContain(`The id "${sampleAct.boss.id}" is used in more than one place.`);
+    expect(problems).toContain(
+      `Drill "${String(sampleMission.drills[0]?.id)}" appears in more than one mission.`,
+    );
   });
 });

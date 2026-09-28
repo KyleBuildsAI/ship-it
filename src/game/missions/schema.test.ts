@@ -259,12 +259,18 @@ describe('ActSchema', () => {
 
   it('has 8 to 12 placement drills at 85% (DESIGN.md section 5)', () => {
     const placement = (drillIds: string[], passPercent?: number) =>
-      act({ placementTest: { drillIds, passPercent } });
+      act({ placementTest: { pitch: 'Know this already?', drillIds, passPercent } });
     const ids = (count: number) => Array.from({ length: count }, (_, i) => `drill-${String(i)}`);
     expect(placement(ids(7)).success).toBe(false);
     expect(placement(ids(12)).success).toBe(true);
     expect(placement(ids(13)).success).toBe(false);
     expect(placement(ids(8), 50).success).toBe(false);
+  });
+
+  it('needs a pitch for the placement test, shown in the Act menu', () => {
+    const drillIds = Array.from({ length: 8 }, (_, i) => `drill-${String(i)}`);
+    expect(act({ placementTest: { drillIds } }).success).toBe(false);
+    expect(act({ placementTest: { pitch: '', drillIds } }).success).toBe(false);
   });
 
   it('needs objectives and at least one twist, fired after the clock starts', () => {

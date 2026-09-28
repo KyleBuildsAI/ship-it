@@ -62,6 +62,7 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
       texts.push([`${at} > candidate ${candidate.id} > rationale`, candidate.rationale]);
     }
   }
+  texts.push(['placement test > pitch', act.placementTest.pitch]);
   act.boss.briefing.forEach((caption, index) => {
     texts.push([`boss > briefing caption ${String(index + 1)}`, caption]);
   });
@@ -138,6 +139,35 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     if (words > MAX_SCREEN_WORDS) {
       report(where, `${String(words)} words; the limit is ${String(MAX_SCREEN_WORDS)}.`);
     }
+  }
+  return issues;
+}
+
+/**
+ * Checks the Acts against each other. The review queue, the placement tests, and the save
+ * all name missions and drills by id alone, so ids must be unique across every Act, not
+ * just within one. Each Act on its own is checked by validateAct.
+ */
+export function validateCatalog(
+  acts: readonly { readonly act: Act; readonly missions: readonly Mission[] }[],
+): ContentIssue[] {
+  const issues: ContentIssue[] = [];
+  for (const number of duplicates(acts.map((entry) => String(entry.act.act)))) {
+    issues.push({ where: 'catalog', problem: `Act ${number} appears more than once.` });
+  }
+  const activityIds = acts.flatMap(({ act, missions }) => [
+    ...missions.map((mission) => mission.id),
+    act.boss.id,
+    act.fieldMission.id,
+  ]);
+  for (const id of duplicates(activityIds)) {
+    issues.push({ where: 'catalog', problem: `The id "${id}" is used in more than one place.` });
+  }
+  const drillIds = acts.flatMap(({ missions }) =>
+    missions.flatMap((mission) => mission.drills.map((drill) => drill.id)),
+  );
+  for (const id of duplicates(drillIds)) {
+    issues.push({ where: 'catalog', problem: `Drill "${id}" appears in more than one mission.` });
   }
   return issues;
 }
