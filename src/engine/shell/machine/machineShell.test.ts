@@ -79,7 +79,9 @@ describe('the machine profile', () => {
       "This sandbox doesn't run pipes (|) yet.",
     );
     expect(shell.run('$env:Path').lines[0]?.text).toContain("doesn't run expressions yet");
-    expect(shell.run('cd a,,b').lines[0]?.text).toBe("Missing expression after ','.");
+    expect(shell.run('cd a,,b').lines[0]?.text).toBe(
+      "Missing expression after ',' in pipeline element.",
+    );
   });
 });
 
