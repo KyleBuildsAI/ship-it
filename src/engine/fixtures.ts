@@ -1,6 +1,7 @@
 import { SubtreeFs } from './fs/fileTree';
 import { sha1 } from './git/hash';
 import type { RepositoryDeps } from './git/repository';
+import type { EnvScope } from './machine/events';
 import { applyMachineStep, isMachineStep, type MachineFixtureStep } from './machine/fixtures';
 import type { Machine } from './machine/machine';
 import { stockMachine } from './machine/stock';
@@ -118,6 +119,23 @@ export class FixtureBuilder {
    */
   session(): FixtureBuilder {
     return this.then({ op: 'session' });
+  }
+
+  cd(path: string): FixtureBuilder {
+    return this.then({ op: 'cd', path });
+  }
+
+  env(scope: EnvScope, name: string, value: string | null): FixtureBuilder {
+    return this.then({ op: 'env', scope, name, value });
+  }
+
+  /** Add a folder to one scope's PATH, at the start or the end. */
+  pathAdd(scope: EnvScope, dir: string, at: 'start' | 'end' = 'end'): FixtureBuilder {
+    return this.then({ op: 'pathAdd', scope, dir, at });
+  }
+
+  restartTerminals(): FixtureBuilder {
+    return this.then({ op: 'restartTerminals' });
   }
 
   toSpec(): readonly FixtureStep[] {

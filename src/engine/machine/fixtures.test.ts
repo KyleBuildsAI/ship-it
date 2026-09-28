@@ -66,10 +66,93 @@ describe('windows()', () => {
 });
 
 describe('the session rule', () => {
+  it('leaves a terminal opened early on its old variables: a stale terminal', () => {
+    const { machine } = build(
+      windows().session().pathAdd('user', 'C:\\Program Files\\nodejs\\').pathAdd('user', 'C:\\x'),
+    );
+
+    expect(tab(machine).env.get('Path')).not.toContain('nodejs');
+    expect(machine.newTerminalEnv().get('Path')).toContain(
+      'WindowsApps;C:\\Program Files\\nodejs\\;C:\\x',
+    );
+  });
+
   it('opens no second terminal when the setup opened one', () => {
     const { machine } = build(windows().session());
 
     expect(machine.sessions()).toHaveLength(1);
+  });
+
+  it('refuses cd and this-terminal variables before a terminal is open', () => {
+    expect(() => windows().cd('Users/kyle').build(testDeps())).toThrow(
+      'The "cd" step needs an open terminal',
+    );
+    expect(() => windows().env('session', 'PORT', '1').build(testDeps())).toThrow(
+      'The "env" step needs an open terminal',
+    );
+    expect(() => windows().pathAdd('session', 'C:\\x').build(testDeps())).toThrow(
+      'The "pathAdd" step needs an open terminal',
+    );
+  });
+});
+
+describe('laptop steps', () => {
+  it('moves the terminal, finding the folder whatever its case', () => {
+    const { machine } = build(
+      windows().mkdir('Users/kyle/Projects/API').session().cd('users/kyle/projects/api'),
+    );
+
+    expect(tab(machine).cwd).toBe('Users/kyle/Projects/API');
+  });
+
+  it("refuses to cd into a folder that isn't there", () => {
+    expect(() => windows().session().cd('Users/kyle/nope').build(testDeps())).toThrow(
+      "names a folder that doesn't exist: C:\\Users\\kyle\\nope",
+    );
+  });
+
+  it('sets and removes variables in every scope, Machine included', () => {
+    const { machine } = build(
+      windows()
+        .env('machine', 'JAVA_HOME', 'C:\\jdk')
+        .env('user', 'EDITOR', 'code')
+        .session()
+        .env('session', 'PORT', '4000')
+        .env('session', 'PORT', null),
+    );
+
+    expect(machine.saved.machine.get('JAVA_HOME')).toBe('C:\\jdk');
+    expect(tab(machine).env.get('EDITOR')).toBe('code');
+    expect(tab(machine).env.get('PORT')).toBeNull();
+  });
+
+  it('saves a %NAME% value as expandable, the way an installer would', () => {
+    const { machine } = build(windows().env('user', 'TOOLS', '%USERPROFILE%\\tools'));
+
+    expect(machine.saved.user.expands('TOOLS')).toBe(true);
+    expect(tab(machine).env.get('TOOLS')).toBe('C:\\Users\\kyle\\tools');
+  });
+
+  it("adds a PATH folder at the start or the end, keeping the Path's kind", () => {
+    const { machine } = build(
+      windows()
+        .pathAdd('user', 'C:\\tools\\node16', 'end')
+        .pathAdd('user', 'C:\\first', 'start')
+        .session()
+        .pathAdd('session', 'C:\\Program Files\\nodejs', 'start'),
+    );
+
+    expect(machine.saved.user.get('Path')).toBe(
+      'C:\\first;%USERPROFILE%\\AppData\\Local\\Microsoft\\WindowsApps;C:\\tools\\node16',
+    );
+    expect(machine.saved.user.expands('Path')).toBe(true);
+    expect(tab(machine).env.get('Path')?.startsWith('C:\\Program Files\\nodejs;')).toBe(true);
+  });
+
+  it('restarts every terminal', () => {
+    const { machine } = build(windows().session().env('session', 'X', '1').restartTerminals());
+
+    expect(tab(machine).env.get('X')).toBeNull();
   });
 });
 
@@ -81,8 +164,8 @@ describe('mixing sandboxes', () => {
   });
 
   it('refuses laptop steps in an Act 2 project sandbox', () => {
-    expect(() => folder().session().build(testDeps())).toThrow(
-      'The "session" step needs a windows() sandbox.',
+    expect(() => folder().mkdir('src').build(testDeps())).toThrow(
+      'The "mkdir" step needs a windows() sandbox.',
     );
   });
 
