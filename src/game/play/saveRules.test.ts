@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  earlySampleAct,
   sampleAct,
   sampleMission,
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
+import type { Act } from '../missions/schema';
 import { XP_AWARDS } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
 import {
@@ -170,5 +172,38 @@ describe('act milestones', () => {
     const entry = partial.fieldMissions[sampleAct.fieldMission.id];
     expect(entry?.checklist[first.id]).toBe(true);
     expect(entry?.verifiedAt).toBe(rest.length === 0 ? NOW.toISOString() : null);
+  });
+});
+
+describe('an early-access act', () => {
+  const early = earlySampleAct();
+  // Every part built but the placement test, which early access doesn't allow.
+  const earlyAct: Act = {
+    ...early.act,
+    boss: sampleAct.boss,
+    fieldMission: sampleAct.fieldMission,
+  };
+
+  /** Finishes the Act's mission, beats its boss, and verifies its Field Mission. */
+  function finishEverything(target: Act): SaveData {
+    let save = fresh();
+    for (const entry of early.missions) {
+      save = completeMission(save, target, entry, { drillPercent: 100, questionXp: 0 }, NOW);
+    }
+    save = completeBoss(save, target, NOW);
+    const ids = sampleAct.fieldMission.verifications.map((check) => check.id);
+    return recordFieldMission(save, target, ids, NOW);
+  }
+
+  it('never completes, even with every part it has done', () => {
+    const save = finishEverything(earlyAct);
+    expect(save.acts[String(earlyAct.act)]).toMatchObject({
+      bossCompletedAt: NOW.toISOString(),
+      fieldMissionCompletedAt: NOW.toISOString(),
+      completedAt: null,
+    });
+    // The same progress completes the Act once it leaves early access.
+    const finished = finishEverything({ ...earlyAct, earlyAccess: false });
+    expect(finished.acts[String(earlyAct.act)]?.completedAt).toBe(NOW.toISOString());
   });
 });
