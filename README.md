@@ -50,7 +50,7 @@ The game renders with WebGPU and falls back to WebGL2 when WebGPU isn't availabl
 - **First time?** A short tutorial at the top left teaches the controls by having you use them: walk, jump, look around, run a command, hide and show the terminal, then step into an Act. Each step moves on by itself once you've done it. **Skip tutorial** ends it; **Settings, Replay tutorial** runs it again.
 - **Move:** WASD or the arrow keys, or click the ground to walk there. Space jumps. Drag to look around.
 - **Terminal:** `` Ctrl+` `` opens and closes it. It speaks PowerShell (`ls`, `cat`, `echo x > file`, `code file`) and git.
-- **Act 2:** walk through the glowing Act 2 portal on Campus, or press **Act 2** at the bottom left.
+- **Act 2:** walk through the glowing Act 2 portal on Campus, or press **Acts** at the bottom left. The menu opens on the first Act you haven't finished; once more Acts ship, tabs across its top switch between them.
   - **Placement test:** already know git? Score 85% on 12 timed drills to test out of the Act.
   - **Missions 2.1-2.5:** a short briefing, then guided steps with a live checklist and a three-rung hint ladder, then timed No-AI Drills, then a Question Round with Marco's vague ticket.
   - **Boss, The Dirty Tree:** Dex deploys from a clean checkout in 3:00. Commit the right things before he does.
