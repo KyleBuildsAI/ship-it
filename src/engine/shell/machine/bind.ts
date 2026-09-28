@@ -57,9 +57,25 @@ export class Bound {
 
 type ParameterArg = Extract<Arg, { kind: 'parameter' }>;
 
+/** The words typed just before a bare value, for the hint when a path splits at a space. */
+interface Previous {
+  readonly words: readonly string[];
+  /** Where the last of them went, if it was named. Null: it landed by position. */
+  readonly parameter: ParamSpec | null;
+}
+
 type Unbound =
   | { readonly kind: 'unknown'; readonly name: string }
-  | { readonly kind: 'value'; readonly items: readonly string[] };
+  | {
+      readonly kind: 'value';
+      readonly items: readonly string[];
+      readonly previous: Previous | null;
+    };
+
+/** A bare value typed straight after the words before it: part of the same run. */
+function followedBy(previous: Previous | null, items: readonly string[]): Previous {
+  return { words: [...(previous?.words ?? []), items.join(',')], parameter: null };
+}
 
 const isBindError = (value: unknown): value is BindError =>
   typeof value === 'object' && value !== null && 'ok' in value;
@@ -80,21 +96,25 @@ export function bind(
 ): { ok: true; bound: Bound } | BindError {
   const named: { parameter: ParamSpec; arg: ParameterArg; value: readonly string[] }[] = [];
   const unbound: Unbound[] = [];
+  let previous: Previous | null = null;
   for (let index = 0; index < args.length; index++) {
     const arg = args[index];
     if (arg === undefined) break;
     if (arg.kind === 'value') {
-      unbound.push({ kind: 'value', items: arg.items });
+      unbound.push({ kind: 'value', items: arg.items, previous });
+      previous = followedBy(previous, arg.items);
       continue;
     }
     const match = matchParameter(spec, arg.name);
     if (match === 'none') {
       unbound.push({ kind: 'unknown', name: arg.name });
+      previous = null;
       continue;
     }
     if (isBindError(match)) return match;
     if (match.type === 'switch') {
       named.push({ parameter: match, arg, value: [] });
+      previous = null;
       continue;
     }
     let value = arg.value;
@@ -114,6 +134,7 @@ export function bind(
       );
     if (arg.value === null) index++;
     named.push({ parameter: match, arg, value });
+    previous = { words: [value.join(',')], parameter: match };
   }
 
   const values = new Map<string, readonly string[] | boolean>();
@@ -159,12 +180,11 @@ export function bind(
 
   const [first] = leftover;
   if (first?.kind === 'unknown')
-    return bindError(`A parameter cannot be found that matches parameter name '${first.name}'.`);
-  if (first?.kind === 'value') {
-    // PowerShell names a list by its .NET type rather than by what's in it.
-    const rejected = first.items.length > 1 ? 'System.Object[]' : (first.items[0] ?? '');
-    return bindError(`A positional parameter cannot be found that accepts argument '${rejected}'.`);
-  }
+    return bindError(
+      `A parameter cannot be found that matches parameter name '${first.name}'.`,
+      ...combinedFlagsHint(spec, first.name),
+    );
+  if (first?.kind === 'value') return positionalFailure(leftover, open[filled - 1] ?? null);
   return { ok: true, bound: new Bound(values) };
 }
 
@@ -199,6 +219,19 @@ function matchParameter(spec: CmdletSpec, typed: string): ParamSpec | BindError 
   return 'none';
 }
 
+/** rm -rf is two Unix flags in one. If each letter starts a different switch, name them. */
+function combinedFlagsHint(spec: CmdletSpec, typed: string): string[] {
+  if (typed.length < 2) return [];
+  const names = Array.from(typed.toLowerCase()).map((letter) => {
+    const found = spec.parameters.filter(
+      (parameter) => parameter.type === 'switch' && parameter.name.toLowerCase().startsWith(letter),
+    );
+    return found.length === 1 ? found[0]?.name : undefined;
+  });
+  if (names.includes(undefined) || new Set(names).size !== names.length) return [];
+  return [`PowerShell spells each switch out: ${names.map((name) => `-${name ?? ''}`).join(' ')}`];
+}
+
 /** A switch is on unless given $false, $null or 0. Text, even "false", is refused. */
 function readSwitch(parameter: ParamSpec, arg: ParameterArg): boolean | BindError {
   if (arg.value === null) return true;
@@ -219,4 +252,23 @@ function checkValue(parameter: ParamSpec, items: readonly string[]): readonly st
       `Cannot convert 'System.Object[]' to the type '${DOTNET_TYPE[parameter.type]}' required by parameter '${parameter.name}'. Specified method is not supported.`,
     );
   return items;
+}
+/**
+ * More bare values than positions. Usually a path with a space in it, which PowerShell
+ * reads as two values: cd C:\Program Files\nodejs.
+ */
+function positionalFailure(leftover: readonly Unbound[], lastFilled: ParamSpec | null): BindError {
+  const values = leftover.flatMap((entry) => (entry.kind === 'value' ? [entry] : []));
+  const [first] = values;
+  const rejected =
+    first === undefined ? '' : first.items.length > 1 ? 'System.Object[]' : (first.items[0] ?? '');
+  const message = `A positional parameter cannot be found that accepts argument '${rejected}'.`;
+  const previous = first?.previous ?? null;
+  if (previous === null) return bindError(message);
+  const words = [...previous.words, ...values.map((entry) => entry.items.join(','))];
+  const hints = [`Paths with spaces need quotes: '${words.join(' ')}'`];
+  // The value before took a list, so maybe several were meant: rm a.txt b.txt.
+  if ((previous.parameter ?? lastFilled)?.type.endsWith('[]') === true)
+    hints.push(`To name several, separate them with commas: ${words.join(', ')}`);
+  return bindError(message, ...hints);
 }
