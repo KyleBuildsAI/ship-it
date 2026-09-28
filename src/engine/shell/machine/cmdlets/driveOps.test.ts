@@ -54,7 +54,9 @@ describe('copyItem', () => {
   it('skips a file that meets a folder partway through, and still copies the rest', () => {
     const { context, drive, events } = laptop();
     drive.makeDir('Users/kyle/dest/src/one.txt');
+    // dest\src is already there, so PowerShell says that first (checked in 7.6.6).
     expect(copyItem(context, 'Users/kyle/src', 'Users/kyle/dest/src', true)).toEqual([
+      'An item with the specified name C:\\Users\\kyle\\dest\\src already exists.',
       "The target file 'C:\\Users\\kyle\\dest\\src\\one.txt' is a directory, not a file.",
     ]);
     expect(drive.readFile('Users/kyle/dest/src/a.txt')).toBe('a\n');
@@ -80,7 +82,10 @@ describe('copyItem', () => {
       expect(copyItem(context, 'Users/kyle/src', 'Users/kyle/dest/src', true, force)).toEqual(
         force
           ? []
-          : ['An item with the specified name C:\\Users\\kyle\\dest\\src\\sub already exists.'],
+          : [
+              'An item with the specified name C:\\Users\\kyle\\dest\\src already exists.',
+              'An item with the specified name C:\\Users\\kyle\\dest\\src\\sub already exists.',
+            ],
       );
       expect(drive.readFile('Users/kyle/dest/src/sub')).toBe('file\n');
       expect(drive.readFile('Users/kyle/dest/src/one.txt')).toBe('1\n');
