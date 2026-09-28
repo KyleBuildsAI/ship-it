@@ -148,12 +148,13 @@ function UpcomingRows({ act }: { act: Act }) {
 
 /** Says the Act is unfinished on purpose, and when the player has caught up with it. */
 function EarlyAccessNote({ act, save }: { act: Act; save: SaveData }) {
+  // Promise missions only while some are listed. With none left, what's coming is a part
+  // not built yet, like the boss, so the line stays general.
+  const coming = act.upcoming.length > 0 ? 'More missions are on the way.' : 'More is on the way.';
   return (
     <p className="play-panel__muted">
       Early access ·{' '}
-      {hasWorkLeft(save, act)
-        ? 'More missions are on the way.'
-        : "You've played everything built so far. More is on the way."}
+      {hasWorkLeft(save, act) ? coming : `You've played everything built so far. ${coming}`}
     </p>
   );
 }
