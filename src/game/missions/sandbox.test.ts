@@ -100,12 +100,19 @@ function laptopSnapshot(ws: Workspace) {
 }
 
 describe('applySteps on a laptop', () => {
-  // A twist uses every laptop step so far (everything after windows() and session()).
+  // A twist uses every laptop step (everything after windows() and session()).
   const twist = windows()
     .session()
+    .mkdir('Users/kyle/notes')
     .write('Users/kyle/notes/today.txt', 'ship it\n')
     .modify('Users/kyle/notes/today.txt')
+    .env('user', 'EDITOR', 'code')
+    .pathAdd('user', 'C:\\tools\\node16')
     .session()
+    .cd('Users/kyle/notes')
+    .env('session', 'PORT', '3000')
+    .pathAdd('session', 'C:\\Program Files\\nodejs', 'start')
+    .restartTerminals()
     .toSpec();
 
   it('changes a live laptop exactly as building it with those steps would', () => {
