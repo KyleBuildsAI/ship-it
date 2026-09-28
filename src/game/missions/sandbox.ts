@@ -1,5 +1,13 @@
 import { recordCommit, stagePaths } from '../../engine/git/cli/staging';
-import { buildWorkspace, defaultDeps, type FixtureStep } from '../../engine/git/fixtures';
+import {
+  buildWorkspace,
+  defaultDeps,
+  deleteSandboxFile,
+  readSandboxFile,
+  writeSandboxFile,
+  type FixtureStep,
+} from '../../engine/fixtures';
+import { applyMachineStep, isMachineStep } from '../../engine/machine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
 import type { Workspace } from '../../engine/workspace';
 
@@ -27,20 +35,24 @@ export function createSandbox(
  */
 export function applySteps(ws: Workspace, steps: readonly FixtureStep[]): void {
   for (const step of steps) {
+    if (step.op === 'windows') throw new Error('windows() starts a sandbox; it cannot change one.');
+    if (isMachineStep(step)) {
+      if (ws.machine === null) throw new Error(`The "${step.op}" step needs a windows() sandbox.`);
+      applyMachineStep(ws.machine, step);
+      continue;
+    }
     switch (step.op) {
       case 'init':
         ws.initRepo();
         break;
       case 'write':
-        ws.writeFile(step.path, step.content);
+        writeSandboxFile(ws, step.path, step.content);
         break;
-      case 'append': {
-        const before = ws.fs.isFile(step.path) ? ws.fs.readFile(step.path) : '';
-        ws.writeFile(step.path, before + step.text);
+      case 'append':
+        writeSandboxFile(ws, step.path, (readSandboxFile(ws, step.path) ?? '') + step.text);
         break;
-      }
       case 'delete':
-        ws.deleteFile(step.path);
+        deleteSandboxFile(ws, step.path);
         break;
       case 'stage':
         stagePaths(ws, step.paths);
