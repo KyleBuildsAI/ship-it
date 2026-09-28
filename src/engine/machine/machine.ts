@@ -1,5 +1,5 @@
 import { Emitter } from '../events';
-import { VirtualFs } from '../fs/virtualFs';
+import { WindowsFs } from './windowsFs';
 import { EnvTable, expandPercent } from './envTable';
 import type { EnvScope, MachineEvent } from './events';
 import { display } from './winPath';
@@ -60,7 +60,8 @@ const PID_STEP = 4;
  * looks at them again, so a change saved later only reaches tabs opened after it.
  */
 export class Machine {
-  readonly drive = new VirtualFs();
+  /** C:, case-insensitive like NTFS. */
+  readonly drive = new WindowsFs();
   readonly events = new Emitter<MachineEvent>();
   readonly user: string;
   readonly computer: string;
