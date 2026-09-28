@@ -26,9 +26,28 @@ describe('toCanonical', () => {
     expect(path(input)).toEqual({ ok: true, path: expected });
   });
 
-  it('says which drive is missing for anything but C:', () => {
+  it('says which drive is missing for anything but C:, spelled as typed', () => {
     expect(path('D:\\games')).toEqual({ ok: false, drive: 'D' });
-    expect(path('e:')).toEqual({ ok: false, drive: 'E' });
+    expect(path('e:')).toEqual({ ok: false, drive: 'e' });
+  });
+
+  it('treats any name before a colon as a drive, never as a folder', () => {
+    expect(path('Env:')).toEqual({ ok: false, drive: 'Env' });
+    expect(path('HKLM:\\Software')).toEqual({ ok: false, drive: 'HKLM' });
+    expect(path('foo:\\bar')).toEqual({ ok: false, drive: 'foo' });
+  });
+
+  it('reports a network path instead of placing it on C:', () => {
+    expect(path('\\\\server\\share\\notes')).toEqual({
+      ok: false,
+      network: '\\\\server\\share\\notes',
+    });
+    expect(path('//server/share')).toEqual({ ok: false, network: '\\\\server\\share' });
+  });
+
+  it('accepts the \\\\?\\ prefix in front of a drive path', () => {
+    expect(path('\\\\?\\C:\\Users')).toEqual({ ok: true, path: 'Users' });
+    expect(path('\\\\?\\D:\\x')).toEqual({ ok: false, drive: 'D' });
   });
 });
 

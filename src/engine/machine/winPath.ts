@@ -7,9 +7,15 @@ import { joinPath } from '../fs/paths';
  * The player types (and reads) Windows paths: C:\Users\kyle, ..\web, ~\notes.
  */
 
-/** A path on C:, or a drive this machine doesn't have (PowerShell's "Cannot find drive"). */
+/**
+ * A path on C:; or a drive this machine doesn't have (another letter, or a PowerShell drive
+ * such as Env: or HKLM: that isn't a folder), for PowerShell's "Cannot find drive"; or a
+ * network path (\\server\share), which this laptop can't reach.
+ */
 export type PathResult =
-  { readonly ok: true; readonly path: string } | { readonly ok: false; readonly drive: string };
+  | { readonly ok: true; readonly path: string }
+  | { readonly ok: false; readonly drive: string }
+  | { readonly ok: false; readonly network: string };
 
 export interface PathContext {
   /** The folder the terminal stands in, canonical. */
@@ -18,25 +24,30 @@ export interface PathContext {
   readonly home: string;
 }
 
-const DRIVE = /^([A-Za-z]):(.*)$/;
+/** Everything before the first colon names a drive, as PowerShell reads it: C:, Env:, HKLM:. */
+const DRIVE = /^([^\\:]+):(.*)$/;
+/** The \\?\ and \\.\ prefixes Windows accepts in front of a drive path. */
+const DEVICE_PREFIX = /^\\\\[?.]\\/;
 
 /**
  * Turns a typed path into a canonical one. Accepts C:\..., c:/..., a bare C: (the current
  * folder), \... (the root of C:), ~ and ~\... (home), and relative paths with . and ..,
- * where .. stops at the root as it does on Windows. Surrounding quotes are dropped.
+ * where .. stops at the root as it does on Windows. Surrounding quotes are dropped, and so
+ * is a \\?\ prefix. Any other drive, and any network path, is reported rather than guessed.
  */
 export function toCanonical(input: string, context: PathContext): PathResult {
   let text = input.trim();
   const quoted = /^(['"])(.*)\1$/.exec(text);
   if (quoted) text = quoted[2] ?? '';
-  text = text.replace(/\//g, '\\');
+  text = text.replace(/\//g, '\\').replace(DEVICE_PREFIX, '');
+  if (text.startsWith('\\\\')) return { ok: false, network: text };
 
   let start: string;
   let rest: string;
   const drive = DRIVE.exec(text);
   if (drive) {
-    const letter = (drive[1] ?? '').toUpperCase();
-    if (letter !== 'C') return { ok: false, drive: letter };
+    const name = drive[1] ?? '';
+    if (name.toUpperCase() !== 'C') return { ok: false, drive: name };
     rest = drive[2] ?? '';
     // C:\... starts at the root; C:folder and a bare C: start where the terminal stands.
     start = rest.startsWith('\\') ? '' : context.cwd;
