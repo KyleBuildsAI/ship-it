@@ -5,6 +5,7 @@ import type { Workspace } from '../../workspace';
 import type { ShellResult } from '../shell';
 import { toArgs } from './args';
 import { bind } from './bind';
+import { CHOICES, question as confirmLines, readAnswer, type ConfirmRequest } from './confirm';
 import { lex, LexError, type LexToken, type WordPart } from './lex';
 import { findCmdlet } from './registry';
 
@@ -32,6 +33,10 @@ export class MachineShell {
   readonly ws: Workspace;
   readonly machine: Machine;
   readonly sessionId: number;
+  /** A cmdlet's open question; while it's open, the next line is its answer. */
+  private question: ConfirmRequest | null = null;
+  /** Statements typed after the one that asked, which run once it's answered. */
+  private waiting: LexToken[][] = [];
 
   constructor(ws: Workspace, machine: Machine, sessionId: number) {
     this.ws = ws;
@@ -43,11 +48,17 @@ export class MachineShell {
     return this.machine.session(this.sessionId);
   }
 
+  /** True while a cmdlet waits for a yes or no, so the line typed isn't a command. */
+  get asking(): boolean {
+    return this.question !== null;
+  }
+
   prompt(): string {
-    return `PS ${display(this.session.cwd)}> `;
+    return this.question === null ? `PS ${display(this.session.cwd)}> ` : CHOICES;
   }
 
   run(input: string): ShellResult {
+    if (this.question !== null) return this.answer(this.question, input);
     let tokens: LexToken[];
     try {
       tokens = lex(input);
@@ -55,13 +66,43 @@ export class MachineShell {
       if (error instanceof LexError) return fail(error.message, error.hint);
       throw error;
     }
+    return this.runStatements(statements(tokens));
+  }
+
+  private answer(question: ConfirmRequest, input: string): ShellResult {
+    const read = readAnswer(input);
+    if ('again' in read) return { lines: read.again, exitCode: 0 };
+    this.question = null;
+    const answered = question.answer(read.choice);
+    // Answering may ask the next question, like Remove-Item's next full folder.
+    const next = this.openQuestion();
+    if (next !== null) return { lines: [...answered.lines, ...confirmLines(next)], exitCode: 0 };
+    const rest = this.runStatements(this.waiting);
+    return rest.lines.length === 0 && this.waiting.length === 0
+      ? answered
+      : { lines: [...answered.lines, ...rest.lines], exitCode: rest.exitCode };
+  }
+
+  /** Read through a method: a cmdlet may have opened a question since the last look. */
+  private openQuestion(): ConfirmRequest | null {
+    return this.question;
+  }
+
+  private runStatements(list: readonly LexToken[][]): ShellResult {
     const lines: OutputLine[] = [];
     let exitCode = 0;
-    for (const statement of statements(tokens)) {
+    for (const [index, statement] of list.entries()) {
       const result = this.runStatement(statement);
       lines.push(...result.lines);
       exitCode = result.exitCode;
+      const asked = this.openQuestion();
+      if (asked !== null) {
+        // PowerShell waits for the answer before it goes on to the next statement.
+        this.waiting = list.slice(index + 1);
+        return { lines: [...lines, ...confirmLines(asked)], exitCode };
+      }
     }
+    this.waiting = [];
     return { lines, exitCode };
   }
 
@@ -79,7 +120,15 @@ export class MachineShell {
     if (!Array.isArray(args)) return fail(args.message, ...args.hints);
     const bound = bind(cmdlet.spec, args);
     if (!bound.ok) return fail(`${cmdlet.spec.name}: ${bound.message}`, ...bound.hints);
-    return cmdlet.run({ ws: this.ws, machine: this.machine, session: this.session }, bound.bound);
+    const context = {
+      ws: this.ws,
+      machine: this.machine,
+      session: this.session,
+      confirm: (request: ConfirmRequest) => {
+        this.question = request;
+      },
+    };
+    return cmdlet.run(context, bound.bound);
   }
 
   private text(parts: readonly WordPart[]): string {
