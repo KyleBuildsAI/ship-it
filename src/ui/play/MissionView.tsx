@@ -273,7 +273,7 @@ function Done({ activity }: { activity: MissionActivity }) {
       ) : null}
       <div className="play-panel__actions">
         <button type="button" className="play-button play-button--primary" onClick={leavePlay}>
-          Back to Act 2
+          Back to Act {activity.mission.act}
         </button>
       </div>
     </div>

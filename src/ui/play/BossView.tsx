@@ -1,6 +1,6 @@
 import type { CheckRow } from '../../game/missions/predicates';
 import { formatClock, startBossFight } from '../../game/play/bossPlay';
-import { getCatalog } from '../../game/play/catalog';
+import { getAct } from '../../game/play/catalog';
 import { leavePlay } from '../../game/play/play';
 import type { BossActivity } from '../../game/play/playStore';
 import { Checklist } from './Checklist';
@@ -21,7 +21,7 @@ export function BossView({
 }) {
   const running = activity.outcome === 'running';
   useClock(running);
-  const { boss } = getCatalog().act;
+  const { boss } = getAct(activity.act).act;
   const latest = activity.messages.at(-1);
 
   return (
@@ -60,14 +60,14 @@ export function BossView({
                 type="button"
                 className="play-button play-button--primary"
                 onClick={() => {
-                  startBossFight();
+                  startBossFight(activity.act);
                 }}
               >
                 Try again
               </button>
             )}
             <button type="button" className="play-button" onClick={leavePlay}>
-              Back to Act 2
+              Back to Act {activity.act}
             </button>
           </div>
         </div>
