@@ -1675,3 +1675,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/124
 3. It's gone. Deleting the folder forgets its attribute, so the new folder starts visible, as on Windows.
 
 </details>
+
+---
+
+## #125 feat: get-childitem with wildcards, recursion, and env:
+
+https://github.com/KyleBuildsAI/ship-it/pull/125
+
+1. Why does `dir /s` fail in PowerShell when it works in cmd?
+2. What's the difference between `ls quillwork -Depth 0` and `ls quillwork`?
+3. `ls env:*PATH*` lists `HOMEPATH`, `Path` and `PATHEXT`. Why all three?
+
+<details><summary>Answers</summary>
+
+1. PowerShell's switches start with `-`. `/s` is read as a path, the folder `C:\s`, which doesn't exist. The PowerShell way is `Get-ChildItem -Recurse`.
+2. Nothing in what's listed: both show only quillwork's own items. `-Depth 0` turns on recursion but allows zero levels down.
+3. The wildcard matches `PATH` anywhere in the name, ignoring case, and all three names contain it.
+
+</details>
