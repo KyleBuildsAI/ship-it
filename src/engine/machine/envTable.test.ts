@@ -38,6 +38,24 @@ describe('EnvTable', () => {
     expect(env.entries().map((entry) => entry.name)).toEqual(['Alpha', 'beta', 'zeta']);
   });
 
+  it('saves a %reference from a fresh install as expandable, and anything else as plain', () => {
+    const env = new EnvTable({ Path: '%USERPROFILE%\\bin', OS: 'Windows_NT' });
+
+    expect(env.expands('path')).toBe(true);
+    expect(env.expands('OS')).toBe(false);
+  });
+
+  it('stores plain text unless told to expand, even over a value that expanded', () => {
+    const env = new EnvTable({ Path: '%USERPROFILE%\\bin' });
+    env.set('Path', '%USERPROFILE%\\bin;C:\\tools');
+
+    expect(env.expands('Path')).toBe(false);
+    env.set('Path', '%USERPROFILE%\\bin', { expand: true });
+    expect(env.expands('Path')).toBe(true);
+    env.delete('Path');
+    expect(env.expands('Path')).toBe(false);
+  });
+
   it('copies into an independent table', () => {
     const env = new EnvTable({ PORT: '3000' });
     const copy = env.clone();
@@ -45,6 +63,7 @@ describe('EnvTable', () => {
 
     expect(env.get('PORT')).toBe('3000');
     expect(copy.get('Port')).toBe('4000');
+    expect(new EnvTable({ Path: '%A%' }).clone().expands('Path')).toBe(true);
   });
 });
 
