@@ -8,6 +8,8 @@ export const ALIASES: Readonly<Record<string, string>> = {
   dir: 'Get-ChildItem',
   gci: 'Get-ChildItem',
   ls: 'Get-ChildItem',
+  md: 'mkdir',
+  ni: 'New-Item',
   chdir: 'Set-Location',
   sl: 'Set-Location',
   gl: 'Get-Location',
