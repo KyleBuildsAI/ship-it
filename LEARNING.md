@@ -1387,3 +1387,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/108
 3. Anything can listen to events: the 3D world, logs, and later Sage's context. A value might be an API key. With no field for it, no listener can leak it. The world reads values straight from the machine when it needs them, and masks secret-looking names.
 
 </details>
+
+---
+
+## #109 test: capture real powershell 7.6 output for act 1
+
+https://github.com/KyleBuildsAI/ship-it/pull/109
+
+1. Why does `Save-Error` start a fresh `pwsh` instead of running the command in the script?
+2. Which captures can't be compared byte for byte, and why?
+3. What stops your real username from ending up in these files?
+
+<details><summary>Answers</summary>
+
+1. An error inside a script shows the script's file and line (`Set-Location: C:\...\capture-shell.ps1:129 Line | ...`). A command typed at the prompt shows one line, and that's what the player must see. A fresh `pwsh -Command` behaves like the prompt.
+2. `get-process-self` (memory and CPU change every run), `get-command` (versions and install paths are machine-specific), and the tool versions. Tests compare their shape (headers and columns), not their numbers.
+3. `ConvertTo-Stable` replaces the throwaway folder's path and `$env:USERPROFILE` with `C:\Users\kyle` before saving. A test also fails if any capture contains `C:\Users\<anyone else>\`.
+
+</details>
