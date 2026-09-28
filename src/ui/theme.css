@@ -674,7 +674,7 @@ body {
   font: 13px var(--font-mono);
 }
 
-/* HUD menu row: Act 2, Standup Board, Trophy Wall, Settings. */
+/* HUD menu row: Acts, Standup Board, Trophy Wall, Settings, Music. */
 .hud-menu {
   position: absolute;
   left: 150px;

@@ -100,3 +100,11 @@ export function toggleActMenu(act: number): void {
 export function openActMenu(act: number): void {
   hud.update({ actMenu: act });
 }
+
+/**
+ * Closes the HUD's Act menu. Travelling does this, so arriving on an island shows that
+ * island's own Act instead of whichever Act was open before.
+ */
+export function closeActMenu(): void {
+  hud.update({ actMenu: null });
+}
