@@ -841,11 +841,16 @@ html[data-reduced-motion='on'] *::after {
   background: rgba(5, 6, 11, 0.75);
 }
 
-/* First-run tutorial (TutorialCard.tsx): top right, clear of the badge, title, and menus. */
+/*
+ * First-run tutorial (TutorialCard.tsx): top left under the status badge, over the locked
+ * portals. Top right covered the open Act 2 portal, the very thing its last step points at.
+ * It slides right of the play panel when that opens (see TutorialCard).
+ */
 .tutorial-card {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 140px;
+  left: 16px;
+  transition: left 0.25s ease;
   width: min(320px, calc(100vw - 32px));
   padding: 14px 16px;
   border-radius: 12px;

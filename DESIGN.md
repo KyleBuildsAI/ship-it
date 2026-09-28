@@ -51,7 +51,7 @@ A night-time floating island HQ. Contains:
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
 - In M1 these three are HUD menus (Standup, Trophies, Settings) reachable from anywhere, next to an **Act 2** button that opens the Act menu outside the Git World too. Mentor chat arrives with later modes.
-- **First-run tutorial** (M2): a card at the top right teaches the controls by doing, one step at a time: walk, jump, look around, run a command, hide and show the terminal, enter an Act. Each step advances when the player has done it (counters in the world and HUD stores; logic in `src/game/tutorial.ts`), never on a "Next" button. Skippable; Settings can replay it. Finishing or skipping is saved, so it runs once per save.
+- **First-run tutorial** (M2): a card at the top left (over the locked portals, so the open ones stay in view) teaches the controls by doing, one step at a time: walk, jump, look around, run a command, hide and show the terminal, enter an Act. Each step advances when the player has done it (counters in the world and HUD stores; logic in `src/game/tutorial.ts`), never on a "Next" button. Skippable; Settings can replay it. Finishing or skipping is saved, so it runs once per save.
 
 ### Git World visual language (reused everywhere)
 | Git concept | In-world object |
