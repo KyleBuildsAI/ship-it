@@ -7,6 +7,9 @@ import lsAmbiguous from './fixtures/error-ls-ambiguous.txt?raw';
 import rmPositional from './fixtures/error-rm-positional.txt?raw';
 import rmRf from './fixtures/error-rm-rf.txt?raw';
 import rmTwice from './fixtures/error-rm-twice.txt?raw';
+import stopIdHuge from './fixtures/error-stop-process-id-huge.txt?raw';
+import stopIdText from './fixtures/error-stop-process-id-text.txt?raw';
+import stopMissingId from './fixtures/error-stop-process-missing-id.txt?raw';
 import switchList from './fixtures/error-switch-list.txt?raw';
 import switchText from './fixtures/error-switch-text.txt?raw';
 import { lex } from './lex';
@@ -22,6 +25,7 @@ const GET_CHILD_ITEM: CmdletSpec = {
     { name: 'Path', type: 'string[]', position: 0 },
     { name: 'Filter', type: 'string', position: 1 },
     { name: 'Recurse', type: 'switch', aliases: ['s'] },
+    { name: 'Depth', type: 'int' },
     { name: 'Force', type: 'switch' },
     { name: 'Name', type: 'switch' },
     { name: 'Directory', type: 'switch', aliases: ['ad'], provider: true },
@@ -37,12 +41,11 @@ const REMOVE_ITEM: CmdletSpec = {
     { name: 'Force', type: 'switch' },
   ],
 };
-const NEW_ITEM: CmdletSpec = {
-  name: 'New-Item',
+const STOP_PROCESS: CmdletSpec = {
+  name: 'Stop-Process',
   parameters: [
-    { name: 'Path', type: 'string[]', position: 0 },
-    { name: 'ItemType', type: 'string', aliases: ['Type'] },
-    { name: 'Name', type: 'string' },
+    { name: 'Id', type: 'int[]', position: 0 },
+    { name: 'Name', type: 'string[]', aliases: ['ProcessName'] },
     { name: 'Force', type: 'switch' },
   ],
 };
@@ -79,13 +82,14 @@ describe('bind', () => {
     expect(result.texts('Path')).toEqual(['docs']);
     expect(result.flag('Name')).toBe(false);
     expect(bound(GET_CHILD_ITEM, '-s').flag('Recurse')).toBe(true);
-    expect(bound(NEW_ITEM, '-Ty File').text('ItemType')).toBe('File');
+    expect(bound(STOP_PROCESS, '-Proc node').texts('Name')).toEqual(['node']);
   });
 
   it("tries the cmdlet's own parameters before the provider's, as PowerShell does", () => {
-    // Checked in pwsh 7.6.6: -fi is -Filter, -di is -Directory, -h is -Hidden.
+    // Checked in pwsh 7.6.6: -fi is -Filter, -d is -Depth, -di is -Directory, -h is -Hidden.
     expect(bound(GET_CHILD_ITEM, '-fi *.md').text('Filter')).toBe('*.md');
     expect(bound(GET_CHILD_ITEM, '-file').flag('File')).toBe(true);
+    expect(bound(GET_CHILD_ITEM, '-d 2').numbers('Depth')).toEqual([2]);
     expect(bound(GET_CHILD_ITEM, '-di').flag('Directory')).toBe(true);
     expect(bound(GET_CHILD_ITEM, '-h').flag('Hidden')).toBe(true);
   });
@@ -121,6 +125,17 @@ describe('bind', () => {
       ]);
     }
   });
+
+  it('converts numbers the way PowerShell does', () => {
+    expect(bound(STOP_PROCESS, '8712, 3344').numbers('Id')).toEqual([8712, 3344]);
+    expect(bound(STOP_PROCESS, "-Id +5, 0x10, 1.5, 2.5, ''").numbers('Id')).toEqual([
+      5, 16, 2, 2, 0,
+    ]);
+    expect(bound(STOP_PROCESS, '-Name node').numbers('Id')).toBeNull();
+    expect(refused(STOP_PROCESS, "-Id ' x '").message).toContain(
+      'Cannot convert value " x " to type "System.Int32". Error: "The input string \'x\'',
+    );
+  });
 });
 
 describe("bind errors, in PowerShell's words", () => {
@@ -128,11 +143,14 @@ describe("bind errors, in PowerShell's words", () => {
     expect(printed(REMOVE_ITEM, '-rf notes.txt')).toBe(rmRf);
     expect(printed(GET_CHILD_ITEM, '-f')).toBe(lsAmbiguous);
     expect(printed(SET_LOCATION, 'C:\\Program Files\\nodejs')).toBe(cdPositional);
+    expect(printed(STOP_PROCESS, '-Id')).toBe(stopMissingId);
     expect(printed(REMOVE_ITEM, '-Force:maybe notes.txt')).toBe(switchText);
     expect(printed(REMOVE_ITEM, '-Force:$true,$false notes.txt')).toBe(switchList);
     expect(printed(SET_LOCATION, 'a, b')).toBe(cdList);
     expect(printed(REMOVE_ITEM, '-Force -Force notes.txt')).toBe(rmTwice);
     expect(printed(REMOVE_ITEM, 'a.txt b.txt')).toBe(rmPositional);
+    expect(printed(STOP_PROCESS, '-Id node')).toBe(stopIdText);
+    expect(printed(STOP_PROCESS, '-Id 99999999999')).toBe(stopIdHuge);
   });
 
   it('report the mistake PowerShell reports when a line has several', () => {
@@ -141,11 +159,11 @@ describe("bind errors, in PowerShell's words", () => {
       "Missing an argument for parameter 'Path'",
     );
     expect(refused(GET_CHILD_ITEM, '-zz -f').message).toContain("parameter name 'f' is ambiguous");
-    expect(refused(SET_LOCATION, '-zz -Path a,b').message).toContain("'System.Object[]'");
+    expect(refused(STOP_PROCESS, '-zz -Id node').message).toContain('Cannot convert value "node"');
     expect(refused(SET_LOCATION, 'a b -zz').message).toBe(
       "A positional parameter cannot be found that accepts argument 'b'.",
     );
-    expect(refused(NEW_ITEM, '-ItemType File -Name').message).toContain(
+    expect(refused(STOP_PROCESS, '-Id node -Name').message).toContain(
       "Missing an argument for parameter 'Name'",
     );
     expect(refused(GET_CHILD_ITEM, '-Force -Force -f').message).toContain('is ambiguous');
@@ -154,8 +172,8 @@ describe("bind errors, in PowerShell's words", () => {
   });
 
   it('ask for a missing value only when a real parameter follows', () => {
-    expect(refused(NEW_ITEM, '-Name -Force').message).toBe(
-      "Missing an argument for parameter 'Name'. Specify a parameter of type 'System.String' and try again.",
+    expect(refused(STOP_PROCESS, '-Id -Force').message).toContain(
+      "Missing an argument for parameter 'Id'",
     );
     expect(refused(GET_CHILD_ITEM, '-Filter -F').message).toContain(
       "parameter name 'F' is ambiguous",

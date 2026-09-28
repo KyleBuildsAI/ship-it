@@ -153,6 +153,8 @@ try {
     Save-Error 'error-cd-path-dash' 'Set-Location -Path -Force'
     Save-Error 'error-rm-twice' 'Remove-Item -Force -Force notes.txt'
     Save-Error 'error-rm-positional' 'Remove-Item a.txt b.txt'
+    Save-Error 'error-stop-process-id-text' 'Stop-Process -Id node'
+    Save-Error 'error-stop-process-id-huge' 'Stop-Process -Id 99999999999'
     Save-Error 'error-stop-process-missing-id' 'Stop-Process -Id'
     Save-Error 'error-stop-process-no-such' 'Stop-Process -Id 999999'
     Save-Error 'error-get-process-missing' 'Get-Process nod'

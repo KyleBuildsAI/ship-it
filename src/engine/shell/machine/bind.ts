@@ -5,6 +5,8 @@ const DOTNET_TYPE = {
   switch: 'System.Management.Automation.SwitchParameter',
   string: 'System.String',
   'string[]': 'System.String[]',
+  int: 'System.Int32',
+  'int[]': 'System.Int32[]',
 } as const;
 
 export type ParamType = keyof typeof DOTNET_TYPE;
@@ -52,6 +54,11 @@ export class Bound {
   texts(name: string): readonly string[] | null {
     const value = this.values.get(name);
     return value === undefined || typeof value === 'boolean' ? null : value;
+  }
+
+  /** A number parameter's values, already checked and converted by bind(). */
+  numbers(name: string): readonly number[] | null {
+    return this.texts(name)?.map(Number) ?? null;
   }
 }
 
@@ -245,14 +252,52 @@ function readSwitch(parameter: ParamSpec, arg: ParameterArg): boolean | BindErro
   );
 }
 
-/** The value, if it fits the parameter's type, or PowerShell's refusal. */
+/** The value, checked for its type (numbers come back converted), or PowerShell's refusal. */
 function checkValue(parameter: ParamSpec, items: readonly string[]): readonly string[] | BindError {
   if (items.length > 1 && !parameter.type.endsWith('[]'))
     return bindError(
       `Cannot convert 'System.Object[]' to the type '${DOTNET_TYPE[parameter.type]}' required by parameter '${parameter.name}'. Specified method is not supported.`,
     );
-  return items;
+  if (parameter.type !== 'int' && parameter.type !== 'int[]') return items;
+  const numbers: string[] = [];
+  for (const item of items) {
+    const converted = toInt32(item);
+    if (typeof converted === 'string')
+      return bindError(
+        `Cannot bind parameter '${parameter.name}'. Cannot convert value "${item}" to type "System.Int32". Error: "${converted}"`,
+      );
+    numbers.push(String(converted));
+  }
+  return numbers;
 }
+
+const INT32_MIN = -2147483648;
+const INT32_MAX = 2147483647;
+
+/**
+ * Text to a whole number the way PowerShell's binder converts it: spaces trimmed, empty
+ * is 0, a sign or 0x allowed, and decimals rounded half to even (1.5 is 2, 2.5 is 2).
+ * Returns .NET's reason when it can't.
+ */
+function toInt32(text: string): number | string {
+  const trimmed = text.trim();
+  if (trimmed === '') return 0;
+  const hex = /^([+-]?)0x([0-9a-f]+)$/i.exec(trimmed);
+  let value: number;
+  if (hex) value = Number.parseInt(`${hex[1] ?? ''}${hex[2] ?? ''}`, 16);
+  else if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(trimmed)) value = roundHalfToEven(Number(trimmed));
+  else return `The input string '${trimmed}' was not in a correct format.`;
+  if (value < INT32_MIN || value > INT32_MAX)
+    return 'Value was either too large or too small for an Int32.';
+  return value;
+}
+
+function roundHalfToEven(value: number): number {
+  const floor = Math.floor(value);
+  if (value - floor !== 0.5) return Math.round(value);
+  return floor % 2 === 0 ? floor : floor + 1;
+}
+
 /**
  * More bare values than positions. Usually a path with a space in it, which PowerShell
  * reads as two values: cd C:\Program Files\nodejs.

@@ -1585,3 +1585,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/119
 3. The switch sits between the words, so they can't be one path that split at a space. Only an unbroken run of values could be.
 
 </details>
+
+---
+
+## #120 feat: number parameters convert like powershell's binder
+
+https://github.com/KyleBuildsAI/ship-it/pull/120
+
+1. What does `Stop-Process -Id 2.5` try to stop, and why?
+2. Why does `Bound.numbers()` never see text like `node`?
+3. What would go wrong if the binder used JavaScript's `Math.round`?
+
+<details><summary>Answers</summary>
+
+1. Process 2. PowerShell rounds half to even, and 2 is the even neighbour of 2.5.
+2. `bind()` converts and checks every number before the cmdlet runs. If one fails, binding stops with PowerShell's error and the cmdlet never runs.
+3. `Math.round(2.5)` is 3, so the sandbox would target a different process from real PowerShell.
+
+</details>
