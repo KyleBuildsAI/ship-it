@@ -1,7 +1,7 @@
 /**
  * One piece of a word. Text is final: quotes are gone and backtick escapes are applied.
- * `quoted` matters to the parameter binder: -Force is a parameter, but '-Force' is just
- * text.
+ * `quoted` matters to the parameter binder: -Force is a parameter, but '-Force' and
+ * `-Force are just text. So text from quotes or from a backtick escape is quoted.
  */
 export interface WordPart {
   readonly kind: 'text';
@@ -45,8 +45,18 @@ const scriptBlocks = () =>
     "Try naming what you want, like: Get-Process node. Text with { } in it needs quotes: 'HEAD@{1}'.",
   );
 
-/** Characters that end a bare word, because each starts a token of its own. */
-const WORD_END = new Set(['|', ';', ',', '(', ')', '&', '>', '{', '}']);
+/**
+ * Characters that end a bare word, because each starts a token of its own. Not >: in
+ * PowerShell, echo hi>>a.txt prints hi>>a.txt. A redirect starts its own token.
+ */
+const WORD_END = new Set(['|', ';', ',', '(', ')', '&', '{', '}']);
+
+/** PowerShell also reads the curly quotes that web pages and chat apps paste as quotes. */
+const SINGLE_QUOTES = new Set(["'", '\u2018', '\u2019', '\u201A', '\u201B']);
+const DOUBLE_QUOTES = new Set(['"', '\u201C', '\u201D', '\u201E']);
+
+/** A redirect: > or >> alone, or after a stream number, like 2> for errors. */
+const REDIRECT = /^[1-6*]?>/;
 
 /** What a backtick turns the next character into. Any other character stays as it is. */
 const ESCAPES: Readonly<Record<string, string>> = {
@@ -67,8 +77,9 @@ const isSpace = (char: string) => /\s/.test(char);
  * Splits a line into tokens the way PowerShell reads a command line. 'Single quotes' keep
  * text exactly ('' is one quote). "Double quotes" apply backtick escapes (`n, `t, `").
  * Outside quotes, whitespace separates words, a backtick escapes the next character, and
- * # starts a comment. Throws a LexError for an unclosed quote and for syntax this sandbox
- * doesn't run, like { }.
+ * # starts a comment. A word that starts with a quote ends where the quote closes, so
+ * "C:\Program Files"\nodejs is two words, as in PowerShell. Throws a LexError for an
+ * unclosed quote and for syntax this sandbox doesn't run, like { }.
  */
 export function lex(input: string): LexToken[] {
   const tokens: LexToken[] = [];
@@ -79,7 +90,7 @@ export function lex(input: string): LexToken[] {
       index++;
     } else if (char === '#') {
       break;
-    } else if (WORD_END.has(char) || (char === '2' && input.charAt(index + 1) === '>')) {
+    } else if (WORD_END.has(char) || REDIRECT.test(input.slice(index, index + 2))) {
       const operator = readOperator(input, index);
       tokens.push(operator.token);
       index = operator.end;
@@ -112,9 +123,15 @@ function readOperator(input: string, start: number): { token: LexToken; end: num
     case '}':
       throw scriptBlocks();
     default: {
-      // > >> 2> 2>>
+      // > >> 1> 1>> 2> 2>>
+      const numbered = char !== '>';
+      if (numbered && char !== '1' && char !== '2')
+        throw new LexError(
+          `This sandbox doesn't redirect stream ${char}.`,
+          'Redirect output with > or >>, and errors with 2> or 2>>.',
+        );
       const stream = char === '2' ? 'error' : 'output';
-      const arrow = char === '2' ? start + 1 : start;
+      const arrow = numbered ? start + 1 : start;
       const append = input.charAt(arrow + 1) === '>';
       return { token: { kind: 'redirect', stream, append }, end: arrow + (append ? 2 : 1) };
     }
@@ -141,12 +158,15 @@ function readWord(input: string, start: number): { parts: WordPart[]; end: numbe
   while (index < input.length) {
     const char = input.charAt(index);
     if (isSpace(char) || WORD_END.has(char)) break;
-    if (char === "'") {
-      index = readSingleQuoted(input, index, parts);
-    } else if (char === '"') {
-      index = readDoubleQuoted(input, index, parts);
+    if (SINGLE_QUOTES.has(char) || DOUBLE_QUOTES.has(char)) {
+      const opensWord = index === start;
+      index = SINGLE_QUOTES.has(char)
+        ? readSingleQuoted(input, index, parts)
+        : readDoubleQuoted(input, index, parts);
+      // "a"b is two words, but a"b" is one: only a leading quote ends the word.
+      if (opensWord) break;
     } else if (char === '`') {
-      index = readEscape(input, index, parts, false);
+      index = readEscape(input, index, parts);
     } else {
       parts.text(char, false);
       index++;
@@ -161,10 +181,12 @@ function readSingleQuoted(input: string, start: number, parts: PartList): number
   for (;;) {
     if (index >= input.length) throw unterminated("'");
     const char = input.charAt(index);
-    if (char === "'" && input.charAt(index + 1) === "'") {
-      text += "'";
+    const next = input.charAt(index + 1);
+    if (SINGLE_QUOTES.has(char) && SINGLE_QUOTES.has(next)) {
+      // A doubled quote is one quote: 'it''s' is it's.
+      text += next;
       index += 2;
-    } else if (char === "'") {
+    } else if (SINGLE_QUOTES.has(char)) {
       parts.text(text, true);
       return index + 1;
     } else {
@@ -181,13 +203,14 @@ function readDoubleQuoted(input: string, start: number, parts: PartList): number
   for (;;) {
     if (index >= input.length) throw unterminated('"');
     const char = input.charAt(index);
-    if (char === '"' && input.charAt(index + 1) === '"') {
-      parts.text('"', true);
+    const next = input.charAt(index + 1);
+    if (DOUBLE_QUOTES.has(char) && DOUBLE_QUOTES.has(next)) {
+      parts.text(next, true);
       index += 2;
-    } else if (char === '"') {
+    } else if (DOUBLE_QUOTES.has(char)) {
       return index + 1;
     } else if (char === '`') {
-      index = readEscape(input, index, parts, true);
+      index = readEscape(input, index, parts);
     } else {
       parts.text(char, true);
       index++;
@@ -195,14 +218,14 @@ function readDoubleQuoted(input: string, start: number, parts: PartList): number
   }
 }
 
-function readEscape(input: string, start: number, parts: PartList, quoted: boolean): number {
+function readEscape(input: string, start: number, parts: PartList): number {
   const next = input.charAt(start + 1);
   if (next === '')
     throw new LexError(
       'A backtick at the end of a line continues it on the next one.',
       'This sandbox runs one line at a time, so remove the ` at the end.',
     );
-  parts.text(ESCAPES[next] ?? next, quoted);
+  parts.text(ESCAPES[next] ?? next, true);
   return start + 2;
 }
 
