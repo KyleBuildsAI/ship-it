@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import type { FixtureStep } from '../../engine/fixtures';
+import { isMachineStep } from '../../engine/machine/fixtures';
+import { AgentTaskSchema, APPROVAL_MODES, ChangeStepsSchema } from './agentSchema';
 import {
   checkUniqueIds,
   FixtureSchema,
@@ -47,11 +50,14 @@ export const DEFAULT_STEP_XP = 10;
 
 const StepSchema = z.strictObject({
   id: IdSchema,
+  /** What the step asks for. In a directed step, it's the goal Kyle directs Otto toward. */
   instruction: ScreenTextSchema,
   success: PredicateSchema,
-  /** The hint ladder: 1 a question back, 2 the concept, 3 the command. Never skipped. */
+  /** The hint ladder: 1 a question back, 2 the concept, 3 the command or card. Never skipped. */
   hints: z.tuple([ScreenTextSchema, ScreenTextSchema, ScreenTextSchema]),
   xp: z.int().nonnegative().default(DEFAULT_STEP_XP),
+  /** Only in a directed step: Kyle directs Otto instead of typing (agentSchema.ts). */
+  agent: AgentTaskSchema.optional(),
 });
 
 export const DEFAULT_DRILL_SECONDS = 90;
@@ -98,6 +104,39 @@ const QuestionRoundSchema = z
     }
   });
 
+/**
+ * A mission is directed (Kyle directs Otto) or typed (Kyle types, as in Act 2), never a
+ * mix: the approval mode covers the whole sim, and Otto only works on the laptop.
+ */
+function checkDirected(
+  mission: {
+    readonly steps: readonly { readonly agent?: unknown }[];
+    readonly approvals?: string | undefined;
+    readonly initialRepoState: readonly FixtureStep[];
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const problem = (path: string, message: string) => {
+    ctx.addIssue({ code: 'custom', path: [path], message });
+  };
+  const directed = mission.steps.filter((step) => step.agent !== undefined).length;
+  if (directed === 0) {
+    if (mission.approvals !== undefined) {
+      problem('approvals', 'Only a directed mission sets approvals.');
+    }
+    return;
+  }
+  if (directed < mission.steps.length) {
+    problem('steps', 'Give every step an agent task, or none: a mission is directed or typed.');
+  }
+  if (mission.approvals === undefined) {
+    problem('approvals', 'A directed mission sets approvals: "changes" or "destructive".');
+  }
+  if (mission.initialRepoState[0]?.op !== 'windows') {
+    problem('initialRepoState', 'Otto works on the laptop, so start with windows().');
+  }
+}
+
 export const MissionSchema = z
   .strictObject({
     id: IdSchema,
@@ -112,6 +151,8 @@ export const MissionSchema = z
       diagram: NameSchema.optional(),
     }),
     initialRepoState: FixtureSchema,
+    /** Directed missions only: which of Otto's lines pause for Kyle's approval. */
+    approvals: z.enum(APPROVAL_MODES).optional(),
     steps: z.array(StepSchema).min(1),
     drills: z.array(DrillSchema).min(5).max(10),
     questionRound: QuestionRoundSchema,
@@ -119,6 +160,7 @@ export const MissionSchema = z
   .superRefine((mission, ctx) => {
     checkUniqueIds(mission.steps, 'steps', ctx);
     checkUniqueIds(mission.drills, 'drills', ctx);
+    checkDirected(mission, ctx);
   });
 
 /** A mission after parsing: defaults like a drill's 90-second limit are filled in. */
@@ -138,7 +180,7 @@ const TwistSchema = z.strictObject({
   atSecondsRemaining: z.int().positive(),
   message: ScreenTextSchema,
   /** Changes made to the player's sandbox when the twist fires. May be empty. */
-  apply: FixtureSchema.default([]),
+  apply: ChangeStepsSchema.default([]),
 });
 
 const BossSchema = z
@@ -156,12 +198,22 @@ const BossSchema = z
     twists: z.array(TwistSchema).min(1),
   })
   .superRefine((boss, ctx) => {
+    const onLaptop = boss.setup[0]?.op === 'windows';
     boss.twists.forEach((twist, index) => {
       if (twist.atSecondsRemaining >= boss.timeLimitSeconds) {
         ctx.addIssue({
           code: 'custom',
           message: 'A twist must fire after the boss starts, so before the full time limit.',
           path: ['twists', index, 'atSecondsRemaining'],
+        });
+      }
+      // A twist changes the live sandbox, so a laptop step needs a laptop to change.
+      const laptopStep = twist.apply.find(isMachineStep);
+      if (!onLaptop && laptopStep !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `The "${laptopStep.op}" step needs a laptop: start the boss's setup with windows().`,
+          path: ['twists', index, 'apply'],
         });
       }
     });

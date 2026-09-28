@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { windows } from '../../engine/fixtures';
 import { repo } from '../../engine/git/fixtures';
 import {
   ActSchema,
@@ -20,6 +21,8 @@ import {
   type MissionInput,
 } from './schema';
 import {
+  directedMission,
+  directedMissionInput,
   earlyActInput,
   sampleAct,
   sampleActInput,
@@ -305,6 +308,48 @@ describe('MissionSchema', () => {
   });
 });
 
+describe('directed missions', () => {
+  const directed = (changes: Partial<MissionInput>) =>
+    MissionSchema.safeParse({ ...directedMissionInput, ...changes });
+  const directedStep = first(directedMissionInput.steps);
+
+  it('parse, with an agent task on every step and an approval mode', () => {
+    expect(directedMission.approvals).toBe('destructive');
+    expect(directedMission.steps[0]?.agent?.hintPlan).toBe('full-path');
+    // Act 2's typed missions have neither.
+    expect(sampleMission.approvals).toBeUndefined();
+    expect(sampleMission.steps.map((step) => step.agent)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it('are directed on every step or on none', () => {
+    const typedStep = { ...firstStep, id: 'typed' };
+    expect(problems(directed({ steps: [directedStep, typedStep] }))).toEqual([
+      'Give every step an agent task, or none: a mission is directed or typed.',
+    ]);
+  });
+
+  it('set approvals, and only they do', () => {
+    expect(problems(directed({ approvals: undefined }))).toEqual([
+      'A directed mission sets approvals: "changes" or "destructive".',
+    ]);
+    expect(directed({ approvals: 'changes' }).success).toBe(true);
+    // @ts-expect-error: only the two modes exist.
+    expect(directed({ approvals: 'everything' }).success).toBe(false);
+    expect(problems(mission({ approvals: 'destructive' }))).toEqual([
+      'Only a directed mission sets approvals.',
+    ]);
+  });
+
+  it('start on the laptop, where Otto works', () => {
+    const onGit = directed({ initialRepoState: sampleMissionInput.initialRepoState });
+    expect(problems(onGit)).toEqual(['Otto works on the laptop, so start with windows().']);
+  });
+});
+
 describe('ActSchema', () => {
   it('accepts the sample act and fills in defaults', () => {
     expect(sampleAct).toMatchObject({ earlyAccess: false, upcoming: [] });
@@ -358,6 +403,22 @@ describe('ActSchema', () => {
     expect(act({ boss: { ...boss, twists: [] } }).success).toBe(false);
     expect(act({ boss: { ...boss, twists: undefined } }).success).toBe(false);
     expect(act({ boss: { ...boss, objectives: [] } }).success).toBe(false);
+  });
+
+  it('lets a twist change the laptop only when the boss runs on one', () => {
+    const boss = sampleActInput.boss;
+    const restart = [
+      { atSecondsRemaining: 60, message: 'Reboot!', apply: [{ op: 'restartTerminals' }] },
+    ];
+    expect(problems(act({ boss: { ...boss, twists: restart } }))).toEqual([
+      'The "restartTerminals" step needs a laptop: start the boss\'s setup with windows().',
+    ]);
+    const onLaptop = { ...boss, setup: windows().toSpec(), objectives: [{ kind: 'isRepo' }] };
+    expect(act({ boss: { ...onLaptop, twists: restart } }).success).toBe(true);
+    const rebuild = [{ atSecondsRemaining: 60, message: 'New laptop!', apply: windows().toSpec() }];
+    expect(problems(act({ boss: { ...onLaptop, twists: rebuild } }))).toEqual([
+      'windows() starts a sandbox; it cannot change one.',
+    ]);
   });
 
   it('matches each Field Mission check with output that can answer it', () => {

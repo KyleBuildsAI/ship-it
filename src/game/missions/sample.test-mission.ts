@@ -1,3 +1,4 @@
+import { windows } from '../../engine/fixtures';
 import { folder, repo } from '../../engine/git/fixtures';
 import type { AgentTaskInput } from './agentSchema';
 import {
@@ -418,3 +419,33 @@ export const sampleAgentTaskInput = {
   guards: [{ kind: 'driveFile', path: `${API}/package.json`, label: 'The API is intact' }],
   looks: [{ id: 'where', label: 'Where is Otto?', line: 'Get-Location' }],
 } satisfies AgentTaskInput;
+
+/**
+ * A directed mission on a laptop: one step where Kyle directs Otto. Its drills are still
+ * the sample's typed ones, copied with their own id prefix.
+ */
+export const directedMissionInput: MissionInput = {
+  ...copyOfSample('sample-where-things-live', 'Where Things Live (sample)', 'directed'),
+  act: 1,
+  briefing: {
+    sceneId: 'machine-island',
+    captions: ['Every terminal stands in one folder.', 'Otto types. You direct and check.'],
+  },
+  initialRepoState: windows({ mount: API }).write(`${API}/package.json`, '{}\n').toSpec(),
+  approvals: 'destructive',
+  steps: [
+    {
+      id: 'stand-in-the-api',
+      instruction: "Get Otto's terminal standing in the API folder, under your home folder.",
+      success: { kind: 'currentDirectory', path: API },
+      hints: [
+        'When a terminal opens fresh, which folder does it stand in?',
+        'A bare name starts where the terminal stands. A full path works from anywhere.',
+        'Pick the card with the full path C:\\Users\\kyle\\quillwork\\api.',
+      ],
+      agent: sampleAgentTaskInput,
+    },
+  ],
+};
+
+export const directedMission = MissionSchema.parse(directedMissionInput);
