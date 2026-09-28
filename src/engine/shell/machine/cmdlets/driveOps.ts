@@ -45,13 +45,15 @@ export function resolveItems(
   return { paths };
 }
 
-/** Whether any terminal tab stands in this folder or below it, which keeps it in use. */
-export function inUse({ machine }: CommandContext, path: string): boolean {
-  return machine
-    .sessions()
-    .some((tab) => path === '' || tab.cwd === path || tab.cwd.startsWith(`${path}/`));
+/**
+ * Whether PowerShell holds this folder: the one this tab stands in or one above it, or home
+ * (Windows keeps files open there). Another tab's folder doesn't count: Set-Location
+ * doesn't move the pwsh process, so nothing holds it (checked in 7.6).
+ */
+export function inUse({ machine, session }: CommandContext, path: string): boolean {
+  const holds = (folder: string) => folder === path || folder.startsWith(`${path}/`);
+  return path === '' || holds(session.cwd) || holds(machine.home);
 }
-
 /**
  * Copies a file, or a folder with everything in it (or, without `recurse`, just an empty
  * folder of the same name, as Copy-Item does). A file keeps its Hidden and ReadOnly

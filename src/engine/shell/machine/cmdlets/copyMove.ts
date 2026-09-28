@@ -71,7 +71,7 @@ export const RENAME_ITEM: Cmdlet = {
       return failed('Rename-Item', ['Cannot create a file when that file already exists.']);
     if (inUse(context, from))
       return failed('Rename-Item', [
-        'The process cannot access the file because it is being used by another process.',
+        `Cannot rename the item at '${display(from)}' because it is in use.`,
       ]);
     relocate(context, from, to, 'move', true);
     return { lines: [], exitCode: 0 };
@@ -127,7 +127,7 @@ function check(
   if (resolveExisting(drive, parentDir(to)) === null)
     return `Could not find a part of the path '${display(to)}'.`;
   if (mode === 'move' && inUse(context, from))
-    return 'The process cannot access the file because it is being used by another process.';
+    return `Cannot move item because the item at '${display(from)}' is in use.`;
   const existing = resolveExisting(drive, to);
   if (existing !== null && existing !== from && mode === 'move' && !force)
     return 'Cannot create a file when that file already exists.';
