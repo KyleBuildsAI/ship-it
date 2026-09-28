@@ -25,7 +25,9 @@ export interface FileTree {
  * write lands on the drive, so the shell and git always agree.
  *
  * It behaves exactly like a VirtualFs of its own, errors included: an error names the
- * path as seen from inside, and nothing outside the folder can be reached.
+ * path as seen from inside, and nothing outside the folder can be reached. If something
+ * removes the mounted folder from the bigger tree, the view fails cleanly (ENOENT) rather
+ * than quietly bringing the folder back on the next write.
  */
 export class SubtreeFs implements FileTree {
   private readonly root: FileTree;
@@ -43,6 +45,11 @@ export class SubtreeFs implements FileTree {
     return this.inside(() => this.root.readFile(this.outer(path)));
   }
 
+  /** The mount is this view's root. Once it's gone, nothing inside it can be used. */
+  private requireMount(): void {
+    if (!this.root.isDir(this.mount)) throw new FsError('ENOENT', '');
+  }
+
   isFile(path: string): boolean {
     return this.root.isFile(this.outer(path));
   }
@@ -58,6 +65,7 @@ export class SubtreeFs implements FileTree {
   writeFile(path: string, content: string): WriteResult {
     // The mount point is this view's root, which is a folder, like a VirtualFs's ''.
     if (path === '') throw new FsError('EISDIR', path);
+    this.requireMount();
     return this.inside(() => this.root.writeFile(this.outer(path), content));
   }
 
@@ -68,6 +76,7 @@ export class SubtreeFs implements FileTree {
   }
 
   makeDir(path: string): void {
+    this.requireMount();
     this.inside(() => {
       this.root.makeDir(this.outer(path));
     });

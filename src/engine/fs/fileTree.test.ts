@@ -135,9 +135,31 @@ describe('SubtreeFs', () => {
     view.removeDir('src', { recursive: true });
 
     expect(view.allFiles()).toEqual([]);
-    expect(view.exists('../notes/today.txt')).toBe(false);
+    // Real files sit just outside the mount; no path through the view reaches them.
+    expect(view.exists('../api/server.js')).toBe(false);
+    expect(view.exists('../../notes/today.txt')).toBe(false);
+    expect(outcome(() => view.readFile('../api/server.js'))).toEqual({
+      error: 'ENOENT',
+      path: '../api/server.js',
+    });
     expect(fs.readFile('Users/kyle/notes/today.txt')).toBe('ship it');
     expect(fs.isDir(MOUNT)).toBe(true);
+  });
+
+  it('fails cleanly once the mounted folder is removed, and never brings it back', () => {
+    const fs = drive();
+    const view = new SubtreeFs(fs, MOUNT);
+    view.writeFile('notes.md', 'hi');
+    fs.removeDir('Users/kyle/quillwork', { recursive: true });
+
+    expect(outcome(() => view.writeFile('b.txt', 'x'))).toEqual({ error: 'ENOENT', path: '' });
+    expect(
+      outcome(() => {
+        view.makeDir('src');
+      }),
+    ).toEqual({ error: 'ENOENT', path: '' });
+    expect(outcome(() => view.listDir(''))).toEqual({ error: 'ENOENT', path: '' });
+    expect(fs.exists('Users/kyle/quillwork')).toBe(false);
   });
 
   it('creates the mount folder when the drive lacks it', () => {
