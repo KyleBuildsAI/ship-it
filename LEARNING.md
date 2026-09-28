@@ -1531,3 +1531,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/117
 3. Any Act 2 solution line such as `echo "*.log" >> .gitignore` would lex differently from `tokenize()`, and that line's test case would fail. That shows Act 2 can't move to the new lexer until the difference is resolved.
 
 </details>
+
+---
+
+## #116 feat: a powershell lexer with quotes, escapes, comments and operators
+
+https://github.com/KyleBuildsAI/ship-it/pull/116
+
+1. Why is `echo "a"b` two words but `echo a"b"` one word?
+2. Why does each word part store `quoted`, when the quotes are already gone from its text?
+3. `echo hi>>a.txt` and `echo hi >>a.txt`: which one writes a file?
+
+<details><summary>Answers</summary>
+
+1. PowerShell ends a word that *starts* with a quote at its closing quote, so whatever follows starts a new word. A word that starts bare keeps going through any quoted pieces. The test `ends a word that starts with a quote where the quote closes` checks the case that matters most: `cd "C:\Program Files"\nodejs` is refused by real PowerShell.
+2. The parameter binder (next PR) needs it: an unquoted `-Force` is a parameter, but `'-Force'` and `` `-Force `` are plain text passed as a value.
+3. `echo hi >>a.txt`. A `>` only redirects at the start of a token. Inside the word `hi>>a.txt` it's just a character, so the first command prints `hi>>a.txt`.
+
+</details>
