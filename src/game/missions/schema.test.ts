@@ -7,7 +7,11 @@ import {
   countWords,
   DEFAULT_DRILL_SECONDS,
   DEFAULT_STEP_XP,
+  DrillSchema,
   FixtureStepSchema,
+  isJudgmentDrill,
+  JUDGMENT_SECONDS,
+  JudgmentDrillSchema,
   MissionSchema,
   PICK_LIMIT,
   PLACEMENT_PASS_PERCENT,
@@ -26,6 +30,7 @@ import {
   earlyActInput,
   sampleAct,
   sampleActInput,
+  sampleJudgmentDrillsInput,
   sampleMission,
   sampleMissionInput,
 } from './sample.test-mission';
@@ -347,6 +352,87 @@ describe('directed missions', () => {
   it('start on the laptop, where Otto works', () => {
     const onGit = directed({ initialRepoState: sampleMissionInput.initialRepoState });
     expect(problems(onGit)).toEqual(['Otto works on the laptop, so start with windows().']);
+  });
+});
+
+describe('judgment drills', () => {
+  /** The sample's first drill of this kind. */
+  function sample(kind: string): object {
+    const found = sampleJudgmentDrillsInput.find((drill) => drill.kind === kind);
+    if (found === undefined) throw new Error(`The sample has no ${kind} drill.`);
+    return found;
+  }
+  const drill = (kind: string, changes: object) =>
+    DrillSchema.safeParse({ ...sample(kind), ...changes });
+  const line = { do: 'run', line: 'Get-Location' };
+  const times = <T>(count: number, item: T) => Array.from({ length: count }, () => item);
+
+  it("parse beside typed drills, with each kind's time limit", () => {
+    const judged = sampleJudgmentDrillsInput.map((each) => DrillSchema.parse(each));
+    expect(judged.map((each) => each.timeLimitSeconds)).toEqual([
+      JUDGMENT_SECONDS.predict,
+      JUDGMENT_SECONDS.diagnose,
+      JUDGMENT_SECONDS.fix,
+      JUDGMENT_SECONDS.approve,
+      JUDGMENT_SECONDS.approve,
+    ]);
+    expect(judged.every(isJudgmentDrill)).toBe(true);
+    const typed = sampleMissionInput.drills.map((each) => DrillSchema.parse(each));
+    expect(typed.some(isJudgmentDrill)).toBe(false);
+    expect(JudgmentDrillSchema.parse(sample('approve'))).toMatchObject({ history: [] });
+  });
+
+  it('are told apart by kind: a typed drill refuses one, and a judgment drill needs one', () => {
+    expect(DrillSchema.safeParse({ ...firstDrill, kind: 'predict' }).success).toBe(false);
+    expect(drill('approve', { kind: undefined }).success).toBe(false);
+    expect(drill('approve', { kind: 'order' }).success).toBe(false);
+  });
+
+  it('need the fields of their own kind, and no others', () => {
+    expect(drill('predict', { action: undefined }).success).toBe(false);
+    expect(drill('fix', { goal: undefined }).success).toBe(false);
+    expect(drill('approve', { guards: [] }).success).toBe(false);
+    expect(drill('diagnose', { goal: { kind: 'clean' } }).success).toBe(false);
+    expect(drill('approve', { success: { kind: 'clean' } }).success).toBe(false);
+  });
+
+  it('offer 3 or 4 options, each with its own id', () => {
+    const withOptions = (ids: string[]) =>
+      drill('diagnose', { options: ids.map((id) => ({ id, text: id })) });
+    const counts = [
+      ['a', 'b'],
+      ['a', 'b', 'c'],
+      ['a', 'b', 'c', 'd'],
+      ['a', 'b', 'c', 'd', 'e'],
+    ];
+    expect(counts.map((ids) => withOptions(ids).success)).toEqual([false, true, true, false]);
+    const twins = [
+      ['predict', { id: 'a', text: 'A', outcome: { result: 'ok' } }],
+      ['diagnose', { id: 'a', text: 'A' }],
+      ['fix', { id: 'a', text: 'A', script: [line] }],
+    ] as const;
+    for (const [kind, option] of twins) {
+      const options = [option, option, { ...option, id: 'b' }];
+      expect(problems(drill(kind, { options }))).toEqual(['Duplicate id "a".']);
+    }
+  });
+
+  it('keep each fix to 1 to 4 actions, and the scene before the question to 6', () => {
+    const fixes = (count: number) =>
+      ['a', 'b', 'c'].map((id) => ({ id, text: id, script: times(count, line) }));
+    const results = [0, 1, 4, 5].map((count) => drill('fix', { options: fixes(count) }).success);
+    expect(results).toEqual([false, true, true, false]);
+    expect(drill('approve', { history: times(6, line) }).success).toBe(true);
+    expect(drill('approve', { history: times(7, line) }).success).toBe(false);
+  });
+
+  it('name the rule that broke, not just "Invalid input"', () => {
+    expect(problems(drill('fix', { claim: words(13) }))).toEqual([
+      'Otto speaks in 12 words or fewer.',
+    ]);
+    expect(problems(drill('approve', { explain: words(61) }))).toEqual([
+      expect.stringMatching(/60 words or fewer/),
+    ]);
   });
 });
 

@@ -63,9 +63,13 @@ export const FIX_ROUND_LINES = [
 /** A PowerShell line Otto types. It is code, so it doesn't count toward the screen-word limit. */
 const CommandLineSchema = z.string().trim().min(1).max(200);
 
-const OttoLineSchema = ScreenTextSchema.refine((text) => countWords(text) <= OTTO_LINE_WORDS, {
-  error: `Otto speaks in ${String(OTTO_LINE_WORDS)} words or fewer.`,
-});
+/** One thing Otto says. Judgment drills use it for his claims too. */
+export const OttoLineSchema = ScreenTextSchema.refine(
+  (text) => countWords(text) <= OTTO_LINE_WORDS,
+  {
+    error: `Otto speaks in ${String(OTTO_LINE_WORDS)} words or fewer.`,
+  },
+);
 
 /** PowerShell's Confirm choices: Yes, Yes to All, No, No to All. Otto answers for himself. */
 const ConfirmAnswerSchema = z.enum(['Y', 'A', 'N', 'L']);

@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import type { FixtureStep } from '../../engine/fixtures';
 import { isMachineStep } from '../../engine/machine/fixtures';
-import { AgentTaskSchema, APPROVAL_MODES, ChangeStepsSchema } from './agentSchema';
+import {
+  AgentTaskSchema,
+  APPROVAL_MODES,
+  BaseActionSchema,
+  ChangeStepsSchema,
+  OttoLineSchema,
+  OutcomeSchema,
+} from './agentSchema';
 import {
   checkUniqueIds,
   FixtureSchema,
@@ -62,7 +69,8 @@ const StepSchema = z.strictObject({
 
 export const DEFAULT_DRILL_SECONDS = 90;
 
-const DrillSchema = z.strictObject({
+/** A typed drill (Act 2): Kyle types until the sandbox reaches `success`. It has no `kind`. */
+const SandboxDrillSchema = z.strictObject({
   id: IdSchema,
   prompt: ScreenTextSchema,
   setup: FixtureSchema,
@@ -71,6 +79,105 @@ const DrillSchema = z.strictObject({
   /** The idea this drill tests, e.g. "staging". The review queue and skill tree group by it. */
   concept: NameSchema,
 });
+
+/** Each judgment drill's default time limit: shorter than typing, since Kyle reads and picks. */
+export const JUDGMENT_SECONDS = { predict: 40, diagnose: 40, fix: 50, approve: 35 } as const;
+
+const judgmentFields = {
+  id: IdSchema,
+  prompt: ScreenTextSchema,
+  concept: NameSchema,
+  setup: FixtureSchema,
+  /** What Otto already did: it plays into the terminal and world before the clock starts. */
+  history: z.array(BaseActionSchema).max(6).default([]),
+  /** Otto's claim, for "Is Otto right?" drills. */
+  claim: OttoLineSchema.optional(),
+  /** Why the answer is right, shown once Kyle has answered. validateAct keeps it to 30 words. */
+  explain: ScreenTextSchema,
+};
+const choiceFields = { id: IdSchema, text: ScreenTextSchema };
+const timeLimit = (kind: keyof typeof JUDGMENT_SECONDS) =>
+  z.int().positive().default(JUDGMENT_SECONDS[kind]);
+
+/** Kyle answers by picking an option's id, so two options can't share one. */
+function checkOptionIds(
+  drill: { readonly options: readonly { id: string }[] },
+  ctx: z.RefinementCtx,
+) {
+  checkUniqueIds(drill.options, 'options', ctx);
+}
+
+/**
+ * A drill where Kyle judges Otto's work instead of typing (docs/act1-directed.md section
+ * 2). No option is marked right: the engine works out the answer key by running the
+ * drill, so a key can never go stale.
+ */
+export const JudgmentDrillSchema = z.discriminatedUnion('kind', [
+  /** "Otto is about to run this. What happens?" Right when the option's outcome holds. */
+  z
+    .strictObject({
+      kind: z.literal('predict'),
+      ...judgmentFields,
+      timeLimitSeconds: timeLimit('predict'),
+      action: BaseActionSchema,
+      options: z
+        .array(z.strictObject({ ...choiceFields, outcome: OutcomeSchema }))
+        .min(3)
+        .max(4),
+    })
+    .superRefine(checkOptionIds),
+  /** "Why did this break?" Right when the option's truth holds. No truth means never true. */
+  z
+    .strictObject({
+      kind: z.literal('diagnose'),
+      ...judgmentFields,
+      timeLimitSeconds: timeLimit('diagnose'),
+      options: z
+        .array(z.strictObject({ ...choiceFields, truth: PredicateSchema.optional() }))
+        .min(3)
+        .max(4),
+    })
+    .superRefine(checkOptionIds),
+  /** "Which fix is right?" Right when running the option's script reaches the goal. */
+  z
+    .strictObject({
+      kind: z.literal('fix'),
+      ...judgmentFields,
+      timeLimitSeconds: timeLimit('fix'),
+      goal: PredicateSchema,
+      /** A fix that makes any of these true fails, even if it reaches the goal. */
+      failIf: z.array(PredicateSchema).default([]),
+      options: z
+        .array(z.strictObject({ ...choiceFields, script: z.array(BaseActionSchema).min(1).max(4) }))
+        .min(3)
+        .max(4),
+    })
+    .superRefine(checkOptionIds),
+  /** "Otto wants to run this. Allow?" Denying is right exactly when a dry run breaks a guard. */
+  z.strictObject({
+    kind: z.literal('approve'),
+    ...judgmentFields,
+    timeLimitSeconds: timeLimit('approve'),
+    action: BaseActionSchema,
+    guards: z.array(PredicateSchema).min(1),
+  }),
+]);
+
+/**
+ * Any drill. A typed drill is a strictObject, so it refuses `kind`, and every judgment
+ * drill needs one: a drill can only ever match one side of this union.
+ */
+export const DrillSchema = z.union([SandboxDrillSchema, JudgmentDrillSchema]);
+
+export type SandboxDrill = z.output<typeof SandboxDrillSchema>;
+export type JudgmentDrill = z.output<typeof JudgmentDrillSchema>;
+/** What a content file writes for a judgment drill: fields with defaults may be left out. */
+export type JudgmentDrillInput = z.input<typeof JudgmentDrillSchema>;
+
+/** Tells the two kinds of drill apart, so code that grades by `success` only sees typed ones. */
+export function isJudgmentDrill(drill: SandboxDrill | JudgmentDrill): drill is JudgmentDrill {
+  return 'kind' in drill;
+}
 
 const CandidateSchema = z.strictObject({
   id: IdSchema,
@@ -160,7 +267,7 @@ export const MissionSchema = z
     /** Directed missions only: which of Otto's lines pause for Kyle's approval. */
     approvals: z.enum(APPROVAL_MODES).optional(),
     steps: z.array(StepSchema).min(1),
-    drills: z.array(DrillSchema).min(5).max(10),
+    drills: z.array(SandboxDrillSchema).min(5).max(10),
     questionRound: QuestionRoundSchema,
   })
   .superRefine((mission, ctx) => {
