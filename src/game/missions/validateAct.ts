@@ -1,7 +1,28 @@
 import type { FixtureStep } from '../../engine/git/fixtures';
+import { OTTO_LINE_WORDS, type AgentAction, type AgentTask } from './agentSchema';
 import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
-import { countWords, MAX_SCREEN_WORDS, type Act, type Mission } from './schema';
+import { countWords, MAX_SCREEN_WORDS, type Act, type Mission, type MissionStep } from './schema';
+
+/**
+ * Word limits for a directed step (docs/act1-directed.md section 5.10). A directed step
+ * shows a goal, cards, Otto's lines and a check beside the world, so each piece gets a
+ * slice of the 60 words, and each screen's pieces together stay within its budget.
+ */
+export const DIRECTED_WORDS = {
+  goal: 20,
+  hint: 20,
+  card: 12,
+  ottoLine: OTTO_LINE_WORDS,
+  lesson: 25,
+  feedback: 25,
+  /** The step's note, the goal and the start cards, shown together when Kyle directs. */
+  directScreen: MAX_SCREEN_WORDS,
+  /** Otto's claim, the question, its options and the look labels. */
+  checkScreen: MAX_SCREEN_WORDS,
+  /** A predict question and its options. */
+  predict: 40,
+} as const;
 
 /** One problem in an Act's content, with where to find it. */
 export interface ContentIssue {
@@ -63,59 +84,119 @@ function partIds(act: Act): string[] {
   return [act.boss?.id, act.fieldMission?.id].filter((id) => id !== undefined);
 }
 
+/**
+ * Text the player reads on one screen, where it lives, and its word limit. Pieces read
+ * together, like a question and its options, count as one.
+ */
+type ScreenText = [where: string, texts: readonly string[], limit: number];
+
+/** Every line Otto says in a script, including the lines of what he does after a deny. */
+function ottoLines(script: readonly AgentAction[]): string[] {
+  return script.flatMap((action) => {
+    const said = action.say === undefined ? [] : [action.say];
+    if (action.do === 'newTerminal' || action.do === 'useTerminal') return said;
+    const denied = action.onDeny.flatMap((then) => (then.say === undefined ? [] : [then.say]));
+    return [...said, ...denied, ...(action.denyLine === undefined ? [] : [action.denyLine])];
+  });
+}
+
+/** The texts of a directed step's agent task, and the screens they share. */
+function agentTexts(at: string, step: MissionStep, agent: AgentTask): ScreenText[] {
+  const texts: ScreenText[] = [];
+  const add = (where: string, pieces: readonly string[], limit: number) => {
+    texts.push([`${at} > ${where}`, pieces, limit]);
+  };
+  const direct = [agent.note ?? '', step.instruction, ...agent.plans.map((plan) => plan.text)];
+  add('direct screen', direct, DIRECTED_WORDS.directScreen);
+  const checkTexts = [
+    agent.check.question,
+    ...agent.check.options.map((option) => option.text),
+    ...agent.looks.map((look) => look.label),
+  ];
+  for (const plan of [...agent.plans, ...agent.fixes]) {
+    const where = `plan ${plan.id}`;
+    add(where, [plan.text], DIRECTED_WORDS.card);
+    add(`${where} > claim`, [plan.claim], DIRECTED_WORDS.ottoLine);
+    add(`${where} > lesson`, [plan.lesson], DIRECTED_WORDS.lesson);
+    ottoLines(plan.script).forEach((line) => {
+      add(`${where} > Otto`, [line], DIRECTED_WORDS.ottoLine);
+    });
+    plan.script.forEach((action, index) => {
+      if (action.do !== 'run' || action.predict === undefined) return;
+      const { question, options } = action.predict;
+      const pieces = [question, ...options.map((option) => option.text)];
+      add(`${where} > predict ${String(index + 1)}`, pieces, DIRECTED_WORDS.predict);
+    });
+    add(`${where} > check screen`, [plan.claim, ...checkTexts], DIRECTED_WORDS.checkScreen);
+  }
+  for (const option of agent.check.options) {
+    add(`check ${option.id} > feedback`, [option.feedback], DIRECTED_WORDS.feedback);
+  }
+  return texts;
+}
+
 /** Each piece of text the player reads on screen, labelled with where it lives. */
-function screenTexts(act: Act, missions: readonly Mission[]): [string, string][] {
-  const texts: [string, string][] = [];
+function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
+  const texts: ScreenText[] = [];
+  const add = (where: string, text: string, limit: number = MAX_SCREEN_WORDS) => {
+    texts.push([where, [text], limit]);
+  };
   const addLabels = (where: string, predicates: readonly Predicate[]) => {
     predicates.flatMap(labelsIn).forEach((label, index) => {
-      texts.push([`${where} > label ${String(index + 1)}`, label]);
+      add(`${where} > label ${String(index + 1)}`, label);
     });
   };
   for (const mission of missions) {
     const at = `mission ${mission.id}`;
     mission.briefing.captions.forEach((caption, index) => {
-      texts.push([`${at} > briefing caption ${String(index + 1)}`, caption]);
+      add(`${at} > briefing caption ${String(index + 1)}`, caption);
     });
     for (const step of mission.steps) {
-      texts.push([`${at} > step ${step.id} > instruction`, step.instruction]);
+      const where = `${at} > step ${step.id}`;
+      const { agent } = step;
+      // A directed step's goal and hints sit beside the cards, so they get less room.
+      const goalWords = agent === undefined ? MAX_SCREEN_WORDS : DIRECTED_WORDS.goal;
+      const hintWords = agent === undefined ? MAX_SCREEN_WORDS : DIRECTED_WORDS.hint;
+      add(`${where} > instruction`, step.instruction, goalWords);
       step.hints.forEach((hint, index) => {
-        texts.push([`${at} > step ${step.id} > hint ${String(index + 1)}`, hint]);
+        add(`${where} > hint ${String(index + 1)}`, hint, hintWords);
       });
-      addLabels(`${at} > step ${step.id}`, [step.success]);
+      addLabels(where, [step.success, ...(agent?.guards ?? [])]);
+      if (agent !== undefined) texts.push(...agentTexts(where, step, agent));
     }
     for (const drill of mission.drills) {
-      texts.push([`${at} > drill ${drill.id}`, drill.prompt]);
+      add(`${at} > drill ${drill.id}`, drill.prompt);
       addLabels(`${at} > drill ${drill.id}`, [drill.success]);
     }
-    texts.push([`${at} > ticket`, mission.questionRound.ticket.body]);
+    add(`${at} > ticket`, mission.questionRound.ticket.body);
     for (const candidate of mission.questionRound.candidates) {
-      texts.push([`${at} > candidate ${candidate.id}`, candidate.text]);
-      texts.push([`${at} > candidate ${candidate.id} > rationale`, candidate.rationale]);
+      add(`${at} > candidate ${candidate.id}`, candidate.text);
+      add(`${at} > candidate ${candidate.id} > rationale`, candidate.rationale);
     }
   }
   act.upcoming.forEach((title, index) => {
-    texts.push([`act > upcoming ${String(index + 1)}`, title]);
+    add(`act > upcoming ${String(index + 1)}`, title);
   });
   const { placementTest, boss, fieldMission } = act;
-  if (placementTest !== undefined) texts.push(['placement test > pitch', placementTest.pitch]);
+  if (placementTest !== undefined) add('placement test > pitch', placementTest.pitch);
   if (boss !== undefined) {
     boss.briefing.forEach((caption, index) => {
-      texts.push([`boss > briefing caption ${String(index + 1)}`, caption]);
+      add(`boss > briefing caption ${String(index + 1)}`, caption);
     });
     boss.twists.forEach((twist, index) => {
-      texts.push([`boss > twist ${String(index + 1)}`, twist.message]);
+      add(`boss > twist ${String(index + 1)}`, twist.message);
     });
     addLabels('boss', [...boss.objectives, ...boss.failIf]);
   }
   if (fieldMission !== undefined) {
     fieldMission.briefing.forEach((caption, index) => {
-      texts.push([`field mission > briefing caption ${String(index + 1)}`, caption]);
+      add(`field mission > briefing caption ${String(index + 1)}`, caption);
     });
     for (const item of fieldMission.checklist) {
-      texts.push([`field mission > checklist ${item.id}`, item.text]);
+      add(`field mission > checklist ${item.id}`, item.text);
     }
     for (const check of fieldMission.verifications) {
-      texts.push([`field mission > verification ${check.id}`, check.instruction]);
+      add(`field mission > verification ${check.id}`, check.instruction);
     }
   }
   return texts;
@@ -126,7 +207,8 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
  * every referenced mission and placement drill exists, ids don't collide, laptop checks
  * only grade setups that build a laptop, an early-access Act's upcoming list names only
  * missions that haven't shipped, and every screen of text stays within DESIGN.md
- * pillar 1's word budget. The schemas also limit words; repeating it here means content
+ * pillar 1's word budget, with a directed step's text held to the tighter budgets of
+ * DIRECTED_WORDS. The schemas also limit words; repeating it here means content
  * built without parsing is covered too, and every problem is listed at once with its
  * location.
  *
@@ -209,11 +291,9 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     );
   }
 
-  for (const [where, text] of screenTexts(act, missions)) {
-    const words = countWords(text);
-    if (words > MAX_SCREEN_WORDS) {
-      report(where, `${String(words)} words; the limit is ${String(MAX_SCREEN_WORDS)}.`);
-    }
+  for (const [where, texts, limit] of screenTexts(act, missions)) {
+    const words = texts.reduce((total, text) => total + countWords(text), 0);
+    if (words > limit) report(where, `${String(words)} words; the limit is ${String(limit)}.`);
   }
   return issues;
 }
