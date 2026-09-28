@@ -42,6 +42,12 @@ export function zoneForAct(act: number): ZoneId | null {
   return ZONE_FOR_ACT[act] ?? null;
 }
 
+/** The Act an island belongs to, or null for Campus, which belongs to every Act. */
+export function actForZone(zone: ZoneId): number | null {
+  const entry = Object.entries(ZONE_FOR_ACT).find(([, island]) => island === zone);
+  return entry === undefined ? null : Number(entry[0]);
+}
+
 /** The Acts whose Campus portals are open. */
 export function openActs(): ReadonlySet<number> {
   return new Set(Object.keys(ZONE_FOR_ACT).map(Number));

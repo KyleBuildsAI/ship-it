@@ -3,7 +3,7 @@ import * as THREE from 'three/webgpu';
 import type { Workspace } from '../../engine/workspace';
 import { shortId } from '../../engine/git/hash';
 import { isTypingTarget, isWorldTarget } from '../../ui/focus';
-import { suggest } from '../hud';
+import { closeActMenu, suggest } from '../hud';
 import { sandbox } from '../sandbox';
 import { worldState, type ZoneId } from '../worldState';
 import { createAvatar } from './avatar';
@@ -156,6 +156,7 @@ export function createWorld(
       position = { ...zones[to].spawn };
       placeCamera(position);
       worldState.update({ zone });
+      closeActMenu();
       fadeTarget.style.opacity = '1';
       travelling = false;
     };

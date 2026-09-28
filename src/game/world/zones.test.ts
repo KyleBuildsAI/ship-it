@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  actForZone,
   CAMERA_RIGS,
   doorwayAt,
   openActs,
@@ -18,6 +19,11 @@ describe('zoneForAct', () => {
 
   it('has no island for an Act that is not built yet', () => {
     expect(zoneForAct(8)).toBeNull();
+  });
+
+  it('finds the Act an island belongs to, and none for Campus', () => {
+    expect(actForZone('gitworld')).toBe(2);
+    expect(actForZone('campus')).toBeNull();
   });
 
   it('opens exactly the Acts that have an island', () => {

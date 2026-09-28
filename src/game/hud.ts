@@ -32,8 +32,8 @@ export interface HudState {
   notice: TerminalNotice | null;
   /** The menu open over the world, if any. */
   menu: MenuId | null;
-  /** Act 2's menu, opened from the HUD so it's reachable outside the Git World too. */
-  actMenuOpen: boolean;
+  /** The Act whose menu is open from the HUD's Acts button, so it's reachable anywhere. */
+  actMenu: number | null;
   /** Commands the player has run this session. The tutorial watches it grow. */
   commandsRun: number;
   /** Times the terminal was shown or hidden this session, also for the tutorial. */
@@ -47,7 +47,7 @@ export const hud = createStore<HudState>({
   pendingCommand: null,
   notice: null,
   menu: null,
-  actMenuOpen: false,
+  actMenu: null,
   commandsRun: 0,
   terminalToggles: 0,
 });
@@ -91,6 +91,20 @@ export function openMenu(menu: MenuId | null): void {
   hud.update({ menu });
 }
 
-export function toggleActMenu(): void {
-  hud.update({ actMenuOpen: !hud.get().actMenuOpen });
+/** Opens `act`'s menu, or closes whichever Act menu is open. */
+export function toggleActMenu(act: number): void {
+  hud.update({ actMenu: hud.get().actMenu === null ? act : null });
+}
+
+/** Shows another Act's menu, for the tabs at the top of the menu. */
+export function openActMenu(act: number): void {
+  hud.update({ actMenu: act });
+}
+
+/**
+ * Closes the HUD's Act menu. Travelling does this, so arriving on an island shows that
+ * island's own Act instead of whichever Act was open before.
+ */
+export function closeActMenu(): void {
+  hud.update({ actMenu: null });
 }

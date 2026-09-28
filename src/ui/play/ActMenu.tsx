@@ -1,5 +1,6 @@
+import { openActMenu } from '../../game/hud';
 import { startBossFight } from '../../game/play/bossPlay';
-import { getAct } from '../../game/play/catalog';
+import { getAct, getCatalog } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startMission } from '../../game/play/missionPlay';
 import { missionDone } from '../../game/play/saveRules';
@@ -16,6 +17,30 @@ const STATUS: Record<MissionStatus, string> = {
   'tested-out': 'Tested out',
 };
 
+/** Tabs across the top of the menu, one per Act, once there's more than one. */
+function ActTabs({ current }: { current: number }) {
+  const { acts } = getCatalog();
+  if (acts.length < 2) return null;
+  return (
+    <div className="act-tabs" role="tablist" aria-label="Acts">
+      {acts.map(({ act }) => (
+        <button
+          key={act.act}
+          type="button"
+          role="tab"
+          aria-selected={act.act === current}
+          className="act-tabs__tab"
+          onClick={() => {
+            openActMenu(act.act);
+          }}
+        >
+          Act {act.act}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** An Act's menu: placement test, the missions, the boss, the Field Mission, and reviews. */
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
@@ -28,6 +53,7 @@ export function ActMenu({ act: number }: { act: number }) {
 
   return (
     <>
+      <ActTabs current={act.act} />
       <header className="play-panel__header">
         <h2>
           Act {act.act} · {act.title}
@@ -45,7 +71,7 @@ export function ActMenu({ act: number }: { act: number }) {
                 ? 'Tested out'
                 : actProgress?.placement.bestPercent != null
                   ? `Best ${String(actProgress.placement.bestPercent)}% · 85% tests out`
-                  : 'Already know git? 85% tests out of the Act'}
+                  : act.placementTest.pitch}
             </small>
           </span>
           <button

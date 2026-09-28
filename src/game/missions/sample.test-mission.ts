@@ -230,6 +230,7 @@ export const sampleActInput: ActInput = {
   title: 'Git Core (sample)',
   missionIds: ['sample-three-rooms', 'sample-reading-history', 'sample-good-commits'],
   placementTest: {
+    pitch: 'Know this already? 85% tests out.',
     drillIds: [
       'sample-init',
       'sample-stage-one',

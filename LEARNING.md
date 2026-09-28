@@ -1315,3 +1315,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/103
 3. With `?.`, a missing `acts['2']` makes the expression `undefined`, and `undefined` is "not null", so the check passed even when nothing was saved. `toEqual(expect.any(String))` only passes when a real completion time is there.
 
 </details>
+
+---
+
+## #105 feat: an acts menu with a tab per act, and per-act placement pitch
+
+https://github.com/KyleBuildsAI/ship-it/pull/105
+
+1. Why must drill ids be unique across Acts, not just within one?
+2. You open Act 2's menu from the HUD, then walk into Act 1's island. Which menu shows, and why?
+3. Why is the placement pitch in Act 2's content instead of in `ActMenu.tsx`?
+
+<details><summary>Answers</summary>
+
+1. The review queue in the save stores just the drill id, and `findDrill` searches every Act for it. If two Acts shared an id, a review could load the other Act's drill, with a different setup and answer.
+2. Act 1's. Travelling calls `closeActMenu()`, so `hud.actMenu` is null when you arrive. `PlayPanel` then falls back to `actForZone('machine')`, the island's own Act.
+3. The pitch is about the Act ("Already know git?"), and Act 1's needs different words. Content belongs in `src/content` as data (DESIGN.md section 10). The component only shows whatever the Act says.
+
+</details>

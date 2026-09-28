@@ -50,7 +50,8 @@ A night-time floating island HQ. Contains:
 - **Standup Board**: the daily review queue.
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
-- In M1 these three are HUD menus (Standup, Trophies, Settings) reachable from anywhere, next to an **Act 2** button that opens the Act menu outside the Git World too. Mentor chat arrives with later modes.
+- In M1 these three are HUD menus (Standup, Trophies, Settings) reachable from anywhere, next to an **Acts** button that opens an Act menu outside its island too. It opens on the first unfinished Act (`recommendedAct`), with a tab per Act once more than one ships. Standing on an Act's island shows that Act's menu. Mentor chat arrives with later modes.
+- **The catalog holds every Act** (`src/content/index.ts` `ACTS`, loaded by `setCatalog`). Activities carry their Act number, so placement tests, bosses, Field Missions and progress are all per Act, and reviews draw from every Act. `validateCatalog` keeps mission, drill, boss and Field Mission ids unique across Acts, because the save and the review queue refer to them by id alone. Each Act's placement test has its own pitch line.
 - **First-run tutorial** (M2): a card at the top left (over the locked portals, so the open ones stay in view) teaches the controls by doing, one step at a time: walk, jump, look around, run a command, hide and show the terminal, enter an Act. Each step advances when the player has done it (counters in the world and HUD stores; logic in `src/game/tutorial.ts`), never on a "Next" button. Skippable; Settings can replay it. Finishing or skipping is saved, so it runs once per save.
 
 ### Git World visual language (reused everywhere)

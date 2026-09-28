@@ -93,7 +93,7 @@ describe('the tutorial on screen', () => {
 
   beforeEach(() => {
     worldState.update({ zone: 'campus', walks: 0, jumps: 0, looks: 0 });
-    hud.update({ terminalOpen: true, actMenuOpen: false, commandsRun: 0, terminalToggles: 0 });
+    hud.update({ terminalOpen: true, actMenu: null, commandsRun: 0, terminalToggles: 0 });
     progress.update({ status: 'ready', save: createDefaultSave(TEST_NOW), problem: null });
   });
 

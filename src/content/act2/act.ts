@@ -21,6 +21,7 @@ export const act2Input: ActInput = {
   title: 'Git Core',
   missionIds: act2MissionInputs.map((mission) => mission.id),
   placementTest: {
+    pitch: 'Already know git? 85% tests out of the Act.',
     // Two or three drills per mission, so testing out still proves every idea in the Act.
     drillIds: [
       'rooms-stage-folder',
