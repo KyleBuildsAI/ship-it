@@ -1,4 +1,5 @@
 import { Emitter } from './events';
+import type { FileTree } from './fs/fileTree';
 import { VirtualFs } from './fs/virtualFs';
 import { IgnoreRules } from './git/ignore';
 import { Repository, type RepositoryDeps } from './git/repository';
@@ -42,18 +43,27 @@ export class NotARepositoryError extends Error {
 
 export const GITIGNORE = '.gitignore';
 
+export interface WorkspaceOptions {
+  /**
+   * The project folder's files. A fresh tree of its own by default; Act 1 passes a
+   * SubtreeFs, so the project is one folder of a bigger simulated drive.
+   */
+  readonly fs?: FileTree;
+}
+
 /**
  * One sandbox: a project folder (the Workbench) and, once initialized, its repository
  * (the Loading Dock and the Vault). Shell and git commands both act on a Workspace.
  */
 export class Workspace {
-  readonly fs = new VirtualFs();
+  readonly fs: FileTree;
   readonly events = new Emitter<EngineEvent>();
   readonly deps: RepositoryDeps;
   private repository: Repository | null = null;
 
-  constructor(deps: RepositoryDeps) {
+  constructor(deps: RepositoryDeps, options: WorkspaceOptions = {}) {
     this.deps = deps;
+    this.fs = options.fs ?? new VirtualFs();
   }
 
   get repo(): Repository | null {

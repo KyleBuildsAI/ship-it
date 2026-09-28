@@ -1,4 +1,4 @@
-import type { VirtualFs } from '../fs/virtualFs';
+import type { FileTree } from '../fs/fileTree';
 import type { IgnoreRules } from './ignore';
 import type { Repository } from './repository';
 import type { FileSnapshot } from './types';
@@ -54,7 +54,7 @@ function stagedChanges(head: FileSnapshot, index: FileSnapshot): StagedChange[] 
 }
 
 /** Compares HEAD, the index, and the working directory, exactly the three areas `git status` compares. */
-export function computeStatus(repo: Repository, fs: VirtualFs, ignore: IgnoreRules): RepoStatus {
+export function computeStatus(repo: Repository, fs: FileTree, ignore: IgnoreRules): RepoStatus {
   const index = repo.indexEntries();
   const unstaged: UnstagedChange[] = [];
 

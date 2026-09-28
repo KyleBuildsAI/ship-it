@@ -107,6 +107,7 @@ The heart of the game. Treat it like production code.
 - **Events**: emits typed events (`staged`, `unstaged`, `committed`, `branchMoved`, `headMoved`, `conflict`, etc.). The 3D world subscribes. The engine never imports anything from the game.
 - **State queries for grading**: `isClean()`, `stagedPaths()`, `untrackedPaths()`, `log(ref)`, `fileAt(ref, path)`, and similar. Mission success = predicates over state.
 - **Fixture builder** for concise test and mission setup, e.g. `repo().commit('init', files).modify('app.ts').untracked('.env')`.
+- **Working tree as an interface** (`src/engine/fs/fileTree.ts`): git and the shell read files through `FileTree`. `VirtualFs` is a tree of its own; `SubtreeFs` shows one folder of a bigger tree as if it were the whole tree, with the same results and error paths. Act 1's simulated drive mounts Act 2's project folder this way, so git works inside it and every write lands on the drive.
 
 ### Command coverage by milestone
 - **M1 (Act 2)**: `init`, `status`, `add` (paths, `.`, `-A`), `restore`, `restore --staged`, `rm`, `rm --cached`, `mv`, `commit -m`, `commit -am`, `log` (`--oneline`, `--graph`, `-n`), `show`, `diff`, `diff --staged`, `revert`, `reset --soft/--mixed/--hard`, `reflog`, `.gitignore` (basic globs).
