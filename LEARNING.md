@@ -1729,3 +1729,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/127
 3. `Test-Path Env:API_KEY` prints `True` or `False`, never the value.
 
 </details>
+
+---
+
+## #128 fix: new-item refuses a file on the way and forbidden names
+
+https://github.com/KyleBuildsAI/ship-it/pull/128
+
+1. Why is `New-Item notes.txt\sub.txt` refused even with `-Force`?
+2. What does `Test-Path Env:` answer, and why?
+3. Why check for forbidden characters before creating anything?
+
+<details><summary>Answers</summary>
+
+1. `notes.txt` is a file, so nothing can live inside it. `-Force` makes missing folders, but it can't turn a file into one.
+2. True. `Env:` is the root of the environment drive, and it always exists.
+3. Otherwise part of the path could be made before a bad name fails, leaving half an operation behind.
+
+</details>

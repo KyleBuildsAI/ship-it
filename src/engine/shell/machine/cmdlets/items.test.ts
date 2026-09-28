@@ -3,7 +3,13 @@ import { windows } from '../../../fixtures';
 import { testDeps } from '../../../git/testDeps';
 import type { EngineEvent } from '../../../workspace';
 import { Shell, type ShellResult } from '../../shell';
+import mkdirBare from '../fixtures/error-mkdir-bare.txt?raw';
+import mkdirInFile from '../fixtures/error-mkdir-in-file.txt?raw';
+import newItemBadName from '../fixtures/error-new-item-bad-name.txt?raw';
 import newItemExists from '../fixtures/error-new-item-exists.txt?raw';
+import newItemInFile from '../fixtures/error-new-item-in-file.txt?raw';
+import newItemOverFolder from '../fixtures/error-new-item-over-folder.txt?raw';
+import testPathBare from '../fixtures/error-test-path-bare.txt?raw';
 import newItemFile from '../fixtures/new-item-file.txt?raw';
 import newItemFolder from '../fixtures/new-item-folder.txt?raw';
 
@@ -61,7 +67,7 @@ describe('New-Item', () => {
     expect(texts(shell.run('New-Item -ItemType Directory projects'))).toEqual([
       'New-Item: An item with the specified name C:\\Users\\kyle\\Projects already exists.',
     ]);
-    expect(texts(shell.run('New-Item Projects'))[0]).toContain('already exists');
+    expect(printed(shell.run('New-Item Downloads'))).toBe(newItemOverFolder);
     shell.run('New-Item notes.txt -Force');
     expect(drive.readFile('Users/kyle/notes.txt')).toBe('');
     expect(shell.run('New-Item -ItemType Directory projects -Force').exitCode).toBe(0);
@@ -76,6 +82,18 @@ describe('New-Item', () => {
     expect(drive.isFile('Users/kyle/deep/a/b.txt')).toBe(true);
     shell.run('New-Item -ItemType Directory one\\two\\three');
     expect(drive.isDir('Users/kyle/one/two/three')).toBe(true);
+  });
+
+  it("refuses a file on the way, and names Windows forbids, in PowerShell's words", () => {
+    const { shell, drive } = laptop();
+    expect(printed(shell.run('New-Item notes.txt\\sub.txt'))).toBe(newItemInFile);
+    expect(printed(shell.run('New-Item notes.txt\\sub.txt -Force'))).toBe(newItemInFile);
+    expect(printed(shell.run('mkdir notes.txt\\sub'))).toBe(mkdirInFile);
+    expect(printed(shell.run("New-Item 'a<b.txt'"))).toBe(newItemBadName);
+    expect(texts(shell.run('ni a*.txt'))[0]).toContain('volume label syntax is incorrect');
+    expect(texts(shell.run('mkdir "q|r"'))[0]).toContain('volume label syntax is incorrect');
+    expect(drive.readFile('Users/kyle/notes.txt')).toBe('ship it\n');
+    expect(drive.listDir('Users/kyle').map((entry) => entry.name)).not.toContain('q|r');
   });
 
   it('asks for a path, and refuses a drive the laptop lacks', () => {
@@ -106,7 +124,7 @@ describe('mkdir', () => {
     expect(texts(shell.run('mkdir Projects'))).toEqual([
       'New-Item: An item with the specified name C:\\Users\\kyle\\Projects already exists.',
     ]);
-    expect(texts(shell.run('mkdir'))[0]).toContain('missing mandatory parameters: Path');
+    expect(printed(shell.run('mkdir'))).toBe(mkdirBare);
   });
 });
 
@@ -123,5 +141,28 @@ describe('Test-Path', () => {
     expect(texts(shell.run('Test-Path Projects -PathType Container'))).toEqual(['True']);
     expect(texts(shell.run('Test-Path notes.txt -PathType Leaf'))).toEqual(['True']);
     expect(texts(shell.run('Test-Path env:PATH; Test-Path Env:NOPE_X'))).toEqual(['True', 'False']);
+  });
+
+  it('answers True when a wildcard matches something visible', () => {
+    const { shell, drive } = laptop();
+    expect(texts(shell.run('Test-Path *.txt, *.md, Proj*'))).toEqual(['True', 'False', 'True']);
+    expect(texts(shell.run('Test-Path Proj* -PathType Leaf'))).toEqual(['False']);
+    expect(texts(shell.run('Test-Path -LiteralPath *.txt'))).toEqual(['False']);
+    drive.hide('Users/kyle/notes.txt');
+    expect(texts(shell.run('Test-Path *.txt'))).toEqual(['False']);
+    expect(texts(shell.run('Test-Path env:*PATH*, env:ZZ*, env:'))).toEqual([
+      'True',
+      'False',
+      'True',
+    ]);
+    expect(texts(shell.run('Test-Path env: -PathType Leaf'))).toEqual(['False']);
+  });
+
+  it('asks for a path, and refuses parameters the sandbox lacks', () => {
+    const { shell } = laptop();
+    expect(printed(shell.run('Test-Path'))).toBe(testPathBare);
+    expect(texts(shell.run('Test-Path x -IsValid'))).toEqual([
+      "This sandbox doesn't run Test-Path -IsValid yet.",
+    ]);
   });
 });
