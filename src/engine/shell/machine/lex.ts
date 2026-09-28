@@ -26,7 +26,9 @@ export type LexToken =
       readonly kind: 'redirect';
       readonly stream: 'output' | 'error';
       readonly append: boolean;
-    };
+    }
+  /** 2>&1 sends errors wherever the output goes: npm test 2>&1 > log.txt. */
+  | { readonly kind: 'merge' };
 
 /** A line the shell can't run, with PowerShell's message and a hint about what to type. */
 export class LexError extends Error {
@@ -140,6 +142,16 @@ function readOperator(input: string, start: number): { token: LexToken; end: num
         );
       const stream = char === '2' ? 'error' : 'output';
       const arrow = numbered ? start + 1 : start;
+      // 2>&1 is one token, so 2>&1x is 2>&1 then x. PowerShell reserves the other pairs of
+      // 1 and 2; any other & after the arrow is a missing file (all checked in 7.6.6).
+      const into = input.charAt(arrow + 2);
+      if (numbered && input.charAt(arrow + 1) === '&' && (into === '1' || into === '2')) {
+        if (char === '2' && into === '1') return { token: { kind: 'merge' }, end: arrow + 3 };
+        throw new LexError(
+          `The '${char}>&${into}' operator is reserved for future use.`,
+          'To send errors where the output goes, use 2>&1.',
+        );
+      }
       const append = input.charAt(arrow + 1) === '>';
       return { token: { kind: 'redirect', stream, append }, end: arrow + (append ? 2 : 1) };
     }

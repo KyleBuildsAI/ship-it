@@ -4,17 +4,31 @@ import type { Machine, Session } from '../../machine/machine';
 import { display } from '../../machine/winPath';
 import type { Workspace } from '../../workspace';
 import type { ShellResult } from '../shell';
-import { toArgs } from './args';
+import { toArgs, type Arg } from './args';
 import { bind } from './bind';
 import { CHOICES, question as confirmLines, readAnswer, type ConfirmRequest } from './confirm';
 import { lex, LexError, type LexToken, type WordPart } from './lex';
 import { openSink, pour, splitRedirects, type Sink } from './redirect';
-import { findCmdlet } from './registry';
+import { findCmdlet, type Cmdlet, type CmdletResult, type CommandContext } from './registry';
 
 const fail = (message: string, ...hints: string[]): ShellResult => ({
   lines: [line(message, 'error'), ...hints.map((hint) => line(hint, 'hint'))],
   exitCode: 1,
 });
+
+const isErrorTone = (output: OutputLine) => output.tone === 'error';
+
+/** A command found by name, with its arguments read but not yet bound. */
+interface Found {
+  readonly cmdlet: Cmdlet;
+  readonly args: Arg[];
+}
+
+/** Where each stream of a statement goes; null is the screen. */
+interface Sinks {
+  output: Sink | null;
+  error: Sink | null;
+}
 
 /** What each operator is called, for the pointer while this sandbox can't run it yet. */
 const NOT_YET: Partial<Record<LexToken['kind'], string>> = {
@@ -108,39 +122,30 @@ export class MachineShell {
   }
 
   /**
-   * One statement, with its redirects: each file opens before the command runs, then
-   * output lines go to the output sink and error lines (with their hints) to the error one.
+   * One statement, in PowerShell's order (checked in 7.6.6). It finds the command first,
+   * so a name it can't find is reported on screen with no file touched. Then each redirect
+   * opens its file, then the command binds its parameters and runs, holding those files.
    */
   private runStatement(tokens: readonly LexToken[]): ShellResult {
     const split = splitRedirects(tokens);
     if ('refused' in split) return fail(split.refused);
-    const sinks: { output: Sink | null; error: Sink | null } = { output: null, error: null };
+    const found = this.resolve(split.command);
+    if (!('cmdlet' in found)) return found;
+    const sinks: Sinks = { output: null, error: null };
+    const held = new Set<string>();
     const context = { ws: this.ws, machine: this.machine, session: this.session };
     for (const redirect of split.redirects) {
-      const sink = openSink(context, redirect, this.text(redirect.target));
+      const sink = openSink(context, redirect, this.text(redirect.target), held);
       if ('refused' in sink) return fail(`Out-File: ${sink.refused}`);
       sinks[redirect.stream] = sink;
+      if (sink.kind === 'file') held.add(sink.path.toLowerCase());
     }
-    const result = this.runCommand(split.command);
-    if (sinks.output === null && sinks.error === null) return result;
-    const isError = (output: OutputLine) => output.tone === 'error' || output.tone === 'hint';
-    const errors = result.lines.filter(isError);
-    const output = result.lines.filter((output) => !isError(output));
-    if (sinks.output !== null) pour(context, sinks.output, output);
-    // A redirected error keeps PowerShell's line, but not the sandbox's hint under it.
-    if (sinks.error !== null)
-      pour(
-        context,
-        sinks.error,
-        errors.filter((error) => error.tone === 'error'),
-      );
-    return {
-      lines: [...(sinks.error === null ? errors : []), ...(sinks.output === null ? output : [])],
-      exitCode: result.exitCode,
-    };
+    const route = (result: CmdletResult) => this.route(result, sinks, split.merge);
+    return route(this.execute(found, held, route));
   }
 
-  private runCommand(tokens: readonly LexToken[]): ShellResult {
+  /** The command a statement names, with its arguments read, or why it can't run. */
+  private resolve(tokens: readonly LexToken[]): Found | ShellResult {
     const unsupported = tokens.find((token) => NOT_YET[token.kind] !== undefined);
     if (unsupported)
       return fail(`This sandbox doesn't run ${NOT_YET[unsupported.kind] ?? ''} yet.`);
@@ -152,22 +157,69 @@ export class MachineShell {
     if (cmdlet === null) return notRecognized(name);
     const args = toArgs(rest, (variable) => this.expand(variable));
     if (!Array.isArray(args)) return fail(args.message, ...args.hints);
-    const bound = bind(cmdlet.spec, args);
-    if (!bound.ok) return fail(`${cmdlet.spec.name}: ${bound.message}`, ...bound.hints);
+    return { cmdlet, args };
+  }
+
+  /**
+   * Binds a found command's parameters and runs it, with `held` files off limits. What it
+   * prints after a question is answered still belongs to this statement, so `route` sends
+   * it through the same redirects.
+   */
+  private execute(
+    { cmdlet, args }: Found,
+    held: ReadonlySet<string>,
+    route: (result: CmdletResult) => ShellResult,
+  ): CmdletResult {
     const { spec } = cmdlet;
-    const context = {
+    const bound = bind(spec, args);
+    // A binding error is PowerShell's, not the command's, so no redirect takes it.
+    if (!bound.ok)
+      return { ...fail(`${spec.name}: ${bound.message}`, ...bound.hints), stopped: true };
+    const context: CommandContext = {
       ws: this.ws,
       machine: this.machine,
       session: this.session,
+      held,
       confirm: (request: ConfirmRequest) => {
-        // Answering carries on the cmdlet's work, so it gets the same safety net.
+        // Answering carries on the cmdlet's work, so it gets the same safety net and files.
         this.question = {
           ...request,
-          answer: (choice) => guarded(spec.name, () => request.answer(choice)),
+          answer: (choice) => route(guarded(spec.name, () => request.answer(choice))),
         };
       },
     };
     return guarded(spec.name, () => cmdlet.run(context, bound.bound));
+  }
+
+  /**
+   * Sends a command's lines where its redirects point, in the order they came. Output goes
+   * to the output sink. Errors go to the error sink, or with 2>&1 wherever output goes;
+   * the sandbox's hints under them stay off files. An error that stopped the command
+   * isn't in the error stream at all, so it prints on screen whatever the redirects say.
+   */
+  private route(result: CmdletResult, sinks: Sinks, merge: boolean): ShellResult {
+    // No file, or 2>&1 alone, changes nothing on screen: errors already show there, in order.
+    if (sinks.output === null && sinks.error === null) return result;
+    const context = { ws: this.ws, machine: this.machine };
+    const stop = result.stopped === true ? result.lines.findLastIndex(isErrorTone) : -1;
+    const flowing = stop === -1 ? result.lines : result.lines.slice(0, stop);
+    const stopper = stop === -1 ? [] : result.lines.slice(stop);
+    const withoutHints = (lines: readonly OutputLine[]) =>
+      lines.filter((output) => output.tone !== 'hint');
+    let screen: readonly OutputLine[];
+    if (merge && sinks.output !== null) {
+      // 2>&1 leaves no error sink, so errors join the output in its file, in order.
+      pour(context, sinks.output, withoutHints(flowing));
+      screen = [];
+    } else {
+      const isError = (output: OutputLine) => output.tone === 'error' || output.tone === 'hint';
+      const errors = flowing.filter(isError);
+      const output = flowing.filter((output) => !isError(output));
+      if (sinks.output !== null) pour(context, sinks.output, output);
+      if (sinks.error !== null) pour(context, sinks.error, withoutHints(errors));
+      screen = [...(sinks.error === null ? errors : []), ...(sinks.output === null ? output : [])];
+    }
+    return { lines: [...screen, ...stopper], exitCode: result.exitCode };
   }
 
   private text(parts: readonly WordPart[]): string {
@@ -197,7 +249,7 @@ export class MachineShell {
  * a drive error means a check was missed; it prints as one PowerShell-style error line
  * rather than escaping Shell.run, where nothing catches it and the prompt never comes back.
  */
-function guarded(cmdlet: string, work: () => ShellResult): ShellResult {
+function guarded(cmdlet: string, work: () => CmdletResult): CmdletResult {
   try {
     return work();
   } catch (error) {

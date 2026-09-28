@@ -3,8 +3,10 @@ import { line, type OutputLine } from '../../../git/cli/output';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
 import type { ShellResult } from '../../shell';
 import type { Choice } from '../confirm';
+import { heldMessage } from '../redirect';
 import type { Cmdlet, CommandContext } from '../registry';
 import { hasWildcard, wildcard } from '../wildcard';
+import { isHeld } from './driveOps';
 
 interface Options {
   readonly recurse: boolean;
@@ -55,6 +57,7 @@ export const REMOVE_ITEM: Cmdlet = {
       ...(bound.texts('Path') ?? []).map((typed) => ({ typed, literal: false })),
       ...(bound.texts('LiteralPath') ?? []).map((typed) => ({ typed, literal: true })),
     ];
+    // Left out, a mandatory parameter stops the command while binding, so it prints past 2>.
     if (steps.length === 0)
       return {
         lines: [
@@ -63,6 +66,7 @@ export const REMOVE_ITEM: Cmdlet = {
           ),
         ],
         exitCode: 1,
+        stopped: true,
       };
     const options = {
       recurse: bound.flag('Recurse'),
@@ -196,10 +200,10 @@ function removeFound(context: CommandContext, path: string, force: boolean): Out
 /**
  * Deletes an item and everything in it, children first. Without -Force, a hidden or
  * read-only item stays, with PowerShell's access error, and so does any folder it leaves
- * behind non-empty (checked in 7.6).
+ * behind non-empty (checked in 7.6). A file a redirect holds stays even with -Force.
  */
 function removeTree(
-  context: Pick<CommandContext, 'ws' | 'machine'>,
+  context: Pick<CommandContext, 'ws' | 'machine' | 'held'>,
   path: string,
   force: boolean,
 ): OutputLine[] {
@@ -208,6 +212,7 @@ function removeTree(
   const blocked = !force && (drive.isHidden(path) || drive.isReadOnly(path));
   if (drive.isFile(path)) {
     if (blocked) return [failure(ACCESS)];
+    if (isHeld(context, path)) return [failure(heldMessage(path))];
     drive.deleteFile(path);
     ws.events.emit({ type: 'fileChanged', path, change: 'deleted' });
     return [];
@@ -216,10 +221,15 @@ function removeTree(
   for (const entry of drive.listDir(path))
     lines.push(...removeTree(context, joinPath(path, entry.name), force));
   if (blocked) return [...lines, failure(ACCESS)];
+  // -Force takes another way through .NET, with its own words (checked in 7.6.6).
   if (drive.listDir(path).length > 0)
     return [
       ...lines,
-      failure(`Directory ${display(path)} cannot be removed because it is not empty.`),
+      failure(
+        force
+          ? `The directory is not empty. : '${display(path)}'.`
+          : `Directory ${display(path)} cannot be removed because it is not empty.`,
+      ),
     ];
   machine.removeFolder(path);
   return lines;

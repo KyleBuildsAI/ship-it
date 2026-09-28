@@ -1,5 +1,6 @@
 import { baseName, joinPath, parentDir } from '../../../fs/paths';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
+import { heldMessage } from '../redirect';
 import type { CommandContext } from '../registry';
 import { hasWildcard, wildcard } from '../wildcard';
 
@@ -54,6 +55,18 @@ export function inUse({ machine, session }: CommandContext, path: string): boole
   const holds = (folder: string) => folder === path || folder.startsWith(`${path}/`);
   return path === '' || holds(session.cwd) || holds(machine.home);
 }
+
+/** Whether a redirect of this statement holds the file open, as in rm log.txt 2> log.txt. */
+export function isHeld({ held }: Pick<CommandContext, 'held'>, path: string): boolean {
+  return held.has(path.toLowerCase());
+}
+
+/** Whether a held file is somewhere inside this folder. */
+export function holdsHeld({ held }: Pick<CommandContext, 'held'>, folder: string): boolean {
+  const inside = `${folder.toLowerCase()}/`;
+  return [...held].some((path) => path.startsWith(inside));
+}
+
 /**
  * Copies a file, or a folder with everything in it (or, without `recurse`, just an empty
  * folder of the same name, as Copy-Item does). A file keeps its Hidden and ReadOnly
@@ -107,6 +120,11 @@ function copyEntry(
     }
     if (drive.isDir(to)) {
       problems.push(`The target file '${display(to)}' is a directory, not a file.`);
+      return;
+    }
+    // A held file can still be read and copied from, but not written over (7.6.6).
+    if (isHeld(context, to)) {
+      problems.push(heldMessage(to));
       return;
     }
     const change = drive.writeFile(to, drive.readFile(from));

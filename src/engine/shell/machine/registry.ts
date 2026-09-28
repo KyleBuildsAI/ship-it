@@ -16,13 +16,29 @@ export interface CommandContext {
   readonly ws: Workspace;
   readonly machine: Machine;
   readonly session: Session;
+  /**
+   * The files this statement's redirects hold open (2> log.txt), lower-cased. Windows won't
+   * let anything else write, move, or delete them until the statement ends.
+   */
+  readonly held: ReadonlySet<string>;
   /** Asks the player a yes/no question; the next line typed answers it. */
   readonly confirm: (request: ConfirmRequest) => void;
 }
 
+/** What a cmdlet prints, and whether PowerShell stopped it. */
+export interface CmdletResult extends ShellResult {
+  /**
+   * The last error line stopped the command: a mandatory parameter left out, or a
+   * terminating error like Set-Content meeting a folder. PowerShell prints these on the
+   * console, because 2> and 2>&1 only take the errors a command writes as it goes
+   * (checked in 7.6.6).
+   */
+  readonly stopped?: boolean;
+}
+
 export interface Cmdlet {
   readonly spec: CmdletSpec;
-  run(context: CommandContext, bound: Bound): ShellResult;
+  run(context: CommandContext, bound: Bound): CmdletResult;
 }
 
 const CMDLETS: readonly Cmdlet[] = [

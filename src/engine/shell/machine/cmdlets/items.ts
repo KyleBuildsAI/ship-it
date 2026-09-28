@@ -4,8 +4,10 @@ import { display, resolveExisting, toCanonical } from '../../../machine/winPath'
 import type { ShellResult } from '../../shell';
 import type { Bound } from '../bind';
 import { itemRow, itemTable, type ItemSection } from '../format';
-import type { Cmdlet, CommandContext } from '../registry';
+import { heldMessage } from '../redirect';
+import type { Cmdlet, CmdletResult, CommandContext } from '../registry';
 import { hasWildcard, wildcard } from '../wildcard';
+import { isHeld } from './driveOps';
 
 const ITEM_TYPES = ['file', 'directory'] as const;
 type ItemType = (typeof ITEM_TYPES)[number];
@@ -36,12 +38,12 @@ export const NEW_ITEM: Cmdlet = {
     const typed = bound.text('ItemType');
     const type = typed === null ? 'file' : itemType(typed);
     if (type === null)
-      return failed([
+      return stopped([
         error(
           'The type is not a known type for the file system. Only "file","directory" or "symboliclink" can be specified.',
         ),
       ]);
-    if (!bound.has('Path') && !bound.has('Name')) return failed([error(MISSING_PATH)]);
+    if (!bound.has('Path') && !bound.has('Name')) return stopped([error(MISSING_PATH)]);
     return createAll(context, bound, type);
   },
 };
@@ -61,7 +63,7 @@ export const MKDIR: Cmdlet = {
   run: (context, bound) =>
     bound.has('Path') || bound.has('Name')
       ? createAll(context, bound, 'directory')
-      : failed([error(MISSING_PATH, 'mkdir')]),
+      : stopped([error(MISSING_PATH, 'mkdir')]),
 };
 
 /** Test-Path parameters PowerShell has that this sandbox refuses rather than ignores. */
@@ -103,7 +105,7 @@ export const TEST_PATH: Cmdlet = {
       ...(bound.texts('Path') ?? []).map((typed) => ({ typed, literal: false })),
       ...(bound.texts('LiteralPath') ?? []).map((typed) => ({ typed, literal: true })),
     ];
-    if (paths.length === 0) return failed([error(MISSING_PATH, 'Test-Path')]);
+    if (paths.length === 0) return stopped([error(MISSING_PATH, 'Test-Path')]);
     const want = (bound.text('PathType') ?? 'Any').toLowerCase();
     const answers = paths.map(({ typed, literal }) => testPath(context, typed, literal, want));
     return { lines: answers.map((answer) => line(answer ? 'True' : 'False')), exitCode: 0 };
@@ -195,11 +197,12 @@ function addRow(sections: ItemSection[], folder: string, row: ItemSection['rows'
 
 /** Makes one item and returns where it landed, or PowerShell's reason it couldn't. */
 function create(
-  { ws, machine }: CommandContext,
+  context: CommandContext,
   path: string,
   type: ItemType,
   bound: Bound,
 ): { path: string } | { refused: string } {
+  const { ws, machine } = context;
   const force = bound.flag('Force');
   if (path.split('/').some((segment) => INVALID_NAME.test(segment)))
     return {
@@ -225,6 +228,7 @@ function create(
     return { refused: `Access to the path '${display(existing)}' is denied.` };
   if (existing !== null && !force)
     return { refused: `The file '${display(existing)}' already exists.` };
+  if (existing !== null && isHeld(context, existing)) return { refused: heldMessage(existing) };
   if (parent === null && !force)
     return { refused: `Could not find a part of the path '${display(path)}'.` };
   // -Force makes the missing folders too, so they're announced like any other new folder.
@@ -253,4 +257,12 @@ function error(message: string, cmdlet = 'New-Item'): OutputLine {
 
 function failed(lines: OutputLine[]): ShellResult {
   return { lines, exitCode: 1 };
+}
+
+/**
+ * A refusal that stops the command before it does anything: a mandatory parameter left out,
+ * or an unknown -ItemType. PowerShell prints it past 2> (checked in 7.6.6).
+ */
+function stopped(lines: OutputLine[]): CmdletResult {
+  return { lines, exitCode: 1, stopped: true };
 }

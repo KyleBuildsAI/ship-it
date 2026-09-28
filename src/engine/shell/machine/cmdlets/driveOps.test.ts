@@ -25,6 +25,7 @@ function laptop() {
     ws,
     machine,
     session: machine.active(),
+    held: new Set(),
     confirm: () => undefined,
   };
   return { context, drive: machine.drive, events };
