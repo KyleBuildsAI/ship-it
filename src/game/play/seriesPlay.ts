@@ -4,7 +4,7 @@ import { placementResult, scoreDrill } from '../missions/grading';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
-import { findDrill, getCatalog } from './catalog';
+import { allMissions, findDrill, getAct } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox } from './sandboxControl';
 import { recordDrill, recordPlacement, recordReview } from './saveRules';
@@ -27,10 +27,15 @@ function setActivity(next: SeriesActivity): void {
   });
 }
 
-function begin(kind: SeriesActivity['kind'], drillIds: readonly string[]): void {
+function begin(
+  kind: SeriesActivity['kind'],
+  act: number | null,
+  drillIds: readonly string[],
+): void {
   endDrill();
   setActivity({
     kind,
+    act,
     drills: drillIds.map(findDrill),
     active: null,
     results: [],
@@ -38,21 +43,20 @@ function begin(kind: SeriesActivity['kind'], drillIds: readonly string[]): void 
   });
 }
 
-/** The Act's placement test: 85% or better tests out of the whole Act. */
-export function startPlacement(): void {
-  begin('placement', getCatalog().act.placementTest.drillIds);
+/** An Act's placement test: 85% or better tests out of the whole Act. */
+export function startPlacement(act: number): void {
+  begin('placement', act, getAct(act).act.placementTest.drillIds);
 }
 
 /** Today's Standup Board set: 5 to 10 review items, most overdue first. */
 export function startReview(now: Date = new Date()): void {
   const save = progress.get().save;
   if (save === null) return;
-  const known = new Set(
-    getCatalog().missions.flatMap((mission) => mission.drills.map((d) => d.id)),
-  );
+  const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));
   const items = dailySet(save.reviewQueue, localDay(now)).filter((item) => known.has(item.drillId));
   begin(
     'review',
+    null,
     items.map((item) => item.drillId),
   );
 }
@@ -100,8 +104,8 @@ function finish(current: SeriesActivity, nowMs: number): void {
   const results = [...current.results, { drillId: drill.id, ...score }];
   const done = results.length === current.drills.length;
   let placement = current.placement;
-  if (done && current.kind === 'placement') {
-    const { act, missions } = getCatalog();
+  if (done && current.kind === 'placement' && current.act !== null) {
+    const { act, missions } = getAct(current.act);
     placement = placementResult(results, act.placementTest.passPercent);
     const result = placement;
     saveProgressNow((save) => recordPlacement(save, act, missions, result, now));

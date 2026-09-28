@@ -47,6 +47,8 @@ export interface MissionActivity {
 /** A row of timed drills: the placement test, or today's Standup Board reviews. */
 export interface SeriesActivity {
   readonly kind: 'placement' | 'review';
+  /** The Act a placement test belongs to; null for reviews, which mix every Act's drills. */
+  readonly act: number | null;
   readonly drills: readonly Drill[];
   /** The drill on screen now, or null between drills and at the end. */
   readonly active: { readonly index: number; readonly startedAtMs: number } | null;
@@ -56,6 +58,7 @@ export interface SeriesActivity {
 
 export interface BossActivity {
   readonly kind: 'boss';
+  readonly act: number;
   readonly boss: BossRun;
   readonly outcome: BossOutcome;
   readonly secondsLeft: number;
@@ -66,6 +69,7 @@ export interface BossActivity {
 /** The Field Mission: real work on a real repo, verified by pasted PowerShell output. */
 export interface FieldActivity {
   readonly kind: 'field';
+  readonly act: number;
 }
 
 export type Activity = MissionActivity | SeriesActivity | BossActivity | FieldActivity;
