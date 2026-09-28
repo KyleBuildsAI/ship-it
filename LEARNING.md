@@ -1657,3 +1657,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/123
 3. You or Otto can switch tabs at any time. Each tab is a separate pwsh process, so a line must run in the tab that's active now.
 
 </details>
+
+---
+
+## #124 feat: powershell's listing tables, with hidden and read-only attributes
+
+https://github.com/KyleBuildsAI/ship-it/pull/124
+
+1. Why does `.cache` show in a plain `ls` on the laptop, but AppData doesn't?
+2. Why is `notes.txt` (containing `ship it` and a new line) 9 bytes, not 8?
+3. What happens to a hidden folder's attribute when you delete the folder and make a new one with the same name?
+
+<details><summary>Answers</summary>
+
+1. On Windows, only the Hidden attribute hides an item; a name starting with a dot hides nothing. AppData has the attribute, and `.cache` doesn't.
+2. Windows ends a line with two bytes, `\r\n`. So it's 7 letters and a space, plus 2 bytes for the line end.
+3. It's gone. Deleting the folder forgets its attribute, so the new folder starts visible, as on Windows.
+
+</details>
