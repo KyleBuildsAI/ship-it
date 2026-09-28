@@ -16,14 +16,15 @@ import {
   startBoss,
   startDrill,
   startRun,
+  submitAnsweredDrill,
   submitDrill,
   tick,
   xpEarned,
   type MissionRun,
 } from './runner';
-import { applySteps, createSandbox } from './sandbox';
+import { applySteps, createSandbox, sandboxQueries } from './sandbox';
 import { DEFAULT_STEP_XP } from './schema';
-import { sampleAct, sampleMission, secondMission } from './sample.test-mission';
+import { directedMission, sampleAct, sampleMission, secondMission } from './sample.test-mission';
 
 const mission = sampleMission;
 
@@ -222,6 +223,52 @@ describe('drills', () => {
     expect(() => startDrill(played, mission, 0, 0)).toThrow(
       'Drill "sample-init" was already played in this run.',
     );
+  });
+});
+
+describe('judgment drills', () => {
+  const directed = directedMission;
+
+  /** A directed run that has reached its drills: Otto's terminal stands in the API. */
+  function directedAtDrills(): MissionRun {
+    const ws = createSandbox(directed.initialRepoState, testDeps());
+    applySteps(ws, [{ op: 'cd', path: 'Users/kyle/quillwork/api' }]);
+    return checkStep(finishBriefing(startRun(directed)), directed, sandboxQueries(ws));
+  }
+
+  /** Plays one judgment drill: its clock starts at 0 and Kyle answers after `seconds`. */
+  function answer(run: MissionRun, index: number, right: boolean, seconds = 10): MissionRun {
+    const started = startDrill(run, directed, index, 0);
+    return submitAnsweredDrill(started, directed, right, seconds * 1000);
+  }
+
+  it('record whether the answer was right, and count a slow right answer as a miss', () => {
+    let run = directedAtDrills();
+    expect(run.phase).toBe('drills');
+    run = answer(run, 0, true);
+    run = answer(run, 1, false);
+    // The fix drill has 50 seconds, so 51 is overtime.
+    run = answer(run, 2, true, 51);
+    expect(run.drillResults).toEqual([
+      { drillId: 'sample-predict-typo', passed: true, seconds: 10, overtime: false },
+      { drillId: 'sample-diagnose-home', passed: false, seconds: 10, overtime: false },
+      { drillId: 'sample-fix-cd', passed: false, seconds: 51, overtime: true },
+    ]);
+    run = answer(answer(run, 3, true), 4, true);
+    expect(run.phase).toBe('question');
+    expect(missedDrills(run)).toEqual(['sample-diagnose-home', 'sample-fix-cd']);
+  });
+
+  it('are graded by the answer, and typed drills by state, never the other way round', () => {
+    const judging = startDrill(directedAtDrills(), directed, 0, 0);
+    expect(() => submitDrill(judging, directed, gitQueries(simDone()), 1_000)).toThrow(
+      'Drill "sample-predict-typo" is graded by its answer: use submitAnsweredDrill.',
+    );
+    const typing = startDrill(atDrills(), mission, 0, 0);
+    expect(() => submitAnsweredDrill(typing, mission, true, 1_000)).toThrow(
+      'Drill "sample-init" is graded by state: use submitDrill.',
+    );
+    expect(() => submitAnsweredDrill(atDrills(), mission, true, 0)).toThrow('No drill is running.');
   });
 });
 

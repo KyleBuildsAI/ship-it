@@ -5,7 +5,15 @@ import {
   type QuestionRoundScore,
 } from './grading';
 import { evaluate, type SandboxQueries } from './predicates';
-import { requireBoss, type Act, type Boss, type BossTwist, type Mission } from './schema';
+import {
+  isJudgmentDrill,
+  requireBoss,
+  type Act,
+  type Boss,
+  type BossTwist,
+  type Drill,
+  type Mission,
+} from './schema';
 
 /**
  * The mission loop from DESIGN.md section 5 as a pure state machine. Every function
@@ -174,9 +182,34 @@ export function startDrill(
   return { ...run, activeDrill: { drillIndex, startedAtMs: nowMs } };
 }
 
+/** The drill on the clock now, and when its clock started. */
+function runningDrill(run: MissionRun, mission: Mission): { drill: Drill; startedAtMs: number } {
+  expectMission(run, mission);
+  expectPhase(run, 'drills', 'submit a drill');
+  const active = run.activeDrill;
+  const drill = active === null ? undefined : mission.drills[active.drillIndex];
+  if (active === null || drill === undefined) throw new MissionRunError('No drill is running.');
+  return { drill, startedAtMs: active.startedAtMs };
+}
+
+/** Stops the drill's clock and scores it. After the last drill, the Question Round begins. */
+function scoreRunningDrill(
+  run: MissionRun,
+  mission: Mission,
+  running: { drill: Drill; startedAtMs: number },
+  passed: boolean,
+  nowMs: number,
+): MissionRun {
+  const { drill, startedAtMs } = running;
+  const score = scoreDrill(passed, (nowMs - startedAtMs) / 1000, drill.timeLimitSeconds);
+  const drillResults = [...run.drillResults, { drillId: drill.id, ...score }];
+  const phase = drillResults.length === mission.drills.length ? 'question' : 'drills';
+  return { ...run, activeDrill: null, drillResults, phase };
+}
+
 /**
- * Grades the active drill by the sandbox's resulting state and stops its clock. After
- * the last drill, the Question Round begins.
+ * Grades the active typed drill by the sandbox's resulting state and stops its clock.
+ * A judgment drill has no target state to reach, so it goes to submitAnsweredDrill.
  */
 export function submitDrill(
   run: MissionRun,
@@ -184,17 +217,32 @@ export function submitDrill(
   queries: SandboxQueries,
   nowMs: number,
 ): MissionRun {
-  expectMission(run, mission);
-  expectPhase(run, 'drills', 'submit a drill');
-  const active = run.activeDrill;
-  const drill = active === null ? undefined : mission.drills[active.drillIndex];
-  if (active === null || drill === undefined) throw new MissionRunError('No drill is running.');
+  const running = runningDrill(run, mission);
+  const { drill } = running;
+  if (isJudgmentDrill(drill)) {
+    throw new MissionRunError(
+      `Drill "${drill.id}" is graded by its answer: use submitAnsweredDrill.`,
+    );
+  }
+  return scoreRunningDrill(run, mission, running, evaluate(drill.success, queries), nowMs);
+}
 
-  const seconds = (nowMs - active.startedAtMs) / 1000;
-  const score = scoreDrill(evaluate(drill.success, queries), seconds, drill.timeLimitSeconds);
-  const drillResults = [...run.drillResults, { drillId: drill.id, ...score }];
-  const phase = drillResults.length === mission.drills.length ? 'question' : 'drills';
-  return { ...run, activeDrill: null, drillResults, phase };
+/**
+ * Records the active judgment drill: whether Kyle's answer was right, found by running
+ * the drill, never by a flag in the content. A drill that ends without an answer, like
+ * when time runs out, is a miss, so play passes `false`.
+ */
+export function submitAnsweredDrill(
+  run: MissionRun,
+  mission: Mission,
+  passed: boolean,
+  nowMs: number,
+): MissionRun {
+  const running = runningDrill(run, mission);
+  if (!isJudgmentDrill(running.drill)) {
+    throw new MissionRunError(`Drill "${running.drill.id}" is graded by state: use submitDrill.`);
+  }
+  return scoreRunningDrill(run, mission, running, passed, nowMs);
 }
 
 /** Ids of the drills missed in this run, for the review queue at the Standup Board. */

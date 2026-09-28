@@ -11,8 +11,10 @@ import type { Predicate } from './predicates';
 import {
   countWords,
   directedProblems,
+  isJudgmentDrill,
   MAX_SCREEN_WORDS,
   type Act,
+  type Drill,
   type Mission,
   type MissionStep,
 } from './schema';
@@ -94,6 +96,23 @@ function laptopProblem(
   const laptopCheck = predicates.flatMap(everyPredicate).find(isMachinePredicate);
   if (laptopCheck === undefined) return null;
   return `"${laptopCheck.kind}" checks the laptop, so ${setupName} must start with windows().`;
+}
+
+/** Every check a drill grades by: a typed drill's success, or a judgment drill's key. */
+function drillChecks(drill: Drill): Predicate[] {
+  if (!isJudgmentDrill(drill)) return [drill.success];
+  switch (drill.kind) {
+    case 'predict':
+      return drill.options.flatMap(({ outcome }) =>
+        outcome.state === undefined ? [] : [outcome.state],
+      );
+    case 'diagnose':
+      return drill.options.flatMap(({ truth }) => (truth === undefined ? [] : [truth]));
+    case 'fix':
+      return [drill.goal, ...drill.failIf];
+    case 'approve':
+      return [...drill.guards];
+  }
 }
 
 /** The ids of the boss and Field Mission, for an Act that has them so far. */
@@ -199,7 +218,7 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
     }
     for (const drill of mission.drills) {
       add(`${at} > drill ${drill.id}`, drill.prompt);
-      addLabels(`${at} > drill ${drill.id}`, [drill.success]);
+      addLabels(`${at} > drill ${drill.id}`, drillChecks(drill));
     }
     add(`${at} > ticket`, mission.questionRound.ticket.body);
     for (const candidate of mission.questionRound.candidates) {
@@ -318,7 +337,7 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     for (const drill of mission.drills) {
       reportLaptop(
         `mission ${mission.id} > drill ${drill.id}`,
-        laptopProblem([drill.success], drill.setup, "the drill's setup"),
+        laptopProblem(drillChecks(drill), drill.setup, "the drill's setup"),
       );
     }
   }

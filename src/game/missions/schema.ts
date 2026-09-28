@@ -213,31 +213,38 @@ const QuestionRoundSchema = z
 
 /** A rule a mission breaks about being directed: the field it's about, and why. */
 export interface DirectedProblem {
-  readonly field: 'steps' | 'approvals' | 'initialRepoState';
+  readonly field: 'steps' | 'approvals' | 'initialRepoState' | 'drills';
   readonly message: string;
 }
 
 /**
  * A mission is directed (Kyle directs Otto) or typed (Kyle types, as in Act 2), never a
- * mix: the approval mode covers the whole sim, and Otto only works on the laptop.
- * MissionSchema reports these as it parses, and validateAct reports them again for
- * content built without parsing.
+ * mix: the approval mode covers the whole sim, and Otto only works on the laptop. Its
+ * drills match: judgment drills when directed, typed drills when typed. MissionSchema
+ * reports these as it parses, and validateAct reports them again for content built
+ * without parsing.
  */
 export function directedProblems(mission: {
   readonly steps: readonly { readonly agent?: unknown }[];
   readonly approvals?: string | undefined;
   readonly initialRepoState: readonly FixtureStep[];
+  readonly drills: readonly (SandboxDrill | JudgmentDrill)[];
 }): DirectedProblem[] {
-  const directed = mission.steps.filter((step) => step.agent !== undefined).length;
-  if (directed === 0) {
-    return mission.approvals === undefined
-      ? []
-      : [{ field: 'approvals', message: 'Only a directed mission sets approvals.' }];
-  }
   const problems: DirectedProblem[] = [];
   const problem = (field: DirectedProblem['field'], message: string) => {
     problems.push({ field, message });
   };
+  const directed = mission.steps.filter((step) => step.agent !== undefined).length;
+  const judgmentDrills = mission.drills.filter(isJudgmentDrill).length;
+  if (directed === 0) {
+    if (mission.approvals !== undefined) {
+      problem('approvals', 'Only a directed mission sets approvals.');
+    }
+    if (judgmentDrills > 0) {
+      problem('drills', 'A typed mission has typed drills, with no kind.');
+    }
+    return problems;
+  }
   if (directed < mission.steps.length) {
     problem('steps', 'Give every step an agent task, or none: a mission is directed or typed.');
   }
@@ -246,6 +253,9 @@ export function directedProblems(mission: {
   }
   if (mission.initialRepoState[0]?.op !== 'windows') {
     problem('initialRepoState', 'Otto works on the laptop, so start with windows().');
+  }
+  if (judgmentDrills < mission.drills.length) {
+    problem('drills', 'A directed mission has judgment drills: give every drill a kind.');
   }
   return problems;
 }
@@ -267,7 +277,7 @@ export const MissionSchema = z
     /** Directed missions only: which of Otto's lines pause for Kyle's approval. */
     approvals: z.enum(APPROVAL_MODES).optional(),
     steps: z.array(StepSchema).min(1),
-    drills: z.array(SandboxDrillSchema).min(5).max(10),
+    drills: z.array(DrillSchema).min(5).max(10),
     questionRound: QuestionRoundSchema,
   })
   .superRefine((mission, ctx) => {

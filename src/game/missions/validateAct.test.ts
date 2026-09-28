@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
+import { repo } from '../../engine/git/fixtures';
 import type { AgentTask, Plan } from './agentSchema';
 import {
   directedMission,
@@ -383,6 +384,22 @@ describe('validateAct on a directed mission', () => {
         where: 'mission sample-three-rooms > approvals',
         problem: 'Only a directed mission sets approvals.',
       },
+    ]);
+  });
+
+  it("finds the laptop checks in every judgment drill's answer key", () => {
+    // Each sample key checks the laptop, so none can be graded in a setup without one.
+    const drills = directedMission.drills.map((drill) => ({ ...drill, setup: repo().toSpec() }));
+    const onGit = (id: string, kind: string) => ({
+      where: `mission sample-where-things-live > drill ${id}`,
+      problem: `"${kind}" checks the laptop, so the drill's setup must start with windows().`,
+    });
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      onGit('sample-predict-typo', 'currentDirectory'),
+      onGit('sample-diagnose-home', 'currentDirectory'),
+      onGit('sample-fix-cd', 'currentDirectory'),
+      onGit('sample-approve-stray', 'driveFile'),
+      onGit('sample-approve-notes', 'driveFile'),
     ]);
   });
 });

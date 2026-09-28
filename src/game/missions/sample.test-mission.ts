@@ -549,10 +549,7 @@ export const sampleJudgmentDrillsInput = [
   },
 ] satisfies JudgmentDrillInput[];
 
-/**
- * A directed mission on a laptop: one step where Kyle directs Otto. Its drills are still
- * the sample's typed ones, copied with their own id prefix.
- */
+/** A directed mission on a laptop: one step where Kyle directs Otto, and judgment drills. */
 export const directedMissionInput: MissionInput = {
   ...copyOfSample('sample-where-things-live', 'Where Things Live (sample)', 'directed'),
   act: 1,
@@ -560,7 +557,8 @@ export const directedMissionInput: MissionInput = {
     sceneId: 'machine-island',
     captions: ['Every terminal stands in one folder.', 'Otto types. You direct and check.'],
   },
-  initialRepoState: windows({ mount: API }).write(`${API}/package.json`, '{}\n').toSpec(),
+  initialRepoState: laptop().toSpec(),
+  drills: sampleJudgmentDrillsInput,
   approvals: 'destructive',
   steps: [
     {

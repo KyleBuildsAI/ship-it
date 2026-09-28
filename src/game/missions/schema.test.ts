@@ -353,6 +353,16 @@ describe('directed missions', () => {
     const onGit = directed({ initialRepoState: sampleMissionInput.initialRepoState });
     expect(problems(onGit)).toEqual(['Otto works on the laptop, so start with windows().']);
   });
+
+  it('have judgment drills, and typed missions have typed ones', () => {
+    const oneTyped = [...sampleJudgmentDrillsInput.slice(1), firstDrill];
+    expect(problems(directed({ drills: oneTyped }))).toEqual([
+      'A directed mission has judgment drills: give every drill a kind.',
+    ]);
+    expect(problems(mission({ drills: sampleJudgmentDrillsInput }))).toEqual([
+      'A typed mission has typed drills, with no kind.',
+    ]);
+  });
 });
 
 describe('judgment drills', () => {

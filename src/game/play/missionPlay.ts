@@ -10,8 +10,10 @@ import {
   requestHint,
   startDrill,
   startRun,
+  submitAnsweredDrill,
   submitDrill,
 } from '../missions/runner';
+import { isJudgmentDrill } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
 import { findMission, getAct } from './catalog';
@@ -52,7 +54,9 @@ function refreshChecklist(): void {
     play.update({ checklist: step === undefined ? [] : explain(step.success, queries) });
   } else if (run.phase === 'drills' && run.activeDrill !== null) {
     const drill = mission.drills[run.activeDrill.drillIndex];
-    play.update({ checklist: drill === undefined ? [] : explain(drill.success, queries) });
+    // A judgment drill's checklist would give its answer away, so it shows none.
+    const hidden = drill === undefined || isJudgmentDrill(drill);
+    play.update({ checklist: hidden ? [] : explain(drill.success, queries) });
   } else {
     play.update({ checklist: [] });
   }
@@ -116,7 +120,10 @@ function finishDrill(current: MissionActivity, nowMs: number): void {
   if (active === null) return;
   const drill = current.mission.drills[active.drillIndex];
   if (drill === undefined) return;
-  const run = submitDrill(current.run, current.mission, currentQueries(), nowMs);
+  // A judgment drill that ends here was never answered: time ran out, or Kyle gave up.
+  const run = isJudgmentDrill(drill)
+    ? submitAnsweredDrill(current.run, current.mission, false, nowMs)
+    : submitDrill(current.run, current.mission, currentQueries(), nowMs);
   endDrill();
   const outcome = run.drillResults.at(-1);
   if (outcome === undefined) return;
@@ -153,6 +160,9 @@ export function missionSandboxChanged(nowMs: number = Date.now()): void {
   }
   if (run.phase === 'drills' && run.activeDrill !== null) {
     const drill = mission.drills[run.activeDrill.drillIndex];
+    // A judgment drill is graded by Kyle's answer. Its scene changes the sandbox as it
+    // plays, and none of those changes may end the drill.
+    if (drill !== undefined && isJudgmentDrill(drill)) return;
     if (drill !== undefined && evaluate(drill.success, currentQueries())) {
       finishDrill(current, nowMs);
     } else {
