@@ -5,12 +5,11 @@ import { IgnoreRules } from './git/ignore';
 import { Repository, type RepositoryDeps } from './git/repository';
 import { computeStatus, type RepoStatus } from './git/status';
 import type { Commit, ObjectId } from './git/types';
+import type { MachineEvent } from './machine/events';
+import type { Machine } from './machine/machine';
 
-/**
- * Everything the 3D world and HUD can react to. The engine emits these; it never
- * knows or cares who listens.
- */
-export type EngineEvent =
+/** What git and the project folder announce. */
+export type GitEvent =
   | { readonly type: 'repoInitialized' }
   | {
       readonly type: 'fileChanged';
@@ -33,6 +32,12 @@ export type EngineEvent =
       readonly reason: string;
     };
 
+/**
+ * Everything the 3D world and HUD can react to: git's events and, in an Act 1 sandbox,
+ * the machine's. The engine emits these; it never knows or cares who listens.
+ */
+export type EngineEvent = GitEvent | MachineEvent;
+
 /** Thrown when a git command runs in a folder that was never `git init`-ed. */
 export class NotARepositoryError extends Error {
   constructor() {
@@ -49,6 +54,8 @@ export interface WorkspaceOptions {
    * SubtreeFs, so the project is one folder of a bigger simulated drive.
    */
   readonly fs?: FileTree;
+  /** Act 1's simulated Windows laptop. Act 2's sandboxes have none. */
+  readonly machine?: Machine;
 }
 
 /**
@@ -57,6 +64,7 @@ export interface WorkspaceOptions {
  */
 export class Workspace {
   readonly fs: FileTree;
+  readonly machine: Machine | null;
   readonly events = new Emitter<EngineEvent>();
   readonly deps: RepositoryDeps;
   private repository: Repository | null = null;
@@ -64,6 +72,11 @@ export class Workspace {
   constructor(deps: RepositoryDeps, options: WorkspaceOptions = {}) {
     this.deps = deps;
     this.fs = options.fs ?? new VirtualFs();
+    this.machine = options.machine ?? null;
+    // One stream for everything, so the world and grading need no second subscription.
+    this.machine?.events.on((event) => {
+      this.events.emit(event);
+    });
   }
 
   get repo(): Repository | null {
