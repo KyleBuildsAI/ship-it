@@ -1,5 +1,6 @@
 import type { Act, Drill, Mission } from '../missions/schema';
 import type { SaveData } from '../save/schema';
+import { missionDone } from './saveRules';
 
 /** One Act's content: its definition and its missions. */
 export interface ActContent {
@@ -52,13 +53,32 @@ export function findDrill(id: string): Drill {
 }
 
 /**
- * The Act to offer first: the earliest one not yet complete, or the first Act once every
- * one is done. The HUD's Acts menu opens on it.
+ * Whether an Act still has something built for the player to do: a mission not done, or a
+ * boss or Field Mission that exists and isn't finished. Parts an early-access Act hasn't
+ * built yet don't count, so finishing its missions leaves nothing to do for now.
+ */
+export function hasWorkLeft(save: SaveData, act: Act): boolean {
+  const progress = save.acts[String(act.act)];
+  const missionLeft = act.missionIds.some((id) => !missionDone(save, id));
+  const bossLeft = act.boss !== undefined && !progress?.bossCompletedAt;
+  const fieldLeft = act.fieldMission !== undefined && !progress?.fieldMissionCompletedAt;
+  return missionLeft || bossLeft || fieldLeft;
+}
+
+/**
+ * The Act to offer first: the earliest one not complete that still has work left, or the
+ * first Act once there's none anywhere. The HUD's Acts menu opens on it.
  */
 export function recommendedAct(save: SaveData | null): number {
   const { acts } = getCatalog();
   const first = acts[0];
   if (first === undefined) throw new Error('The catalog has no Acts.');
-  const unfinished = acts.find((entry) => !save?.acts[String(entry.act.act)]?.completedAt);
-  return (unfinished ?? first).act.act;
+  if (save === null) return first.act.act;
+  // Both checks matter. An early-access Act never completes, so only "work left" moves the
+  // player past it once its built missions are done. A tested-out Act is complete with its
+  // boss never fought, so only "complete" moves the player past that one.
+  const next = acts.find(
+    ({ act }) => !save.acts[String(act.act)]?.completedAt && hasWorkLeft(save, act),
+  );
+  return (next ?? first).act.act;
 }
