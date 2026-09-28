@@ -1,13 +1,15 @@
-import { parentDir } from '../../../fs/paths';
+import { baseName, parentDir } from '../../../fs/paths';
 import { line, type OutputLine } from '../../../git/cli/output';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
 import type { ShellResult } from '../../shell';
 import type { Bound } from '../bind';
 import type { Cmdlet, CommandContext } from '../registry';
+import { hasWildcard } from '../wildcard';
 import { resolveItems } from './driveOps';
 
-const MISSING_PATH =
-  'Cannot process command because of one or more missing mandatory parameters: Path.';
+/** PowerShell's non-interactive error for mandatory parameters left out, in its order. */
+const missingMandatory = (...names: readonly string[]) =>
+  `Cannot process command because of one or more missing mandatory parameters: ${names.join(' ')}.`;
 
 /**
  * Get-Content (cat, type, gc): a file's lines. -TotalCount (or -Head) keeps the first N,
@@ -18,31 +20,39 @@ export const GET_CONTENT: Cmdlet = {
     name: 'Get-Content',
     parameters: [
       { name: 'Path', type: 'string[]', position: 0 },
-      { name: 'TotalCount', type: 'int', aliases: ['First', 'Head'] },
-      { name: 'Tail', type: 'int', aliases: ['Last'] },
+      { name: 'TotalCount', type: 'int', aliases: ['First', 'Head'], minimum: 0 },
+      { name: 'Tail', type: 'int', aliases: ['Last'], minimum: 0 },
       { name: 'Raw', type: 'switch' },
     ],
   },
   run: (context, bound) => {
     const typed = bound.texts('Path');
-    if (typed === null) return failed('Get-Content', [MISSING_PATH]);
-    const errors: string[] = [];
+    if (typed === null) return failed('Get-Content', [missingMandatory('Path')]);
+    // Both of these come before PowerShell looks for any file (checked in pwsh 7.6.6).
+    if (bound.has('TotalCount') && bound.has('Tail'))
+      return failed('Get-Content', [
+        'The parameters TotalCount and Tail cannot be used together. Please specify only one parameter.',
+      ]);
+    // Reading no lines needs no file, so even a missing one is no error.
+    if (bound.numbers('TotalCount')?.[0] === 0) return { lines: [], exitCode: 0 };
+    const { paths, errors } = findAll(context, typed, false);
+    // -Raw refuses a line count at the first file found, after every path was looked up,
+    // and stops there: a folder or a second file gets no error of its own.
+    const count = bound.has('Tail') ? 'Tail' : bound.has('TotalCount') ? 'TotalCount' : null;
+    if (bound.flag('Raw') && count !== null && paths.length > 0)
+      return failed('Get-Content', [
+        ...errors,
+        `The 'Raw' and '${count}' parameters cannot be specified in the same command.`,
+      ]);
     const lines: OutputLine[] = [];
-    for (const path of typed) {
-      const found = resolveItems(context, path, false);
-      if ('refused' in found) {
-        errors.push(found.refused);
+    for (const file of paths) {
+      if (context.machine.drive.isDir(file)) {
+        errors.push(
+          `Unable to get content because it is a directory: '${display(file)}'. Please use 'Get-ChildItem' instead.`,
+        );
         continue;
       }
-      for (const file of found.paths) {
-        if (context.machine.drive.isDir(file)) {
-          errors.push(
-            `Unable to get content because it is a directory: '${display(file)}'. Please use 'Get-ChildItem' instead.`,
-          );
-          continue;
-        }
-        lines.push(...contentLines(context.machine.drive.readFile(file), bound));
-      }
+      lines.push(...contentLines(context.machine.drive.readFile(file), bound));
     }
     return withErrors('Get-Content', errors, lines);
   },
@@ -81,10 +91,12 @@ export const WRITE_OUTPUT: Cmdlet = {
       { name: 'NoEnumerate', type: 'switch' },
     ],
   },
-  run: (_context, bound) => ({
-    lines: (bound.texts('InputObject') ?? []).map((text) => line(text)),
-    exitCode: 0,
-  }),
+  run: (_context, bound) => {
+    const values = bound.texts('InputObject');
+    // The name stays Write-Output even when typed as echo (checked in pwsh 7.6.6).
+    if (values === null) return failed('Write-Output', [missingMandatory('InputObject')]);
+    return { lines: values.map((text) => line(text)), exitCode: 0 };
+  },
 };
 
 /** A file's text as lines to print, after -TotalCount, -Tail or -Raw. */
@@ -103,45 +115,121 @@ function contentLines(text: string, bound: Bound): OutputLine[] {
 }
 
 /**
- * Set-Content and Add-Content: each value becomes a line ending in a line end. Add-Content
- * appends straight after what's there, as PowerShell does, even without a final line end.
+ * Every item the typed paths name, and PowerShell's error for each path that names none.
+ * PowerShell looks up all the paths before it reads or writes any, so these errors print
+ * before the ones about single files. With `allowNew`, a path without a wildcard may name
+ * a file that isn't there yet, for writing.
  */
-function write(context: CommandContext, bound: Bound, cmdlet: string): ShellResult {
-  const { ws, machine, session } = context;
-  const typed = bound.texts('Path');
-  if (typed === null) return failed(cmdlet, [MISSING_PATH]);
-  const text = (bound.texts('Value') ?? []).map((value) => `${value}\n`).join('');
+function findAll(
+  context: CommandContext,
+  typed: readonly string[],
+  allowNew: boolean,
+): { paths: string[]; errors: string[] } {
+  const { machine, session } = context;
+  const paths: string[] = [];
   const errors: string[] = [];
   for (const path of typed) {
-    const target = toCanonical(path, { cwd: session.cwd, home: machine.home });
-    if (!target.ok) {
+    if (allowNew) {
+      const target = toCanonical(path, { cwd: session.cwd, home: machine.home });
+      if (target.ok && !hasWildcard(baseName(target.path))) {
+        paths.push(target.path);
+        continue;
+      }
+      if (!target.ok && 'network' in target) {
+        errors.push(`Could not find a part of the path '${target.network}'.`);
+        continue;
+      }
+    }
+    const found = resolveItems(context, path, false);
+    if ('refused' in found) errors.push(found.refused);
+    else if (found.paths.length === 0)
+      // PowerShell names the first path typed here, whichever one matched nothing (7.6.6).
       errors.push(
-        'drive' in target
-          ? `Cannot find drive. A drive with the name '${target.drive}' does not exist.`
-          : `Could not find a part of the path '${target.network}'.`,
+        `An object at the specified path ${typed[0] ?? path} does not exist, or has been filtered by the -Include or -Exclude parameter.`,
       );
-      continue;
-    }
-    const existing = resolveExisting(machine.drive, target.path);
-    if (existing !== null && machine.drive.isDir(existing)) {
-      errors.push(
-        cmdlet === 'Set-Content'
-          ? `Unable to clear content of '${display(existing)}' because it is a directory. Clear-Content is only supported on files.`
-          : `Access to the path '${display(existing)}' is denied.`,
-      );
-      continue;
-    }
-    if (resolveExisting(machine.drive, parentDir(target.path)) === null) {
-      errors.push(`Could not find a part of the path '${display(target.path)}'.`);
-      continue;
-    }
-    const file = existing ?? machine.drive.stored(target.path);
-    const before =
-      cmdlet === 'Add-Content' && existing !== null ? machine.drive.readFile(file) : '';
-    const change = machine.drive.writeFile(file, before + text);
+    else paths.push(...found.paths);
+  }
+  return { paths, errors };
+}
+
+/**
+ * Set-Content and Add-Content: each value becomes a line ending in a line end. Add-Content
+ * appends straight after what's there, as PowerShell does, even without a final line end.
+ * A wildcard writes every visible match. Checked in pwsh 7.6.6, PowerShell works in steps:
+ *   1. Set-Content empties every file first (see emptyFirst), and may stop there;
+ *   2. it looks up every path (see findAll);
+ *   3. it opens each file, refusing a missing folder, a folder, or a read-only file;
+ *   4. it writes the values to every file it opened.
+ */
+function write(context: CommandContext, bound: Bound, cmdlet: string): ShellResult {
+  const { ws, machine } = context;
+  const { drive } = machine;
+  const typed = bound.texts('Path');
+  const values = bound.texts('Value');
+  if (typed === null || values === null) {
+    // PowerShell lists Value before Path (checked in 7.6.6).
+    const missing = [values === null ? 'Value' : null, typed === null ? 'Path' : null];
+    return failed(cmdlet, [
+      missingMandatory(...missing.filter((name): name is string => name !== null)),
+    ]);
+  }
+  if (cmdlet === 'Set-Content') {
+    const refusal = emptyFirst(context, typed);
+    if (refusal !== null) return failed(cmdlet, [refusal]);
+  }
+  const { paths, errors } = findAll(context, typed, true);
+  const opened: string[] = [];
+  for (const path of paths) {
+    const existing = resolveExisting(drive, path);
+    const parent = resolveExisting(drive, parentDir(path));
+    // A file standing where a folder should be is as missing as no folder at all.
+    if (existing === null && (parent === null || !drive.isDir(parent)))
+      errors.push(`Could not find a part of the path '${display(path)}'.`);
+    else if (existing !== null && drive.isDir(existing))
+      errors.push(`Unable to write content because it is a directory: '${display(existing)}'.`);
+    else if (existing !== null && drive.isReadOnly(existing))
+      errors.push(`Access to the path '${display(existing)}' is denied.`);
+    else opened.push(existing ?? drive.stored(path));
+  }
+  const text = values.map((value) => `${value}\n`).join('');
+  for (const file of opened) {
+    const before = cmdlet === 'Add-Content' && drive.isFile(file) ? drive.readFile(file) : '';
+    const change = drive.writeFile(file, before + text);
     if (change !== 'unchanged') ws.events.emit({ type: 'fileChanged', path: file, change });
   }
   return withErrors(cmdlet, errors, []);
+}
+
+/**
+ * Set-Content empties every file it names before writing any. At the first item it can't
+ * empty, a folder or a read-only file, the whole command stops: the files before it stay
+ * empty and nothing is written (checked in pwsh 7.6.6). Returns that refusal, or null.
+ * A path that names nothing is skipped here; looking it up again reports it.
+ */
+function emptyFirst(context: CommandContext, typed: readonly string[]): string | null {
+  const { ws, machine } = context;
+  const { drive } = machine;
+  const emptied: string[] = [];
+  for (const path of typed) {
+    const found = resolveItems(context, path, false);
+    for (const item of 'refused' in found ? [] : found.paths) {
+      const refusal = drive.isDir(item)
+        ? `Unable to clear content of '${display(item)}' because it is a directory. Clear-Content is only supported on files.`
+        : drive.isReadOnly(item)
+          ? `Access to the path '${display(item)}' is denied.`
+          : null;
+      if (refusal === null) {
+        emptied.push(item);
+        continue;
+      }
+      for (const file of emptied) {
+        const change = drive.writeFile(file, '');
+        if (change !== 'unchanged') ws.events.emit({ type: 'fileChanged', path: file, change });
+      }
+      return refusal;
+    }
+  }
+  return null;
 }
 
 function withErrors(cmdlet: string, errors: readonly string[], lines: OutputLine[]): ShellResult {
