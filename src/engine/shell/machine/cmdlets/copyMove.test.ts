@@ -102,18 +102,26 @@ describe('Move-Item', () => {
     });
   });
 
-  it('refuses to replace a file unless -Force, and a folder a tab stands in', () => {
-    const { shell, drive } = laptop();
+  it('refuses to replace a file unless -Force, and the folder this tab stands in', () => {
+    const { shell, drive, machine } = laptop();
     shell.run('cp a.txt dest');
     expect(texts(shell.run('move a.txt dest'))).toEqual([
       'Move-Item: Cannot create a file when that file already exists.',
     ]);
     shell.run('mi a.txt dest -Force');
     expect(drive.exists('Users/kyle/a.txt')).toBe(false);
+    // Checked in pwsh 7.6.6: the folder this tab stands in is in use.
     shell.run('cd src');
     expect(texts(shell.run('mv ~\\src ~\\dest'))).toEqual([
-      'Move-Item: The process cannot access the file because it is being used by another process.',
+      "Move-Item: Cannot move item because the item at 'C:\\Users\\kyle\\src' is in use.",
     ]);
+    expect(texts(shell.run('ren ~\\src source'))).toEqual([
+      "Rename-Item: Cannot rename the item at 'C:\\Users\\kyle\\src' because it is in use.",
+    ]);
+    // Another tab's folder isn't held: Set-Location doesn't move the pwsh process.
+    machine.openSession();
+    expect(shell.run('mv src moved').exitCode).toBe(0);
+    expect(drive.isDir('Users/kyle/moved')).toBe(true);
   });
 
   it('carries the Hidden attribute along', () => {
