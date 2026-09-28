@@ -55,6 +55,13 @@ const CaptionsSchema = z.array(ScreenTextSchema).min(1).max(3);
 
 // ---- Fixture steps --------------------------------------------------------------------
 
+/** A Windows environment variable name, like PORT or ProgramFiles(x86). */
+const EnvNameSchema = z
+  .string()
+  .regex(/^[A-Za-z_][A-Za-z0-9_()]*$/, 'Use an environment variable name like "PORT".');
+
+const EnvScopeSchema = z.enum(['session', 'user', 'machine']);
+
 /** Mirrors the engine's `FixtureStep` union, so mission setups are checked before replay. */
 export const FixtureStepSchema = z.discriminatedUnion('op', [
   z
@@ -67,6 +74,24 @@ export const FixtureStepSchema = z.discriminatedUnion('op', [
     .readonly(),
   z.strictObject({ op: z.literal('mkdir'), path: RepoPathSchema }).readonly(),
   z.strictObject({ op: z.literal('session') }).readonly(),
+  z.strictObject({ op: z.literal('cd'), path: RepoPathSchema }).readonly(),
+  z
+    .strictObject({
+      op: z.literal('env'),
+      scope: EnvScopeSchema,
+      name: EnvNameSchema,
+      value: z.string().nullable(),
+    })
+    .readonly(),
+  z
+    .strictObject({
+      op: z.literal('pathAdd'),
+      scope: EnvScopeSchema,
+      dir: z.string().trim().min(1),
+      at: z.enum(['start', 'end']),
+    })
+    .readonly(),
+  z.strictObject({ op: z.literal('restartTerminals') }).readonly(),
   z.strictObject({ op: z.literal('init') }).readonly(),
   z.strictObject({ op: z.literal('write'), path: RepoPathSchema, content: z.string() }).readonly(),
   z.strictObject({ op: z.literal('append'), path: RepoPathSchema, text: z.string() }).readonly(),
@@ -94,11 +119,12 @@ export const FIXTURE_SCHEMA_MATCHES_ENGINE: SameType<
   FixtureStep
 > = true;
 
-const MACHINE_ONLY_OPS = new Set(['mkdir', 'session']);
+const MACHINE_ONLY_OPS = new Set(['mkdir', 'session', 'cd', 'env', 'pathAdd', 'restartTerminals']);
 
 /**
- * A whole setup. windows() may only come first, and the laptop steps only make sense
- * after it, so a misplaced step fails validation instead of the game.
+ * A whole setup. windows() may only come first, and the laptop steps (folders, terminals,
+ * variables) only make sense after it, so a misplaced step fails validation instead of
+ * the game.
  */
 // Readonly so content can pass a builder's `.toSpec()` result straight in.
 const FixtureSchema = z

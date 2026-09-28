@@ -1,7 +1,6 @@
 /**
- * The fixture builder lives in src/engine/fixtures.ts, next to the workspace it builds, so
- * Act 1's laptop steps can join git's there. It's re-exported here so Act 2's content and
- * tests keep their imports.
+ * The fixture builder moved to src/engine/fixtures.ts when Act 1's laptop steps joined
+ * git's. It's re-exported here so Act 2's content and tests keep their imports.
  */
 export {
   buildWorkspace,
