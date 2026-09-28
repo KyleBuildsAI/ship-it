@@ -121,6 +121,15 @@ Unknown commands get a helpful message pointing to the relevant briefing.
 
 **Act 1 fidelity:** Act 1's shell simulates the player's own PowerShell 7.6, so its output is checked against the real thing. `src/engine/shell/machine/fixtures/capture-shell.ps1` runs real commands against a throwaway folder and saves their output (listings, `Get-Command`, ports, tool versions, and each error as a typed command prints it) as `.txt` captures. It pins plain text, ConciseView and en-US, dates every item 2026-09-27 10:15, and rewrites the player's real paths as `C:\Users\kyle` and the process id as `{PID}`, so the captures are stable and personal details never reach the repo. Deterministic captures are matched byte for byte; machine-dependent ones (processes, versions) by their shape. Re-run the script after a PowerShell upgrade and review the diff.
 
+### Machine (`src/engine/machine`, Act 1)
+
+Act 1's simulated Windows laptop, pure TypeScript like the git engine.
+
+- **Drive:** one `VirtualFs` for C:, with canonical paths relative to its root (`Users/kyle/notes`). `winPath.ts` turns typed Windows paths (`C:\Users`, `..\web`, `~\notes`) into canonical ones and back, case-insensitively as Windows does, and reports a missing drive (`D:`) instead of guessing.
+- **Environment variables** (`EnvTable`): case-insensitive names that keep their first spelling; an empty value deletes, as on Windows. Three scopes: `session` (one terminal tab), `user` (saved for this user) and `machine` (saved for everyone, admin only, so the player's writes are denied).
+- **Terminal tabs** (`Session`): each is a pwsh process with its own id, folder, and a copy of the saved variables made when it opened. That copy is the Act's central lesson: a saved change only reaches tabs opened afterwards. A new tab's Path joins the saved Machine Path and User Path, Machine first, with `%NAME%` references expanded.
+- **Events:** `cwdChanged`, `envChanged`, `sessionOpened/Closed/Activated` and `terminalsRestarted` share the workspace's event stream with git's. They carry variable names, never values.
+
 ## 8. Field Missions
 
 Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. From Act 4: the SandCastles public alpha repo.
@@ -247,6 +256,7 @@ ship-it/
   src/
     main.tsx
     engine/git/        pure TS git simulation + tests
+    engine/machine/    Act 1's simulated Windows laptop: drive, env vars, terminal tabs + tests
     engine/shell/      shell commands + parser + tests
     engine/verify/     Field Mission output parsers + tests
     game/world/        three.js scenes (Campus, Git World), renderer boot, post; zones.ts lists each island as data
