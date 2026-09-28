@@ -49,6 +49,9 @@ function viaTokenize(line: string): string[] {
 
 describe("Act 2's command lines under the Act 1 lexer", () => {
   it('finds the solutions in all three files', () => {
+    expect(Object.keys(sources)).toHaveLength(3);
+    for (const source of Object.values(sources))
+      expect(commandLines(source).length).toBeGreaterThan(0);
     expect(corpus.length).toBeGreaterThan(100);
     expect(corpus).toContain('git commit -m "feat: add notes app"');
     expect(corpus).toContain('echo "*.log" >> .gitignore');
