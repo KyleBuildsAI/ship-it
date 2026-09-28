@@ -1423,3 +1423,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/110
 3. Home. The first `cd -` goes back to `A`, and the second goes back again to your home folder, because PowerShell keeps a history of up to 20 folders. Bash keeps only one "previous folder", so its second `cd -` would toggle you back to `B`. `cd +` would then take PowerShell forward to `A`.
 
 </details>
+
+---
+
+## #111 feat: a case-insensitive windows drive for the laptop
+
+https://github.com/KyleBuildsAI/ship-it/pull/111
+
+1. You create `notes.txt`, then write to `NOTES.TXT`. How many files are there, and what are they called?
+2. Why does `stored('users/kyle/New Folder/a.txt')` keep `New Folder` as typed?
+3. Why wrap `VirtualFs` instead of making `VirtualFs` itself case-insensitive?
+
+<details><summary>Answers</summary>
+
+1. One, called `notes.txt`. `NOTES.TXT` finds the stored spelling first, so the write modifies the existing file, as on Windows.
+2. That part doesn't exist yet, so there's no stored spelling to use. New names are created as typed, and keep that spelling from then on.
+3. Act 2's project folder and git are case-sensitive in the existing engine, and their tests depend on it. Only the Windows laptop should ignore case, so the behaviour belongs to the laptop's drive.
+
+</details>
