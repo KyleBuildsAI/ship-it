@@ -56,4 +56,41 @@ describe('WindowsFs', () => {
 
     expect(drive.stored('A.TXT/inside')).toBe('a.txt/inside');
   });
+
+  it('hides an item with the Hidden attribute, in any case, and forgets it when deleted', () => {
+    const drive = new WindowsFs();
+    drive.makeDir('Users/kyle/AppData/Local');
+    drive.writeFile('Users/kyle/.cache', 'x');
+    drive.hide('users/KYLE/appdata');
+
+    expect(drive.isHidden('Users/kyle/AppData')).toBe(true);
+    // A leading dot hides nothing on Windows.
+    expect(drive.isHidden('Users/kyle/.cache')).toBe(false);
+    expect(drive.isHidden('Users/kyle/AppData/Local')).toBe(false);
+
+    drive.hide('Users/kyle/AppData/Local');
+    drive.removeDir('Users/kyle/AppData', { recursive: true });
+    drive.makeDir('Users/kyle/AppData/Local');
+    expect(drive.isHidden('Users/kyle/AppData')).toBe(false);
+    expect(drive.isHidden('Users/kyle/AppData/Local')).toBe(false);
+
+    drive.hide('Users/kyle/.cache');
+    drive.deleteFile('Users/kyle/.cache');
+    drive.writeFile('Users/kyle/.cache', 'y');
+    expect(drive.isHidden('Users/kyle/.cache')).toBe(false);
+  });
+
+  it('keeps a ReadOnly attribute beside Hidden, and forgets both on delete', () => {
+    const drive = new WindowsFs();
+    drive.makeDir('Users/kyle/Downloads/inner');
+    drive.setReadOnly('users/kyle/downloads');
+    drive.hide('Users/kyle/Downloads/inner');
+
+    expect(drive.isReadOnly('Users/kyle/Downloads')).toBe(true);
+    expect(drive.isReadOnly('Users/kyle/Downloads/inner')).toBe(false);
+    drive.removeDir('Users/kyle/Downloads', { recursive: true });
+    drive.makeDir('Users/kyle/Downloads/inner');
+    expect(drive.isReadOnly('Users/kyle/Downloads')).toBe(false);
+    expect(drive.isHidden('Users/kyle/Downloads/inner')).toBe(false);
+  });
 });

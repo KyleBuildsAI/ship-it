@@ -109,7 +109,7 @@ try {
     Set-Content (Join-Path $fakeHome 'notes.txt') 'ship it'
     Set-Content (Join-Path $fakeHome 'quillwork\api\package.json') '{ "name": "quillwork-api", "version": "1.0.0" }'
     Set-Content (Join-Path $fakeHome 'quillwork\api\server.js') "require('dotenv').config();"
-    Set-Content (Join-Path $fakeHome 'quillwork\api\.env.example') "PORT=`nLOG_LEVEL="
+    Set-Content (Join-Path $fakeHome 'quillwork\api\.env.example') 'PORT=', 'LOG_LEVEL='
     Set-Content (Join-Path $fakeHome 'quillwork\api\docs\setup.md') '# Setup'
     Set-Content (Join-Path $fakeHome 'quillwork\web\index.html') '<!doctype html>'
     Get-ChildItem $fakeHome -Recurse -Force | ForEach-Object { $_.LastWriteTime = $fixed }

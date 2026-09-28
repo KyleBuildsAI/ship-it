@@ -12,6 +12,10 @@ import { VirtualFs, type DirEntry, type WriteResult } from '../fs/virtualFs';
  */
 export class WindowsFs implements FileTree {
   private readonly tree = new VirtualFs();
+  /** Items with the Hidden attribute, by lower-case path. */
+  private readonly hiddenPaths = new Set<string>();
+  /** Items with the ReadOnly attribute, by lower-case path. */
+  private readonly readOnlyPaths = new Set<string>();
 
   /** The path with every existing part spelled as stored; missing parts as typed. */
   stored(path: string): string {
@@ -50,6 +54,7 @@ export class WindowsFs implements FileTree {
   }
 
   deleteFile(path: string): void {
+    this.forgetAttributes(path);
     this.tree.deleteFile(this.stored(path));
   }
 
@@ -59,6 +64,7 @@ export class WindowsFs implements FileTree {
 
   removeDir(path: string, options: { recursive: boolean }): void {
     this.tree.removeDir(this.stored(path), options);
+    this.forgetAttributes(path);
   }
 
   listDir(path: string): DirEntry[] {
@@ -67,5 +73,39 @@ export class WindowsFs implements FileTree {
 
   allFiles(dir = ''): string[] {
     return this.tree.allFiles(this.stored(dir));
+  }
+
+  /**
+   * Sets the Hidden attribute, like `attrib +h`. On Windows that's what hides an item from
+   * a plain listing (AppData is hidden this way); a name starting with a dot hides nothing.
+   */
+  hide(path: string): void {
+    this.hiddenPaths.add(this.stored(path).toLowerCase());
+  }
+
+  isHidden(path: string): boolean {
+    return this.hiddenPaths.has(this.stored(path).toLowerCase());
+  }
+
+  /**
+   * Sets the ReadOnly attribute, like `attrib +r`. Windows marks a home's shell folders
+   * (Desktop, Documents, Downloads) this way, which listings show as d-r--.
+   */
+  setReadOnly(path: string): void {
+    this.readOnlyPaths.add(this.stored(path).toLowerCase());
+  }
+
+  isReadOnly(path: string): boolean {
+    return this.readOnlyPaths.has(this.stored(path).toLowerCase());
+  }
+
+  /** A deleted item takes its attributes with it, and so does everything inside it. */
+  private forgetAttributes(path: string): void {
+    const gone = this.stored(path).toLowerCase();
+    for (const attributes of [this.hiddenPaths, this.readOnlyPaths]) {
+      for (const marked of [...attributes]) {
+        if (marked === gone || marked.startsWith(`${gone}/`)) attributes.delete(marked);
+      }
+    }
   }
 }

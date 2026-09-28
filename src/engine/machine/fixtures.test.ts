@@ -20,6 +20,9 @@ describe('windows()', () => {
     expect(machine.user).toBe('kyle');
     expect(machine.drive.isDir('Users/kyle/Downloads')).toBe(true);
     expect(machine.drive.isDir('Program Files/PowerShell/7')).toBe(true);
+    // AppData is hidden on a real laptop, so a plain listing of home leaves it out.
+    expect(machine.drive.isHidden('Users/kyle/AppData')).toBe(true);
+    expect(machine.drive.isReadOnly('Users/kyle/Documents')).toBe(true);
     expect(machine.saved.machine.get('Path')).toBe(STOCK_MACHINE_ENV.Path);
     expect(tab(machine).cwd).toBe('Users/kyle');
     expect(tab(machine).env.get('Path')).toContain(
