@@ -1297,3 +1297,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/102
 3. In a narrower window, a card above the terminal on the right overlapped the HUD buttons (Trophies, Settings) and the avatar.
 
 </details>
+
+---
+
+## #103 refactor: the catalog holds every act, and activities know theirs
+
+https://github.com/KyleBuildsAI/ship-it/pull/103
+
+1. Why does a review series have `act: null` while a placement test has a number?
+2. How does finishing a mission know which Act to record it on?
+3. The old check `acts['2']?.completedAt).not.toBeNull()` looked right. Why didn't it prove anything?
+
+<details><summary>Answers</summary>
+
+1. A placement test belongs to one Act: its drills come from that Act, and testing out completes that Act. Reviews mix drills from every Act you've played, so there's no single Act to record them on. Each drill's own result is saved by drill id instead.
+2. Every mission's data includes its Act (`mission.act`). `submitQuestionRound` calls `getAct(current.mission.act)` and passes that Act to `completeMission`.
+3. With `?.`, a missing `acts['2']` makes the expression `undefined`, and `undefined` is "not null", so the check passed even when nothing was saved. `toEqual(expect.any(String))` only passes when a real completion time is there.
+
+</details>
