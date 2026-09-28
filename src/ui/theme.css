@@ -626,6 +626,11 @@ body {
   font-size: 12px;
 }
 
+/* A mission still being built: dimmed, with no button, so it reads as not playable yet. */
+.act-menu__upcoming {
+  color: var(--text-muted);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
