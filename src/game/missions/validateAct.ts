@@ -5,6 +5,7 @@ import {
   OTTO_LINE_WORDS,
   type AgentAction,
   type AgentTask,
+  type BaseAction,
 } from './agentSchema';
 import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
@@ -15,14 +16,16 @@ import {
   MAX_SCREEN_WORDS,
   type Act,
   type Drill,
+  type JudgmentDrill,
   type Mission,
   type MissionStep,
 } from './schema';
 
 /**
- * Word limits for a directed step (docs/act1-directed.md section 5.10). A directed step
+ * Word limits for a directed mission (docs/act1-directed.md section 5.10). A directed step
  * shows a goal, cards, Otto's lines and a check beside the world, so each piece gets a
- * slice of the 60 words, and each screen's pieces together stay within its budget.
+ * slice of the 60 words, and each screen's pieces together stay within its budget. Its
+ * judgment drills get budgets of their own.
  */
 export const DIRECTED_WORDS = {
   goal: 20,
@@ -41,6 +44,10 @@ export const DIRECTED_WORDS = {
   predict: 40,
   /** Each row of the Result screen's checklist: the step's and the guards' labels. */
   checklistLabel: 8,
+  /** A judgment drill's question: the prompt, Otto's claim and line, and the options. */
+  drillQuestion: MAX_SCREEN_WORDS,
+  /** Why a judgment drill's answer is right, shown after Kyle answers. */
+  drillExplain: 30,
 } as const;
 
 /** One problem in an Act's content, with where to find it. */
@@ -181,6 +188,24 @@ function agentTexts(at: string, step: MissionStep, agent: AgentTask): ScreenText
   return texts;
 }
 
+/** The texts of a judgment drill, and the screens they share. */
+function judgmentTexts(at: string, drill: JudgmentDrill): ScreenText[] {
+  const said = (actions: readonly BaseAction[]) =>
+    actions.flatMap((action) => (action.say === undefined ? [] : [action.say]));
+  const claim = drill.claim === undefined ? [] : [drill.claim];
+  // Otto's line comes with the action he wants to run, so it's part of the question.
+  const actionLine = 'action' in drill ? said([drill.action]) : [];
+  const options = drill.kind === 'approve' ? [] : drill.options.map((option) => option.text);
+  const fixes = drill.kind === 'fix' ? drill.options.flatMap((option) => option.script) : [];
+  const ottoLines = [...claim, ...actionLine, ...said([...drill.history, ...fixes])];
+  const question = [drill.prompt, ...claim, ...actionLine, ...options];
+  return [
+    [`${at} > question`, question, DIRECTED_WORDS.drillQuestion],
+    [`${at} > explain`, [drill.explain], DIRECTED_WORDS.drillExplain],
+    ...ottoLines.map((line): ScreenText => [`${at} > Otto`, [line], DIRECTED_WORDS.ottoLine]),
+  ];
+}
+
 /** Each piece of text the player reads on screen, labelled with where it lives. */
 function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
   const texts: ScreenText[] = [];
@@ -217,8 +242,10 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
       if (agent !== undefined) texts.push(...agentTexts(where, step, agent));
     }
     for (const drill of mission.drills) {
-      add(`${at} > drill ${drill.id}`, drill.prompt);
-      addLabels(`${at} > drill ${drill.id}`, drillChecks(drill));
+      const where = `${at} > drill ${drill.id}`;
+      if (isJudgmentDrill(drill)) texts.push(...judgmentTexts(where, drill));
+      else add(where, drill.prompt);
+      addLabels(where, drillChecks(drill));
     }
     add(`${at} > ticket`, mission.questionRound.ticket.body);
     for (const candidate of mission.questionRound.candidates) {
@@ -259,7 +286,7 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
  * every referenced mission and placement drill exists, ids don't collide, laptop checks
  * only grade setups that build a laptop, an early-access Act's upcoming list names only
  * missions that haven't shipped, and every screen of text stays within DESIGN.md
- * pillar 1's word budget, with a directed step's text held to the tighter budgets of
+ * pillar 1's word budget, with a directed mission's text held to the tighter budgets of
  * DIRECTED_WORDS. The schemas also limit words, keep a mission directed or typed, and
  * point hintPlan at a strong card; repeating those here means content built without
  * parsing is covered too, and every problem is listed at once with its location.

@@ -387,6 +387,28 @@ describe('validateAct on a directed mission', () => {
     ]);
   });
 
+  it("keeps a judgment drill's question to 60 words, its explain to 30, Otto's lines to 12", () => {
+    const say = { do: 'run', line: 'Get-Location', say: words(13) };
+    const changed: Record<string, object> = {
+      // The prompt shares the question with 18 words of options.
+      'sample-predict-typo': { prompt: words(43) },
+      'sample-diagnose-home': { explain: words(31) },
+      'sample-fix-cd': { claim: words(13), history: [say] },
+      'sample-approve-stray': { action: say },
+    };
+    const drills = directedMission.drills.map((drill) => ({ ...drill, ...changed[drill.id] }));
+    const at = 'mission sample-where-things-live > drill';
+    const ottoOver = { problem: '13 words; the limit is 12.' };
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      { where: `${at} sample-predict-typo > question`, problem: '61 words; the limit is 60.' },
+      { where: `${at} sample-diagnose-home > explain`, problem: '31 words; the limit is 30.' },
+      // Otto's claim, then his line in the scene before the question.
+      { where: `${at} sample-fix-cd > Otto`, ...ottoOver },
+      { where: `${at} sample-fix-cd > Otto`, ...ottoOver },
+      { where: `${at} sample-approve-stray > Otto`, ...ottoOver },
+    ]);
+  });
+
   it("finds the laptop checks in every judgment drill's answer key", () => {
     // Each sample key checks the laptop, so none can be graded in a setup without one.
     const drills = directedMission.drills.map((drill) => ({ ...drill, setup: repo().toSpec() }));
