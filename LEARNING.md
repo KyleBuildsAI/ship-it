@@ -1459,3 +1459,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/112
 3. A move plus new features in one diff hides the new code among moved lines. Moving first makes the next PR's diff show exactly what's new.
 
 </details>
+
+---
+
+## #113 feat: windows() sandboxes with a stock laptop
+
+https://github.com/KyleBuildsAI/ship-it/pull/113
+
+1. In a `windows()` setup, where does `write('notes.md', …)` put the file, and where does `stage('notes.md')` look for it?
+2. Why does a setup that opened no terminal get one at the end?
+3. How does the test prove a boss twist leaves a laptop exactly as building it would?
+
+<details><summary>Answers</summary>
+
+1. `write` takes a drive path, so the file lands at `C:\notes.md`, the root of the drive. `stage` acts on the mounted project and looks for `~\quillwork\app\notes.md`. Mission content writes project files with their full drive path, like `Users/kyle/quillwork/app/notes.md`.
+2. Every Act 1 activity starts with the player typing into a terminal, so there must be one. Opening it at the end means it copies every saved variable the setup made. A setup that wants a stale terminal opens it earlier on purpose.
+3. It builds one laptop with every step, builds a second with only `windows()` and `session()`, then applies the remaining steps to the second as a twist. A snapshot of each (drive files, saved variables with their kinds, and every tab's folder and variables) must be equal.
+
+</details>
