@@ -300,6 +300,16 @@ describe('laptop checks', () => {
     );
   });
 
+  it('answers quietly when all or any decides before the laptop check, so validateAct must guard', () => {
+    // all and any stop at the first answer that settles them, so the laptop check behind
+    // it never runs and nothing throws. Only validateAct catches these before play.
+    const q = gitQueries(project());
+    expect(evaluate({ kind: 'any', of: [{ kind: 'isRepo' }, notes] }, q)).toBe(true);
+    expect(evaluate({ kind: 'all', of: [{ kind: 'commitCount', equals: 5 }, notes] }, q)).toBe(
+      false,
+    );
+  });
+
   it('describes laptop paths as Windows shows them in the checklist', () => {
     const q = laptop();
     expect(explain({ kind: 'all', of: [home, { kind: 'not', predicate: notes }] }, q)).toEqual([

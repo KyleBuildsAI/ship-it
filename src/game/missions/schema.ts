@@ -51,6 +51,20 @@ const RepoPathSchema = z
 
 const PathListSchema = z.array(RepoPathSchema).min(1);
 
+/**
+ * A path on the laptop's drive, from C:\ in the same canonical form: 'Users/kyle/notes'.
+ * A check never expands '~' or a drive letter, so '~/notes' would look for a folder
+ * named '~' at C:\ and 'C:/Users' for one named 'C:'. Such a check could never pass, and
+ * with `exists: false` it would always pass, so both shapes are content mistakes.
+ */
+const DrivePathSchema = RepoPathSchema.refine(
+  (path) => path.split('/')[0] !== '~' && !path.includes(':'),
+  {
+    error:
+      'Write the full drive path from C:\\, like "Users/kyle/notes". A check does not expand "~" or "C:".',
+  },
+);
+
 const CaptionsSchema = z.array(ScreenTextSchema).min(1).max(3);
 
 // ---- Fixture steps --------------------------------------------------------------------
@@ -283,20 +297,20 @@ const predicateKinds = z.discriminatedUnion('kind', [
   // Paths start at C:\ ('Users/kyle/notes'). validateAct checks the setup is a windows() laptop.
   z.strictObject({
     kind: z.literal('currentDirectory'),
-    path: RepoPathSchema,
+    path: DrivePathSchema,
     tab: z.union([z.int().positive(), z.literal('any')]).optional(),
     ...labelled,
   }),
   z.strictObject({
     kind: z.literal('driveFolder'),
-    path: RepoPathSchema,
+    path: DrivePathSchema,
     exists: z.boolean().optional(),
     ...labelled,
   }),
   z
     .strictObject({
       kind: z.literal('driveFile'),
-      path: RepoPathSchema,
+      path: DrivePathSchema,
       equals: z.string().optional(),
       contains: z.string().min(1).optional(),
       pattern: z.string().min(1).optional(),

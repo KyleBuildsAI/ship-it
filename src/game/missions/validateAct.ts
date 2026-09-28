@@ -42,8 +42,10 @@ function labelsIn(predicate: Predicate): string[] {
 
 /**
  * Why these checks can't run in this setup, or null when they can. A laptop check asks
- * the machine, and only a setup that starts with windows() has one: anywhere else,
- * grading would stop with a PredicateContextError halfway through a mission.
+ * the machine, and only a setup that starts with windows() has one. Anywhere else,
+ * grading stops with a PredicateContextError when it reaches the check, halfway through
+ * a mission. Behind an all or any that has already decided, it is never reached, and
+ * the answer comes quietly without it. So this is the real guard, not that error.
  */
 function laptopProblem(
   predicates: readonly Predicate[],

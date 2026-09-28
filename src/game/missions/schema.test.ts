@@ -183,6 +183,25 @@ describe('PredicateSchema', () => {
     }
     expect(PredicateSchema.safeParse({ ...here, path: 'C:\\Users\\kyle' }).success).toBe(false);
   });
+
+  it("rejects a laptop path that starts at ~ or a drive letter, since a check doesn't expand them", () => {
+    const fullPath =
+      'Write the full drive path from C:\\, like "Users/kyle/notes". A check does not expand "~" or "C:".';
+    // Written this way, a boss's failIf would look for a folder named '~' and fire at once.
+    expect(
+      problems(
+        PredicateSchema.safeParse({ kind: 'driveFolder', path: '~/quillwork-api', exists: false }),
+      ),
+    ).toEqual([fullPath]);
+    for (const path of ['~', '~/notes', 'C:/Users/kyle', 'Users/kyle/c:notes']) {
+      for (const kind of ['currentDirectory', 'driveFolder', 'driveFile']) {
+        expect(problems(PredicateSchema.safeParse({ kind, path }))).toEqual([fullPath]);
+      }
+    }
+    // Only a leading '~' is home shorthand; one inside a name is an ordinary character.
+    const lockFile = { kind: 'driveFile', path: 'Users/kyle/~notes.txt' };
+    expect(PredicateSchema.parse(lockFile)).toEqual(lockFile);
+  });
 });
 
 describe('regexProblem', () => {
