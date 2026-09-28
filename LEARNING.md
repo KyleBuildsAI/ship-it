@@ -1711,3 +1711,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/126
 3. A binding error: the value is too small for a UInt32. A depth can't be negative.
 
 </details>
+
+---
+
+## #127 feat: new-item, mkdir, and test-path
+
+https://github.com/KyleBuildsAI/ship-it/pull/127
+
+1. Why does `New-Item a\b\c.txt` fail but `New-Item -ItemType Directory a\b\c` work?
+2. What does `New-Item notes.txt -Force` do to an existing `notes.txt`?
+3. How can you check that `API_KEY` is set without printing it?
+
+<details><summary>Answers</summary>
+
+1. Making a folder on Windows makes any missing parents too. Making a file needs its folder to exist, unless `-Force` asks PowerShell to make it.
+2. It replaces the file with an empty one. `-Force` means "overwrite", so the old text is gone.
+3. `Test-Path Env:API_KEY` prints `True` or `False`, never the value.
+
+</details>
