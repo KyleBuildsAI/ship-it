@@ -421,12 +421,16 @@ export const sampleAgentTaskInput = {
   looks: [{ id: 'where', label: 'Where is Otto?', line: 'Get-Location' }],
 } satisfies AgentTaskInput;
 
-/** A small laptop: a home folder, and the API project with its package.json. */
-const laptop = () => windows({ mount: API }).write(`${API}/package.json`, '{}\n');
+/**
+ * A small laptop: one terminal open at home, and the API project with its package.json.
+ * The terminal opens first, so a setup can cd it somewhere else.
+ */
+const laptop = () => windows({ mount: API }).session().write(`${API}/package.json`, '{}\n');
 
 /**
  * Judgment drills modelled on Mission 1.1's: one of each kind, and a second approve drill
- * whose right answer is Deny. No option says it's the right one; the engine works it out.
+ * whose right answer is Deny. No option says it's the right one; the engine works it out,
+ * and sampleDrills.test.ts proves each drill has the answer described here.
  */
 export const sampleJudgmentDrillsInput = [
   {
