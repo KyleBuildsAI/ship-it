@@ -30,4 +30,12 @@ export type MachineEvent =
       readonly type: 'sessionOpened' | 'sessionClosed' | 'sessionActivated';
       readonly session: number;
     }
-  | { readonly type: 'terminalsRestarted' };
+  | { readonly type: 'terminalsRestarted' }
+  | {
+      /** A file or folder copied, moved or renamed, so the world can carry it across. */
+      readonly type: 'itemMoved';
+      readonly from: string;
+      readonly to: string;
+      readonly kind: 'file' | 'folder';
+      readonly copy: boolean;
+    };

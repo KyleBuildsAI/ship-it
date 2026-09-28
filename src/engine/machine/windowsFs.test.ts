@@ -93,4 +93,22 @@ describe('WindowsFs', () => {
     expect(drive.isReadOnly('Users/kyle/Downloads')).toBe(false);
     expect(drive.isHidden('Users/kyle/Downloads/inner')).toBe(false);
   });
+
+  it('moves an item with its contents and attributes, even to a new spelling of its name', () => {
+    const drive = new WindowsFs();
+    drive.writeFile('Users/kyle/src/sub/two.txt', '2');
+    drive.makeDir('Users/kyle/src/empty');
+    drive.hide('Users/kyle/src/sub');
+    drive.setReadOnly('Users/kyle/src/empty');
+
+    expect(drive.move('users/kyle/SRC', 'Users/kyle/Source')).toBe('Users/kyle/Source');
+    expect(drive.readFile('Users/kyle/Source/sub/two.txt')).toBe('2');
+    expect(drive.isDir('Users/kyle/Source/empty')).toBe(true);
+    expect(drive.isHidden('Users/kyle/Source/sub')).toBe(true);
+    expect(drive.isReadOnly('Users/kyle/Source/empty')).toBe(true);
+    expect(drive.listDir('Users/kyle').map((entry) => entry.name)).toEqual(['Source']);
+
+    drive.move('Users/kyle/Source/sub/two.txt', 'Users/kyle/TWO.txt');
+    expect(drive.readFile('Users/kyle/TWO.txt')).toBe('2');
+  });
 });
