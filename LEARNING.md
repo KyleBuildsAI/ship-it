@@ -1567,3 +1567,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/118
 3. `$false` is a boolean value. `false` without the `$` is just text, and a switch can't be set from text. Only `$true`, `$false`, `$null` or a number can set one.
 
 </details>
+
+---
+
+## #119 feat: hints for combined unix flags and paths split at a space
+
+https://github.com/KyleBuildsAI/ship-it/pull/119
+
+1. Why does `rm -rr notes.txt` get no hint?
+2. `Get-ChildItem C:\My Big Folder`: which word does PowerShell reject, and what does the hint suggest?
+3. Why does `rm a -Force b` get no quotes hint?
+
+<details><summary>Answers</summary>
+
+1. Both letters point at the same switch (`-Recurse`), so they aren't two different Unix flags. Suggesting `-Recurse -Recurse` would be wrong.
+2. `Folder`. `C:\My` fills `-Path` and `Big` fills `-Filter`, so nothing is left for `Folder`. The hint rebuilds all three words: `'C:\My Big Folder'`.
+3. The switch sits between the words, so they can't be one path that split at a space. Only an unbroken run of values could be.
+
+</details>

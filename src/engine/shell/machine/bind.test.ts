@@ -162,7 +162,31 @@ describe("bind errors, in PowerShell's words", () => {
     );
   });
 
-  it('name the value with no position to go to, and a list by its type', () => {
+  it('spell out combined Unix flags', () => {
+    expect(refused(REMOVE_ITEM, '-rf notes.txt').hints).toEqual([
+      'PowerShell spells each switch out: -Recurse -Force',
+    ]);
+    expect(refused(REMOVE_ITEM, '-x notes.txt').hints).toEqual([]);
+    expect(refused(REMOVE_ITEM, '-rx notes.txt').hints).toEqual([]);
+    expect(refused(REMOVE_ITEM, '-rr notes.txt').hints).toEqual([]);
+  });
+
+  it('point a split path at quotes, and a list at commas', () => {
+    expect(refused(SET_LOCATION, 'C:\\My Big Folder').hints).toEqual([
+      "Paths with spaces need quotes: 'C:\\My Big Folder'",
+    ]);
+    expect(refused(SET_LOCATION, '-Path C:\\Program Files').hints).toEqual([
+      "Paths with spaces need quotes: 'C:\\Program Files'",
+    ]);
+    expect(refused(GET_CHILD_ITEM, 'C:\\My Big Folder').hints).toEqual([
+      "Paths with spaces need quotes: 'C:\\My Big Folder'",
+    ]);
+    expect(refused(REMOVE_ITEM, 'a.txt b.txt').hints).toEqual([
+      "Paths with spaces need quotes: 'a.txt b.txt'",
+      'To name several, separate them with commas: a.txt, b.txt',
+    ]);
+    // A switch in between means the words weren't one path.
+    expect(refused(REMOVE_ITEM, 'a -Force b').hints).toEqual([]);
     const noPositions: CmdletSpec = { name: 'Get-Location', parameters: [] };
     expect(refused(noPositions, 'here')).toEqual({
       ok: false,
@@ -170,6 +194,5 @@ describe("bind errors, in PowerShell's words", () => {
       hints: [],
     });
     expect(refused(noPositions, 'a,b').message).toContain("argument 'System.Object[]'");
-    expect(refused(REMOVE_ITEM, '-rf notes.txt').hints).toEqual([]);
   });
 });
