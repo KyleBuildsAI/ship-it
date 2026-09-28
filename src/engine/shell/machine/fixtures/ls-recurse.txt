@@ -1,0 +1,29 @@
+
+    Directory: C:\Users\kyle\quillwork
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           9/27/2026 10:15 AM                api
+d----           9/27/2026 10:15 AM                web
+
+    Directory: C:\Users\kyle\quillwork\api
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           9/27/2026 10:15 AM                docs
+-a---           9/27/2026 10:15 AM             18 .env.example
+-a---           9/27/2026 10:15 AM             49 package.json
+-a---           9/27/2026 10:15 AM             29 server.js
+
+    Directory: C:\Users\kyle\quillwork\api\docs
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM              9 setup.md
+
+    Directory: C:\Users\kyle\quillwork\web
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM             17 index.html
+

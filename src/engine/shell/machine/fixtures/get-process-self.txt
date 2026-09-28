@@ -1,0 +1,5 @@
+
+ NPM(K)    PM(M)      WS(M)     CPU(s)      Id  SI ProcessName
+ ------    -----      -----     ------      --  -- -----------
+     72    45.43     108.95       2.19   {PID}   1 pwsh
+
