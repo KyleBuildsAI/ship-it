@@ -119,6 +119,8 @@ Minimal commands that also work in PowerShell so habits transfer: `pwd`, `ls`, `
 
 Unknown commands get a helpful message pointing to the relevant briefing.
 
+**Act 1 fidelity:** Act 1's shell simulates the player's own PowerShell 7.6, so its output is checked against the real thing. `src/engine/shell/machine/fixtures/capture-shell.ps1` runs real commands against a throwaway folder and saves their output (listings, `Get-Command`, ports, tool versions, and each error as a typed command prints it) as `.txt` captures. It pins plain text, ConciseView and en-US, dates every item 2026-09-27 10:15, and rewrites the player's real paths as `C:\Users\kyle` and the process id as `{PID}`, so the captures are stable and personal details never reach the repo. Deterministic captures are matched byte for byte; machine-dependent ones (processes, versions) by their shape. Re-run the script after a PowerShell upgrade and review the diff.
+
 ## 8. Field Missions
 
 Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. From Act 4: the SandCastles public alpha repo.
