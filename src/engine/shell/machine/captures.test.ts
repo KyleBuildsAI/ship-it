@@ -46,6 +46,8 @@ const EXPECTED = [
   'error-cd-path-dash',
   'error-rm-twice',
   'error-rm-positional',
+  'error-stop-process-id-text',
+  'error-stop-process-id-huge',
   'error-stop-process-missing-id',
   'error-stop-process-no-such',
   'error-get-process-missing',
