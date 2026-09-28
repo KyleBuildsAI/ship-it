@@ -97,12 +97,21 @@ export function machineQueries(machine: Machine): MachineQueries {
 }
 
 /**
- * Folders first, then files, each by name ignoring case, as Get-ChildItem lists them. The
- * compare is plain character order rather than the computer's language rules, so the
- * order is the same on every machine. Two names in one folder never match ignoring case
- * (the drive is like NTFS), so there is never a tie.
+ * Get-ChildItem sorts names by English language rules, not by character code: '_notes'
+ * and '~$plan.docx' come before 'api', where a character compare would put '~' last.
+ * Naming the language pins the order, so it is the same on every computer whatever its
+ * own language is. Env: sorts the same way (envTable.ts).
+ */
+const NAME_ORDER = new Intl.Collator('en', { sensitivity: 'base' });
+
+/**
+ * Folders first, then files, each by name ignoring case, as Get-ChildItem lists them.
+ * Names that only differ by an accent ('resume', 'résumé') are equal to the collator, so
+ * a character compare settles them, unaccented first as PowerShell prints them. Two names
+ * in one folder never match ignoring case (the drive is like NTFS), so that settles every
+ * tie.
  */
 function foldersFirstByName(a: ListedItem, b: ListedItem): number {
   if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
-  return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+  return NAME_ORDER.compare(a.name, b.name) || (a.name < b.name ? -1 : 1);
 }

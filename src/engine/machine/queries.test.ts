@@ -63,15 +63,41 @@ describe('machineQueries', () => {
     expect(q.list('').map((listed) => listed.name)).toEqual(['Program Files', 'Users', 'Windows']);
   });
 
-  it('orders names by character, not by language rules, so every computer agrees', () => {
+  it('orders names by English rules, as PowerShell 7.6 does, not by character code', () => {
     const { machine, q } = laptop();
-    // Word's lock file: language rules put ~ first, character order (and dir) puts it last.
+    // Word's lock file and other names that start with punctuation. A character compare
+    // would put '~' and '_' after the letters; real dir puts them first, like this.
     machine.drive.writeFile('Users/kyle/Notes/~$plan.docx', '');
     machine.drive.writeFile('Users/kyle/Notes/Plan.md', '');
+    machine.drive.writeFile('Users/kyle/Notes/_notes', '');
+    machine.drive.writeFile('Users/kyle/Notes/[x]', '');
+    machine.drive.writeFile('Users/kyle/Notes/api', '');
+    machine.drive.writeFile('Users/kyle/Notes/Zeta', '');
+    machine.drive.makeDir('Users/kyle/Notes/zdir');
+    machine.drive.makeDir('Users/kyle/Notes/_adir');
+    // The order real pwsh 7.6.6 printed for `(Get-ChildItem -Force).Name` on these names.
     expect(q.list('Users/kyle/Notes').map((listed) => listed.name)).toEqual([
+      '_adir',
+      'zdir',
+      '_notes',
+      '[x]',
+      '~$plan.docx',
+      'api',
       'Plan.md',
       'today.txt',
-      '~$plan.docx',
+      'Zeta',
+    ]);
+  });
+
+  it('puts an unaccented name before its accented twin, as PowerShell does', () => {
+    const { machine, q } = laptop();
+    // English rules ignoring case call these two equal; real dir still prints resume first.
+    machine.drive.writeFile('Users/kyle/Notes/résumé', '');
+    machine.drive.writeFile('Users/kyle/Notes/resume', '');
+    expect(q.list('Users/kyle/Notes').map((listed) => listed.name)).toEqual([
+      'resume',
+      'résumé',
+      'today.txt',
     ]);
   });
 
