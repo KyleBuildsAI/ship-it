@@ -5,9 +5,16 @@ import type { ShellResult } from '../../shell';
 import type { Bound } from '../bind';
 import { itemRow, itemTable, type ItemSection } from '../format';
 import type { Cmdlet, CommandContext } from '../registry';
+import { hasWildcard, wildcard } from '../wildcard';
 
 const ITEM_TYPES = ['file', 'directory'] as const;
 type ItemType = (typeof ITEM_TYPES)[number];
+
+const MISSING_PATH =
+  'Cannot process command because of one or more missing mandatory parameters: Path.';
+
+/** Characters Windows won't allow in a file or folder name. */
+const INVALID_NAME = /[*?<>|"]/;
 
 /**
  * New-Item (ni): makes a file (the default) or, with -ItemType Directory, a folder, and
@@ -34,10 +41,7 @@ export const NEW_ITEM: Cmdlet = {
           'The type is not a known type for the file system. Only "file","directory" or "symboliclink" can be specified.',
         ),
       ]);
-    if (!bound.has('Path') && !bound.has('Name'))
-      return failed([
-        error('Cannot process command because of one or more missing mandatory parameters: Path.'),
-      ]);
+    if (!bound.has('Path') && !bound.has('Name')) return failed([error(MISSING_PATH)]);
     return createAll(context, bound, type);
   },
 };
@@ -52,41 +56,104 @@ export const MKDIR: Cmdlet = {
       { name: 'Force', type: 'switch' },
     ],
   },
+  // mkdir is a function that calls New-Item, so its errors name New-Item, except this one,
+  // which PowerShell raises before the function runs (both captured).
   run: (context, bound) =>
     bound.has('Path') || bound.has('Name')
       ? createAll(context, bound, 'directory')
-      : failed([
-          error(
-            'Cannot process command because of one or more missing mandatory parameters: Path.',
-          ),
-        ]),
+      : failed([error(MISSING_PATH, 'mkdir')]),
 };
 
-/** Test-Path: True or False. It checks an Env: variable too, without printing its value. */
+/** Test-Path parameters PowerShell has that this sandbox refuses rather than ignores. */
+const TEST_PATH_NOT_YET = [
+  'Filter',
+  'Include',
+  'Exclude',
+  'IsValid',
+  'Credential',
+  'OlderThan',
+  'NewerThan',
+];
+
+/**
+ * Test-Path: True or False, for each path. A wildcard is True when anything visible
+ * matches. It checks Env: variables too (Env:NAME, Env:PAT*), without printing a value.
+ */
 export const TEST_PATH: Cmdlet = {
   spec: {
     name: 'Test-Path',
     parameters: [
       { name: 'Path', type: 'string[]', position: 0 },
+      { name: 'LiteralPath', type: 'string[]', aliases: ['PSPath', 'LP'] },
+      { name: 'Filter', type: 'string' },
+      { name: 'Include', type: 'string[]' },
+      { name: 'Exclude', type: 'string[]' },
       { name: 'PathType', type: 'string', aliases: ['Type'] },
+      { name: 'IsValid', type: 'switch' },
+      { name: 'Credential', type: 'string' },
+      { name: 'OlderThan', type: 'string', provider: true },
+      { name: 'NewerThan', type: 'string', provider: true },
     ],
   },
-  run: ({ machine, session }, bound) => {
+  run: (context, bound) => {
+    const missing = TEST_PATH_NOT_YET.find((name) => bound.has(name));
+    if (missing !== undefined)
+      return failed([line(`This sandbox doesn't run Test-Path -${missing} yet.`, 'error')]);
+    const paths = [
+      ...(bound.texts('Path') ?? []).map((typed) => ({ typed, literal: false })),
+      ...(bound.texts('LiteralPath') ?? []).map((typed) => ({ typed, literal: true })),
+    ];
+    if (paths.length === 0) return failed([error(MISSING_PATH, 'Test-Path')]);
     const want = (bound.text('PathType') ?? 'Any').toLowerCase();
-    const answers = (bound.texts('Path') ?? []).map((typed) => {
-      const env = /^env:\\?(.+)$/i.exec(typed);
-      if (env) return session.env.get(env[1] ?? '') !== null;
-      const target = toCanonical(typed, { cwd: session.cwd, home: machine.home });
-      const found = target.ok ? resolveExisting(machine.drive, target.path) : null;
-      if (found === null) return false;
-      if (want === 'leaf') return machine.drive.isFile(found);
-      if (want === 'container') return machine.drive.isDir(found);
-      return true;
-    });
+    const answers = paths.map(({ typed, literal }) => testPath(context, typed, literal, want));
     return { lines: answers.map((answer) => line(answer ? 'True' : 'False')), exitCode: 0 };
   },
 };
 
+function testPath(
+  { machine, session }: CommandContext,
+  typed: string,
+  literal: boolean,
+  want: string,
+): boolean {
+  const env = /^env:\\?(.*)$/i.exec(typed);
+  if (env) {
+    const name = env[1] ?? '';
+    // Env: itself is the drive's root, a container.
+    if (name === '') return want !== 'leaf';
+    if (want === 'container') return false;
+    if (!literal && hasWildcard(name)) {
+      const pattern = wildcard(name);
+      return session.env.entries().some((entry) => pattern.test(entry.name));
+    }
+    return session.env.get(name) !== null;
+  }
+  const target = toCanonical(typed, { cwd: session.cwd, home: machine.home });
+  if (!target.ok) return false;
+  const last = baseName(target.path);
+  const found =
+    !literal && hasWildcard(last)
+      ? matches(machine.drive, target.path)
+      : [resolveExisting(machine.drive, target.path)].filter(
+          (path): path is string => path !== null,
+        );
+  return found.some((path) => {
+    if (want === 'leaf') return machine.drive.isFile(path);
+    if (want === 'container') return machine.drive.isDir(path);
+    return true;
+  });
+}
+
+/** The visible items a wildcard at the end of a path picks in its folder. */
+function matches(drive: CommandContext['machine']['drive'], path: string): string[] {
+  const folder = resolveExisting(drive, parentDir(path));
+  if (folder === null || !drive.isDir(folder)) return [];
+  const pattern = wildcard(baseName(path));
+  return drive
+    .listDir(folder)
+    .map((entry) => joinPath(folder, entry.name))
+    .filter((item) => pattern.test(baseName(item)) && !drive.isHidden(item));
+}
 /** `dir`, `d` and `Directory` all mean a folder: the provider accepts any start of a type. */
 function itemType(typed: string): ItemType | null {
   const lower = typed.toLowerCase();
@@ -134,6 +201,19 @@ function create(
   bound: Bound,
 ): { path: string } | { refused: string } {
   const force = bound.flag('Force');
+  if (path.split('/').some((segment) => INVALID_NAME.test(segment)))
+    return {
+      refused: `The filename, directory name, or volume label syntax is incorrect. : '${display(path)}'.`,
+    };
+  // A file where a folder should be, like notes.txt\sub.txt.
+  const blocker = fileOnTheWay(machine.drive, parentDir(path));
+  if (blocker !== null)
+    return {
+      refused:
+        type === 'file'
+          ? `Could not find a part of the path '${display(path)}'.`
+          : `Cannot create '${display(blocker)}' because a file or directory with the same name already exists.`,
+    };
   const existing = resolveExisting(machine.drive, path);
   const parent = resolveExisting(machine.drive, parentDir(path));
   if (type === 'directory') {
@@ -143,7 +223,7 @@ function create(
     return { path: machine.drive.stored(path) };
   }
   if (existing !== null && machine.drive.isDir(existing))
-    return { refused: `An item with the specified name ${display(existing)} already exists.` };
+    return { refused: `Access to the path '${display(existing)}' is denied.` };
   if (existing !== null && !force)
     return { refused: `The file '${display(existing)}' already exists.` };
   if (parent === null && !force)
@@ -155,8 +235,20 @@ function create(
   return { path: file };
 }
 
-function error(message: string): OutputLine {
-  return line(`New-Item: ${message}`, 'error');
+/** The first file along a folder path, if the path runs through one. */
+function fileOnTheWay(drive: CommandContext['machine']['drive'], folder: string): string | null {
+  let walked = '';
+  for (const segment of folder.split('/').filter((part) => part !== '')) {
+    walked = joinPath(walked, segment);
+    const found = resolveExisting(drive, walked);
+    if (found === null) return null;
+    if (drive.isFile(found)) return found;
+  }
+  return null;
+}
+
+function error(message: string, cmdlet = 'New-Item'): OutputLine {
+  return line(`${cmdlet}: ${message}`, 'error');
 }
 
 function failed(lines: OutputLine[]): ShellResult {
