@@ -8,6 +8,7 @@ import { toArgs } from './args';
 import { bind } from './bind';
 import { CHOICES, question as confirmLines, readAnswer, type ConfirmRequest } from './confirm';
 import { lex, LexError, type LexToken, type WordPart } from './lex';
+import { openSink, pour, splitRedirects, type Sink } from './redirect';
 import { findCmdlet } from './registry';
 
 const fail = (message: string, ...hints: string[]): ShellResult => ({
@@ -18,7 +19,6 @@ const fail = (message: string, ...hints: string[]): ShellResult => ({
 /** What each operator is called, for the pointer while this sandbox can't run it yet. */
 const NOT_YET: Partial<Record<LexToken['kind'], string>> = {
   pipe: 'pipes (|)',
-  redirect: 'redirects (> and >>)',
   open: 'parentheses',
   close: 'parentheses',
   call: 'the & operator',
@@ -107,7 +107,40 @@ export class MachineShell {
     return { lines, exitCode };
   }
 
+  /**
+   * One statement, with its redirects: each file opens before the command runs, then
+   * output lines go to the output sink and error lines (with their hints) to the error one.
+   */
   private runStatement(tokens: readonly LexToken[]): ShellResult {
+    const split = splitRedirects(tokens);
+    if ('refused' in split) return fail(split.refused);
+    const sinks: { output: Sink | null; error: Sink | null } = { output: null, error: null };
+    const context = { ws: this.ws, machine: this.machine, session: this.session };
+    for (const redirect of split.redirects) {
+      const sink = openSink(context, redirect, this.text(redirect.target));
+      if ('refused' in sink) return fail(`Out-File: ${sink.refused}`);
+      sinks[redirect.stream] = sink;
+    }
+    const result = this.runCommand(split.command);
+    if (sinks.output === null && sinks.error === null) return result;
+    const isError = (output: OutputLine) => output.tone === 'error' || output.tone === 'hint';
+    const errors = result.lines.filter(isError);
+    const output = result.lines.filter((output) => !isError(output));
+    if (sinks.output !== null) pour(context, sinks.output, output);
+    // A redirected error keeps PowerShell's line, but not the sandbox's hint under it.
+    if (sinks.error !== null)
+      pour(
+        context,
+        sinks.error,
+        errors.filter((error) => error.tone === 'error'),
+      );
+    return {
+      lines: [...(sinks.error === null ? errors : []), ...(sinks.output === null ? output : [])],
+      exitCode: result.exitCode,
+    };
+  }
+
+  private runCommand(tokens: readonly LexToken[]): ShellResult {
     const unsupported = tokens.find((token) => NOT_YET[token.kind] !== undefined);
     if (unsupported)
       return fail(`This sandbox doesn't run ${NOT_YET[unsupported.kind] ?? ''} yet.`);
