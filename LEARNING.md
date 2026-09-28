@@ -1333,3 +1333,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/105
 3. The pitch is about the Act ("Already know git?"), and Act 1's needs different words. Content belongs in `src/content` as data (DESIGN.md section 10). The component only shows whatever the Act says.
 
 </details>
+
+---
+
+## #106 refactor: file tree interface with a mounted subtree view
+
+https://github.com/KyleBuildsAI/ship-it/pull/106
+
+1. Why does `SubtreeFs` rename the path inside an error before rethrowing it?
+2. Why can't the mount itself be removed through the view?
+3. How would the parity test catch a bug where `SubtreeFs.allFiles` forgot to strip the mount?
+
+<details><summary>Answers</summary>
+
+1. The shell words its messages from the error's path. Without renaming, a missing `src/nope.ts` would be reported as `Users/kyle/quillwork/app/src/nope.ts`, which a standalone project would never say. `inside` maps it back to the path the caller used.
+2. A `VirtualFs` refuses to remove its root (`''`), and the mount is this view's root. Allowing it would delete the whole project folder from the drive, something no tree of its own can do.
+3. The table has steps "every file" and "files under a folder". On `VirtualFs` they return `['src/app.ts']`, and a broken view would return `['Users/kyle/quillwork/app/src/app.ts']`. The outcomes differ, so the test fails and names the step.
+
+</details>
