@@ -102,8 +102,9 @@ export class Shell {
   }
 
   run(input: string): ShellResult {
-    if (input.trim() !== '') this.past.push(input);
     const machineShell = this.machineShell;
+    // An answer to a question (Remove-Item's Confirm) isn't a command, so it's not history.
+    if (input.trim() !== '' && machineShell?.asking !== true) this.past.push(input);
     if (machineShell) return machineShell.run(input);
     let tokens: Token[];
     try {
