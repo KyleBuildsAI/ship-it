@@ -31,6 +31,7 @@ const EXPECTED = [
   'ls-env-temp',
   'new-item-file',
   'new-item-folder',
+  'error-not-recognized',
   'error-cd-missing',
   'error-cd-no-drive',
   'error-cd-positional',
