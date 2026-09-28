@@ -115,6 +115,121 @@ describe('drive: answer', () => {
   });
 });
 
+describe('drive: write', () => {
+  it("writes a whole file with the agent's file tool, announcing new folders first", () => {
+    const { shell, disk } = laptop();
+    const step = drive(shell, { do: 'write', path: `${API}/notes/day1.md`, content: '# Day 1\n' });
+    expect(step).toEqual({
+      tab: 1,
+      prompt: HOME_PROMPT,
+      echo: null,
+      lines: [],
+      exitCode: 0,
+      asking: false,
+      events: [
+        { type: 'folderChanged', path: `${API}/notes`, change: 'created' },
+        { type: 'fileChanged', path: `${API}/notes/day1.md`, change: 'created' },
+      ],
+    });
+    expect(disk.readFile(`${API}/notes/day1.md`)).toBe('# Day 1\n');
+  });
+
+  it('replaces a file, and announces nothing when the content is the same', () => {
+    const { shell, disk } = laptop();
+    const replaced = drive(shell, { do: 'write', path: `${API}/package.json`, content: '[]\n' });
+    expect(replaced.events).toEqual([
+      { type: 'fileChanged', path: `${API}/package.json`, change: 'modified' },
+    ]);
+    expect(disk.readFile(`${API}/package.json`)).toBe('[]\n');
+    const same = drive(shell, { do: 'write', path: `${API}/package.json`, content: '[]\n' });
+    expect(same.events).toEqual([]);
+  });
+
+  it('fails without throwing when a folder or a file is in the way', () => {
+    const { shell, disk } = laptop();
+    const folder = drive(shell, { do: 'write', path: API, content: 'x' });
+    expect(folder.exitCode).toBe(1);
+    expect(texts(folder)).toEqual(["Can't write C:\\Users\\kyle\\quillwork\\api: it's a folder."]);
+    const file = drive(shell, { do: 'write', path: `${API}/package.json/a.txt`, content: 'x' });
+    expect(texts(file)).toEqual([
+      "Can't write C:\\Users\\kyle\\quillwork\\api\\package.json\\a.txt: a file is in the way.",
+    ]);
+    expect(folder.events).toEqual([]);
+    expect(file.events).toEqual([]);
+    expect(disk.readFile(`${API}/package.json`)).toBe('{}\n');
+  });
+
+  it('lets an engine bug through, rather than passing it off as a failed write', () => {
+    const { shell, machine } = laptop();
+    vi.spyOn(machine, 'makeFolder').mockImplementation(() => {
+      throw new Error('engine bug');
+    });
+    expect(() => drive(shell, { do: 'write', path: `${API}/a.txt`, content: 'x' })).toThrow(
+      'engine bug',
+    );
+  });
+
+  it('can write while a terminal is asking, and the question stays open', () => {
+    const { shell } = laptop();
+    drive(shell, { do: 'run', line: 'Remove-Item old' });
+    const step = drive(shell, { do: 'write', path: 'Users/kyle/todo.txt', content: 'x' });
+    expect(step.prompt).toBe(CHOICES);
+    expect(step.asking).toBe(true);
+  });
+});
+
+describe('drive: terminals', () => {
+  it('opens a new tab at home, which becomes the active one', () => {
+    const { shell, machine } = laptop();
+    drive(shell, { do: 'run', line: 'cd quillwork' });
+    const step = drive(shell, { do: 'newTerminal' });
+    expect(step).toEqual({
+      tab: 2,
+      prompt: HOME_PROMPT,
+      echo: null,
+      lines: [],
+      exitCode: 0,
+      asking: false,
+      events: [{ type: 'sessionOpened', session: 2 }],
+    });
+    expect(machine.active().id).toBe(2);
+  });
+
+  it("runs each line in its own tab's PowerShell", () => {
+    const { shell, machine } = laptop();
+    drive(shell, { do: 'newTerminal' });
+    expect(drive(shell, { do: 'run', line: 'cd quillwork' }).tab).toBe(2);
+    const back = drive(shell, { do: 'useTerminal', tab: 1 });
+    expect(back).toMatchObject({ tab: 1, prompt: HOME_PROMPT, echo: null, exitCode: 0 });
+    expect(back.events).toEqual([{ type: 'sessionActivated', session: 1 }]);
+    expect(machine.session(1).cwd).toBe('Users/kyle');
+    expect(machine.session(2).cwd).toBe('Users/kyle/quillwork');
+  });
+
+  it('switching to the tab already in use announces nothing', () => {
+    const { shell } = laptop();
+    expect(drive(shell, { do: 'useTerminal', tab: 1 }).events).toEqual([]);
+  });
+
+  it("keeps each tab's question in that tab", () => {
+    const { shell, disk } = laptop();
+    drive(shell, { do: 'run', line: 'Remove-Item old' });
+    expect(drive(shell, { do: 'newTerminal' }).asking).toBe(false);
+    expect(drive(shell, { do: 'run', line: 'mkdir notes' }).exitCode).toBe(0);
+    const back = drive(shell, { do: 'useTerminal', tab: 1 });
+    expect(back.prompt).toBe(CHOICES);
+    expect(back.asking).toBe(true);
+    drive(shell, { do: 'answer', choice: 'Y' });
+    expect(disk.exists('Users/kyle/old')).toBe(false);
+    expect(disk.exists('Users/kyle/notes')).toBe(true);
+  });
+
+  it('refuses a tab that is not open', () => {
+    const { shell } = laptop();
+    expect(() => drive(shell, { do: 'useTerminal', tab: 3 })).toThrow('No terminal tab 3 is open.');
+  });
+});
+
 describe('drive: events', () => {
   it('records only what happened during the action', () => {
     const { shell } = laptop();
@@ -147,5 +262,21 @@ describe("drive: Act 2's project sandbox", () => {
     expect(step.asking).toBe(false);
     expect(shell.ws.fs.isDir('src')).toBe(true);
     expect(() => drive(shell, { do: 'answer', choice: 'Y' })).toThrow(DriverError);
+  });
+
+  it('writes project files, and has no tabs to open or switch', () => {
+    const shell = project();
+    const written = drive(shell, { do: 'write', path: 'src/app.ts', content: 'x\n' });
+    expect(written.events).toEqual([
+      { type: 'fileChanged', path: 'src/app.ts', change: 'created' },
+    ]);
+    expect(shell.ws.fs.readFile('src/app.ts')).toBe('x\n');
+    expect(texts(drive(shell, { do: 'write', path: 'src', content: '' }))).toEqual([
+      "Can't write src: it's a folder.",
+    ]);
+    expect(() => drive(shell, { do: 'newTerminal' })).toThrow(
+      '"newTerminal" needs a laptop sandbox; this one has one terminal.',
+    );
+    expect(() => drive(shell, { do: 'useTerminal', tab: 1 })).toThrow(DriverError);
   });
 });
