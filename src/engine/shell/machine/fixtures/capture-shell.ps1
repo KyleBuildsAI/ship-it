@@ -103,6 +103,9 @@ try {
     $null = New-Item -ItemType Directory -Path (Join-Path $fakeHome 'Downloads')
     $hidden = New-Item -ItemType Directory -Path (Join-Path $fakeHome '.cache')
     $hidden.Attributes = $hidden.Attributes -bor [System.IO.FileAttributes]::Hidden
+    # A stock Windows home marks its shell folders ReadOnly, which ls shows as d-r--.
+    $downloads = Get-Item (Join-Path $fakeHome 'Downloads')
+    $downloads.Attributes = $downloads.Attributes -bor [System.IO.FileAttributes]::ReadOnly
     Set-Content (Join-Path $fakeHome 'notes.txt') 'ship it'
     Set-Content (Join-Path $fakeHome 'quillwork\api\package.json') '{ "name": "quillwork-api", "version": "1.0.0" }'
     Set-Content (Join-Path $fakeHome 'quillwork\api\server.js') "require('dotenv').config();"
@@ -124,6 +127,7 @@ try {
     Save-Output 'ls-name' { Get-ChildItem -Name }
     Save-Output 'ls-recurse' { Get-ChildItem quillwork -Recurse }
     Save-Output 'ls-env-temp' { Get-ChildItem Env:TEMP }
+    Save-Output 'ls-wild-recurse' { Get-ChildItem quillwork\*.json -Recurse }
 
     # ---- Creating items (dated after creation, so the listing is stable) ----
     Save-Output 'new-item-file' {
@@ -159,6 +163,22 @@ try {
     Save-Error 'error-stop-process-no-such' 'Stop-Process -Id 999999'
     Save-Error 'error-get-process-missing' 'Get-Process nod'
     Save-Error 'error-tcp-missing' "Get-NetTCPConnection -LocalPort $($port + 1)"
+    Save-Error 'error-cd-wild-missing' 'Set-Location nope*'
+    Save-Error 'error-cd-wild-many' 'Set-Location *'
+    Save-Error 'error-cd-back-missing' 'New-Item -ItemType Directory tmp | Out-Null; Set-Location tmp; Set-Location ..; Remove-Item tmp; Set-Location -'
+    Save-Error 'error-ls-l' 'Get-ChildItem -l'
+    Save-Error 'error-ls-a' 'Get-ChildItem -a'
+    Save-Error 'error-ls-d' 'Get-ChildItem -d'
+    Save-Error 'error-new-item-in-file' 'New-Item notes.txt\sub.txt'
+    Save-Error 'error-mkdir-in-file' 'mkdir notes.txt\sub'
+    Save-Error 'error-new-item-bad-name' "New-Item 'a<b.txt'"
+    Save-Error 'error-new-item-over-folder' 'New-Item Downloads'
+    Save-Error 'error-mkdir-bare' 'mkdir'
+    Save-Error 'error-test-path-bare' 'Test-Path'
+    Save-Error 'error-rm-f' 'Remove-Item -f notes.txt'
+    Save-Error 'error-rm-bare' 'Remove-Item'
+    Save-Error 'error-rm-hidden' 'Remove-Item .cache'
+    Save-Error 'error-rm-readonly' 'Remove-Item Downloads'
 
     # ---- Commands, processes, ports (machine-dependent: tests compare their shape) ----
     Save-Output 'get-command' {
