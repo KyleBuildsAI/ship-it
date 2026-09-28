@@ -8,7 +8,7 @@ This document is the source of truth. If the code and this doc disagree, stop an
 
 ## 1. Purpose
 
-SHIP IT is a 3D browser game that is also a complete course in professional software engineering: Git, GitHub team workflow, testing and CI, how systems work, AI-native engineering, and interview prep.
+SHIP IT is a 3D browser game that is also a complete course in professional software engineering for the era of directing AI coding agents: the machine, Git, GitHub team workflow, testing and CI, how systems work, AI-native engineering, and interview prep. It teaches the principles behind what an agent does, so Kyle can direct it well and catch its mistakes, rather than drilling syntax.
 
 It is built for one player: Kyle. The target outcome is being interview-ready for Applied AI Engineer and Forward Deployed Engineer roles at frontier AI labs.
 
@@ -24,13 +24,14 @@ It is built for one player: Kyle. The target outcome is being interview-ready fo
 ## 3. Design pillars (non-negotiable)
 
 1. **Show, don't lecture.** Every concept has a visual. Max ~60 words of text on screen at once.
-2. **Two-way mapping.** Every world action shows the real command. Every command animates the world.
-3. **Grade by resulting state, not exact strings.** Any valid path to the target state passes.
-4. **No-AI Drills are real.** Mentor off, no hints, recall instead of recognition.
+2. **Two-way mapping.** Every world action, and every action an agent takes, shows the real command and its real output. Every command animates the world.
+3. **Grade by resulting state, not exact strings.** Any valid path to the target state passes. Checks of understanding are graded by state too: an answer is right when the engine says its claim is true.
+4. **Drills are real.** Mentor off, no hints, timed. Directed Acts use judgment drills (predict, diagnose, fix, order, approve, spot) with no typing and answer keys the engine works out. Typed Acts keep No-AI command drills.
 5. **Real work counts.** Field Missions happen on Kyle's real repos (mainly SandCastles) and get verified.
 6. **Ask before you build.** Every mission trains clarifying questions.
 7. **Persistent.** Progress survives browser restarts and reboots. Nothing important lives only in memory.
 8. **The repo is a lesson.** This game is built through issues, branches, PRs, and CI.
+9. **Direct, then check.** For the era of AI coding agents: in directed Acts Kyle plans, approves and verifies, and an in-game agent types. Typing is never required there. The agent is scripted content, never an LLM, so everything works without an API key.
 
 ## 4. Premise and world
 
@@ -43,6 +44,7 @@ Intern -> Junior -> Mid -> Senior -> Staff.
 - **Marco**: product manager. Hands out vague tickets in Question Rounds.
 - **Dex**: the deploy bot. Boss-level antagonist. Builds from a clean checkout on a timer and ships only what is committed.
 - **Rook** (M2+): code reviewer. Leaves review comments on Kyle's work.
+- **Otto** (Act 1, in progress): Quillwork's coding agent, a small magenta drone. He types; Kyle directs and checks. Fast, literal, confident and sometimes wrong: every slip is a real agent mistake (wrong place, overclaiming, too broad, leaking a secret). Scripted for the course, and says so.
 
 ### Hub: Campus
 A night-time floating island HQ. Contains:
@@ -76,8 +78,8 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 
 ### Mission steps
 1. **Briefing**: 60-120 second animated scene, 1-3 captions, one diagram moment. Skippable and replayable.
-2. **Sim**: guided tasks in the sandbox (terminal + 3D world + file editor). Sage hints available.
-3. **No-AI Drill**: 5-10 timed scenarios. Mentor offline. Scored on resulting state. Misses go to the review queue.
+2. **Sim**: guided tasks in the sandbox (terminal + 3D world + file editor). Sage hints available. In a directed Act, each step is: **Direct** (pick one of 2-3 request cards, or say it your own way), **Run** (Otto types real commands; he pauses for approval before risky lines, showing the effects worked out by a dry run and a ghost in the world), **Check** (Otto claims "Done"; Kyle answers one question about the result, using read-only looks as evidence) and **Result** (the checklist, the slip, stars for Plan, Safety and Check). A miss opens a fix round: Kyle directs Otto to clean up. Full design: `docs/act1-directed.md`.
+3. **Drill**: 5-10 timed scenarios. Mentor offline. Scored on resulting state. Misses go to the review queue. In a directed Act these are judgment drills: a short scene plays, then Kyle predicts what a line will do, diagnoses why something broke, picks the right fix, or allows or denies a line. The clock starts after the scene.
 4. **Question Round**: Marco hands over a vague ticket. Kyle picks up to 3 of ~8 candidate clarifying questions. Each candidate has a hidden quality tag (strong / okay / weak) and a rationale shown afterward. Optional free-text question graded by Sage.
 
 ### Act-level
@@ -185,9 +187,16 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 ## 11. Curriculum
 
-### Act 1: The Machine
-PowerShell, filesystem, paths, PATH, environment variables, processes, ports, package managers (winget, npm, pip).
-Boss: **"Works on My Machine"**: diagnose a broken dev setup from symptoms.
+### Act 1: The Machine (directed, in progress)
+The principles every engineer who directs AI agents needs about the machine they run on, learned by getting the Quillwork API running on Kyle's laptop with Otto. Kyle directs; Otto's real PowerShell runs through the laptop engine and animates the machine island. It becomes the starting Act as soon as Mission 1.1 is playable, and ships in early access, one mission at a time.
+- 1.1 **Where Things Live**: every command runs in a folder; bare names versus full paths; a fresh terminal starts at home
+- 1.2 **Deletes Are Forever**: terminal deletes skip the Recycle Bin; read the scope before approving; make undo possible first
+- 1.3 **Secrets Stay Home**: `.env` versus `.env.example`, `.gitignore`, and why you handle secrets yourself
+- 1.4 **Every Terminal Is Its Own World**: a terminal copies variables and PATH when it opens; "not recognized" means not on *this* terminal's PATH
+- 1.5 **Dependencies Are Declared**: `package.json`, `node_modules`, the lockfile, and reading every package name
+- 1.6 **Running Isn't Working**: processes, PIDs and ports; stop exactly the one you mean; prove it works by asking the port
+
+Boss: **"Works on My Machine"**: fix a teammate's laptop from symptoms, turning down Otto's bad ideas. Field Mission: **"Brief Your Real Agent"**: write the setup section your real coding agent reads first, on SandCastles. Full design: `docs/act1-directed.md`.
 
 ### Act 2: Git Core (M1)
 Three areas, status, add, commit, log, diff, .gitignore, commit hygiene, undo.
@@ -292,7 +301,7 @@ ship-it/
 | Milestone | Scope |
 |---|---|
 | **M1** | Vertical slice. Scaffold, CI, Pages deploy, save system, Campus hub, Git World (three areas + commit path), git engine (M1 commands), shell, terminal, editor, mission runner, review queue, Sage server (hint + grade_question), Act 2 complete. |
-| **M2** | Acts 1 and 3. Branch/merge/rebase visuals. Code Review mini-game. Skill tree. |
+| **M2** | Act 1, directed (early access first: Mission 1.1 as the starting Act, then a mission at a time), then Act 3. Branch/merge/rebase visuals. Code Review mini-game. Skill tree. |
 | **M3** | Act 4. Remote island. GitHub API Field Mission verification. Issue and PR simulations. |
 | **M4** | Acts 5 and 6. CI simulator. Incident boss. Systems visuals. |
 | **M5** | Acts 7 and 8. Python Arena. Experience Vault. Interview mode. |
