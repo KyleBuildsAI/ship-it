@@ -24,6 +24,11 @@ export interface ParamSpec {
    * matches the cmdlet's own parameters first: -fi is -Filter, and only -file is -File.
    */
   readonly provider?: boolean;
+  /**
+   * Takes every bare value left over, like Write-Output's -InputObject: echo a b prints
+   * both. Only a list parameter can.
+   */
+  readonly remaining?: boolean;
 }
 
 export interface CmdletSpec {
@@ -181,7 +186,9 @@ export function bind(
       break;
     }
     filled++;
-    const checked = checkValue(parameter, entry.items);
+    const items = parameter.remaining === true ? takeRemaining(unbound, index) : entry.items;
+    if (parameter.remaining === true) index = unbound.length;
+    const checked = checkValue(parameter, items);
     if (isBindError(checked)) return checked;
     values.set(parameter.name, checked);
   }
@@ -194,6 +201,16 @@ export function bind(
     );
   if (first?.kind === 'value') return positionalFailure(leftover, open[filled - 1] ?? null);
   return { ok: true, bound: new Bound(values) };
+}
+
+/**
+ * Everything from here on, for a parameter that takes the rest. An unknown -name goes in
+ * as text too: Write-Output a -zz prints a and -zz.
+ */
+function takeRemaining(unbound: readonly Unbound[], from: number): string[] {
+  return unbound
+    .slice(from)
+    .flatMap((entry) => (entry.kind === 'value' ? entry.items : [`-${entry.name}`]));
 }
 
 /**
