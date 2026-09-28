@@ -61,7 +61,8 @@ export function inUse({ machine, session }: CommandContext, path: string): boole
  *
  * Returns what went wrong, in PowerShell's words, instead of throwing: an item that meets
  * something of the other kind in the way is skipped, and the rest still copies, as in
- * PowerShell. `force` only quiets a folder skipped for a file in its place.
+ * PowerShell. `force` only quiets a folder skipped for a file in its place, and a folder
+ * that's already there.
  */
 export function copyItem(
   context: CommandContext,
@@ -99,6 +100,11 @@ function copyEntry(
   const { ws, machine } = context;
   const { drive } = machine;
   if (drive.isFile(from)) {
+    // Met when a folder is copied onto itself (cp src . -Recurse); -Force doesn't help.
+    if (to.toLowerCase() === from.toLowerCase()) {
+      problems.push(`Cannot overwrite the item ${display(from)} with itself.`);
+      return;
+    }
     if (drive.isDir(to)) {
       problems.push(`The target file '${display(to)}' is a directory, not a file.`);
       return;
@@ -113,17 +119,20 @@ function copyEntry(
     if (!force) problems.push(`An item with the specified name ${display(to)} already exists.`);
     return;
   }
-  drive.makeDir(to);
-  if (recurse)
-    for (const entry of drive.listDir(from))
-      copyEntry(
-        context,
-        joinPath(from, entry.name),
-        joinPath(to, entry.name),
-        true,
-        force,
-        problems,
-      );
+  // A folder already there is copied into all the same; without -Force PowerShell says so
+  // first (checked in 7.6.6).
+  if (!drive.isDir(to)) drive.makeDir(to);
+  else if (!force) problems.push(`An item with the specified name ${display(to)} already exists.`);
+  if (!recurse) return;
+  // PowerShell copies a folder's files before its subfolders, which sets the order its
+  // errors print in (checked in 7.6.6); listDir gives folders first.
+  const entries = drive.listDir(from);
+  const filesFirst = [
+    ...entries.filter((entry) => entry.kind === 'file'),
+    ...entries.filter((entry) => entry.kind === 'dir'),
+  ];
+  for (const entry of filesFirst)
+    copyEntry(context, joinPath(from, entry.name), joinPath(to, entry.name), true, force, problems);
 }
 
 /** The file standing where a folder above `path` should be, or null if there's none. */
