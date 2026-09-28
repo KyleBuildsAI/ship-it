@@ -1405,3 +1405,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/109
 3. `ConvertTo-Stable` replaces the throwaway folder's path and `$env:USERPROFILE` with `C:\Users\kyle` before saving. A test also fails if any capture contains `C:\Users\<anyone else>\`.
 
 </details>
+
+---
+
+## #110 feat: terminal tabs close, switch, restart, and remember cd history
+
+https://github.com/KyleBuildsAI/ship-it/pull/110
+
+1. You have tabs 1, 2 and 3, and you're in tab 2. You close it. Which tab has the keyboard?
+2. After `restartTerminals`, which of these survive: a `setx` value, a `$env:` value, the folder you were in?
+3. From your home folder you go to `A`, then `B`, then run `cd -` twice. Where are you, and where would bash leave you?
+
+<details><summary>Answers</summary>
+
+1. Tab 3, the most recently opened tab left. It announces `sessionClosed` for tab 2, then `sessionActivated` for tab 3.
+2. Only the `setx` value, because it's saved in the User scope and the new tabs copy it. The `$env:` value lived only in the old tab's copy, and every tab goes back to the home folder.
+3. Home. The first `cd -` goes back to `A`, and the second goes back again to your home folder, because PowerShell keeps a history of up to 20 folders. Bash keeps only one "previous folder", so its second `cd -` would toggle you back to `B`. `cd +` would then take PowerShell forward to `A`.
+
+</details>

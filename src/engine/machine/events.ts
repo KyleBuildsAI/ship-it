@@ -11,6 +11,14 @@ export type EnvScope = 'session' | 'user' | 'machine';
  */
 export type MachineEvent =
   | {
+      readonly type: 'cwdChanged';
+      readonly session: number;
+      readonly from: string;
+      readonly to: string;
+      /** How the player got there, so the world can light the route they took. */
+      readonly via: 'relative' | 'absolute' | 'home' | 'back' | 'forward';
+    }
+  | {
       readonly type: 'envChanged';
       readonly scope: EnvScope;
       /** The terminal tab, for session-scope changes. */
@@ -18,4 +26,8 @@ export type MachineEvent =
       readonly name: string;
       readonly change: 'set' | 'removed';
     }
-  | { readonly type: 'sessionOpened'; readonly session: number };
+  | {
+      readonly type: 'sessionOpened' | 'sessionClosed' | 'sessionActivated';
+      readonly session: number;
+    }
+  | { readonly type: 'terminalsRestarted' };

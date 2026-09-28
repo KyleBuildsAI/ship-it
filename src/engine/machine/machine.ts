@@ -12,7 +12,21 @@ export interface Session {
   readonly pid: number;
   /** Canonical, like 'Users/kyle'. */
   cwd: string;
+  /**
+   * PowerShell 7's location history: `cd -` steps back through `back`, and `cd +` forward
+   * through `forward`, each holding up to 20 folders. Newest last.
+   */
+  readonly back: string[];
+  readonly forward: string[];
   readonly env: EnvTable;
+}
+
+/** How many folders PowerShell 7 remembers each way for `cd -` and `cd +`. */
+export const LOCATION_HISTORY_LIMIT = 20;
+
+function remember(stack: string[], folder: string): void {
+  stack.push(folder);
+  if (stack.length > LOCATION_HISTORY_LIMIT) stack.shift();
 }
 
 export interface MachineOptions {
@@ -100,12 +114,54 @@ export class Machine {
       id: this.nextSessionId++,
       pid: this.allocatePid(),
       cwd: this.home,
+      back: [],
+      forward: [],
       env: this.newTerminalEnv(),
     };
     this.tabs.push(session);
     this.activeId = session.id;
     this.events.emit({ type: 'sessionOpened', session: session.id });
     return session;
+  }
+
+  /** Closes a tab. If it was the active one, the most recently opened tab left takes over. */
+  closeSession(id: number): void {
+    const index = this.tabs.findIndex((tab) => tab.id === id);
+    if (index === -1) throw new Error(`No terminal tab ${String(id)} is open.`);
+    this.tabs.splice(index, 1);
+    // Settle every change before announcing any, so a listener never sees a closed tab
+    // still marked active.
+    const wasActive = this.activeId === id;
+    const next = wasActive ? (this.tabs.at(-1) ?? null) : null;
+    if (wasActive) this.activeId = next?.id ?? null;
+    this.events.emit({ type: 'sessionClosed', session: id });
+    if (next) this.events.emit({ type: 'sessionActivated', session: next.id });
+  }
+
+  activate(id: number): void {
+    this.session(id);
+    if (this.activeId === id) return;
+    this.activeId = id;
+    this.events.emit({ type: 'sessionActivated', session: id });
+  }
+
+  /**
+   * Every tab closes and reopens, as after Windows Update restarts the terminals: same tab
+   * numbers, new processes, back in the home folder, with freshly copied variables.
+   * Anything that lived only in a tab (a `$env:` note, a folder you'd walked to) is gone.
+   */
+  restartTerminals(): void {
+    for (const [index, tab] of this.tabs.entries()) {
+      this.tabs[index] = {
+        id: tab.id,
+        pid: this.allocatePid(),
+        cwd: this.home,
+        back: [],
+        forward: [],
+        env: this.newTerminalEnv(),
+      };
+    }
+    this.events.emit({ type: 'terminalsRestarted' });
   }
 
   /**
@@ -143,6 +199,47 @@ export class Machine {
       [machinePath, userPath].filter((part): part is string => part !== null).join(';'),
     );
     return env;
+  }
+
+  /**
+   * Moves a tab to another folder. The folder it leaves joins the back history, and the
+   * forward history clears, as a new move does in PowerShell 7.
+   */
+  setLocation(sessionId: number, path: string, via: 'relative' | 'absolute' | 'home') {
+    const session = this.session(sessionId);
+    remember(session.back, session.cwd);
+    session.forward.length = 0;
+    this.move(session, path, via);
+  }
+
+  /** `cd -`: back to the previous folder. 'empty' when there's no history left. */
+  goBack(sessionId: number): 'moved' | 'empty' {
+    const session = this.session(sessionId);
+    const to = session.back.pop();
+    if (to === undefined) return 'empty';
+    remember(session.forward, session.cwd);
+    this.move(session, to, 'back');
+    return 'moved';
+  }
+
+  /** `cd +`: forward again, after `cd -`. 'empty' when there's nothing to redo. */
+  goForward(sessionId: number): 'moved' | 'empty' {
+    const session = this.session(sessionId);
+    const to = session.forward.pop();
+    if (to === undefined) return 'empty';
+    remember(session.back, session.cwd);
+    this.move(session, to, 'forward');
+    return 'moved';
+  }
+
+  private move(
+    session: Session,
+    to: string,
+    via: 'relative' | 'absolute' | 'home' | 'back' | 'forward',
+  ) {
+    const from = session.cwd;
+    session.cwd = to;
+    this.events.emit({ type: 'cwdChanged', session: session.id, from, to, via });
   }
 
   /**
