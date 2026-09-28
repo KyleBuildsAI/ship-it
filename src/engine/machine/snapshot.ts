@@ -1,4 +1,5 @@
 import { isWithin, joinPath } from '../fs/paths';
+import type { EngineEvent } from '../workspace';
 import type { EnvTable } from './envTable';
 import type { EnvScope } from './events';
 import type { Machine } from './machine';
@@ -9,6 +10,14 @@ import type { Machine } from './machine';
  * what's in them, so no effects list or ghost can leak a secret.
  */
 export type MachineChange =
+  | {
+      readonly kind: 'moved';
+      readonly from: string;
+      readonly to: string;
+      readonly item: 'file' | 'folder';
+      /** A copy leaves the original where it was. */
+      readonly copy: boolean;
+    }
   | { readonly kind: 'created'; readonly path: string; readonly item: 'file' | 'folder' }
   | {
       readonly kind: 'deleted';
@@ -70,6 +79,18 @@ export interface MachineSnapshot {
   readonly tabs: ReadonlyMap<number, SnapshotTab>;
 }
 
+/**
+ * What Copy-Item, Move-Item and Rename-Item announce. It's declared here because those
+ * cmdlets arrive later, in chain 2, where MachineEvent gains this same shape.
+ */
+export interface ItemMovedEvent {
+  readonly type: 'itemMoved';
+  readonly from: string;
+  readonly to: string;
+  readonly kind: 'file' | 'folder';
+  readonly copy: boolean;
+}
+
 export function snapshotMachine(machine: Machine): MachineSnapshot {
   const items = new Map<string, SnapshotItem>();
   // A folder goes in before what's inside it, which is what lets deletes collapse later.
@@ -104,31 +125,98 @@ function copyEnv(table: EnvTable): SnapshotEnv {
 /**
  * What changed between two snapshots, in the order the kinds are declared in MachineChange.
  * A deleted folder is one change that counts what was inside it. Comparing states, rather
- * than replaying events, means a folder made and removed again is no change at all. A moved
- * item shows as a delete plus a create, because that's all two states can show.
+ * than replaying events, means a folder made and removed again is no change at all.
+ *
+ * Events are optional and only pair moves: without an itemMoved event, a moved item shows
+ * as a delete plus a create, because that's all two states can show.
  */
-export function diffSnapshots(before: MachineSnapshot, after: MachineSnapshot): MachineChange[] {
+export function diffSnapshots(
+  before: MachineSnapshot,
+  after: MachineSnapshot,
+  events: readonly (EngineEvent | ItemMovedEvent)[] = [],
+): MachineChange[] {
   return [
-    ...diffItems(before.items, after.items),
+    ...diffItems(before.items, after.items, netMoves(events)),
     ...diffEnv(before.saved.machine, after.saved.machine, 'machine', null),
     ...diffEnv(before.saved.user, after.saved.user, 'user', null),
     ...diffTabs(before.tabs, after.tabs),
   ];
 }
 
-function diffItems(before: SnapshotItems, after: SnapshotItems): MachineChange[] {
+interface Move {
+  readonly from: string;
+  readonly to: string;
+  readonly item: 'file' | 'folder';
+  readonly copy: boolean;
+}
+
+/**
+ * The moves, each traced back to where its item started: after `mv a b` and `mv b c`, the
+ * item at c came from a. Moving something a copy made is still a copy, since the original
+ * never left.
+ */
+function netMoves(events: readonly (EngineEvent | ItemMovedEvent)[]): Move[] {
+  const moves: Move[] = [];
+  for (const event of events) {
+    if (event.type !== 'itemMoved') continue;
+    const earlier = moves.findLast((move) => isWithin(event.from, move.to));
+    moves.push({
+      from: earlier === undefined ? event.from : reroot(event.from, earlier.to, earlier.from),
+      to: event.to,
+      item: event.kind,
+      copy: event.copy || earlier?.copy === true,
+    });
+  }
+  return moves;
+}
+
+/** The same place under another folder: 'b/x', moved from under 'b' to under 'a', is 'a/x'. */
+function reroot(path: string, from: string, to: string): string {
+  return to + path.slice(from.length);
+}
+
+function diffItems(
+  before: SnapshotItems,
+  after: SnapshotItems,
+  moves: readonly Move[],
+): MachineChange[] {
   // A path whose item changed kind (a folder became a file) is both deleted and created.
-  const created = [...after].filter(([path, now]) => before.get(path)?.item !== now.item);
+  const created = new Map([...after].filter(([path, now]) => before.get(path)?.item !== now.item));
   const deleted = new Map([...before].filter(([path, was]) => after.get(path)?.item !== was.item));
+  // Where each moved or copied item was before, so an edit after the move still shows.
+  const cameFrom = new Map<string, string>();
+  const moved: MachineChange[] = [];
+  for (const move of moves) {
+    // A move onto itself changed nothing. A move whose item was later deleted or replaced
+    // shows as whatever is left.
+    const landed =
+      before.get(move.from)?.item === move.item && after.get(move.to)?.item === move.item;
+    if (move.from === move.to || !landed) continue;
+    moved.push({ kind: 'moved', ...move });
+    // What's under the destination came along with the move, unless it's new.
+    for (const [path, now] of [...created]) {
+      if (!isWithin(path, move.to)) continue;
+      const source = reroot(path, move.to, move.from);
+      if (before.get(source)?.item !== now.item) continue;
+      created.delete(path);
+      cameFrom.set(path, source);
+      if (!move.copy) deleted.delete(source);
+    }
+  }
   const modified: MachineChange[] = [];
   for (const [path, now] of after) {
-    const was = before.get(path);
+    const was = before.get(cameFrom.get(path) ?? path);
     if (now.item !== 'file' || was?.item !== 'file' || was.content === now.content) continue;
     const how = now.content.startsWith(was.content) ? 'appended' : 'replaced';
     modified.push({ kind: 'modified', path, how });
   }
   return [
-    ...created.map(([path, now]): MachineChange => ({ kind: 'created', path, item: now.item })),
+    ...moved,
+    ...[...created].map(([path, now]): MachineChange => ({
+      kind: 'created',
+      path,
+      item: now.item,
+    })),
     ...collapseDeletes(deleted),
     ...modified,
   ];

@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { windows } from '../fixtures';
 import { testDeps } from '../git/testDeps';
 import { Shell } from '../shell/shell';
+import type { EngineEvent } from '../workspace';
 import type { Machine } from './machine';
-import { diffSnapshots, snapshotMachine, type MachineChange } from './snapshot';
+import {
+  diffSnapshots,
+  snapshotMachine,
+  type ItemMovedEvent,
+  type MachineChange,
+} from './snapshot';
 import { testMachine } from './testDeps';
 
 /** A small laptop: one terminal open at home, a project, and some notes. */
@@ -21,12 +27,15 @@ function laptop(): Machine {
   return machine;
 }
 
-/** What `act` changes on a fresh laptop. */
-function changesAfter(act: (machine: Machine) => void): MachineChange[] {
+/** What `act` changes on a fresh laptop, given the events it would have announced. */
+function changesAfter(
+  act: (machine: Machine) => void,
+  events: readonly (EngineEvent | ItemMovedEvent)[] = [],
+): MachineChange[] {
   const machine = laptop();
   const before = snapshotMachine(machine);
   act(machine);
-  return diffSnapshots(before, snapshotMachine(machine));
+  return diffSnapshots(before, snapshotMachine(machine), events);
 }
 
 describe('diffSnapshots', () => {
@@ -170,6 +179,121 @@ describe('diffSnapshots', () => {
     expect(diffSnapshots(before, snapshotMachine(machine))).toEqual([
       { kind: 'terminal', tab: 1, change: 'closed' },
       { kind: 'terminal', tab: 1, change: 'opened' },
+    ]);
+  });
+});
+
+describe('diffSnapshots with itemMoved events', () => {
+  const movedEvent = (from: string, to: string, kind: 'file' | 'folder', copy = false) =>
+    ({ type: 'itemMoved', from, to, kind, copy }) as const;
+  const movedChange = (
+    from: string,
+    to: string,
+    item: 'file' | 'folder',
+    copy = false,
+  ): MachineChange => ({ kind: 'moved', from, to, item, copy });
+
+  /** Copies a folder's files by hand, since Copy-Item and Move-Item arrive in chain 2. */
+  function copyTree(machine: Machine, from: string, to: string) {
+    for (const file of machine.drive.allFiles(from)) {
+      machine.drive.writeFile(to + file.slice(from.length), machine.drive.readFile(file));
+    }
+  }
+
+  it('pairs a delete and a create into one move, and skips other events and no-op moves', () => {
+    const moveNotes = (machine: Machine) => {
+      machine.drive.writeFile('Users/kyle/api/notes.txt', 'ship it\n');
+      machine.drive.deleteFile('Users/kyle/notes.txt');
+    };
+
+    expect(changesAfter(moveNotes)).toEqual([
+      { kind: 'created', path: 'Users/kyle/api/notes.txt', item: 'file' },
+      { kind: 'deleted', path: 'Users/kyle/notes.txt', item: 'file', inside: 0 },
+    ]);
+    expect(
+      changesAfter(moveNotes, [
+        { type: 'fileChanged', path: 'Users/kyle/notes.txt', change: 'deleted' },
+        movedEvent('Users/kyle/empty.txt', 'Users/kyle/empty.txt', 'file'),
+        movedEvent('Users/kyle/notes.txt', 'Users/kyle/api/notes.txt', 'file'),
+      ]),
+    ).toEqual([movedChange('Users/kyle/notes.txt', 'Users/kyle/api/notes.txt', 'file')]);
+  });
+
+  it('moves a folder with everything inside it, and a copy leaves the original', () => {
+    const renamed = changesAfter(
+      (machine) => {
+        copyTree(machine, 'Users/kyle/api', 'Users/kyle/server');
+        machine.drive.removeDir('Users/kyle/api', { recursive: true });
+        machine.drive.writeFile('Users/kyle/server/README.md', '# server\n');
+      },
+      [movedEvent('Users/kyle/api', 'Users/kyle/server', 'folder')],
+    );
+    const copied = changesAfter(
+      (machine) => {
+        copyTree(machine, 'Users/kyle/api', 'Users/kyle/backup');
+      },
+      [movedEvent('Users/kyle/api', 'Users/kyle/backup', 'folder', true)],
+    );
+
+    expect(renamed).toEqual([
+      movedChange('Users/kyle/api', 'Users/kyle/server', 'folder'),
+      // Written after the move, so it's new rather than carried along.
+      { kind: 'created', path: 'Users/kyle/server/README.md', item: 'file' },
+    ]);
+    expect(copied).toEqual([movedChange('Users/kyle/api', 'Users/kyle/backup', 'folder', true)]);
+  });
+
+  it('follows a chain of moves back to where each item started', () => {
+    const changes = changesAfter(
+      (machine) => {
+        copyTree(machine, 'Users/kyle/api', 'Users/kyle/server');
+        machine.drive.removeDir('Users/kyle/api', { recursive: true });
+        machine.drive.writeFile('Users/kyle/index.ts', 'serve()\n');
+        machine.drive.deleteFile('Users/kyle/server/src/index.ts');
+      },
+      [
+        movedEvent('Users/kyle/api', 'Users/kyle/server', 'folder'),
+        movedEvent('Users/kyle/server/src/index.ts', 'Users/kyle/index.ts', 'file'),
+      ],
+    );
+
+    expect(changes).toEqual([
+      movedChange('Users/kyle/api', 'Users/kyle/server', 'folder'),
+      // It left through server, but it started out in api.
+      movedChange('Users/kyle/api/src/index.ts', 'Users/kyle/index.ts', 'file'),
+    ]);
+  });
+
+  it('shows what is left after a move: gone again, edited, or written over', () => {
+    const moveNotes = movedEvent('Users/kyle/notes.txt', 'Users/kyle/api/notes.txt', 'file');
+    const goneAgain = changesAfter(
+      (machine) => {
+        machine.drive.deleteFile('Users/kyle/notes.txt');
+      },
+      [moveNotes],
+    );
+    const edited = changesAfter(
+      (machine) => {
+        machine.drive.writeFile('Users/kyle/api/notes.txt', 'ship it\nsoon\n');
+        machine.drive.deleteFile('Users/kyle/notes.txt');
+      },
+      [moveNotes],
+    );
+    const writtenOver = changesAfter(
+      (machine) => machine.drive.writeFile('Users/kyle/notes.txt', '{}\n'),
+      [movedEvent('Users/kyle/api/package.json', 'Users/kyle/notes.txt', 'file', true)],
+    );
+
+    expect(goneAgain).toEqual([
+      { kind: 'deleted', path: 'Users/kyle/notes.txt', item: 'file', inside: 0 },
+    ]);
+    expect(edited).toEqual([
+      movedChange('Users/kyle/notes.txt', 'Users/kyle/api/notes.txt', 'file'),
+      { kind: 'modified', path: 'Users/kyle/api/notes.txt', how: 'appended' },
+    ]);
+    expect(writtenOver).toEqual([
+      movedChange('Users/kyle/api/package.json', 'Users/kyle/notes.txt', 'file', true),
+      { kind: 'modified', path: 'Users/kyle/notes.txt', how: 'replaced' },
     ]);
   });
 });
