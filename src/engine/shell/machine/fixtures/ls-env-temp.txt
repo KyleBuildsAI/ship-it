@@ -1,0 +1,5 @@
+
+Name                           Value
+----                           -----
+TEMP                           C:\Users\kyle\AppData\Local\Temp
+

@@ -1,0 +1,8 @@
+
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Cmdlet          Get-ChildItem                                      7.0.0.0    Microsoft.PowerShell.Management
+Alias           ls -> Get-ChildItem                                           
+Application     where.exe                                          10.0.2610… C:\Windows\system32\where.exe
+ExternalScript  npm.ps1                                                       C:\Program Files\nodejs\npm.ps1
+
