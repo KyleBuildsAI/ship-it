@@ -1621,3 +1621,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/121
 3. Authored text could give the answer away or drift out of date. A dry run replays the line on a copy of the laptop and reports what really changed, the way a real agent's diff does.
 
 </details>
+
+---
+
+## #122 feat: laptop sandboxes run powershell 7 with get-location and set-location
+
+https://github.com/KyleBuildsAI/ship-it/pull/122
+
+1. What decides whether a sandbox gets Act 2's commands or the PowerShell profile?
+2. Why does `cd nope; cd quillwork` still move to `quillwork`?
+3. Why does `cd notes.txt` name the path as typed, when `cd nope` shows the full path?
+
+<details><summary>Answers</summary>
+
+1. Whether the workspace has a machine. Only an Act 1 laptop sandbox (a setup that starts with `windows()`) has one; Act 2's sandboxes don't.
+2. PowerShell runs each `;` statement in turn, and a failed `cd` is a non-terminating error, so the next statement still runs. The sandbox does the same.
+3. That's what PowerShell 7.6 prints (captured in `error-cd-file.txt` and `error-cd-missing.txt`). The sandbox copies it rather than tidying it, because Kyle will see the real one.
+
+</details>
