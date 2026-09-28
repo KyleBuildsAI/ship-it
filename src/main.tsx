@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { music, startMusic } from './game/audio/music';
 import { devStatus } from './game/devStatus';
 import { ACTS } from './content';
 import { setCatalog } from './game/play/catalog';
@@ -34,6 +35,13 @@ startPlay();
 
 // A new save starts the first-run tutorial once it has loaded (DESIGN.md section 4).
 startTutorial();
+
+// Calm classical music, streamed from Wikimedia Commons after the first click or key press.
+// The dev badge's Music row mirrors what the player is doing.
+startMusic();
+music.subscribe(() => {
+  devStatus.update({ music: music.get().state });
+});
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     flushProgress().catch((error: unknown) => {
