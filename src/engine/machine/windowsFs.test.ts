@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FsError } from '../fs/virtualFs';
 import { WindowsFs } from './windowsFs';
 
 describe('WindowsFs', () => {
@@ -111,5 +112,51 @@ describe('WindowsFs', () => {
 
     drive.move('Users/kyle/Source/sub/two.txt', 'Users/kyle/TWO.txt');
     expect(drive.readFile('Users/kyle/TWO.txt')).toBe('2');
+  });
+
+  it('respells a name in place, since the item at A.txt is a.txt itself', () => {
+    const drive = new WindowsFs();
+    drive.writeFile('Users/kyle/a.txt', 'a');
+
+    expect(drive.move('Users/kyle/a.txt', 'Users/kyle/A.txt')).toBe('Users/kyle/A.txt');
+    expect(drive.listDir('Users/kyle')).toEqual([{ name: 'A.txt', kind: 'file' }]);
+  });
+
+  it('refuses a move it cannot finish before it touches anything', () => {
+    const drive = new WindowsFs();
+    drive.writeFile('Users/kyle/notes.txt', 'n');
+    drive.writeFile('Users/kyle/bare.txt', 'b');
+    drive.writeFile('Users/kyle/a.txt', 'a');
+    drive.writeFile('Users/kyle/src/sub/two.txt', '2');
+    drive.hide('Users/kyle/notes.txt');
+    const before = drive.allFiles();
+    const thrown = (from: string, to: string) => {
+      try {
+        drive.move(from, to);
+      } catch (error) {
+        return error instanceof FsError ? error.message : 'not an FsError';
+      }
+      return 'no error';
+    };
+
+    // A file where the destination's folder should be: the move used to delete notes.txt here.
+    expect(thrown('Users/kyle/notes.txt', 'Users/kyle/bare.txt/x.txt')).toBe(
+      'ENOTDIR: Users/kyle/bare.txt/x.txt',
+    );
+    expect(thrown('Users/kyle/notes.txt', 'Users/kyle/nope/x.txt')).toBe(
+      'ENOTDIR: Users/kyle/nope/x.txt',
+    );
+    // Another item already there, found whatever its case.
+    expect(thrown('Users/kyle/notes.txt', 'Users/kyle/A.TXT')).toBe('EEXIST: Users/kyle/a.txt');
+    expect(thrown('Users/kyle/src', 'Users/kyle/bare.txt')).toBe('EEXIST: Users/kyle/bare.txt');
+    expect(thrown('Users/kyle/src', 'Users/kyle/SRC/sub/src')).toBe(
+      'EINVAL: Users/kyle/src/sub/src',
+    );
+    expect(thrown('Users/kyle/gone.txt', 'Users/kyle/x.txt')).toBe('ENOENT: Users/kyle/gone.txt');
+
+    expect(drive.allFiles()).toEqual(before);
+    expect(drive.readFile('Users/kyle/notes.txt')).toBe('n');
+    expect(drive.isHidden('Users/kyle/notes.txt')).toBe(true);
+    expect(drive.listDir('Users/kyle/src')).toEqual([{ name: 'sub', kind: 'dir' }]);
   });
 });

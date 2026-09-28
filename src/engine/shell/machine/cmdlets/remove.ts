@@ -157,7 +157,15 @@ function expand(
     return [];
   }
   const folder = resolveExisting(machine.drive, parentDir(target.path));
-  if (folder === null || !machine.drive.isDir(folder)) return [];
+  // A missing folder is an error, but a file standing in for one just matches nothing
+  // (checked in 7.6.6 with nope\*.txt and a.txt\*.txt).
+  if (folder === null) {
+    lines.push(
+      failure(`Cannot find path '${display(parentDir(target.path))}' because it does not exist.`),
+    );
+    return [];
+  }
+  if (!machine.drive.isDir(folder)) return [];
   const pattern = wildcard(last);
   return machine.drive
     .listDir(folder)

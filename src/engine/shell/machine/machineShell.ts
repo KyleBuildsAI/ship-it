@@ -1,3 +1,4 @@
+import { FsError, type FsErrorCode } from '../../fs/virtualFs';
 import { line, type OutputLine } from '../../git/cli/output';
 import type { Machine, Session } from '../../machine/machine';
 import { display } from '../../machine/winPath';
@@ -120,15 +121,20 @@ export class MachineShell {
     if (!Array.isArray(args)) return fail(args.message, ...args.hints);
     const bound = bind(cmdlet.spec, args);
     if (!bound.ok) return fail(`${cmdlet.spec.name}: ${bound.message}`, ...bound.hints);
+    const { spec } = cmdlet;
     const context = {
       ws: this.ws,
       machine: this.machine,
       session: this.session,
       confirm: (request: ConfirmRequest) => {
-        this.question = request;
+        // Answering carries on the cmdlet's work, so it gets the same safety net.
+        this.question = {
+          ...request,
+          answer: (choice) => guarded(spec.name, () => request.answer(choice)),
+        };
       },
     };
-    return cmdlet.run(context, bound.bound);
+    return guarded(spec.name, () => cmdlet.run(context, bound.bound));
   }
 
   private text(parts: readonly WordPart[]): string {
@@ -152,6 +158,36 @@ export class MachineShell {
     }
   }
 }
+
+/**
+ * Runs a cmdlet's work with a safety net. Cmdlets check the drive before they change it, so
+ * a drive error means a check was missed; it prints as one PowerShell-style error line
+ * rather than escaping Shell.run, where nothing catches it and the prompt never comes back.
+ */
+function guarded(cmdlet: string, work: () => ShellResult): ShellResult {
+  try {
+    return work();
+  } catch (error) {
+    if (error instanceof FsError)
+      return fail(`${cmdlet}: ${DRIVE_ERRORS[error.code](display(error.path))}`);
+    throw error;
+  }
+}
+
+/**
+ * Each drive error in the words PowerShell 7.6.6 shows: .NET's for the IO errors, and
+ * PowerShell's own for a missing item and for a folder moved inside itself.
+ */
+const DRIVE_ERRORS: Readonly<Record<FsErrorCode, (path: string) => string>> = {
+  ENOENT: (path) => `Cannot find path '${path}' because it does not exist.`,
+  ENOTDIR: (path) => `Could not find a part of the path '${path}'.`,
+  EISDIR: (path) => `Access to the path '${path}' is denied.`,
+  EEXIST: (path) =>
+    `Cannot create '${path}' because a file or directory with the same name already exists.`,
+  ENOTEMPTY: (path) => `The directory is not empty. : '${path}'.`,
+  EINVAL: (path) =>
+    `Destination path cannot be a subdirectory of the source or the source itself: ${path}.`,
+};
 
 /** PowerShell's two-line error for a name it can't find, word for word (captured). */
 function notRecognized(name: string): ShellResult {
