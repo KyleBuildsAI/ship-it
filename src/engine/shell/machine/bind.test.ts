@@ -50,6 +50,22 @@ const STOP_PROCESS: CmdletSpec = {
   ],
 };
 
+const GET_CONTENT: CmdletSpec = {
+  name: 'Get-Content',
+  parameters: [
+    { name: 'Path', type: 'string[]', position: 0 },
+    { name: 'TotalCount', type: 'int', aliases: ['First', 'Head'], minimum: 0 },
+    { name: 'Tail', type: 'int', aliases: ['Last'], minimum: 0 },
+  ],
+};
+const WRITE_OUTPUT: CmdletSpec = {
+  name: 'Write-Output',
+  parameters: [
+    { name: 'InputObject', type: 'string[]', position: 0, remaining: true },
+    { name: 'NoEnumerate', type: 'switch' },
+  ],
+};
+
 const VARIABLES: Record<string, string> = { false: 'False', true: 'True' };
 
 function args(line: string): Arg[] {
@@ -135,6 +151,42 @@ describe('bind', () => {
     expect(refused(STOP_PROCESS, "-Id ' x '").message).toContain(
       'Cannot convert value " x " to type "System.Int32". Error: "The input string \'x\'',
     );
+  });
+
+  it('gives a parameter that takes the rest every unknown name, in any position', () => {
+    // Each checked in pwsh 7.6.6.
+    expect(bound(WRITE_OUTPUT, '-zz a -yy b').texts('InputObject')).toEqual([
+      '-zz',
+      'a',
+      '-yy',
+      'b',
+    ]);
+    expect(bound(WRITE_OUTPUT, '-zz').texts('InputObject')).toEqual(['-zz']);
+    expect(bound(WRITE_OUTPUT, 'a -NoEnumerate b').texts('InputObject')).toEqual(['a', 'b']);
+    // Named, it isn't open to take the rest, so the unknown name is an error again.
+    expect(refused(WRITE_OUTPUT, '-InputObject a -zz').message).toBe(
+      "A parameter cannot be found that matches parameter name 'zz'.",
+    );
+    expect(refused(SET_LOCATION, '-zz a').message).toBe(
+      "A parameter cannot be found that matches parameter name 'zz'.",
+    );
+  });
+
+  it('checks a minimum after converting, before any unknown name', () => {
+    // Each checked in pwsh 7.6.6.
+    const tooSmall = (name: string, value: string) =>
+      `Cannot validate argument on parameter '${name}'. The ${value} argument is less than the minimum allowed range of 0. Supply an argument that is greater than or equal to 0 and then try the command again.`;
+    expect(refused(GET_CONTENT, 'a.txt -Tail -1').message).toBe(tooSmall('Tail', '-1'));
+    expect(refused(GET_CONTENT, 'a.txt -Head -1').message).toBe(tooSmall('TotalCount', '-1'));
+    expect(refused(GET_CONTENT, 'a.txt -TotalCount -1.4').message).toBe(
+      tooSmall('TotalCount', '-1'),
+    );
+    expect(refused(GET_CONTENT, 'a.txt -Tail -1 -TotalCount -2').message).toBe(
+      tooSmall('Tail', '-1'),
+    );
+    expect(refused(GET_CONTENT, 'a.txt -zz -Tail -1').message).toBe(tooSmall('Tail', '-1'));
+    expect(bound(GET_CONTENT, 'a.txt -TotalCount -0.4').numbers('TotalCount')).toEqual([0]);
+    expect(bound(GET_CONTENT, 'a.txt -Tail 0').numbers('Tail')).toEqual([0]);
   });
 });
 
