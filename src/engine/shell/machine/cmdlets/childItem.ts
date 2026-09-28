@@ -4,6 +4,7 @@ import type { Machine, Session } from '../../../machine/machine';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
 import type { Bound } from '../bind';
 import { itemRow, itemTable, nameValueTable, type ItemRow, type ItemSection } from '../format';
+import { hasWildcard, wildcard } from '../wildcard';
 import type { Cmdlet } from '../registry';
 
 /** What the listing keeps, from the switches. */
@@ -126,7 +127,7 @@ function listItems(
       : failure(`Cannot find path '${target.network}' because it does not exist.`);
 
   const last = baseName(target.path);
-  const pattern = !literal && /[*?[]/.test(last) ? wildcard(last) : null;
+  const pattern = !literal && hasWildcard(last) ? wildcard(last) : null;
   const path = pattern === null ? target.path : parentDir(target.path);
   const found = resolveExisting(machine.drive, path);
   if (found === null) {
@@ -211,7 +212,7 @@ function listVariables(
     into.push(...all);
     return [];
   }
-  const pattern = /[*?[]/.test(name) ? wildcard(name) : null;
+  const pattern = hasWildcard(name) ? wildcard(name) : null;
   const matches = all.filter((entry) =>
     pattern === null ? entry.name.toLowerCase() === name.toLowerCase() : pattern.test(entry.name),
   );
@@ -219,18 +220,6 @@ function listVariables(
     return failure(`Cannot find path '${name}' because it does not exist.`);
   into.push(...matches);
   return [];
-}
-
-/** A PowerShell wildcard (* ? [abc]) as a whole-name, case-insensitive pattern. */
-function wildcard(pattern: string): RegExp {
-  let source = '';
-  for (const char of pattern) {
-    if (char === '*') source += '.*';
-    else if (char === '?') source += '.';
-    else if (char === '[' || char === ']') source += char;
-    else source += char.replace(/[.+^${}()|\\/-]/g, '\\$&');
-  }
-  return new RegExp(`^${source}$`, 'i');
 }
 
 function failure(message: string, ...hints: string[]): OutputLine[] {
