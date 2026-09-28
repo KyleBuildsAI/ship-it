@@ -1603,3 +1603,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/120
 3. `Math.round(2.5)` is 3, so the sandbox would target a different process from real PowerShell.
 
 </details>
+
+---
+
+## #121 docs: act 1 directs an in-game coding agent
+
+https://github.com/KyleBuildsAI/ship-it/pull/121
+
+1. Why is Otto scripted instead of a real LLM?
+2. What makes an answer to a Check question right?
+3. Why does a gate show effects worked out by a dry run, instead of text an author wrote?
+
+<details><summary>Answers</summary>
+
+1. The game must work with no API key, and every path must be testable. A scripted agent makes the same, deliberate, realistic mistakes every time, so the lessons are reliable. When a key exists, Sage only maps your own words onto one of the written plans.
+2. Each option carries a claim the engine can check (like "notes landed in C:\Users\kyle"). The right answer is whichever claim is true in the sandbox right now, so grading stays by state.
+3. Authored text could give the answer away or drift out of date. A dry run replays the line on a copy of the laptop and reports what really changed, the way a real agent's diff does.
+
+</details>
