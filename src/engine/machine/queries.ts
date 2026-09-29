@@ -1,3 +1,4 @@
+import { joinPath } from '../fs/paths';
 import type { EnvScope } from './events';
 import type { Machine } from './machine';
 import { display, resolveExisting } from './winPath';
@@ -7,6 +8,11 @@ export interface ListedItem {
   /** The name as it was created: 'Notes', not 'notes'. */
   readonly name: string;
   readonly kind: 'file' | 'folder';
+  /**
+   * It has the Hidden attribute, like AppData, so a plain `dir` leaves it out. Anything
+   * that draws the drive can then show what `dir` shows, and still find a hidden item.
+   */
+  readonly hidden: boolean;
 }
 
 /** One open terminal tab. */
@@ -29,6 +35,8 @@ export interface MachineQueries {
   readonly display: (path: string) => string;
   /** The folder the active terminal tab stands in, with its stored casing. */
   readonly cwd: () => string;
+  /** The player's home folder, canonical: 'Users/kyle'. Every new terminal opens here. */
+  readonly home: () => string;
   /** A file (with its text) or a folder at the path, or null when nothing is there. */
   readonly item: (
     path: string,
@@ -40,7 +48,8 @@ export interface MachineQueries {
   readonly env: (name: string, scope: EnvScope | 'newTerminal') => string | null;
   /**
    * What a folder holds, in the order Get-ChildItem prints it. Hidden items are included
-   * (a plain `dir` skips them), because grading looks at what is really on the drive.
+   * and marked (a plain `dir` skips them), because grading looks at what is really on the
+   * drive.
    * Empty for a path that isn't a folder; ask `item` to tell an empty folder from a
    * missing one.
    */
@@ -53,6 +62,7 @@ export function machineQueries(machine: Machine): MachineQueries {
   return {
     display,
     cwd: () => machine.active().cwd,
+    home: () => machine.home,
     item: (path) => {
       const found = resolveExisting(machine.drive, path);
       if (found === null) return null;
@@ -80,6 +90,7 @@ export function machineQueries(machine: Machine): MachineQueries {
         .map((entry): ListedItem => ({
           name: entry.name,
           kind: entry.kind === 'dir' ? 'folder' : 'file',
+          hidden: machine.drive.isHidden(joinPath(folder, entry.name)),
         }))
         .sort(foldersFirstByName);
     },

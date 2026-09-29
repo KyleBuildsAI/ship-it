@@ -1,6 +1,7 @@
 import type { GitQueries } from '../../engine/git/queries';
 import type { Commit } from '../../engine/git/types';
 import type { MachineQueries } from '../../engine/machine/queries';
+import type { TranscriptQueries } from '../agent/transcript';
 import {
   describeMachine,
   evaluateMachine,
@@ -10,10 +11,14 @@ import {
 } from './machinePredicates';
 
 /**
- * What a check can ask about a sandbox: git's view of the project, and in an Act 1
- * sandbox, the laptop's too. Act 2's `gitQueries(ws)` still fits, with no machine.
+ * What a check can ask about a sandbox: git's view of the project, in an Act 1 sandbox
+ * the laptop's too, and where Otto works, his transcript. Act 2's `gitQueries(ws)` still
+ * fits, with neither.
  */
-export type SandboxQueries = GitQueries & { readonly machine?: MachineQueries };
+export type SandboxQueries = GitQueries & {
+  readonly machine?: MachineQueries;
+  readonly transcript?: TranscriptQueries;
+};
 
 /**
  * The mission success language. A predicate is plain data that describes a state of the

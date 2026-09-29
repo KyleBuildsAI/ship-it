@@ -3,6 +3,7 @@ import { folder, repo, windows } from '../../engine/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { NotARepositoryError, Workspace } from '../../engine/workspace';
+import { transcriptQueries } from '../agent/transcript';
 import { applySteps, createSandbox, sandboxQueries } from './sandbox';
 
 /** Everything grading can see, so two sandboxes can be compared as a whole. */
@@ -166,5 +167,12 @@ describe('sandboxQueries', () => {
     expect(q.machine?.item('Users/kyle/notes')).toEqual({ kind: 'folder', content: null });
     ws.machine?.drive.makeDir('Users/kyle/later');
     expect(q.machine?.item('Users/kyle/later')?.kind).toBe('folder');
+  });
+
+  it("carries Otto's transcript when he is working there, and none otherwise", () => {
+    const ws = createSandbox(windows().toSpec(), testDeps());
+    const transcript = transcriptQueries([]);
+    expect(sandboxQueries(ws, transcript).transcript).toBe(transcript);
+    expect(sandboxQueries(ws).transcript).toBeUndefined();
   });
 });

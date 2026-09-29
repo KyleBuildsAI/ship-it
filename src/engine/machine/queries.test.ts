@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { windows } from '../fixtures';
+import { VirtualFs } from '../fs/virtualFs';
 import { testDeps } from '../git/testDeps';
 import { machineQueries } from './queries';
 import { recordMachineEvents } from './testDeps';
@@ -30,6 +31,13 @@ describe('machineQueries', () => {
     expect(q.cwd()).toBe('Users/kyle');
   });
 
+  it("names the player's home, where every new terminal opens, wherever the tabs stand", () => {
+    const { machine, q } = laptop();
+    expect(q.home()).toBe('Users/kyle');
+    expect(q.cwd()).toBe('Users/kyle/Notes');
+    expect(q.home()).toBe(machine.openSession().cwd);
+  });
+
   it('finds files and folders in any case', () => {
     const { q } = laptop();
     expect(q.item('users/kyle/notes')).toEqual({ kind: 'folder', content: null });
@@ -55,10 +63,10 @@ describe('machineQueries', () => {
     machine.drive.makeDir('Users/kyle/Notes/Archive');
     machine.drive.writeFile('Users/kyle/Notes/Plan.md', '');
     expect(q.list('users/KYLE/notes')).toEqual([
-      { name: 'Archive', kind: 'folder' },
-      { name: 'zeta', kind: 'folder' },
-      { name: 'Plan.md', kind: 'file' },
-      { name: 'today.txt', kind: 'file' },
+      { name: 'Archive', kind: 'folder', hidden: false },
+      { name: 'zeta', kind: 'folder', hidden: false },
+      { name: 'Plan.md', kind: 'file', hidden: false },
+      { name: 'today.txt', kind: 'file', hidden: false },
     ]);
     expect(q.list('').map((listed) => listed.name)).toEqual(['Program Files', 'Users', 'Windows']);
   });
@@ -114,6 +122,28 @@ describe('machineQueries', () => {
     ]);
   });
 
+  it('marks what has the Hidden attribute, so a drawing can leave out what dir does', () => {
+    const { machine, q } = laptop();
+    machine.drive.hide('Users/kyle/Notes/today.txt');
+    const hiddenAtHome = q.list('Users/kyle').filter((listed) => listed.hidden);
+    expect(hiddenAtHome.map((listed) => listed.name)).toEqual(['AppData']);
+    // Found in any case, like every other query.
+    expect(q.list('users/kyle/notes')).toEqual([{ name: 'today.txt', kind: 'file', hidden: true }]);
+    // The attribute belongs to the item alone: what's inside AppData isn't hidden itself.
+    expect(q.list('Users/kyle/AppData').map((listed) => listed.hidden)).toEqual([false, false]);
+  });
+
+  it('lists a crowded folder without walking the drive again for every item', () => {
+    const { machine, q } = laptop();
+    for (let index = 0; index < 300; index++)
+      machine.drive.makeDir(`Users/kyle/Notes/f${String(index)}`);
+    const listings = vi.spyOn(VirtualFs.prototype, 'listDir');
+    expect(q.list('Users/kyle/Notes')).toHaveLength(301);
+    // Finding the folder takes a few listings. Each item's Hidden flag takes none.
+    expect(listings.mock.calls.length).toBeLessThan(20);
+    listings.mockRestore();
+  });
+
   it('has nothing to list at a file or a missing path, and item tells those apart', () => {
     const { machine, q } = laptop();
     machine.drive.makeDir('Users/kyle/empty');
@@ -151,6 +181,7 @@ describe('machineQueries', () => {
     q.item('Users/kyle/Notes');
     q.env('Path', 'newTerminal');
     q.cwd();
+    q.home();
     q.list('Users/kyle');
     q.list('Users/kyle/nope');
     q.tabs();

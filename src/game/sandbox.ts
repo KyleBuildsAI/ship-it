@@ -1,9 +1,9 @@
 import { folder } from '../engine/git/fixtures';
 import { Shell } from '../engine/shell/shell';
+import { DISPLAY_ROOT } from './missions/sandbox';
 import { createStore } from './store';
 
-/** How the sandbox's project folder appears in prompts, like a real Windows path. */
-export const DISPLAY_ROOT = 'C:\\Users\\kyle\\quillwork\\app';
+export { DISPLAY_ROOT };
 
 /**
  * The starter project in free play: a small app that isn't a git repository yet, so

@@ -78,7 +78,7 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 
 ### Mission steps
 1. **Briefing**: 60-120 second animated scene, 1-3 captions, one diagram moment. Skippable and replayable.
-2. **Sim**: guided tasks in the sandbox (terminal + 3D world + file editor). Sage hints available. In a directed Act, each step is: **Direct** (pick one of 2-3 request cards, or say it your own way), **Run** (Otto types real commands; he pauses for approval before risky lines, showing the effects worked out by a dry run and a ghost in the world), **Check** (Otto claims "Done"; Kyle answers one question about the result, using read-only looks as evidence) and **Result** (the checklist, the slip, stars for Plan, Safety and Check). A miss opens a fix round: Kyle directs Otto to clean up. Full design: `docs/act1-directed.md`.
+2. **Sim**: guided tasks in the sandbox (terminal + 3D world + file editor). Sage hints available. In a directed Act, each step is: **Direct** (pick one of 2-3 request cards, or say it your own way), **Run** (Otto types real commands; he pauses for approval before risky lines, showing the effects worked out by a dry run, at most three plain lines like "Deletes C:\Users\kyle\notes and 3 items inside", and a ghost in the world. The mission's approval mode decides which lines pause: `destructive` pauses for deletes, overwrites, moves, saved variables and lines the content marks `ask`; `changes` also pauses for new files and folders, copies and appends. Changing folders, session variables and opening terminals never pause), **Check** (Otto claims "Done"; Kyle answers one question about the result, using read-only looks as evidence) and **Result** (the checklist, the slip, stars for Plan, Safety and Check). A miss opens a fix round: Kyle directs Otto to clean up. Full design: `docs/act1-directed.md`.
 3. **Drill**: 5-10 timed scenarios. Mentor offline. Scored on resulting state. Misses go to the review queue. In a directed Act these are judgment drills: a short scene plays, then Kyle predicts what a line will do, diagnoses why something broke, picks the right fix, or allows or denies a line. The clock starts after the scene.
 4. **Question Round**: Marco hands over a vague ticket. Kyle picks up to 3 of ~8 candidate clarifying questions. Each candidate has a hidden quality tag (strong / okay / weak) and a rationale shown afterward. Optional free-text question graded by Sage.
 
@@ -282,6 +282,7 @@ ship-it/
     engine/verify/     Field Mission output parsers + tests
     game/world/        three.js scenes (Campus, Git World), renderer boot, post; zones.ts lists each island as data
     game/missions/     mission runner, grading
+    game/agent/        Otto's side (pure): his transcript, the sandbox log that replays a sandbox exactly (for dry runs and rewind), and which actions pause for approval, with their effects in words
     game/progression/  XP, ranks, review queue (SM-2), stats, mastery
     game/save/         IndexedDB, schema versions, migrations, export/import, autosave
     ui/                React HUD, terminal, editor, menus, settings
@@ -301,6 +302,7 @@ ship-it/
 - Dark, atmospheric night campus. Fog or depth falloff. Key + rim + low ambient lighting. Bloom on glowing crates, banners, and portals. Stars fill the whole sky around every island, below the horizon too.
 - Glassmorphism UI panels (blurred translucent backgrounds, 1px subtle strokes, rounded corners).
 - Terminal is readable: monospace, 14px+, high contrast. UI text never goes through post effects.
+- While Otto drives (Act 1's missions and judgment drills) the terminal is read-only: it types his lines after a magenta `otto ›` marker, prints `── PS 2 ──` when he changes tabs, and a strip above it shows the laptop's tabs (`PS 1 · PS 2`). The first key pressed says why nothing types. Act 2, Campus and free play type as before.
 - **Zero console errors and zero warnings** in dev and production builds.
 - Motion from the first frame. A static opening screen reads as broken.
 - Target 60fps on an NVIDIA desktop GPU. Respect the reduced-motion setting.
