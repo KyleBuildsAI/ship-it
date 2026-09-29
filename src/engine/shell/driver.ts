@@ -158,8 +158,7 @@ function typeIn(shell: Shell, text: string, kind: 'line' | 'answer'): Acted {
  */
 function writeFile(ws: Workspace, path: string, content: string): ShellResult {
   try {
-    ws.machine?.makeFolder(parentDir(path));
-    writeSandboxFile(ws, path, content);
+    writeSandboxFile(ws, placeFile(ws, path), content);
     return SILENT;
   } catch (error) {
     if (!(error instanceof FsError)) throw error;
@@ -167,6 +166,19 @@ function writeFile(ws: Workspace, path: string, content: string): ShellResult {
     const reason = error.code === 'EISDIR' ? "it's a folder" : 'a file is in the way';
     return { lines: [line(`Can't write ${shown}: ${reason}.`, 'error')], exitCode: 1 };
   }
+}
+
+/**
+ * Makes the folders a file needs and returns the path to write it at. On a laptop that's
+ * the drive's own spelling, whatever case the content typed: the drive ignores case, so
+ * `users/KYLE/API` is `Users/kyle/api`, and the file's event must name the same path as
+ * its folders' events and the world.
+ */
+function placeFile(ws: Workspace, path: string): string {
+  const machine = ws.machine;
+  if (machine === null) return path;
+  machine.makeFolder(parentDir(path));
+  return machine.drive.stored(path);
 }
 
 function where(shell: Shell): { readonly tab: number; readonly prompt: string } {

@@ -266,6 +266,29 @@ describe("Remove-Item's Confirm question", () => {
     expect(drive.exists('Users/kyle/tmp')).toBe(true);
   });
 
+  it('reports what another tab removed while this one asked, and carries on', () => {
+    const { shell, machine, drive } = laptop();
+    // The wildcard finds both folders before the question, so tmp is already a found item.
+    expect(texts(shell.run('rm [ot]*'))).toEqual(['Confirm', QUESTION('old')]);
+    machine.openSession();
+    expect(shell.run('rm old, tmp -Recurse').exitCode).toBe(0);
+    machine.activate(1);
+    expect(shell.run('y')).toEqual({
+      lines: [
+        {
+          text: "Remove-Item: Cannot find path 'C:\\Users\\kyle\\old' because it does not exist.",
+          tone: 'error',
+        },
+        {
+          text: "Remove-Item: Cannot find path 'C:\\Users\\kyle\\tmp' because it does not exist.",
+          tone: 'error',
+        },
+      ],
+      exitCode: 1,
+    });
+    expect(drive.exists('Users/kyle/notes.txt')).toBe(true);
+  });
+
   it('runs what came after ; once answered, and keeps answers out of history', () => {
     const { shell, drive } = laptop();
     shell.run('rm tmp; rm notes.txt');

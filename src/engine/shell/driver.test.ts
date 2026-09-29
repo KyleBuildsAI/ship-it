@@ -145,6 +145,28 @@ describe('drive: write', () => {
     expect(same.events).toEqual([]);
   });
 
+  it("names every path in the drive's own spelling, whatever case the content typed", () => {
+    const { shell, disk } = laptop();
+    const made = drive(shell, {
+      do: 'write',
+      path: 'users/KYLE/Quillwork/API/notes/day1.md',
+      content: '# Day 1\n',
+    });
+    expect(made.events).toEqual([
+      { type: 'folderChanged', path: `${API}/notes`, change: 'created' },
+      { type: 'fileChanged', path: `${API}/notes/day1.md`, change: 'created' },
+    ]);
+    const replaced = drive(shell, {
+      do: 'write',
+      path: 'USERS/kyle/quillwork/api/PACKAGE.JSON',
+      content: '[]\n',
+    });
+    expect(replaced.events).toEqual([
+      { type: 'fileChanged', path: `${API}/package.json`, change: 'modified' },
+    ]);
+    expect(disk.readFile(`${API}/package.json`)).toBe('[]\n');
+  });
+
   it('fails without throwing when a folder or a file is in the way', () => {
     const { shell, disk } = laptop();
     const folder = drive(shell, { do: 'write', path: API, content: 'x' });
@@ -222,6 +244,20 @@ describe('drive: terminals', () => {
     drive(shell, { do: 'answer', choice: 'Y' });
     expect(disk.exists('Users/kyle/old')).toBe(false);
     expect(disk.exists('Users/kyle/notes')).toBe(true);
+  });
+
+  it('answers about a folder another tab removed with the not-found error, not a throw', () => {
+    const { shell, disk } = laptop();
+    drive(shell, { do: 'run', line: 'Remove-Item old' });
+    drive(shell, { do: 'newTerminal' });
+    expect(drive(shell, { do: 'run', line: 'Remove-Item old -Recurse' }).exitCode).toBe(0);
+    drive(shell, { do: 'useTerminal', tab: 1 });
+    const step = drive(shell, { do: 'answer', choice: 'Y' });
+    expect(step).toMatchObject({ tab: 1, exitCode: 1, asking: false, events: [] });
+    expect(texts(step)).toEqual([
+      "Remove-Item: Cannot find path 'C:\\Users\\kyle\\old' because it does not exist.",
+    ]);
+    expect(disk.exists('Users/kyle/old')).toBe(false);
   });
 
   it('refuses a tab that is not open', () => {

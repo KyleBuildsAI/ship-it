@@ -92,6 +92,11 @@ function removeAll(
       continue;
     }
     const { path } = step;
+    // Found before a question, another tab may have removed it while this one asked.
+    if (!machine.drive.exists(path)) {
+      lines.push(notFound(path));
+      continue;
+    }
     if (inUse(context, path)) {
       lines.push(failure(`Cannot remove the item at '${display(path)}' because it is in use.`));
       continue;
@@ -108,7 +113,7 @@ function removeAll(
       answer: (choice) => {
         const removed = choice === 'yes' || choice === 'yesToAll';
         const remembered = choice === 'yesToAll' || choice === 'noToAll' ? choice : null;
-        const after = removed ? removeTree(context, path, options.force) : [];
+        const after = removed ? removeFound(context, path, options.force) : [];
         return removeAll(context, rest, { ...options, remembered }, after);
       },
     });
@@ -148,7 +153,7 @@ function expand(
   if (step.literal || !hasWildcard(last)) {
     const found = resolveExisting(machine.drive, target.path);
     if (found !== null) return [{ path: found }];
-    lines.push(failure(`Cannot find path '${display(target.path)}' because it does not exist.`));
+    lines.push(notFound(target.path));
     return [];
   }
   const folder = resolveExisting(machine.drive, parentDir(target.path));
@@ -169,6 +174,15 @@ function expand(
 function inUse({ machine, session }: CommandContext, path: string): boolean {
   const holds = (folder: string) => folder === path || folder.startsWith(`${path}/`);
   return path === '' || holds(session.cwd) || holds(machine.home);
+}
+
+/**
+ * Deletes the item a Confirm question was about. Another tab can remove it while this one
+ * asks, so it's looked up again first, and a missing item is PowerShell's not-found error.
+ */
+function removeFound(context: CommandContext, path: string, force: boolean): OutputLine[] {
+  if (!context.machine.drive.exists(path)) return [notFound(path)];
+  return removeTree(context, path, force);
 }
 
 /**
@@ -205,4 +219,8 @@ function removeTree(
 
 function failure(message: string): OutputLine {
   return line(`Remove-Item: ${message}`, 'error');
+}
+
+function notFound(path: string): OutputLine {
+  return failure(`Cannot find path '${display(path)}' because it does not exist.`);
 }
