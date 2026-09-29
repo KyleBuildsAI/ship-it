@@ -7,10 +7,10 @@ import type { EngineEvent } from '../../engine/workspace';
 export type Typist = 'otto' | 'kyle';
 
 /**
- * One thing the terminal or the world shows, in the order it happens. The feed decides
- * what appears; the pace decides when; the terminal and the world only draw. A divider,
- * a prompt and output always start on a fresh line, so the terminal ends a line that's
- * still open (a prompt waiting in a tab Otto just left) before drawing them.
+ * One moment of Otto's work, in the order it happens. The feed decides what appears; the
+ * pace decides when; the terminal only draws. A divider, a prompt and output always start
+ * on a fresh line, so the terminal ends a line that's still open (a prompt waiting in a
+ * tab Otto just left) before drawing them.
  */
 export type FeedBeat =
   /** The terminal changed tabs, so it prints a divider like `── PS 2 ──`. */
@@ -25,7 +25,11 @@ export type FeedBeat =
   | { readonly kind: 'cancel'; readonly tab: number }
   /** The real output, each line printed whole. */
   | { readonly kind: 'output'; readonly tab: number; readonly lines: readonly OutputLine[] }
-  /** Everything the machine and git announced, for the world to animate. */
+  /**
+   * Everything the machine and git announced, kept in order with the other beats for views
+   * that follow the playback. The world doesn't animate from this beat: it hears the same
+   * events live on `ws.events` (spec section 4), so two sources never animate one event.
+   */
   | { readonly kind: 'world'; readonly events: readonly EngineEvent[] }
   /** The action is over: its exit code for the run log and the drone's red flash. */
   | {
@@ -84,8 +88,9 @@ export function feedPrompt(state: FeedState, tab: number, prompt: string): Fed {
 /**
  * The first half of an action: its prompt and the line typed after it. A predict or a gate
  * stops here, with the line waiting unrun. The controller can build `typing` before it
- * drives the action (the active tab, `shell.prompt()`, the line), so the world, which hears
- * the engine's events the moment they happen, never runs ahead of the terminal. A file
+ * drives the action (the active tab, `shell.prompt()`, the line). It plays the typing, and
+ * only then drives the action: the world hears the engine's events on `ws.events` the
+ * moment they happen, so this order keeps it from running ahead of the terminal. A file
  * write types nothing; a new or switched tab shows its prompt.
  */
 export function feedTyping(state: FeedState, typing: Typing, by: Typist = 'otto'): Fed {
@@ -99,9 +104,11 @@ export function feedTyping(state: FeedState, typing: Typing, by: Typist = 'otto'
 }
 
 /**
- * The second half, once the action has run: Enter, the output, and the events for the
- * world. When a Confirm question opened, PowerShell's choice line becomes the open prompt,
- * so Otto's answer is typed right after it.
+ * The second half, once the action has run: Enter, the output, and the events the action
+ * announced. While a Confirm question is open, PowerShell's choice line is the open prompt,
+ * so Otto's answer is typed right after it. It's printed only when it isn't showing yet:
+ * a file write, or a switch to a tab that's asking, leaves the question open without
+ * ending the line it's on.
  */
 export function feedOutcome(state: FeedState, step: DriverStep): Fed {
   const { tab } = step;
@@ -115,7 +122,7 @@ export function feedOutcome(state: FeedState, step: DriverStep): Fed {
     beats.push({ kind: 'output', tab, lines: step.lines });
     now = startFeed(tab);
   }
-  if (step.asking) {
+  if (step.asking && now.prompt !== CHOICES) {
     beats.push({ kind: 'prompt', tab, text: CHOICES });
     now = startFeed(tab, CHOICES);
   }

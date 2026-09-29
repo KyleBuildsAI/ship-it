@@ -89,6 +89,40 @@ describe('feedAction', () => {
     expect(answered[0]).toMatchObject({ text: 'A' });
   });
 
+  describe('while a Confirm question stays open, its choice line is never printed again', () => {
+    it("for Otto's file tool, which types nothing", () => {
+      const { act } = laptop();
+      act({ do: 'run', line: 'Remove-Item old' });
+      const beats = act({ do: 'write', path: 'Users/kyle/todo.md', content: '- ship it\n' });
+      expect(kinds(beats)).toEqual(['world', 'result']);
+      expect(beats.at(-1)).toMatchObject({ asking: true });
+    });
+
+    it('for a switch to the tab that is already showing', () => {
+      const { act, state } = laptop();
+      act({ do: 'run', line: 'Remove-Item old' });
+      expect(kinds(act({ do: 'useTerminal', tab: 1 }))).toEqual(['result']);
+      expect(state().prompt).toBe(CHOICES);
+    });
+
+    it('for a switch back to the asking tab: once, under its divider', () => {
+      const { act, state } = laptop();
+      act({ do: 'run', line: 'Remove-Item old' });
+      act({ do: 'newTerminal' });
+      const beats = act({ do: 'useTerminal', tab: 1 });
+      expect(kinds(beats)).toEqual(['divider', 'prompt', 'world', 'result']);
+      expect(beats[1]).toEqual({ kind: 'prompt', tab: 1, text: CHOICES });
+      expect(state()).toEqual({ tab: 1, prompt: CHOICES, typed: null });
+      // Otto's answer is typed right after that one choice line.
+      expect(kinds(act({ do: 'answer', choice: 'A' }))).toEqual([
+        'type',
+        'enter',
+        'world',
+        'result',
+      ]);
+    });
+  });
+
   it("types nothing for Otto's file tool: only the world hears the write", () => {
     const { act } = laptop();
     const beats = act({ do: 'write', path: 'Users/kyle/todo.md', content: '- ship it\n' });

@@ -733,8 +733,8 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 | **Symptom Board** (0, −13) | boss | One lamp per symptom met | probe results |
 
 **How agent actions animate.**
-1. The controller runs one action at a time, only once Otto's typing of it has finished, so the world never runs ahead of the terminal.
-2. The engine emits synchronous events on `ws.events`. The machine world queues them and tweens the drone and objects one at a time, scaled by the `motion` factor.
+1. The controller runs one action at a time, only once Otto's typing of it has finished (`feedTyping`, played by the pace, then `drive`, then `feedOutcome`), so the world never runs ahead of the terminal.
+2. The engine emits synchronous events on `ws.events`. The machine world queues them and tweens the drone and objects one at a time, scaled by the `motion` factor. This is the world's only source: it never animates from the feed's `world` beat as well.
 3. A `machineDirty` flag triggers `sync(describeTerraces(…))` at most once per frame, like `cratesDirty` today.
 4. Changed items pulse amber for 4 s.
 
@@ -1145,7 +1145,7 @@ export type JudgmentAnswer =
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
 export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[];
 
-// src/game/agent/feed.ts (A15): what the terminal and the world show, in order
+// src/game/agent/feed.ts (A15): what the terminal shows, in order. The world hears ws.events live (§4).
 export type Typist = 'otto' | 'kyle';                 // Kyle's lines are looks: no `otto ›` marker
 export type FeedBeat =                                 // divider, prompt and output start on a fresh line
   | { kind: 'divider'; tab }                           // a tab switch: `── PS 2 ──`
@@ -1153,7 +1153,7 @@ export type FeedBeat =                                 // divider, prompt and ou
   | { kind: 'type'; tab; text; by: Typist }            // the pace types it out
   | { kind: 'enter'; tab } | { kind: 'cancel'; tab }   // the typed line runs, or Kyle denied it
   | { kind: 'output'; tab; lines: readonly OutputLine[] }
-  | { kind: 'world'; events: readonly EngineEvent[] }
+  | { kind: 'world'; events: readonly EngineEvent[] } // a record in playback order, not what the world animates from
   | { kind: 'result'; tab; exitCode; asking };
 export interface FeedState { tab: number; prompt: string | null; typed: string | null } // the last line
 export interface Fed { state: FeedState; beats: readonly FeedBeat[] }
@@ -1161,7 +1161,7 @@ export function startFeed(tab: number, prompt?: string | null): FeedState;
 export function feedPrompt(state, tab, prompt): Fed;  // a prompt waiting between commands, never twice
 // Typing can be built before driving (active tab, shell.prompt(), the line): a predict or gate waits there.
 export function feedTyping(state, typing: Pick<DriverStep, 'tab' | 'prompt' | 'echo'>, by?): Fed;
-export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHOICES while asking, world, result
+export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHOICES if not yet open, world, result
 export function feedAction(state, step, by?): Fed;    // feedTyping, then feedOutcome
 export function feedCancel(state): Fed;               // a denied line ends unrun
 ```
