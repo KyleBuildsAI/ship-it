@@ -874,14 +874,23 @@ export const AgentTaskSchema = z
     fixes: z.array(PlanSchema).min(1).max(3),
     /** The start plan hint rung 3 highlights. It must be strong. */
     hintPlan: IdSchema,
-    check: z.strictObject({ question: ScreenTextSchema, options: z.array(CheckOptionSchema).min(2).max(4) }),
+    check: z
+      .strictObject({ question: ScreenTextSchema, options: z.array(CheckOptionSchema).min(2).max(4) })
+      // Checked on the check, not the task, so a duplicate points at ['check', 'options', i, 'id'].
+      .superRefine((check, ctx) => { checkUniqueIds(check.options, 'options', ctx); }),
     /** Must stay true. Denying is right exactly when a dry run breaks one. The step passes on success and every guard. */
     guards: z.array(PredicateSchema).max(4).default([]),
     looks: z.array(LookSchema).max(3).default([]),
   })
   .superRefine((task, ctx) => {
-    checkUniqueIds([...task.plans, ...task.fixes], 'plans', ctx);
-    checkUniqueIds(task.check.options, 'check', ctx);
+    checkUniqueIds(task.plans, 'plans', ctx);
+    checkUniqueIds(task.fixes, 'fixes', ctx);
+    // A fix round offers fixes beside untried start plans, so a fix can't reuse a start plan's id.
+    const startIds = new Set(task.plans.map((plan) => plan.id));
+    task.fixes.forEach((fix, index) => {
+      if (startIds.has(fix.id))
+        ctx.addIssue({ code: 'custom', path: ['fixes', index, 'id'], message: `Duplicate id "${fix.id}": a start plan uses it.` });
+    });
     checkUniqueIds(task.looks, 'looks', ctx);
     const hint = task.plans.find((plan) => plan.id === task.hintPlan);
     if (hint?.quality !== 'strong')
