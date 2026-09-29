@@ -12,6 +12,7 @@ import { completeLine } from './complete';
 import { FeedPrinter, noticeText } from './feedText';
 import { LineEditor } from './lineEditor';
 import { isReadOnly } from './readOnly';
+import { TerminalTabs } from './TerminalTabs';
 import { colorize } from './tones';
 
 /** Colors matching theme.css, with git's palette tuned for contrast on the dark glass panel. */
@@ -185,6 +186,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
   const { pendingCommand, terminalFocusRequests, notice } = useStore(hud);
   const textSize = useStore(progress).save?.settings.textSize ?? 'normal';
   const readOnly = isReadOnly(useStore(play).activity);
+  const workspace = useStore(sandbox).shell.ws;
 
   // Declared before the notice below: a mission's first message then prints above the
   // prompt Otto takes over, not above the player's.
@@ -226,6 +228,7 @@ export function TerminalPanel({ open }: { open: boolean }) {
       inert={!open}
       data-typing-surface
     >
+      <TerminalTabs ws={workspace} readOnly={readOnly} />
       <div ref={host} className="terminal-panel__screen" />
     </section>
   );
