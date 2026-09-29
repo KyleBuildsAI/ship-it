@@ -1873,3 +1873,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/136
 3. To prove the early-access flag is what keeps the Act unfinished. If the finished version didn't complete either, the test would pass for the wrong reason, for example because some part was never recorded.
 
 </details>
+
+---
+
+## #137 feat: the acts button recommends the first act with work left
+
+https://github.com/KyleBuildsAI/ship-it/pull/137
+
+1. Why does `recommendedAct` check both "not complete" and `hasWorkLeft`? Couldn't one of them do the job?
+2. Act 1 is in early access with only Mission 1.1 built and no boss yet. The player has finished 1.1. Why doesn't the missing boss count as work left?
+3. A player finished Mission 1.1, and a later PR ships Mission 1.2. Where does the Acts button open, and why is no save change needed?
+
+<details><summary>Answers</summary>
+
+1. Each covers a case the other misses. An early-access Act never completes, so only "work left" moves past it. A tested-out Act is complete but its boss was never fought, so `hasWorkLeft` says true, and only "complete" moves past it.
+2. `hasWorkLeft` only counts a boss that exists (`act.boss !== undefined`). A boss that isn't built can't be played, so counting it would keep sending the player to an Act with nothing to do. Once the boss ships, it counts, and the button comes back to Act 1.
+3. On Act 1. Mission 1.2 isn't done, so `hasWorkLeft` is true again. The recommendation is worked out from the content and the save on every click, so there's nothing stored to update.
+
+</details>
