@@ -985,6 +985,8 @@ html[data-reduced-motion='on'] *::after {
 /* Act tabs (ActMenu.tsx), shown once more than one Act ships. */
 .act-tabs {
   display: flex;
+  /* Preview mode shows all eight Acts, more than one row holds. */
+  flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 10px;
 }
