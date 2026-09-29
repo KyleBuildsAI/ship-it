@@ -1007,9 +1007,11 @@ Engine queries: `src/engine/machine/queries.ts`, cherry-picked from `0939145`, t
 export interface MachineQueries {
   readonly display: (path: string) => string;
   readonly cwd: () => string;
+  readonly home: () => string; // A24
   readonly item: (path: string) => { readonly kind: 'file' | 'folder'; readonly content: string | null } | null;
   readonly env: (name: string, scope: EnvScope | 'newTerminal') => string | null;
-  readonly list: (path: string) => readonly { readonly name: string; readonly kind: 'file' | 'folder' }[]; // A1
+  readonly list: (path: string) => readonly { readonly name: string; readonly kind: 'file' | 'folder';
+    readonly hidden: boolean /* A24 */ }[]; // A1
   readonly tabs: () => readonly { readonly tab: number; readonly cwd: string; readonly active: boolean }[]; // A1
   // Later: resolve (D3), listeners/processes/httpGet (F2)
 }
@@ -1390,6 +1392,7 @@ Drill example:
 | A8 | `folderChanged { path, change: 'created' \| 'deleted' }` MachineEvent from `mkdir`, `New-Item -ItemType Directory`, folder `Remove-Item`, and the `mkdir` fixture op |
 | A9 | `driver.ts` |
 | A10 | `snapshot.ts` |
+| A24 | `queries.home`, each listed item's `hidden` (read without walking the drive per item) |
 | D1 | `$env:NAME` read as a statement, `$env:NAME = '…'`, `+= '…'`, `= $null`, `"…$env:Path"` (the lexer already reads variables in double quotes, #117), `Remove-Item Env:NAME` |
 | D2 | `setx NAME value` (real `SUCCESS` text; User scope; `/M` denied; open terminals unchanged) |
 | D3 | `lookup.ts` (PATH order, PATHEXT, never the current folder), a `program` fixture op (marker files), `node --version` and `npm --version` (captures on main), `Get-Command` (`get-command.txt`) |

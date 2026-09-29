@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { windows } from '../fixtures';
+import { VirtualFs } from '../fs/virtualFs';
 import { testDeps } from '../git/testDeps';
 import { machineQueries } from './queries';
 import { recordMachineEvents } from './testDeps';
@@ -130,6 +131,17 @@ describe('machineQueries', () => {
     expect(q.list('users/kyle/notes')).toEqual([{ name: 'today.txt', kind: 'file', hidden: true }]);
     // The attribute belongs to the item alone: what's inside AppData isn't hidden itself.
     expect(q.list('Users/kyle/AppData').map((listed) => listed.hidden)).toEqual([false, false]);
+  });
+
+  it('lists a crowded folder without walking the drive again for every item', () => {
+    const { machine, q } = laptop();
+    for (let index = 0; index < 300; index++)
+      machine.drive.makeDir(`Users/kyle/Notes/f${String(index)}`);
+    const listings = vi.spyOn(VirtualFs.prototype, 'listDir');
+    expect(q.list('Users/kyle/Notes')).toHaveLength(301);
+    // Finding the folder takes a few listings. Each item's Hidden flag takes none.
+    expect(listings.mock.calls.length).toBeLessThan(20);
+    listings.mockRestore();
   });
 
   it('has nothing to list at a file or a missing path, and item tells those apart', () => {
