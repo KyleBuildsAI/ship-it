@@ -1385,7 +1385,7 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` takes an optional `directingXp` | Act 2 passes nothing |
 | `src/game/play/{bossPlay,fieldPlay,seriesPlay}.ts` | `require*` helpers; judgment drills in series | Same flow for Act 2 |
 | `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` | Act 2 route identical, no travel |
-| `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`) | `gitQueries` still the base |
+| `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`, all-or-nothing), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`); `loadSandbox` takes a deps factory | `gitQueries` still the base |
 | `src/game/play/freePlay.ts` (NEW) | Laptop free play on the island; the practice project on Git World arrival | Campus unchanged |
 | `src/game/worldState.ts` | `ZoneId = 'campus' \| 'machine' \| 'gitworld'`; `requestedZone: ZoneId \| null` | — |
 | `src/game/world/zones.ts` | `CAMERA_RIGS.machine`; `ZONE_FOR_ACT = { 1: 'machine', 2: 'gitworld' }`; `openActs(catalogActs)` returns the Acts that are in the catalog **and** have an island | The Act 2 portal is unchanged; `zones.test.ts` updated |
@@ -1590,7 +1590,7 @@ Sizes exclude content data, captures and lockfiles.
 | Scaffolding gives answers away | Effects are worked out (not written by an author) and only shown in missions. Predicts come before the ghost. Drills have no effects list, ghost or looks. |
 | Authoring blows up | 2-3 start plans and 1-3 fixes per step. `before` normalises the start. `agent.test.ts` proves every path, so a wrong intent fails CI. |
 | Engine scope creep | D13 plus `agent.test.ts`: only authored lines must run. Cut order if short of time: order and spot drills, then lamps, then the npm `-g` shelf. |
-| Dry runs drift from live | Deterministic engine; replay parity test with `testDeps`. Live dry runs reuse `ws.deps`, so commit times may differ, and nothing grades by commit id. |
+| Dry runs drift from live | Deterministic engine; replay parity tests with `testDeps`. The live log keeps a deps factory, so every dry run, rewind and `applyChange` trial replays on a fresh clock and never moves the live one. On the real clock those replays' commits get new times and ids; nothing grades by commit id. |
 | Act 2 regressions | Additive schemas (sandbox drills are unchanged, the Act 2 runner is untouched, `SandboxQueries` extends `GitQueries`). No auto-travel. Act 2 suites must pass unchanged in every PR. e2e changes are limited to `openAct2` and the tutorial. |
 | Early access keeps pointing the Acts button at Act 1 | `hasWorkLeft` moves the recommendation to Act 2 once 1.x is done. No placement test while in early access. |
 | Stacked-branch merge mistakes | One PR at a time, `--update-refs`, split only at commit boundaries, apply diffs (memory note). Push chain 2 only after rebasing; recheck its fidelity findings before B6. |

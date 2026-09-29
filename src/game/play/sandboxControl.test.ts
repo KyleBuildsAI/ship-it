@@ -32,16 +32,27 @@ const setup = windows({ mount: API })
   .commit('chore: initial api')
   .toSpec();
 
-const load = () => loadSandbox(setup, 'A fresh laptop.', testDeps());
+const load = () => loadSandbox(setup, 'A fresh laptop.', testDeps);
 
-/** The laptop, and git's history by message, which a rewind keeps. */
+/** The laptop, and git's history, commit ids and times included. */
 function laptopOf(ws: Workspace) {
   if (ws.machine === null) throw new Error('Not a laptop');
-  const messages = gitQueries(ws)
-    .log()
-    .map((commit) => commit.message);
-  return { machine: snapshotMachine(ws.machine), messages };
+  return { machine: snapshotMachine(ws.machine), commits: gitQueries(ws).log() };
 }
+
+/** Commits a new file through the log, as a step's `before` would. */
+const commitFile = (name: string) => {
+  applyChange([
+    { op: 'write', path: `${API}/${name}`, content: `${name}\n` },
+    { op: 'stage', paths: [name] },
+    { op: 'commit', message: `docs: ${name}` },
+  ]);
+};
+
+/** The live sandbox equals a fresh replay of its log, commit ids and times included. */
+const matchesItsLog = () => {
+  expect(laptopOf(currentWorkspace())).toEqual(laptopOf(replay(currentLog(), testDeps()).shell.ws));
+};
 
 describe('the live sandbox log', () => {
   it("starts from the setup, then keeps Otto's action exactly as passed, and his transcript", () => {
@@ -64,22 +75,28 @@ describe('the live sandbox log', () => {
   it('replays to exactly the live sandbox, commit ids included', () => {
     load();
     recordAction({ do: 'run', line: 'mkdir C:\\Users\\kyle\\notes' });
-    applyChange([
-      { op: 'restartTerminals' },
-      { op: 'write', path: `${API}/a.md`, content: 'a\n' },
-      { op: 'stage', paths: ['a.md'] },
-      { op: 'commit', message: 'docs: a' },
-    ]);
+    applyChange([{ op: 'restartTerminals' }]);
+    commitFile('a.md');
     recordAction({ do: 'newTerminal' });
     recordAction({ do: 'run', line: 'cd quillwork\\api' });
-
-    const live = currentWorkspace();
-    const replayed = replay(currentLog(), testDeps()).shell.ws;
-    expect(laptopOf(replayed)).toEqual(laptopOf(live));
-    expect(gitQueries(replayed).log()).toEqual(gitQueries(live).log());
+    matchesItsLog();
   });
 
-  it('tries an action from here without touching the live sandbox or its log', () => {
+  it('logs no change whose steps fail, and leaves the live sandbox as it was', () => {
+    load();
+    const before = currentLog();
+    expect(() => {
+      applyChange([
+        { op: 'write', path: `${API}/half.md`, content: 'half\n' },
+        { op: 'cd', path: 'Users/kyle/nowhere' },
+      ]);
+    }).toThrow("doesn't exist");
+    expect(currentLog()).toBe(before);
+    expect(currentQueries().machine?.item(`${API}/half.md`)).toBeNull();
+    matchesItsLog();
+  });
+
+  it('tries an action from here without touching the live sandbox, its clock or its log', () => {
     load();
     recordAction({ do: 'run', line: 'cd quillwork\\api' });
     const log = currentLog();
@@ -91,6 +108,9 @@ describe('the live sandbox log', () => {
     expect(dry.broken).toEqual(['API']);
     expect(laptopOf(currentWorkspace())).toEqual(before);
     expect(currentLog()).toBe(log);
+    // The copy replayed the setup's commit on a clock of its own, so a live one still matches.
+    commitFile('a.md');
+    matchesItsLog();
   });
 
   it("rewinds by swapping in a replay of a checkpoint, Otto's transcript too", () => {
@@ -108,6 +128,8 @@ describe('the live sandbox log', () => {
     expect(currentLog()).toBe(checkpoint);
     expect(currentQueries().transcript?.printed('mkdir')).toBe(false);
     expect(hud.get().notice?.text).toBe('Rewound to the start of the step.');
+    commitFile('a.md');
+    matchesItsLog();
   });
 
   it("has no log for a sandbox that didn't load through it, and still answers checks", () => {
