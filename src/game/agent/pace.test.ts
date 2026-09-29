@@ -53,6 +53,13 @@ describe('choosePace', () => {
     expect(choosePace(env(false), { speed: 'instant' })).toEqual(INSTANT_PACE);
     expect(() => choosePace(env(false), { speed: 0 })).toThrow(RangeError);
   });
+
+  it('refuses a bad speed even when Otto would be instant anyway', () => {
+    // Playwright always runs as a test robot, so this is where a bad speed must still fail.
+    expect(() => choosePace(env(false, true), { speed: 0 })).toThrow(RangeError);
+    expect(() => choosePace(env(true), { speed: -1 })).toThrow(RangeError);
+    expect(() => choosePace(env(false, true), { speed: Number.NaN })).toThrow(RangeError);
+  });
 });
 
 describe('advance', () => {
@@ -106,6 +113,30 @@ describe('advance', () => {
     ]);
   });
 
+  it('counts a gap that is not a number as no time, so the typed line still plays', () => {
+    // A first frame with no previous time: `now - undefined` is NaN.
+    const first = advance(CD_API, NORMAL_PACE, START, Number.NaN);
+    expect(first.reveals.map((r) => r.kind)).toEqual(['beat']);
+    expect(first.done).toBe(false);
+    const rest = advance(CD_API, NORMAL_PACE, first.head, totalMs(CD_API, NORMAL_PACE));
+    expect(rest.reveals[0]).toEqual({ kind: 'keys', tab: 1, by: 'otto', text: 'cd api', from: 0 });
+  });
+
+  it('never types a character twice when the pace slows down mid-line', () => {
+    const line: FeedBeat = { kind: 'type', tab: 1, text: 'mkdir notes', by: 'otto' };
+    const fast = choosePace(env(false), { speed: 2 });
+    const typed: string[] = [];
+    let step = advance([line], fast, START, fast.thinkMs + 5 * fast.charMs);
+    for (let frame = 0; frame < 200 && !step.done; frame += 1) {
+      for (const r of step.reveals) if (r.kind === 'keys') typed.push(r.text);
+      // The player switched 2× back to 1× while the line was being typed.
+      step = advance([line], NORMAL_PACE, step.head, 16);
+    }
+    for (const r of step.reveals) if (r.kind === 'keys') typed.push(r.text);
+    expect(typed.join('')).toBe('mkdir notes');
+    expect(step.done).toBe(true);
+  });
+
   it("types Kyle's look lines at once, with no pause to think", () => {
     const look: FeedBeat = { kind: 'type', tab: 1, text: 'Get-Location', by: 'kyle' };
     const shown = advance([look], NORMAL_PACE, START, 0);
@@ -120,6 +151,20 @@ describe('totalMs', () => {
   it('adds the pause to think, the typing, and the settle', () => {
     expect(totalMs(CD_API, NORMAL_PACE)).toBe(400 + 6 * 25 + 600);
     expect(totalMs(CD_API, INSTANT_PACE)).toBe(0);
+  });
+
+  it("is exactly when playback ends, even at a drill's 3× pace", () => {
+    const drill = choosePace(env(false), { speed: 3 });
+    const unfinished: number[] = [];
+    // Two lines of every length up to 60: fractions of a millisecond must never add up to
+    // a playhead a hair short of the end.
+    for (let length = 1; length <= 60; length += 1) {
+      const beats = [...CD_API, ...CD_API].map((beat) =>
+        beat.kind === 'type' ? { ...beat, text: 'x'.repeat(length) } : beat,
+      );
+      if (!advance(beats, drill, START, totalMs(beats, drill)).done) unfinished.push(length);
+    }
+    expect(unfinished).toEqual([]);
   });
 });
 

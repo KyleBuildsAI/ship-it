@@ -39,9 +39,12 @@ export interface PaceOptions {
  */
 export function choosePace(env: MotionEnvironment, options: PaceOptions = {}): Pace {
   const { reducedMotion = 'system', speed = 1 } = options;
+  // Only code passes a speed, so a bad one is a bug. It's checked before the instant cases,
+  // or the end-to-end tests, where a test robot always makes Otto instant, would hide it.
+  if (speed !== 'instant' && !(speed > 0))
+    throw new RangeError(`Otto's speed must be above 0, not ${String(speed)}.`);
   const reduced = reducedMotion === 'on' || (reducedMotion !== 'off' && env.prefersReducedMotion());
   if (reduced || env.automated() || speed === 'instant') return INSTANT_PACE;
-  if (!(speed > 0)) throw new RangeError(`Otto's speed must be above 0, not ${String(speed)}.`);
   return {
     charMs: NORMAL_PACE.charMs / speed,
     thinkMs: NORMAL_PACE.thinkMs / speed,
@@ -49,12 +52,17 @@ export function choosePace(env: MotionEnvironment, options: PaceOptions = {}): P
   };
 }
 
-/** When a beat plays: `lead` ms of waiting before it shows, then `span` ms while it plays. */
+/**
+ * When a beat plays: `lead` ms of waiting before it shows, then `span` ms while it plays.
+ * Both are whole milliseconds. A 3× pace has fractions like 8.333…, and adding them up in
+ * `totalMs` then taking them away one by one in `advance` can leave a hair of time over,
+ * so playing a list for exactly its `totalMs` would stop just short of done.
+ */
 export function timing(beat: FeedBeat, pace: Pace): { lead: number; span: number } {
   // Kyle's own look lines appear at once: he clicked a chip, so there's no typing to watch.
   if (beat.kind === 'type' && beat.by === 'otto')
-    return { lead: pace.thinkMs, span: beat.text.length * pace.charMs };
-  if (beat.kind === 'result') return { lead: 0, span: pace.settleMs };
+    return { lead: Math.round(pace.thinkMs), span: Math.round(beat.text.length * pace.charMs) };
+  if (beat.kind === 'result') return { lead: 0, span: Math.round(pace.settleMs) };
   return { lead: 0, span: 0 };
 }
 
@@ -98,9 +106,12 @@ export interface Advanced {
 }
 
 /**
- * Moves playback on by `elapsedMs` (the time since the last frame) and returns what
- * appeared in that time. It's a pure step, so the game's tick drives it and tests can
- * jump to any moment. At the instant pace, one call shows everything.
+ * Moves playback on by `elapsedMs` and returns what appeared in that time. It's a pure
+ * step, so tests can jump to any moment. At the instant pace, one call shows everything.
+ *
+ * Call it once per drawn frame, with the time since the previous frame. A slower clock
+ * shows the typing in bursts: the game's `tickPlay` runs only 4 times a second, which at
+ * 40 characters a second prints 10 at a time instead of one after another.
  */
 export function advance(
   beats: readonly FeedBeat[],
@@ -110,10 +121,15 @@ export function advance(
 ): Advanced {
   const reveals: Reveal[] = [];
   let { beat: index, shown } = head;
-  let spent = head.spent + Math.max(0, elapsedMs);
+  // Only time moving forward counts. A clock that stepped back, or NaN from a first frame
+  // with no previous time to subtract, adds nothing. NaN left in would make every check
+  // below false: the typed line would be skipped and playback would claim it was done.
+  let spent = head.spent + (elapsedMs > 0 ? elapsedMs : 0);
   for (let beat = beats[index]; beat !== undefined; beat = beats[index]) {
     const { lead, span } = timing(beat, pace);
-    const target = showing(beat, lead, span, spent);
+    // Never backwards: if the pace slows mid-line (2× back to 1×), what's typed stays typed
+    // and the next keys carry on from there instead of typing the line again.
+    const target = Math.max(shown, showing(beat, lead, span, spent));
     if (target > shown) reveals.push(reveal(beat, shown, target));
     shown = target;
     if (spent < lead + span) return { head: { beat: index, spent, shown }, reveals, done: false };

@@ -1166,16 +1166,19 @@ export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHO
 export function feedAction(state, step, by?): Fed;    // feedTyping, then feedOutcome
 export function feedCancel(state): Fed;               // a denied line ends unrun
 
-// src/game/agent/pace.ts (A15): when each beat shows. Pure: the tick passes the elapsed time.
+// src/game/agent/pace.ts (A15): when each beat shows. Pure: the caller passes the elapsed time.
+// Call advance once per drawn frame with elapsed = now - previous frame. Never from tickPlay's
+// 250 ms interval (useClock): at 40 characters a second that types in bursts of 10.
 export interface Pace { charMs: number; thinkMs: number; settleMs: number } // NORMAL_PACE 25 / 400 / 600
 export interface MotionEnvironment { prefersReducedMotion(): boolean; automated(): boolean } // browserMotion.ts
 export function choosePace(env: MotionEnvironment,
-  options?: { reducedMotion?: Settings['reducedMotion']; speed?: number | 'instant' }): Pace;
+  options?: { reducedMotion?: Settings['reducedMotion']; speed?: number | 'instant' }): Pace; // speed <= 0 throws
 export interface Playhead { beat: number; spent: number; shown: number } // START = { 0, 0, 0 }
 export type Reveal = { kind: 'beat'; beat: FeedBeat } | { kind: 'keys'; tab; by: Typist; text; from: number };
 export function advance(beats, pace, head: Playhead, elapsedMs: number):
   { head: Playhead; reveals: readonly Reveal[]; done: boolean };     // done after the last result settles
-export function timing(beat, pace): { lead: number; span: number };  // think before Otto types, settle after a result
+  // NaN or negative elapsed counts as 0; what's typed never un-types if the pace changes mid-line
+export function timing(beat, pace): { lead: number; span: number };  // whole ms: think before Otto types, settle after a result
 export function totalMs(beats, pace): number;
 ```
 
@@ -1507,7 +1510,7 @@ Sizes exclude content data, captures and lockfiles.
 | A13 | `feat: judgment drills are graded by running them` | `game/missions/judgment.ts` (NEW): predict, diagnose, fix, approve, `shuffleFor` | `judgment.test.ts` on a tiny laptop | 350 |
 | A14 | `feat: act 1 mission 1.1 where things live, behind a preview flag` | `content/act1/{shared,whereThingsLive,act,index,play.test-helpers}.ts`, `src/main.tsx` (`?preview=act1`) | `act1.test.ts`, `agent.test.ts`, `drills.test.ts` | tests ≈ 350 plus content |
 | A15 | `feat: otto's pace and the agent feed` | `game/agent/{feed,pace,browserMotion}.ts` (NEW) | `feed.test.ts`, `pace.test.ts` (instant under reduced motion or webdriver) | 180 |
-| A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
+| A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick; Otto's typing is advanced once per drawn frame, not by the 250 ms `tickPlay`, §5.6), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
 | A17 | `feat: approval gates, predictions, stop, and rewind in play` | `play/agentPlay.ts`, `game/agent/effects.ts` (NEW: `isConsequential`, `describeChanges`) | `effects.test.ts`, `play.test.ts` (allow, deny, onDeny, Confirm answer, rewind) | 330 |
 | A18 | `feat: judgment drills in missions, placement, and reviews` | `missionPlay.ts`, `seriesPlay.ts` (scene playback, clock after the scene, `submitJudgment`) | `play.test.ts`: pass or miss, review queue through `addMiss`, the clock starts after the scene | 300 |
 | A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure) | `feedText.test.ts`; verify loop | 220 |
