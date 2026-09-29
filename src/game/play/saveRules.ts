@@ -217,8 +217,10 @@ export function missionDone(save: SaveData, missionId: string): boolean {
 /**
  * Stamps the Act complete once every mission is done (or tested out), the boss is beaten,
  * and the Field Mission is verified. A placement pass alone also completes it (section 5).
+ * An early-access Act never completes: finishing what's built so far isn't the whole Act.
  */
 function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
+  if (target.earlyAccess) return save;
   const current = act(save, target.act);
   if (current.completedAt !== null) return save;
   const everything =

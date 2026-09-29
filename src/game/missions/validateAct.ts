@@ -93,6 +93,9 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
       texts.push([`${at} > candidate ${candidate.id} > rationale`, candidate.rationale]);
     }
   }
+  act.upcoming.forEach((title, index) => {
+    texts.push([`act > upcoming ${String(index + 1)}`, title]);
+  });
   const { placementTest, boss, fieldMission } = act;
   if (placementTest !== undefined) texts.push(['placement test > pitch', placementTest.pitch]);
   if (boss !== undefined) {
@@ -121,7 +124,8 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
 /**
  * Checks the links between an Act and its missions that no single schema can see:
  * every referenced mission and placement drill exists, ids don't collide, laptop checks
- * only grade setups that build a laptop, and every screen of text stays within DESIGN.md
+ * only grade setups that build a laptop, an early-access Act's upcoming list names only
+ * missions that haven't shipped, and every screen of text stays within DESIGN.md
  * pillar 1's word budget. The schemas also limit words; repeating it here means content
  * built without parsing is covered too, and every problem is listed at once with its
  * location.
@@ -148,6 +152,14 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     }
     if (mission.act !== act.act) {
       report(`mission ${mission.id}`, `Says act ${String(mission.act)}, not ${String(act.act)}.`);
+    }
+  }
+
+  // Shipping a mission means taking it off the "Coming soon" list, or it shows twice.
+  const shippedTitles = new Set(missions.map((mission) => mission.title));
+  for (const title of act.upcoming) {
+    if (shippedTitles.has(title)) {
+      report('act > upcoming', `"${title}" has shipped, so it isn't upcoming.`);
     }
   }
 

@@ -86,6 +86,7 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 - **Placement test**: 8-12 drill scenarios covering the Act. Score 85%+ = "Tested out": Act marked complete with reduced XP, still replayable.
 - **Boss**: timed, multi-step scenario with a twist.
 - **Field Mission**: real task on a real repo, with a checklist and verification (section 8).
+- **Early access**: an Act can ship before it's finished. It plays the missions built so far, lists the rest as coming soon, and gains its boss and Field Mission as they're built. It has no placement test, because testing out would skip missions that don't exist yet, and it never counts as complete until early access ends.
 
 ## 6. Progression and systems
 
@@ -191,6 +192,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 - Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes.
 - A schema (zod or equivalent) validates every mission in tests.
 - **Mission object**: `id`, `act`, `title`, `briefing` (scene id + captions), `initialRepoState` (fixture), `steps` (instruction, success predicate, hint ladder), `drills` (scenario text, setup fixture, success predicate), `questionRound` (ticket, candidates with quality tag + rationale, rubric for free text), `xp`.
+- **Act object**: `act`, `title`, `missionIds`, `placementTest`, `boss`, `fieldMission`. With `earlyAccess: true`, it has 1-6 missions counting the `upcoming` titles, no placement test, and a boss and Field Mission only once they're built. Code reads a part through `requirePlacement`, `requireBoss` or `requireFieldMission`, which throw a `ContentError` when it isn't built yet.
 
 ## 11. Curriculum
 
