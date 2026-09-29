@@ -1144,6 +1144,26 @@ export type JudgmentAnswer =
   | { readonly kind: 'spot'; readonly lineId: string };
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
 export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[];
+
+// src/game/agent/feed.ts (A15): what the terminal and the world show, in order
+export type Typist = 'otto' | 'kyle';                 // Kyle's lines are looks: no `otto ›` marker
+export type FeedBeat =                                 // divider, prompt and output start on a fresh line
+  | { kind: 'divider'; tab }                           // a tab switch: `── PS 2 ──`
+  | { kind: 'prompt'; tab; text }                      // left open for what's typed next
+  | { kind: 'type'; tab; text; by: Typist }            // the pace types it out
+  | { kind: 'enter'; tab } | { kind: 'cancel'; tab }   // the typed line runs, or Kyle denied it
+  | { kind: 'output'; tab; lines: readonly OutputLine[] }
+  | { kind: 'world'; events: readonly EngineEvent[] }
+  | { kind: 'result'; tab; exitCode; asking };
+export interface FeedState { tab: number; prompt: string | null; typed: string | null } // the last line
+export interface Fed { state: FeedState; beats: readonly FeedBeat[] }
+export function startFeed(tab: number, prompt?: string | null): FeedState;
+export function feedPrompt(state, tab, prompt): Fed;  // a prompt waiting between commands, never twice
+// Typing can be built before driving (active tab, shell.prompt(), the line): a predict or gate waits there.
+export function feedTyping(state, typing: Pick<DriverStep, 'tab' | 'prompt' | 'echo'>, by?): Fed;
+export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHOICES while asking, world, result
+export function feedAction(state, step, by?): Fed;    // feedTyping, then feedOutcome
+export function feedCancel(state): Fed;               // a denied line ends unrun
 ```
 
 Store changes:
