@@ -12,6 +12,7 @@ import { gitQueries } from '../../engine/git/queries';
 import type { RepositoryDeps } from '../../engine/git/repository';
 import { machineQueries } from '../../engine/machine/queries';
 import type { Workspace } from '../../engine/workspace';
+import type { TranscriptQueries } from '../agent/transcript';
 import type { SandboxQueries } from './predicates';
 
 /**
@@ -28,10 +29,12 @@ export function createSandbox(
 /**
  * Everything a check can ask about a sandbox: git's view of the project, and on a laptop,
  * the machine too. An Act 2 sandbox has no machine, so it gets git's questions alone.
+ * Where Otto is working, his transcript comes too, so a check can ask what he has seen.
  */
-export function sandboxQueries(ws: Workspace): SandboxQueries {
+export function sandboxQueries(ws: Workspace, transcript?: TranscriptQueries): SandboxQueries {
   const git = gitQueries(ws);
-  return ws.machine === null ? git : { ...git, machine: machineQueries(ws.machine) };
+  const machine = ws.machine === null ? {} : { machine: machineQueries(ws.machine) };
+  return transcript === undefined ? { ...git, ...machine } : { ...git, ...machine, transcript };
 }
 
 /**
