@@ -1083,6 +1083,9 @@ export function transcriptQueries(entries: readonly TranscriptEntry[]): Transcri
 
 // src/game/agent/replay.ts (A11)
 export type LoggedAction = DriverAction & { readonly answer?: never }; // a line with an answer is two actions
+export type ContentAction =                                        // every BaseAction and AgentAction fits
+  | { readonly do: 'run'; readonly line: string; readonly answer?: ConfirmLetter }
+  | Extract<DriverAction, { do: 'write' | 'newTerminal' | 'useTerminal' }>;
 export type LogEntry =
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
   | { readonly kind: 'action'; readonly action: LoggedAction };   // exactly as passed to drive()
@@ -1090,12 +1093,15 @@ export interface SandboxLog { readonly setup: readonly FixtureStep[]; readonly e
 export function startLog(setup, actions?: readonly LoggedAction[]): SandboxLog;  // driver actions only
 export function withEntry(log, entry: LogEntry): SandboxLog;                     // logs never change
 export function playAction(shell, transcript, action: LoggedAction): DriverStep; // drive + transcript, live or replayed
+export function driverAction(action: ContentAction): LoggedAction;  // the line, file or tab; no say, no answer
+export function playContent(shell, transcript, action: ContentAction): { action; step }[]; // the line, then its answer if asked
+export function sceneLog(setup, history: readonly ContentAction[], deps): SandboxLog;     // a drill's scene, answers logged
 export function replay(log: SandboxLog, deps: RepositoryDeps): { shell: Shell; transcript: TranscriptEntry[] };
 export interface DryRun {
   readonly step: DriverStep; readonly changes: readonly MachineChange[];
   readonly queries: SandboxQueries; readonly broken: readonly string[]; readonly harmful: boolean;
-} // broken: guards that held before the action and fail after, as describe() words them
-export function dryRun(log: SandboxLog, action: DriverAction,
+} // broken: guards with a part (an `all`'s check, one path of many) that held before and fails after
+export function dryRun(log: SandboxLog, action: LoggedAction,
   judge: { guards: readonly Predicate[] }, deps: RepositoryDeps): DryRun;
 
 // src/game/missions/agentRunner.ts (A12)

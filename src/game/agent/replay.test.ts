@@ -5,12 +5,28 @@ import { testDeps } from '../../engine/git/testDeps';
 import { snapshotMachine } from '../../engine/machine/snapshot';
 import { DriverError } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
-import { AgentActionSchema } from '../missions/agentSchema';
+import {
+  AgentActionSchema,
+  BaseActionSchema,
+  type AgentAction,
+  type BaseAction,
+} from '../missions/agentSchema';
 import { evaluate, type Predicate } from '../missions/predicates';
 import { sampleJudgmentDrillsInput } from '../missions/sample.test-mission';
 import { applySteps, createSandbox, DISPLAY_ROOT } from '../missions/sandbox';
 import { JudgmentDrillSchema } from '../missions/schema';
-import { dryRun, playAction, replay, startLog, withEntry, type LogEntry } from './replay';
+import {
+  driverAction,
+  dryRun,
+  playAction,
+  playContent,
+  replay,
+  sceneLog,
+  startLog,
+  withEntry,
+  type ContentAction,
+  type LogEntry,
+} from './replay';
 import type { TranscriptEntry } from './transcript';
 
 const HOME = 'Users/kyle';
@@ -172,13 +188,42 @@ describe('dryRun', () => {
     const broken = drills
       .filter((drill) => drill.kind === 'approve')
       .map((drill) => {
-        const scene = startLog(drill.setup, drill.history);
-        return [drill.id, dryRun(scene, drill.action, drill, testDeps()).broken];
+        const scene = sceneLog(drill.setup, drill.history, testDeps());
+        return [drill.id, dryRun(scene, driverAction(drill.action), drill, testDeps()).broken];
       });
     expect(Object.fromEntries(broken)).toEqual({
       'sample-approve-stray': [],
       'sample-approve-notes': ['Onboarding notes survive'],
     });
+  });
+
+  it('judges a guard part by part, so a line that finishes what another began still harms', () => {
+    const oldNotes: Predicate = {
+      kind: 'all',
+      of: [
+        { kind: 'driveFile', path: `${HOME}/old/notes.txt` },
+        { kind: 'driveFile', path: `${HOME}/old2/notes.txt` },
+      ],
+      label: 'Old notes survive',
+    };
+    // Otto already deleted old; old2 is all that's left of what the guard protects.
+    const oneGone = withEntry(
+      withEntry(startLog(setup), {
+        kind: 'steps',
+        steps: [{ op: 'write', path: `${HOME}/old2/notes.txt`, content: 'week 2\n' }],
+      }),
+      run('Remove-Item C:\\Users\\kyle\\old -Recurse'),
+    );
+    const line = 'Remove-Item C:\\Users\\kyle\\old2 -Recurse';
+    const dry = dryRun(oneGone, { do: 'run', line }, { guards: [oldNotes] }, testDeps());
+    expect(dry.broken).toEqual(['Old notes survive']);
+
+    // A check on several paths is judged path by path too.
+    const act2 = repo().commit('init', { 'app.ts': 'v1\n' }).write('a.ts', '').write('b.ts', '');
+    const untracked: Predicate = { kind: 'untracked', paths: ['a.ts', 'b.ts'] };
+    const addedA = startLog(act2.toSpec(), [{ do: 'run', line: 'git add a.ts' }]);
+    const addB = { do: 'run', line: 'git add b.ts' } as const;
+    expect(dryRun(addedA, addB, { guards: [untracked] }, testDeps()).harmful).toBe(true);
   });
 
   it('tries a line in an Act 2 sandbox too, where no laptop can change', () => {
@@ -196,8 +241,42 @@ describe('dryRun', () => {
 });
 
 describe("the content's actions", () => {
+  // Every action a plan, a deny branch or a drill can hold is a ContentAction, so all of
+  // them can go through playContent. These compile only while that stays true.
+  const fromBase = (action: BaseAction): ContentAction => action;
+  const fromScript = (action: AgentAction): ContentAction => action;
+  const line = 'Remove-Item C:\\Users\\kyle\\old';
+
+  it('log a Confirm answer as its own action, right after the line that asked', () => {
+    const history = [
+      fromBase(BaseActionSchema.parse({ do: 'run', line, answer: 'A', say: 'Clearing old.' })),
+      // Nothing asks here, so this answer is never typed.
+      fromScript(AgentActionSchema.parse({ do: 'run', line: 'mkdir notes', answer: 'A' })),
+      fromBase(BaseActionSchema.parse({ do: 'newTerminal', say: 'A fresh terminal.' })),
+      fromScript(AgentActionSchema.parse({ do: 'write', path: `${HOME}/a.md`, content: 'a' })),
+      fromBase(BaseActionSchema.parse({ do: 'useTerminal', tab: 1 })),
+    ];
+    const scene = sceneLog(setup, history, testDeps());
+    expect(scene.entries).toEqual([
+      run(line),
+      { kind: 'action', action: { do: 'answer', choice: 'A' } },
+      run('mkdir notes'),
+      { kind: 'action', action: { do: 'newTerminal' } },
+      { kind: 'action', action: { do: 'write', path: `${HOME}/a.md`, content: 'a' } },
+      { kind: 'action', action: { do: 'useTerminal', tab: 1 } },
+    ]);
+
+    // Playing the content straight into a sandbox ends up in the same place.
+    const live = new Shell(createSandbox(setup, testDeps()), DISPLAY_ROOT);
+    const transcript: TranscriptEntry[] = [];
+    for (const action of history) playContent(live, transcript, action);
+    const replayed = replay(scene, testDeps());
+    expect(stateOf(replayed.shell)).toEqual(stateOf(live));
+    expect(replayed.transcript).toEqual(transcript);
+    expect(stateOf(live).laptop?.items.has(`${HOME}/old`)).toBe(false);
+  });
+
   it('stay out of a log while a line carries its Confirm answer, which would be dropped', () => {
-    const line = 'Remove-Item C:\\Users\\kyle\\old';
     const script = AgentActionSchema.parse({ do: 'run', line, answer: 'A' });
     // @ts-expect-error: this line is two actions, the line and then its answer.
     const dropped = startLog(setup, [script]);
@@ -205,5 +284,6 @@ describe("the content's actions", () => {
     const { shell } = replay(dropped, testDeps());
     expect(shell.machineShell?.asking).toBe(true);
     expect(shell.ws.machine?.drive.exists(`${HOME}/old`)).toBe(true);
+    expect(driverAction(script)).toEqual({ do: 'run', line });
   });
 });

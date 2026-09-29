@@ -1,7 +1,12 @@
 import type { FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
 import { diffSnapshots, snapshotMachine, type MachineChange } from '../../engine/machine/snapshot';
-import { drive, type DriverAction, type DriverStep } from '../../engine/shell/driver';
+import {
+  drive,
+  type ConfirmLetter,
+  type DriverAction,
+  type DriverStep,
+} from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
 import type { EngineEvent, Workspace } from '../../engine/workspace';
 import { describe, evaluate, type Predicate, type SandboxQueries } from '../missions/predicates';
@@ -21,9 +26,15 @@ import { transcriptEntry, transcriptQueries, type TranscriptEntry } from './tran
  * One action for the driver, as the log keeps it. Content's run line may carry Otto's
  * answer to PowerShell's Confirm question, and that is two actions: the line, then the
  * answer, which gets a gate of its own (D7). Passed straight in, it would run the line and
- * quietly drop the answer, so `answer?: never` makes TypeScript refuse it here.
+ * quietly drop the answer, so `answer?: never` makes TypeScript refuse it here. Content
+ * goes through playContent instead.
  */
 export type LoggedAction = DriverAction & { readonly answer?: never };
+
+/** An action as content writes it: a plan's script, a deny branch, a drill's history. */
+export type ContentAction =
+  | { readonly do: 'run'; readonly line: string; readonly answer?: ConfirmLetter }
+  | Extract<DriverAction, { do: 'write' | 'newTerminal' | 'useTerminal' }>;
 
 /** One thing done to a sandbox after its setup. */
 export type LogEntry =
@@ -62,6 +73,63 @@ export function playAction(
   const step = drive(shell, action);
   transcript.push(transcriptEntry(action, step));
   return step;
+}
+
+/** What the driver takes from a content action: the line, file or tab, and nothing else. */
+export function driverAction(action: ContentAction): LoggedAction {
+  switch (action.do) {
+    case 'run':
+      return { do: 'run', line: action.line };
+    case 'write':
+      return { do: 'write', path: action.path, content: action.content };
+    case 'newTerminal':
+      return { do: 'newTerminal' };
+    case 'useTerminal':
+      return { do: 'useTerminal', tab: action.tab };
+  }
+}
+
+/** A driver action that was played, and what it did. */
+export interface Played {
+  readonly action: LoggedAction;
+  readonly step: DriverStep;
+}
+
+/**
+ * Plays one content action with its answer allowed: the line, then, if PowerShell asked,
+ * Otto's answer as an action of its own. Drill scenes and headless tests play content this
+ * way. Live play doesn't, because there the answer is a gate of its own (D7): play drives
+ * the line, opens the gate, then drives the answer.
+ */
+export function playContent(
+  shell: Shell,
+  transcript: TranscriptEntry[],
+  action: ContentAction,
+): Played[] {
+  const line = driverAction(action);
+  const lineStep = playAction(shell, transcript, line);
+  const played: Played[] = [{ action: line, step: lineStep }];
+  if (action.do !== 'run' || action.answer === undefined || !lineStep.asking) return played;
+  const answer: LoggedAction = { do: 'answer', choice: action.answer };
+  return [...played, { action: answer, step: playAction(shell, transcript, answer) }];
+}
+
+/**
+ * A log of content Otto already ran, like a drill's scene. Whether a line asks depends on
+ * the laptop, so each action is played once in a scratch copy to find out; then every
+ * answer is logged right after the line that asked.
+ */
+export function sceneLog(
+  setup: readonly FixtureStep[],
+  history: readonly ContentAction[],
+  deps: RepositoryDeps,
+): SandboxLog {
+  const { shell, transcript } = replay(startLog(setup), deps);
+  const played = history.flatMap((action) => playContent(shell, transcript, action));
+  return startLog(
+    setup,
+    played.map(({ action }) => action),
+  );
 }
 
 export interface Replay {
@@ -105,23 +173,28 @@ export interface DryRun {
  * a gate knows what a line will do before Kyle decides, and how the game knows whether
  * denying it was right: an author never marks a line harmful, the engine finds out.
  *
- * A guard counts as broken when it held before the action and fails after it. One that
- * had already failed isn't this action's fault, so it can't make the action harmful.
+ * A guard counts as broken when a part of it held before the action and fails after it.
+ * A part that had already failed isn't this action's fault, so it can't make the action
+ * harmful. Judging part by part matters when an earlier line broke one part: a line that
+ * then destroys the rest is still harmful.
  */
 export function dryRun(
   log: SandboxLog,
-  action: DriverAction,
+  action: LoggedAction,
   judge: { readonly guards: readonly Predicate[] },
   deps: RepositoryDeps,
 ): DryRun {
   const { shell, transcript } = replay(log, deps);
   const queries = sandboxQueries(shell.ws, transcriptQueries(transcript));
-  const heldBefore = judge.guards.map((guard) => evaluate(guard, queries));
+  const watched = judge.guards.map((guard) => ({
+    guard,
+    holding: guardParts(guard).filter((part) => evaluate(part, queries)),
+  }));
   const changesSince = watchChanges(shell.ws);
   const step = playAction(shell, transcript, action);
-  const broken = judge.guards
-    .filter((guard, index) => heldBefore[index] === true && !evaluate(guard, queries))
-    .map((guard) => describe(guard, queries.machine?.display));
+  const broken = watched
+    .filter(({ holding }) => holding.some((part) => !evaluate(part, queries)))
+    .map(({ guard }) => describe(guard, queries.machine?.display));
   return {
     step,
     changes: changesSince(step.events),
@@ -129,6 +202,27 @@ export function dryRun(
     broken,
     harmful: broken.length > 0,
   };
+}
+
+/**
+ * The separate things a guard protects: each check in an `all`, and each path of a git
+ * check that must hold for every path it names, like `tracked`. An `any` or a `not` stays
+ * whole, because losing one of its parts need not break it.
+ */
+function guardParts(guard: Predicate): Predicate[] {
+  switch (guard.kind) {
+    case 'all':
+      return guard.of.flatMap(guardParts);
+    case 'notStaged':
+    case 'untracked':
+    case 'tracked':
+    case 'notTracked':
+    case 'ignored':
+    case 'modified':
+      return guard.paths.map((path) => ({ ...guard, paths: [path] }));
+    default:
+      return [guard];
+  }
 }
 
 /**
