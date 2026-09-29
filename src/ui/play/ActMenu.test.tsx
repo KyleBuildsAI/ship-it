@@ -11,6 +11,7 @@ import {
 } from '../../game/missions/sample.test-mission';
 import { ActSchema } from '../../game/missions/schema';
 import { setCatalog, type ActContent } from '../../game/play/catalog';
+import { withUnlock } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import {
   createActProgress,
@@ -136,6 +137,17 @@ describe('the Act menu of a finished Act', () => {
       'Field Mission: Clean the Dirty Tree (sample) · Real work on your SandCastles repo [Open]',
     ]);
     expect(note(markup)).toBeNull();
+  });
+
+  it('opens the boss early in preview mode, and says why', () => {
+    const preview = withUnlock(newSave, true);
+    expect(rows(menuFor(act2, preview))).toContain(
+      'Boss: The Dirty Tree (sample) · Unlocked for preview [Fight]',
+    );
+    const earned = withDone(preview, ...sampleAct.missionIds);
+    expect(rows(menuFor(act2, earned))).toContain(
+      'Boss: The Dirty Tree (sample) · Dex is waiting [Fight]',
+    );
   });
 
   it('shows what the player has finished', () => {

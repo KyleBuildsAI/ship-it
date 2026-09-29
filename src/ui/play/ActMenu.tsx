@@ -4,8 +4,8 @@ import { startBossFight } from '../../game/play/bossPlay';
 import { getAct, getCatalog, hasWorkLeft } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startMission } from '../../game/play/missionPlay';
-import { missionDone } from '../../game/play/saveRules';
 import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
+import { bossAccess, type BossAccess } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { completedActNumbers, rankFor } from '../../game/progression/xp';
 import type { ActProgress, MissionStatus, SaveData } from '../../game/save/schema';
@@ -74,29 +74,38 @@ function PlacementRow({ actNumber, actProgress, test }: PartRowProps & { test: P
   );
 }
 
+/** What the boss row says under its title, for each way the boss can be open or not. */
+function bossHint(access: BossAccess, hasPlacement: boolean): string {
+  switch (access) {
+    case 'earned':
+      return 'Dex is waiting';
+    case 'preview':
+      return 'Unlocked for preview';
+    case 'locked':
+      // An early-access Act has no placement test, so testing out can't open its boss.
+      return hasPlacement
+        ? 'Opens after every mission (or the placement test)'
+        : 'Opens after every mission';
+  }
+}
+
 function BossRow({
   actNumber,
   actProgress,
   boss,
-  unlocked,
+  access,
   hasPlacement,
-}: PartRowProps & { boss: Boss; unlocked: boolean; hasPlacement: boolean }) {
-  // An early-access Act has no placement test, so testing out can't open its boss.
-  const locked = hasPlacement
-    ? 'Opens after every mission (or the placement test)'
-    : 'Opens after every mission';
+}: PartRowProps & { boss: Boss; access: BossAccess; hasPlacement: boolean }) {
   return (
     <li>
       <span>
         Boss: {boss.title}
-        <small>
-          {actProgress?.bossCompletedAt ? 'Beaten' : unlocked ? 'Dex is waiting' : locked}
-        </small>
+        <small>{actProgress?.bossCompletedAt ? 'Beaten' : bossHint(access, hasPlacement)}</small>
       </span>
       <button
         type="button"
         className="play-button"
-        disabled={!unlocked}
+        disabled={access === 'locked'}
         onClick={() => {
           startBossFight(actNumber);
         }}
@@ -169,7 +178,6 @@ export function ActMenu({ act: number }: { act: number }) {
   const { act, missions } = getAct(number);
   const { placementTest, boss, fieldMission } = act;
   const actProgress = save.acts[String(act.act)];
-  const bossUnlocked = act.missionIds.every((id) => missionDone(save, id));
   const reviews = reviewItemsToday();
   const rank = rankFor(completedActNumbers(save.acts));
 
@@ -219,7 +227,7 @@ export function ActMenu({ act: number }: { act: number }) {
             actNumber={act.act}
             actProgress={actProgress}
             boss={boss}
-            unlocked={bossUnlocked}
+            access={bossAccess(save, act)}
             hasPlacement={placementTest !== undefined}
           />
         ) : null}

@@ -12,11 +12,12 @@ import {
 } from '../progress';
 import { clearSave, closeSaveDatabase, loadSave, writeSave } from '../save/db';
 import { validateSave } from '../save/migrations';
-import { createDefaultSave, type SaveData } from '../save/schema';
+import { createDefaultSave, createMissionProgress, type SaveData } from '../save/schema';
 import { TEST_NOW } from '../save/testFixtures';
 import { setCatalog } from './catalog';
 import {
   asksToUnlock,
+  bossAccess,
   isUnlocked,
   setUnlockAll,
   unlockFromAddress,
@@ -163,6 +164,34 @@ describe('the ?unlock=all address flag', () => {
     const address = fakeAddress(`${GAME}?unlock=all`);
     unlockFromAddress(address);
     expect(address.history).toHaveLength(1);
+  });
+});
+
+describe('who can fight a boss', () => {
+  const allDone = (save: SaveData): SaveData => ({
+    ...save,
+    missions: Object.fromEntries(
+      sampleAct.missionIds.map((id, index) => [
+        id,
+        { ...createMissionProgress(), status: index === 0 ? 'tested-out' : 'completed' },
+      ]),
+    ),
+  });
+
+  it('keeps the boss locked until every mission is done, without preview', () => {
+    const save = createDefaultSave(TEST_NOW);
+    expect(bossAccess(save, sampleAct)).toBe('locked');
+    expect(bossAccess(allDone(save), sampleAct)).toBe('earned');
+  });
+
+  it('opens the boss for preview before the missions are done', () => {
+    const preview = withUnlock(createDefaultSave(TEST_NOW), true);
+    expect(bossAccess(preview, sampleAct)).toBe('preview');
+  });
+
+  it('still calls it earned in preview once the missions are done', () => {
+    const preview = withUnlock(createDefaultSave(TEST_NOW), true);
+    expect(bossAccess(allDone(preview), sampleAct)).toBe('earned');
   });
 });
 

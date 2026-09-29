@@ -1,7 +1,9 @@
 import { closeActMenu, hud } from '../hud';
+import type { Act } from '../missions/schema';
 import { progress, updateSave } from '../progress';
 import type { SaveData } from '../save/schema';
 import { findAct } from './catalog';
+import { missionDone } from './saveRules';
 
 /*
  * Preview mode, "Unlock everything (preview)" in Settings: a way to look at unfinished
@@ -79,6 +81,17 @@ export function unlockFromAddress(address: AddressBar): () => void {
     if (settle()) stop();
   });
   return stop;
+}
+
+/**
+ * Why an Act's boss can be fought, or that it can't yet. 'earned': every mission is done
+ * (a tested-out one counts). 'preview': it isn't, but preview mode opens it anyway.
+ */
+export type BossAccess = 'earned' | 'preview' | 'locked';
+
+export function bossAccess(save: SaveData, act: Act): BossAccess {
+  if (act.missionIds.every((id) => missionDone(save, id))) return 'earned';
+  return isUnlocked(save) ? 'preview' : 'locked';
 }
 
 /**
