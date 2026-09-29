@@ -104,28 +104,32 @@ const QuestionRoundSchema = z
     }
   });
 
+/** A rule a mission breaks about being directed: the field it's about, and why. */
+interface DirectedProblem {
+  readonly field: 'steps' | 'approvals' | 'initialRepoState';
+  readonly message: string;
+}
+
 /**
  * A mission is directed (Kyle directs Otto) or typed (Kyle types, as in Act 2), never a
  * mix: the approval mode covers the whole sim, and Otto only works on the laptop.
+ * MissionSchema reports these as it parses.
  */
-function checkDirected(
-  mission: {
-    readonly steps: readonly { readonly agent?: unknown }[];
-    readonly approvals?: string | undefined;
-    readonly initialRepoState: readonly FixtureStep[];
-  },
-  ctx: z.RefinementCtx,
-): void {
-  const problem = (path: string, message: string) => {
-    ctx.addIssue({ code: 'custom', path: [path], message });
-  };
+function directedProblems(mission: {
+  readonly steps: readonly { readonly agent?: unknown }[];
+  readonly approvals?: string | undefined;
+  readonly initialRepoState: readonly FixtureStep[];
+}): DirectedProblem[] {
   const directed = mission.steps.filter((step) => step.agent !== undefined).length;
   if (directed === 0) {
-    if (mission.approvals !== undefined) {
-      problem('approvals', 'Only a directed mission sets approvals.');
-    }
-    return;
+    return mission.approvals === undefined
+      ? []
+      : [{ field: 'approvals', message: 'Only a directed mission sets approvals.' }];
   }
+  const problems: DirectedProblem[] = [];
+  const problem = (field: DirectedProblem['field'], message: string) => {
+    problems.push({ field, message });
+  };
   if (directed < mission.steps.length) {
     problem('steps', 'Give every step an agent task, or none: a mission is directed or typed.');
   }
@@ -135,6 +139,7 @@ function checkDirected(
   if (mission.initialRepoState[0]?.op !== 'windows') {
     problem('initialRepoState', 'Otto works on the laptop, so start with windows().');
   }
+  return problems;
 }
 
 export const MissionSchema = z
@@ -160,7 +165,9 @@ export const MissionSchema = z
   .superRefine((mission, ctx) => {
     checkUniqueIds(mission.steps, 'steps', ctx);
     checkUniqueIds(mission.drills, 'drills', ctx);
-    checkDirected(mission, ctx);
+    for (const { field, message } of directedProblems(mission)) {
+      ctx.addIssue({ code: 'custom', path: [field], message });
+    }
   });
 
 /** A mission after parsing: defaults like a drill's 90-second limit are filled in. */

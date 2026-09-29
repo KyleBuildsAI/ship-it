@@ -239,15 +239,23 @@ export const AgentTaskSchema = z
       }
     });
     checkUniqueIds(task.looks, 'looks', ctx);
-    const hint = task.plans.find((plan) => plan.id === task.hintPlan);
-    if (hint?.quality !== 'strong') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['hintPlan'],
-        message: 'hintPlan must name a strong start plan.',
-      });
+    const hintProblem = hintPlanProblem(task);
+    if (hintProblem !== null) {
+      ctx.addIssue({ code: 'custom', path: ['hintPlan'], message: hintProblem });
     }
   });
+
+/**
+ * Why a task's hintPlan is wrong, or null when it names a strong start plan. The last
+ * hint points at that card, so it must be one that works.
+ */
+function hintPlanProblem(task: {
+  readonly plans: readonly { readonly id: string; readonly quality: string }[];
+  readonly hintPlan: string;
+}): string | null {
+  const hint = task.plans.find((plan) => plan.id === task.hintPlan);
+  return hint?.quality === 'strong' ? null : 'hintPlan must name a strong start plan.';
+}
 
 export type AgentTask = z.output<typeof AgentTaskSchema>;
 /** What a content file writes: fields with defaults may be left out. */
