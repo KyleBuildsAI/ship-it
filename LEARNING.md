@@ -1855,3 +1855,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/135
 3. The Act 2 tests that read `act2.boss.timeLimitSeconds` or `act2.placementTest.drillIds` would stop compiling, because TypeScript would say those parts might be `undefined`.
 
 </details>
+
+---
+
+## #136 refactor: an act can ship in early access
+
+https://github.com/KyleBuildsAI/ship-it/pull/136
+
+1. Why is a placement test not allowed while an Act is in early access?
+2. Act 1 ships with Mission 1.1 and all five later titles in `upcoming`. What must change in `act.ts` when Mission 1.2 ships, and what catches a mistake?
+3. Why does the save-rules test also run the same progress with `earlyAccess: false`?
+
+<details><summary>Answers</summary>
+
+1. Passing a placement test marks every mission in the Act as tested out and can complete the Act. In early access, some missions don't exist yet, so testing out would skip lessons nobody has played.
+2. Add `'deletes-are-forever'` to `missionIds` and remove "Deletes Are Forever" from `upcoming`. If the title stays in `upcoming`, the Act counts 7 missions (2 shipped plus 5 upcoming), so the schema rejects it when it loads: "An Act has at most 6 missions, counting the upcoming ones." If a different title is removed by mistake, the count still fits, and `validateAct` reports that "Deletes Are Forever" has shipped, so it isn't upcoming.
+3. To prove the early-access flag is what keeps the Act unfinished. If the finished version didn't complete either, the test would pass for the wrong reason, for example because some part was never recorded.
+
+</details>
