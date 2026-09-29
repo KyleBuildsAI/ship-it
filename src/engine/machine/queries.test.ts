@@ -30,6 +30,13 @@ describe('machineQueries', () => {
     expect(q.cwd()).toBe('Users/kyle');
   });
 
+  it("names the player's home, where every new terminal opens, wherever the tabs stand", () => {
+    const { machine, q } = laptop();
+    expect(q.home()).toBe('Users/kyle');
+    expect(q.cwd()).toBe('Users/kyle/Notes');
+    expect(q.home()).toBe(machine.openSession().cwd);
+  });
+
   it('finds files and folders in any case', () => {
     const { q } = laptop();
     expect(q.item('users/kyle/notes')).toEqual({ kind: 'folder', content: null });
@@ -162,6 +169,7 @@ describe('machineQueries', () => {
     q.item('Users/kyle/Notes');
     q.env('Path', 'newTerminal');
     q.cwd();
+    q.home();
     q.list('Users/kyle');
     q.list('Users/kyle/nope');
     q.tabs();

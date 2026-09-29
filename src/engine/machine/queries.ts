@@ -35,6 +35,8 @@ export interface MachineQueries {
   readonly display: (path: string) => string;
   /** The folder the active terminal tab stands in, with its stored casing. */
   readonly cwd: () => string;
+  /** The player's home folder, canonical: 'Users/kyle'. Every new terminal opens here. */
+  readonly home: () => string;
   /** A file (with its text) or a folder at the path, or null when nothing is there. */
   readonly item: (
     path: string,
@@ -60,6 +62,7 @@ export function machineQueries(machine: Machine): MachineQueries {
   return {
     display,
     cwd: () => machine.active().cwd,
+    home: () => machine.home,
     item: (path) => {
       const found = resolveExisting(machine.drive, path);
       if (found === null) return null;
