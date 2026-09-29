@@ -136,9 +136,10 @@ The story line, from Marco in the first briefing: *"The Quillwork API must run o
 2. **Panel.** Otto's lines in a speech bubble, and a compact run log (one row per line, with its exit status).
 3. **World.** The drone and a lantern per terminal (§4).
 
-Speed:
-- Instant under reduced motion and under `navigator.webdriver`.
-- 2× and Instant are available in Settings (B5).
+Speed (`game/agent/pace.ts`):
+- About 40 characters a second, with a 0.4 s pause before each line and 0.6 s after each result, so the output can be read and the world can move. Kyle's look lines appear at once.
+- Instant under reduced motion and under `navigator.webdriver`. Reduced motion is the game's setting, which follows the system's preference while it's set to "system", as the world does.
+- 2× and Instant are available in Settings (B5). A drill's scene plays at 3× (§2.2).
 
 **Slips.** Every slip is one real agent mistake from a fixed list, named the same way everywhere. Each plan carries at most one `slip`, and the Result screen names it ("Slip: wrong place").
 
@@ -1164,6 +1165,18 @@ export function feedTyping(state, typing: Pick<DriverStep, 'tab' | 'prompt' | 'e
 export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHOICES if not yet open, world, result
 export function feedAction(state, step, by?): Fed;    // feedTyping, then feedOutcome
 export function feedCancel(state): Fed;               // a denied line ends unrun
+
+// src/game/agent/pace.ts (A15): when each beat shows. Pure: the tick passes the elapsed time.
+export interface Pace { charMs: number; thinkMs: number; settleMs: number } // NORMAL_PACE 25 / 400 / 600
+export interface MotionEnvironment { prefersReducedMotion(): boolean; automated(): boolean } // browserMotion.ts
+export function choosePace(env: MotionEnvironment,
+  options?: { reducedMotion?: Settings['reducedMotion']; speed?: number | 'instant' }): Pace;
+export interface Playhead { beat: number; spent: number; shown: number } // START = { 0, 0, 0 }
+export type Reveal = { kind: 'beat'; beat: FeedBeat } | { kind: 'keys'; tab; by: Typist; text; from: number };
+export function advance(beats, pace, head: Playhead, elapsedMs: number):
+  { head: Playhead; reveals: readonly Reveal[]; done: boolean };     // done after the last result settles
+export function timing(beat, pace): { lead: number; span: number };  // think before Otto types, settle after a result
+export function totalMs(beats, pace): number;
 ```
 
 Store changes:
@@ -1493,7 +1506,7 @@ Sizes exclude content data, captures and lockfiles.
 | A12 | `feat: the agent step state machine` | `game/missions/agentRunner.ts` (NEW) | `agentRunner.test.ts`: every transition, the verdict table, gates, predicts, stop, rewind, stars, `completeAgentStep` advancing exactly one step | 400 |
 | A13 | `feat: judgment drills are graded by running them` | `game/missions/judgment.ts` (NEW): predict, diagnose, fix, approve, `shuffleFor` | `judgment.test.ts` on a tiny laptop | 350 |
 | A14 | `feat: act 1 mission 1.1 where things live, behind a preview flag` | `content/act1/{shared,whereThingsLive,act,index,play.test-helpers}.ts`, `src/main.tsx` (`?preview=act1`) | `act1.test.ts`, `agent.test.ts`, `drills.test.ts` | tests ≈ 350 plus content |
-| A15 | `feat: otto's pace and the agent feed` | `game/agent/{feed,pace}.ts` (NEW) | `feed.test.ts`, `pace.test.ts` (instant under reduced motion or webdriver) | 180 |
+| A15 | `feat: otto's pace and the agent feed` | `game/agent/{feed,pace,browserMotion}.ts` (NEW) | `feed.test.ts`, `pace.test.ts` (instant under reduced motion or webdriver) | 180 |
 | A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
 | A17 | `feat: approval gates, predictions, stop, and rewind in play` | `play/agentPlay.ts`, `game/agent/effects.ts` (NEW: `isConsequential`, `describeChanges`) | `effects.test.ts`, `play.test.ts` (allow, deny, onDeny, Confirm answer, rewind) | 330 |
 | A18 | `feat: judgment drills in missions, placement, and reviews` | `missionPlay.ts`, `seriesPlay.ts` (scene playback, clock after the scene, `submitJudgment`) | `play.test.ts`: pass or miss, review queue through `addMiss`, the clock starts after the scene | 300 |
