@@ -1801,3 +1801,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/132
 3. `[{ tab: 2, cwd: 'Users/kyle', active: true }]`. The terminal still calls that tab PS 2. If numbers shifted, a check like "tab 1 stays in the API" would suddenly be looking at a different tab.
 
 </details>
+
+---
+
+## #133 feat: grade the laptop by folder, file, location, and variable
+
+https://github.com/KyleBuildsAI/ship-it/pull/133
+
+1. In the test laptop, PS 1 opened before `QUILL_ENV` was saved. With PS 1 active, which passes: `{ kind: 'envVar', name: 'QUILL_ENV' }`, or the same with `scope: 'newTerminal'`? Why?
+2. Why does the checklist say "PORT is set in the active terminal, with the expected value" instead of "PORT is 4000"?
+3. `C:\Users\kyle\quillwork\api` is a folder. What does `{ kind: 'driveFile', path: 'Users/kyle/quillwork/api', exists: false }` return, and why?
+
+<details><summary>Answers</summary>
+
+1. Only the `newTerminal` one. PS 1 copied its variables when it opened, before `QUILL_ENV` was saved, so the active tab doesn't have it. A terminal opened now would copy it.
+2. A variable or a file can hold a secret, like an API key, and the checklist is on screen. The game can't tell which values are secret, so it never prints any. Content can add a `label` when a friendlier sentence is safe.
+3. `true`. The check asks "is there no file here?", and a folder isn't a file. `driveFolder` works the same way the other way round.
+
+</details>
