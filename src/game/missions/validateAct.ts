@@ -1,3 +1,5 @@
+import type { FixtureStep } from '../../engine/git/fixtures';
+import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
 import { countWords, MAX_SCREEN_WORDS, type Act, type Mission } from './schema';
 
@@ -19,17 +21,41 @@ function duplicates(values: readonly string[]): string[] {
   return [...repeated];
 }
 
+/** A predicate and every predicate nested inside it (in all, any, and not), parents first. */
+function everyPredicate(predicate: Predicate): Predicate[] {
+  if (predicate.kind === 'all' || predicate.kind === 'any') {
+    return [predicate, ...predicate.of.flatMap(everyPredicate)];
+  }
+  if (predicate.kind === 'not') return [predicate, ...everyPredicate(predicate.predicate)];
+  return [predicate];
+}
+
 /**
  * Every `label` in a predicate, including ones nested inside all, any, and not. Labels
  * replace the generated text in the objective checklist, so the player reads them too.
  */
 function labelsIn(predicate: Predicate): string[] {
-  const own = predicate.label === undefined ? [] : [predicate.label];
-  if (predicate.kind === 'all' || predicate.kind === 'any') {
-    return [...own, ...predicate.of.flatMap(labelsIn)];
-  }
-  if (predicate.kind === 'not') return [...own, ...labelsIn(predicate.predicate)];
-  return own;
+  return everyPredicate(predicate).flatMap((part) =>
+    part.label === undefined ? [] : [part.label],
+  );
+}
+
+/**
+ * Why these checks can't run in this setup, or null when they can. A laptop check asks
+ * the machine, and only a setup that starts with windows() has one. Anywhere else,
+ * grading stops with a PredicateContextError when it reaches the check, halfway through
+ * a mission. Behind an all or any that has already decided, it is never reached, and
+ * the answer comes quietly without it. So this is the real guard, not that error.
+ */
+function laptopProblem(
+  predicates: readonly Predicate[],
+  setup: readonly FixtureStep[],
+  setupName: string,
+): string | null {
+  if (setup[0]?.op === 'windows') return null;
+  const laptopCheck = predicates.flatMap(everyPredicate).find(isMachinePredicate);
+  if (laptopCheck === undefined) return null;
+  return `"${laptopCheck.kind}" checks the laptop, so ${setupName} must start with windows().`;
 }
 
 /** Each piece of text the player reads on screen, labelled with where it lives. */
@@ -84,10 +110,11 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
 
 /**
  * Checks the links between an Act and its missions that no single schema can see:
- * every referenced mission and placement drill exists, ids don't collide, and every
- * screen of text stays within DESIGN.md pillar 1's word budget. The schemas also limit
- * words; repeating it here means content built without parsing is covered too, and
- * every problem is listed at once with its location.
+ * every referenced mission and placement drill exists, ids don't collide, laptop checks
+ * only grade setups that build a laptop, and every screen of text stays within DESIGN.md
+ * pillar 1's word budget. The schemas also limit words; repeating it here means content
+ * built without parsing is covered too, and every problem is listed at once with its
+ * location.
  *
  * Returns an empty list when the Act is ready to ship.
  */
@@ -133,6 +160,29 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
   for (const id of act.placementTest.drillIds) {
     if (!knownDrills.has(id)) report('placement test', `No drill in this Act has the id "${id}".`);
   }
+
+  const reportLaptop = (where: string, problem: string | null) => {
+    if (problem !== null) report(where, problem);
+  };
+  for (const mission of missions) {
+    for (const step of mission.steps) {
+      reportLaptop(
+        `mission ${mission.id} > step ${step.id}`,
+        laptopProblem([step.success], mission.initialRepoState, "the mission's initialRepoState"),
+      );
+    }
+    for (const drill of mission.drills) {
+      reportLaptop(
+        `mission ${mission.id} > drill ${drill.id}`,
+        laptopProblem([drill.success], drill.setup, "the drill's setup"),
+      );
+    }
+  }
+  const { boss } = act;
+  reportLaptop(
+    'boss',
+    laptopProblem([...boss.objectives, ...boss.failIf], boss.setup, "the boss's setup"),
+  );
 
   for (const [where, text] of screenTexts(act, missions)) {
     const words = countWords(text);

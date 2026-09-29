@@ -51,6 +51,20 @@ const RepoPathSchema = z
 
 const PathListSchema = z.array(RepoPathSchema).min(1);
 
+/**
+ * A path on the laptop's drive, from C:\ in the same canonical form: 'Users/kyle/notes'.
+ * A check never expands '~' or a drive letter, so '~/notes' would look for a folder
+ * named '~' at C:\ and 'C:/Users' for one named 'C:'. Such a check could never pass, and
+ * with `exists: false` it would always pass, so both shapes are content mistakes.
+ */
+const DrivePathSchema = RepoPathSchema.refine(
+  (path) => path.split('/')[0] !== '~' && !path.includes(':'),
+  {
+    error:
+      'Write the full drive path from C:\\, like "Users/kyle/notes". A check does not expand "~" or "C:".',
+  },
+);
+
 const CaptionsSchema = z.array(ScreenTextSchema).min(1).max(3);
 
 // ---- Fixture steps --------------------------------------------------------------------
@@ -279,6 +293,69 @@ const predicateKinds = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('all'), of: z.array(nested).min(1), ...labelled }),
   z.strictObject({ kind: z.literal('any'), of: z.array(nested).min(1), ...labelled }),
   z.strictObject({ kind: z.literal('not'), predicate: nested, ...labelled }),
+  // ---- The laptop (Act 1) ----
+  // Paths start at C:\ ('Users/kyle/notes'). validateAct checks the setup is a windows() laptop.
+  z.strictObject({
+    kind: z.literal('currentDirectory'),
+    path: DrivePathSchema,
+    tab: z.union([z.int().positive(), z.literal('any')]).optional(),
+    ...labelled,
+  }),
+  z.strictObject({
+    kind: z.literal('driveFolder'),
+    path: DrivePathSchema,
+    exists: z.boolean().optional(),
+    ...labelled,
+  }),
+  z
+    .strictObject({
+      kind: z.literal('driveFile'),
+      path: DrivePathSchema,
+      equals: z.string().optional(),
+      contains: z.string().min(1).optional(),
+      pattern: z.string().min(1).optional(),
+      flags: RegexFlagsSchema.optional(),
+      exists: z.boolean().optional(),
+      ...labelled,
+    })
+    .superRefine((value, ctx) => {
+      if (value.pattern !== undefined)
+        checkRegex({ pattern: value.pattern, flags: value.flags }, ctx);
+      // Flags only change how a pattern matches; on their own they would be ignored.
+      if (value.flags !== undefined && value.pattern === undefined) {
+        ctx.addIssue({ code: 'custom', message: 'flags need a pattern.', path: ['flags'] });
+      }
+      const content = [value.equals, value.contains, value.pattern].some(
+        (check) => check !== undefined,
+      );
+      if (value.exists === false && content) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A file that must not exist cannot also have content to check.',
+          path: ['exists'],
+        });
+      }
+    }),
+  z
+    .strictObject({
+      kind: z.literal('envVar'),
+      name: EnvNameSchema,
+      scope: z.enum([...EnvScopeSchema.options, 'newTerminal']).optional(),
+      // Windows deletes a variable set to '', so an empty value can never be read back.
+      equals: z.string().min(1).optional(),
+      contains: z.string().min(1).optional(),
+      exists: z.boolean().optional(),
+      ...labelled,
+    })
+    .superRefine((value, ctx) => {
+      if (value.exists === false && (value.equals !== undefined || value.contains !== undefined)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'A variable that must be unset cannot also have a value to check.',
+          path: ['exists'],
+        });
+      }
+    }),
 ]);
 
 /** Validates the predicate language in `predicates.ts`, including nested all/any/not. */

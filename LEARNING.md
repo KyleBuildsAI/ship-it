@@ -1819,3 +1819,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/133
 3. `true`. The check asks "is there no file here?", and a folder isn't a file. `driveFolder` works the same way the other way round.
 
 </details>
+
+---
+
+## #134 feat: missions check the laptop, and play grades it
+
+https://github.com/KyleBuildsAI/ship-it/pull/134
+
+1. A drill's setup is `repo().commit(...)` and its success is `{ kind: 'driveFile', path: 'Users/kyle/a.txt' }`. What catches it, and when?
+2. Why could `runner.ts` and every Act 2 test keep passing `gitQueries(ws)` unchanged?
+3. Why does the schema reject `{ kind: 'envVar', name: 'PORT', equals: '' }`?
+
+<details><summary>Answers</summary>
+
+1. `validateAct` reports it: `"driveFile" checks the laptop, so the drill's setup must start with windows().` That runs in the content tests, so CI fails before anyone plays it. If it slipped through, this bare check would make `evaluate` throw `PredicateContextError`, because an Act 2 sandbox has no machine to ask. But inside an `all` or `any` that decides before reaching it, it would never run, and the drill would be graded quietly without it. That's why `validateAct` is the guard to trust.
+2. `SandboxQueries` is `GitQueries` plus an optional `machine`, so a plain `GitQueries` object already fits. Only laptop checks need the machine.
+3. Windows deletes a variable that's set to an empty value, so no variable can ever equal `''`. The check could never pass, which makes it a content bug the schema catches when the mission loads.
+
+</details>

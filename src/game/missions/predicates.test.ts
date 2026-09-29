@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
+import { windows } from '../../engine/fixtures';
 import { git } from '../../engine/git/cli/testRun';
 import { folder, repo } from '../../engine/git/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
+import { machineQueries } from '../../engine/machine/queries';
 import type { Workspace } from '../../engine/workspace';
+import { PredicateContextError } from './machinePredicates';
 import {
   changedPaths,
   describe as describePredicate,
   evaluate,
   explain,
   type Predicate,
+  type SandboxQueries,
 } from './predicates';
 
 /** Evaluates a predicate against a sandbox, the way the runner does after each command. */
@@ -264,6 +268,57 @@ describe('combinators', () => {
     expect(holds(ws, { kind: 'any', of: [no, no] })).toBe(false);
     expect(holds(ws, { kind: 'not', predicate: no })).toBe(true);
     expect(holds(ws, { kind: 'not', predicate: { kind: 'not', predicate: no } })).toBe(false);
+  });
+});
+
+describe('laptop checks', () => {
+  /** A laptop whose mounted project (C:\Users\kyle\quillwork\app) has one commit. */
+  function laptop(): SandboxQueries {
+    const ws = windows().init().write('Users/kyle/quillwork/app/app.ts', 'v1\n').build(testDeps());
+    git(ws, ['add', 'app.ts']);
+    git(ws, ['commit', '-m', 'chore: init']);
+    if (ws.machine === null) throw new Error('windows() should build a laptop.');
+    return { ...gitQueries(ws), machine: machineQueries(ws.machine) };
+  }
+  const notes: Predicate = { kind: 'driveFolder', path: 'Users/kyle/notes' };
+  const home: Predicate = { kind: 'currentDirectory', path: 'Users/kyle' };
+
+  it('grades the laptop and git together, in one tree of checks', () => {
+    const q = laptop();
+    expect(evaluate({ kind: 'all', of: [home, { kind: 'clean' }] }, q)).toBe(true);
+    expect(evaluate({ kind: 'any', of: [notes, { kind: 'tracked', paths: ['app.ts'] }] }, q)).toBe(
+      true,
+    );
+    expect(evaluate({ kind: 'not', predicate: notes }, q)).toBe(true);
+  });
+
+  it('stops with a content error when an Act 2 sandbox is asked about a laptop', () => {
+    const q = gitQueries(project());
+    expect(() => evaluate(notes, q)).toThrow(PredicateContextError);
+    expect(() => evaluate({ kind: 'all', of: [{ kind: 'isRepo' }, notes] }, q)).toThrow(
+      PredicateContextError,
+    );
+  });
+
+  it('answers quietly when all or any decides before the laptop check, so validateAct must guard', () => {
+    // all and any stop at the first answer that settles them, so the laptop check behind
+    // it never runs and nothing throws. Only validateAct catches these before play.
+    const q = gitQueries(project());
+    expect(evaluate({ kind: 'any', of: [{ kind: 'isRepo' }, notes] }, q)).toBe(true);
+    expect(evaluate({ kind: 'all', of: [{ kind: 'commitCount', equals: 5 }, notes] }, q)).toBe(
+      false,
+    );
+  });
+
+  it('describes laptop paths as Windows shows them in the checklist', () => {
+    const q = laptop();
+    expect(explain({ kind: 'all', of: [home, { kind: 'not', predicate: notes }] }, q)).toEqual([
+      { label: 'The active terminal is in C:\\Users\\kyle', passed: true },
+      { label: 'Not true: Folder C:\\Users\\kyle\\notes exists', passed: true },
+    ]);
+    // Without a display, describe shows the path as content writes it.
+    expect(describePredicate(notes)).toBe('Folder Users/kyle/notes exists');
+    expect(describePredicate({ ...notes, label: 'Notes are ready' })).toBe('Notes are ready');
   });
 });
 

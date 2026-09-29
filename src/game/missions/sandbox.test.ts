@@ -3,7 +3,7 @@ import { folder, repo, windows } from '../../engine/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { NotARepositoryError, Workspace } from '../../engine/workspace';
-import { applySteps, createSandbox } from './sandbox';
+import { applySteps, createSandbox, sandboxQueries } from './sandbox';
 
 /** Everything grading can see, so two sandboxes can be compared as a whole. */
 function snapshot(ws: Workspace) {
@@ -149,5 +149,22 @@ describe('applySteps on a laptop', () => {
     expect(() => {
       applySteps(ws, [{ op: 'session' }]);
     }).toThrow('The "session" step needs a windows() sandbox.');
+  });
+});
+
+describe('sandboxQueries', () => {
+  it('asks an Act 2 sandbox about git alone', () => {
+    const q = sandboxQueries(createSandbox(everyStep, testDeps()));
+    expect(q.log()).toHaveLength(2);
+    expect(q.machine).toBeUndefined();
+  });
+
+  it('asks a laptop about its project and its machine, as they are now', () => {
+    const ws = createSandbox(windows().init().mkdir('Users/kyle/notes').toSpec(), testDeps());
+    const q = sandboxQueries(ws);
+    expect(q.isRepo()).toBe(true);
+    expect(q.machine?.item('Users/kyle/notes')).toEqual({ kind: 'folder', content: null });
+    ws.machine?.drive.makeDir('Users/kyle/later');
+    expect(q.machine?.item('Users/kyle/later')?.kind).toBe('folder');
   });
 });

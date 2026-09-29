@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { windows } from '../../engine/fixtures';
 import {
   otherSampleAct,
   sampleAct,
@@ -143,6 +144,50 @@ describe('validateAct', () => {
       },
       { where: 'boss > label 1', problem: '65 words; the limit is 60.' },
     ]);
+  });
+
+  it('lets laptop checks grade only setups that build a laptop, even nested ones', () => {
+    const noStray: Predicate = {
+      kind: 'not',
+      predicate: { kind: 'driveFolder', path: 'Users/kyle/notes' },
+    };
+    const onGit: Mission = {
+      ...sampleMission,
+      steps: sampleMission.steps.map((step, index) =>
+        index === 0 ? { ...step, success: { kind: 'all', of: [step.success, noStray] } } : step,
+      ),
+      drills: sampleMission.drills.map((drill, index) =>
+        index === 0 ? { ...drill, success: { kind: 'envVar', name: 'PORT' } } : drill,
+      ),
+    };
+    const atHome: Predicate = { kind: 'currentDirectory', path: 'Users/kyle' };
+    const act: Act = { ...sampleAct, boss: { ...sampleAct.boss, failIf: [atHome] } };
+    expect(validateAct(act, [onGit, secondMission, thirdMission])).toEqual([
+      {
+        where: 'mission sample-three-rooms > step init',
+        problem:
+          '"driveFolder" checks the laptop, so the mission\'s initialRepoState must start with windows().',
+      },
+      {
+        where: 'mission sample-three-rooms > drill sample-init',
+        problem: '"envVar" checks the laptop, so the drill\'s setup must start with windows().',
+      },
+      {
+        where: 'boss',
+        problem:
+          '"currentDirectory" checks the laptop, so the boss\'s setup must start with windows().',
+      },
+    ]);
+
+    // The same checks are fine once every setup starts with windows().
+    const laptop = windows().toSpec();
+    const onLaptop: Mission = {
+      ...onGit,
+      initialRepoState: laptop,
+      drills: onGit.drills.map((drill) => ({ ...drill, setup: laptop })),
+    };
+    const laptopAct: Act = { ...act, boss: { ...act.boss, setup: laptop } };
+    expect(validateAct(laptopAct, [onLaptop, secondMission, thirdMission])).toEqual([]);
   });
 });
 

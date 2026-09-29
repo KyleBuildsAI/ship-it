@@ -146,6 +146,62 @@ describe('PredicateSchema', () => {
       'A file that must not exist cannot also have content to check.',
     ]);
   });
+
+  it('accepts the four laptop checks with every option', () => {
+    const checks = [
+      { kind: 'currentDirectory', path: 'Users/kyle' },
+      { kind: 'currentDirectory', path: 'Users/kyle', tab: 2 },
+      { kind: 'currentDirectory', path: 'Users/kyle', tab: 'any' },
+      { kind: 'driveFolder', path: 'Users/kyle/notes', exists: false },
+      { kind: 'driveFile', path: 'Users/kyle/a.txt', equals: '', label: 'a.txt is empty' },
+      { kind: 'driveFile', path: 'Users/kyle/a.txt', contains: 'x', pattern: '^x', flags: 'i' },
+      { kind: 'envVar', name: 'PORT', scope: 'newTerminal', equals: '4000' },
+      { kind: 'envVar', name: 'ProgramFiles(x86)', scope: 'machine', exists: false },
+    ];
+    for (const check of checks) expect(PredicateSchema.parse(check)).toEqual(check);
+  });
+
+  it('rejects laptop checks that could never pass or would be ignored', () => {
+    const check = (value: object) => problems(PredicateSchema.safeParse(value));
+    const file = { kind: 'driveFile', path: 'Users/kyle/a.txt' };
+    expect(check({ ...file, exists: false, contains: 'x' })).toEqual([
+      'A file that must not exist cannot also have content to check.',
+    ]);
+    expect(check({ ...file, flags: 'i' })).toEqual(['flags need a pattern.']);
+    expect(check({ ...file, pattern: '(unclosed' })[0]).toMatch(/^Invalid regex: /);
+    const port = { kind: 'envVar', name: 'PORT' };
+    expect(check({ ...port, exists: false, equals: '4000' })).toEqual([
+      'A variable that must be unset cannot also have a value to check.',
+    ]);
+    // Windows deletes a variable set to '', so "equals ''" could never pass.
+    expect(PredicateSchema.safeParse({ ...port, equals: '' }).success).toBe(false);
+    expect(PredicateSchema.safeParse({ ...port, scope: 'newterminal' }).success).toBe(false);
+    expect(PredicateSchema.safeParse({ ...port, name: 'MY PORT' }).success).toBe(false);
+    const here = { kind: 'currentDirectory', path: 'Users/kyle' };
+    for (const tab of [0, 1.5, 'all']) {
+      expect(PredicateSchema.safeParse({ ...here, tab }).success).toBe(false);
+    }
+    expect(PredicateSchema.safeParse({ ...here, path: 'C:\\Users\\kyle' }).success).toBe(false);
+  });
+
+  it("rejects a laptop path that starts at ~ or a drive letter, since a check doesn't expand them", () => {
+    const fullPath =
+      'Write the full drive path from C:\\, like "Users/kyle/notes". A check does not expand "~" or "C:".';
+    // Written this way, a boss's failIf would look for a folder named '~' and fire at once.
+    expect(
+      problems(
+        PredicateSchema.safeParse({ kind: 'driveFolder', path: '~/quillwork-api', exists: false }),
+      ),
+    ).toEqual([fullPath]);
+    for (const path of ['~', '~/notes', 'C:/Users/kyle', 'Users/kyle/c:notes']) {
+      for (const kind of ['currentDirectory', 'driveFolder', 'driveFile']) {
+        expect(problems(PredicateSchema.safeParse({ kind, path }))).toEqual([fullPath]);
+      }
+    }
+    // Only a leading '~' is home shorthand; one inside a name is an ordinary character.
+    const lockFile = { kind: 'driveFile', path: 'Users/kyle/~notes.txt' };
+    expect(PredicateSchema.parse(lockFile)).toEqual(lockFile);
+  });
 });
 
 describe('regexProblem', () => {

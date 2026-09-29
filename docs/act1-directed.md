@@ -664,7 +664,7 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 - `dotenv .env names[PORT, DATABASE_URL] filled`. This survives twist 2, which `$env:` notes don't.
 
 **failIf.**
-- `driveFolder ~/quillwork-api exists:false`
+- `driveFolder Users/priya/quillwork-api exists:false` (a full drive path: laptop checks refuse `~`, which nothing would expand)
 - `dotenv .env.example values:'filled'`
 
 **Symptom Recap.** Each symptom is shown as "symptom → cause → card", with "You turned down 3 of 4 of Otto's bad ideas." The Symptom Board's lamps turn green one by one.
