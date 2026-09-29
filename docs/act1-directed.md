@@ -743,7 +743,7 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 
 | File | Function | Rules |
 |---|---|---|
-| `terraceLayout.ts` | `describeTerraces(q, { focus, recent })` | Shows the route to every tab's folder, those folders' children, home's children, and the step's `focus` paths. Hidden items (AppData) stay out, as in `dir`, unless a tab or the focus points at them. Deterministic. At most 40 tiles and 24 cards, then `+N` on the folder. A tile's `slot` counts among its drawn siblings, so a change moves only those; the world keys tiles by path. |
+| `terraceLayout.ts` | `describeTerraces(q, { focus, recent })` | Shows the route to every tab's folder, those folders' children, home's children, the step's `focus` paths, and the `recent` ones (marked to pulse). Routes come before children when the caps bite. Hidden items (AppData) stay out, as in `dir`, unless a tab, the focus or an event points at them. Deterministic. At most 40 tiles, 24 cards and 6 lanterns (the active tab's always kept), then `+N`. A lantern whose folder was cut or removed stands on the nearest drawn folder above it. A tile's `slot` counts among its drawn siblings, so a change moves only those; the world keys tiles by path. |
 | `ghostLayout.ts` | `ghostLayout(changes, terraces)` | — |
 | `envLayout.ts` | notes and lamps | Later |
 | `portLayout.ts` | the Patch Panel | Later |
