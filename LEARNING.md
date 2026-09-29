@@ -1783,3 +1783,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/130
 3. `Set-Location` only changes PowerShell's idea of where the tab is. The pwsh process's working folder doesn't move, so nothing holds the folder open.
 
 </details>
+
+---
+
+## #132 feat: read-only machine queries for grading
+
+https://github.com/KyleBuildsAI/ship-it/pull/132
+
+1. Why does `list('Users/kyle')` include AppData, when a plain `dir` doesn't show it?
+2. Why does `foldersFirstByName` compare names with an English collator instead of comparing lower-cased text with `<`, and why does it name the language?
+3. You open a second tab, then close the first. What does `tabs()` return, and why isn't the remaining tab renumbered?
+
+<details><summary>Answers</summary>
+
+1. Grading checks what's really on the drive. The Hidden attribute only changes what a listing prints, and a hidden leftover still exists. `main` has the attribute (#124), so a `hidden` flag could be added, but no check needs one yet.
+2. Real PowerShell 7.6 sorts by English language rules, so `_notes` and `~$plan.docx` come before `api`. Character codes would put `~` last, and the game teaches by showing what a real terminal prints. Naming the language matters because a collator with no language follows the computer's own settings, which could change the order from one machine to the next.
+3. `[{ tab: 2, cwd: 'Users/kyle', active: true }]`. The terminal still calls that tab PS 2. If numbers shifted, a check like "tab 1 stays in the API" would suddenly be looking at a different tab.
+
+</details>
