@@ -743,12 +743,12 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 
 | File | Function | Rules |
 |---|---|---|
-| `terraceLayout.ts` | `describeTerraces(q, { focus, recent })` | Shows the route to every tab's folder, those folders' children, home's children, and the step's `focus` paths. Deterministic. At most 40 tiles and 24 cards, then `+N`. |
+| `terraceLayout.ts` | `describeTerraces(q, { focus, recent })` | Shows the route to every tab's folder, those folders' children, home's children, and the step's `focus` paths. Hidden items (AppData) stay out, as in `dir`, unless a tab or the focus points at them. Deterministic. At most 40 tiles and 24 cards, then `+N` on the folder. |
 | `ghostLayout.ts` | `ghostLayout(changes, terraces)` | — |
 | `envLayout.ts` | notes and lamps | Later |
 | `portLayout.ts` | the Patch Panel | Later |
 
-They read `MachineQueries`, which gains `list(path)` and `tabs()` in A1.
+They live in `src/game/world/machine/` and read `MachineQueries`, which gains `list(path)` and `tabs()` in A1, and `home()` and each listed item's `hidden` in A24.
 
 **Free play.** Arriving on the machine island with no activity loads the catalog's Act 1 free-play laptop (typing allowed). Arriving at the Git World with a laptop loaded restores `practiceProject()`. Campus and Act 2 free play are unchanged.
 
@@ -1531,7 +1531,7 @@ Sizes exclude content data, captures and lockfiles.
 | A21 | `feat: directing panels: checking the claim and the step result` | `ui/play/agent/{CheckCard,LookChips,ResultCard,AnatomyChips,Stars}.tsx`, the Done screen in `MissionView.tsx` | verify loop | 330 |
 | A22 | `feat: judgment drill cards` | `ui/play/JudgmentDrillView.tsx` (predict, diagnose, fix, approve), `MissionView.tsx`, `SeriesView.tsx` | verify loop | 350 |
 | A23 | `feat: the machine island, its portal, and free play on the laptop` | `worldState.ts`, `world/zones.ts`, `world/world.ts`, `world/machine/machineWorld.ts` (NEW), `world/campus.ts` ("Start here"), `ui/TitleCard.tsx`, `play/freePlay.ts` (NEW), `play/catalog.ts` (`freePlay`) | `zones.test.ts`, `freePlay` unit test; verify loop | 380 |
-| A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus) | 260 |
+| A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure), `engine/machine/queries.ts` (`home`, `hidden`) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus), `queries.test.ts` | 260 |
 | A25 | `feat: folder terraces, lanterns, and otto's drone` | `world/machine/{terraces,lanterns,ottoDrone}.ts` (NEW), `world.ts` (machine sync, event queue, pulses) | verify loop (two differing screenshots) | 380 |
 | A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed | `ghostLayout.test.ts`; verify loop | 300 |
 | A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), `main.tsx`, `ui/terminal/TerminalPanel.tsx` (neutral `WELCOME`), `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
