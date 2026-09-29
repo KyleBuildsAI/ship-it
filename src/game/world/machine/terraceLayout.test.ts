@@ -82,10 +82,12 @@ describe('describeTerraces', () => {
     expect(cardPaths(through)).toEqual([]);
   });
 
-  it("draws every tab's folder with what's in it, in tree order, numbered along each terrace", () => {
+  it("draws every tab's folder with what's in it, in tree order, numbered among siblings", () => {
     const { machine, q } = laptop();
+    machine.drive.makeDir(`${HOME}/Documents/keys`);
     machine.setLocation(1, API, 'absolute');
-    machine.setLocation(machine.openSession().id, WEB, 'absolute');
+    const second = machine.openSession().id;
+    machine.setLocation(second, WEB, 'absolute');
     const spec = describeTerraces(q);
     expect(tree(spec).slice(-4)).toEqual([
       '      quillwork',
@@ -101,6 +103,11 @@ describe('describeTerraces', () => {
     // A card's slot counts along its own tile.
     expect(slots(spec.cards)).toEqual(['package.json:0', 'server.js:1', 'index.html:0']);
     expect(spec.cards.map((card) => card.folder)).toEqual([API, API, WEB]);
+    // Tab 2 opening Documents draws keys ahead of api on their terrace. They aren't
+    // siblings, so tab 1's folder keeps its place.
+    machine.setLocation(second, `${HOME}/Documents`, 'absolute');
+    const after = describeTerraces(q).tiles.filter((tile) => tile.depth === 4);
+    expect(slots(after)).toEqual(['keys:0', 'api:0']);
   });
 
   it('opens the C:\\ pad for a tab standing there, and keeps home with no tab open', () => {
@@ -143,6 +150,9 @@ describe('describeTerraces', () => {
     const spec = describeTerraces(q);
     expect(spec.tiles).toHaveLength(MAX_TILES);
     expect(spec.tiles.at(-1)?.more).toBe(1);
+    // The active tab's route goes first, so a new tab in web gets its tile.
+    machine.setLocation(machine.openSession().id, WEB, 'absolute');
+    expect(tilePaths(describeTerraces(q))).toContain(WEB);
   });
 
   it('leaves hidden items out as dir does, and draws them marked when a tab stands there', () => {
@@ -159,6 +169,8 @@ describe('describeTerraces', () => {
       describeTerraces(q).tiles.find((tile) => tile.path === path)?.hidden;
     expect(hiddenOf(`${HOME}/AppData`)).toBe(true);
     expect(hiddenOf(`${HOME}/AppData/Local`)).toBe(false);
+    const named = describeTerraces(q, { focus: [`${HOME}/secret.txt`] });
+    expect(named.cards).toMatchObject([{ path: `${HOME}/secret.txt`, hidden: true }]);
   });
 
   it('is deterministic: the same laptop and options always give the same terraces', () => {

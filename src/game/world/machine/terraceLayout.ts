@@ -16,7 +16,12 @@ export interface TerraceTile {
   readonly name: string;
   /** Which terrace: 0 is the C:\ pad, 1 is Users, 2 is kyle. */
   readonly depth: number;
-  /** Its place along its terrace, from 0. Numbered in tree order, so siblings sit together. */
+  /**
+   * Its place among the drawn folders in its parent, from 0, in dir's order, the way a
+   * card's slot counts along its tile. So only its siblings can move it: another tab's cd
+   * elsewhere never does, but a new folder made before it does. The world keys tiles by
+   * path and slides any whose place changed.
+   */
   readonly slot: number;
   /** The folder it sits in, always drawn too. Null for the pad. */
   readonly parent: string | null;
@@ -158,26 +163,23 @@ export function describeTerraces(q: MachineQueries, options: TerraceOptions = {}
 
   const tiles: TerraceTile[] = [];
   const cards: TerraceCard[] = [];
-  const slotsUsed: number[] = [];
   // Walk the drawn folders as a tree, in dir's order, so every run places them alike.
-  const place = (tile: Omit<TerraceTile, 'slot' | 'more'>) => {
-    const listing = list(tile.path);
-    const slot = slotsUsed[tile.depth] ?? 0;
-    slotsUsed[tile.depth] = slot + 1;
-    const inside = listing.map((item) => partIn(tile.path, item));
+  const place = (tile: Omit<TerraceTile, 'more'>) => {
+    const inside = list(tile.path).map((item) => partIn(tile.path, item));
     const more = inside.filter((part) => !part.hidden && !drawn(part.path)).length;
-    tiles.push({ ...tile, slot, more });
+    tiles.push({ ...tile, more });
     const shown = inside.filter((part) => drawn(part.path));
     shown
       .filter((part) => part.kind === 'file')
-      .forEach(({ path, name, hidden }, cardSlot) => {
-        cards.push({ path, name, folder: tile.path, slot: cardSlot, hidden });
+      .forEach(({ path, name, hidden }, slot) => {
+        cards.push({ path, name, folder: tile.path, slot, hidden });
       });
-    for (const { path, name, hidden, kind } of shown) {
-      if (kind === 'folder')
-        place({ path, name, depth: tile.depth + 1, parent: tile.path, hidden });
-    }
+    shown
+      .filter((part) => part.kind === 'folder')
+      .forEach(({ path, name, hidden }, slot) => {
+        place({ path, name, depth: tile.depth + 1, slot, parent: tile.path, hidden });
+      });
   };
-  place({ path: '', name: q.display(''), depth: 0, parent: null, hidden: false });
+  place({ path: '', name: q.display(''), depth: 0, slot: 0, parent: null, hidden: false });
   return { tiles, cards };
 }
