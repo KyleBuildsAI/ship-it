@@ -1094,7 +1094,7 @@ export function replay(log: SandboxLog, deps: RepositoryDeps): { shell: Shell; t
 export interface DryRun {
   readonly step: DriverStep; readonly changes: readonly MachineChange[];
   readonly queries: SandboxQueries; readonly broken: readonly string[]; readonly harmful: boolean;
-}
+} // broken: guards that held before the action and fail after, as describe() words them
 export function dryRun(log: SandboxLog, action: DriverAction,
   judge: { guards: readonly Predicate[] }, deps: RepositoryDeps): DryRun;
 
