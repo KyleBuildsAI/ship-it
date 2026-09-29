@@ -1385,7 +1385,7 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` takes an optional `directingXp` | Act 2 passes nothing |
 | `src/game/play/{bossPlay,fieldPlay,seriesPlay}.ts` | `require*` helpers; judgment drills in series | Same flow for Act 2 |
 | `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` | Act 2 route identical, no travel |
-| `src/game/play/sandboxControl.ts` | The log, `currentQueries(): SandboxQueries`, rewind swap | `gitQueries` still the base |
+| `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`) | `gitQueries` still the base |
 | `src/game/play/freePlay.ts` (NEW) | Laptop free play on the island; the practice project on Git World arrival | Campus unchanged |
 | `src/game/worldState.ts` | `ZoneId = 'campus' \| 'machine' \| 'gitworld'`; `requestedZone: ZoneId \| null` | — |
 | `src/game/world/zones.ts` | `CAMERA_RIGS.machine`; `ZONE_FOR_ACT = { 1: 'machine', 2: 'gitworld' }`; `openActs(catalogActs)` returns the Acts that are in the catalog **and** have an island | The Act 2 portal is unchanged; `zones.test.ts` updated |
