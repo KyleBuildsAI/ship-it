@@ -6,8 +6,11 @@ import { snapshotMachine } from '../../engine/machine/snapshot';
 import { DriverError } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
 import { AgentActionSchema } from '../missions/agentSchema';
+import { evaluate, type Predicate } from '../missions/predicates';
+import { sampleJudgmentDrillsInput } from '../missions/sample.test-mission';
 import { applySteps, createSandbox, DISPLAY_ROOT } from '../missions/sandbox';
-import { playAction, replay, startLog, withEntry, type LogEntry } from './replay';
+import { JudgmentDrillSchema } from '../missions/schema';
+import { dryRun, playAction, replay, startLog, withEntry, type LogEntry } from './replay';
 import type { TranscriptEntry } from './transcript';
 
 const HOME = 'Users/kyle';
@@ -103,6 +106,92 @@ describe('replay', () => {
       { do: 'run', line: 'Get-Location' },
     ]);
     expect(() => replay(log, testDeps())).toThrow(DriverError);
+  });
+});
+
+describe('dryRun', () => {
+  const guards: Predicate[] = [
+    { kind: 'driveFile', path: `${HOME}/old/notes.txt`, label: 'Old notes survive' },
+    { kind: 'driveFile', path: `${API}/package.json`, label: 'The API is intact' },
+  ];
+  const deleteOld = { kind: 'deleted', path: `${HOME}/old`, item: 'folder', inside: 1 };
+
+  it('works out what a line would do, and never touches the live sandbox', () => {
+    const log = startLog(setup, [{ do: 'run', line: 'cd quillwork\\api' }]);
+    const { shell: live } = replay(log, testDeps());
+    const before = stateOf(live);
+    const heard: unknown[] = [];
+    live.ws.events.on((event) => heard.push(event));
+
+    const line = 'Remove-Item C:\\Users\\kyle\\old -Recurse';
+    const dry = dryRun(log, { do: 'run', line }, { guards }, testDeps());
+
+    expect(dry.changes).toEqual([deleteOld]);
+    expect(dry.broken).toEqual(['Old notes survive']);
+    expect(dry.harmful).toBe(true);
+    expect(stateOf(live)).toEqual(before);
+    expect(heard).toEqual([]);
+    expect(log.entries).toHaveLength(1);
+  });
+
+  it("finds a safe line harmless, and a guard that already failed isn't its fault", () => {
+    const alreadyFailing: Predicate = { kind: 'driveFolder', path: `${HOME}/old`, exists: false };
+    const line = 'mkdir C:\\Users\\kyle\\notes';
+    const dry = dryRun(
+      startLog(setup),
+      { do: 'run', line },
+      { guards: [...guards, alreadyFailing] },
+      testDeps(),
+    );
+    expect(dry.changes).toEqual([{ kind: 'created', path: `${HOME}/notes`, item: 'folder' }]);
+    expect(dry.broken).toEqual([]);
+    expect(dry.harmful).toBe(false);
+  });
+
+  it('tries a Confirm answer after the line that asked, so each letter shows its own effects', () => {
+    const line = 'Remove-Item C:\\Users\\kyle\\old';
+    const asking = dryRun(startLog(setup), { do: 'run', line }, { guards }, testDeps());
+    expect(asking.step.asking).toBe(true);
+    expect(asking.changes).toEqual([]);
+
+    const asked = startLog(setup, [{ do: 'run', line }]);
+    const no = dryRun(asked, { do: 'answer', choice: 'N' }, { guards }, testDeps());
+    const all = dryRun(asked, { do: 'answer', choice: 'A' }, { guards }, testDeps());
+    expect([no.changes, no.harmful]).toEqual([[], false]);
+    expect([all.changes, all.harmful]).toEqual([[deleteOld], true]);
+  });
+
+  it('answers questions about the copy as the line left it, transcript included', () => {
+    const dry = dryRun(startLog(setup), { do: 'run', line: 'mkdir notes' }, { guards }, testDeps());
+    expect(evaluate({ kind: 'driveFolder', path: `${HOME}/notes` }, dry.queries)).toBe(true);
+    expect(dry.queries.transcript?.printed('Directory: C:\\Users\\kyle')).toBe(true);
+  });
+
+  it('gives the sample approve drills the answers they promise', () => {
+    const drills = sampleJudgmentDrillsInput.map((input) => JudgmentDrillSchema.parse(input));
+    const broken = drills
+      .filter((drill) => drill.kind === 'approve')
+      .map((drill) => {
+        const scene = startLog(drill.setup, drill.history);
+        return [drill.id, dryRun(scene, drill.action, drill, testDeps()).broken];
+      });
+    expect(Object.fromEntries(broken)).toEqual({
+      'sample-approve-stray': [],
+      'sample-approve-notes': ['Onboarding notes survive'],
+    });
+  });
+
+  it('tries a line in an Act 2 sandbox too, where no laptop can change', () => {
+    const act2 = repo().commit('init', { 'app.ts': 'v1\n' }).toSpec();
+    const guard: Predicate = { kind: 'workingFile', path: 'app.ts' };
+    const dry = dryRun(
+      startLog(act2),
+      { do: 'run', line: 'git rm app.ts' },
+      { guards: [guard] },
+      testDeps(),
+    );
+    expect(dry.changes).toEqual([]);
+    expect(dry.broken).toEqual(['app.ts exists']);
   });
 });
 

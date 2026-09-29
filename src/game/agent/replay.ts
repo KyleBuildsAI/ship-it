@@ -1,9 +1,12 @@
 import type { FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
+import { diffSnapshots, snapshotMachine, type MachineChange } from '../../engine/machine/snapshot';
 import { drive, type DriverAction, type DriverStep } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
-import { applySteps, createSandbox, DISPLAY_ROOT } from '../missions/sandbox';
-import { transcriptEntry, type TranscriptEntry } from './transcript';
+import type { EngineEvent, Workspace } from '../../engine/workspace';
+import { describe, evaluate, type Predicate, type SandboxQueries } from '../missions/predicates';
+import { applySteps, createSandbox, DISPLAY_ROOT, sandboxQueries } from '../missions/sandbox';
+import { transcriptEntry, transcriptQueries, type TranscriptEntry } from './transcript';
 
 /*
  * The sandbox log: a setup, then everything done to the sandbox since, in order. The
@@ -80,4 +83,62 @@ export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
     else playAction(shell, transcript, entry.action);
   }
   return { shell, transcript };
+}
+
+/** What an action would do, found by trying it in a scratch copy of the sandbox. */
+export interface DryRun {
+  /** What the terminal showed, as if it had run for real. */
+  readonly step: DriverStep;
+  /** What changed on the laptop, by name only: the effects a gate lists. */
+  readonly changes: readonly MachineChange[];
+  /** Questions about the scratch copy as the action left it, transcript included. */
+  readonly queries: SandboxQueries;
+  /** The guards the action broke, as the checklist words them. */
+  readonly broken: readonly string[];
+  /** Whether allowing the action does harm: it broke a guard. */
+  readonly harmful: boolean;
+}
+
+/**
+ * Tries an action in a scratch copy of the sandbox: the log is played into a brand-new
+ * one, so the live sandbox never sees the action, its events, or the replay. This is how
+ * a gate knows what a line will do before Kyle decides, and how the game knows whether
+ * denying it was right: an author never marks a line harmful, the engine finds out.
+ *
+ * A guard counts as broken when it held before the action and fails after it. One that
+ * had already failed isn't this action's fault, so it can't make the action harmful.
+ */
+export function dryRun(
+  log: SandboxLog,
+  action: DriverAction,
+  judge: { readonly guards: readonly Predicate[] },
+  deps: RepositoryDeps,
+): DryRun {
+  const { shell, transcript } = replay(log, deps);
+  const queries = sandboxQueries(shell.ws, transcriptQueries(transcript));
+  const heldBefore = judge.guards.map((guard) => evaluate(guard, queries));
+  const changesSince = watchChanges(shell.ws);
+  const step = playAction(shell, transcript, action);
+  const broken = judge.guards
+    .filter((guard, index) => heldBefore[index] === true && !evaluate(guard, queries))
+    .map((guard) => describe(guard, queries.machine?.display));
+  return {
+    step,
+    changes: changesSince(step.events),
+    queries,
+    broken,
+    harmful: broken.length > 0,
+  };
+}
+
+/**
+ * Snapshots the laptop now, and returns how to ask what changed since. The action's own
+ * events say which items moved where, which two snapshots alone can't tell. An Act 2
+ * sandbox has no laptop, so nothing on one can change.
+ */
+function watchChanges(ws: Workspace): (events: readonly EngineEvent[]) => MachineChange[] {
+  const machine = ws.machine;
+  if (machine === null) return () => [];
+  const before = snapshotMachine(machine);
+  return (events) => diffSnapshots(before, snapshotMachine(machine), events);
 }
