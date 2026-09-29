@@ -297,4 +297,13 @@ describe('describeTerraces: recent changes', () => {
     expect(cardPaths(spec)).toContain(`${WEB}/index.html`);
     expect(spec.cards).toHaveLength(MAX_CARDS);
   });
+
+  it("gives the step's focus its route before a recent change when the caps bite", () => {
+    const { machine, q } = laptop();
+    const deep = `${HOME}/${Array.from({ length: 45 }, () => 'd').join('/')}`;
+    machine.drive.makeDir(deep);
+    const spec = describeTerraces(q, { focus: [deep], recent: [WEB] });
+    expect(spec.tiles).toHaveLength(MAX_TILES);
+    expect(tilePaths(spec)).not.toContain(WEB);
+  });
 });
