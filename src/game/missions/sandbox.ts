@@ -16,6 +16,12 @@ import type { TranscriptQueries } from '../agent/transcript';
 import type { SandboxQueries } from './predicates';
 
 /**
+ * How the sandbox's project folder appears in prompts, like a real Windows path. It lives
+ * here, beside createSandbox, so pure code can build a shell without the app's stores.
+ */
+export const DISPLAY_ROOT = 'C:\\Users\\kyle\\quillwork\\app';
+
+/**
  * A fresh sandbox for a mission, drill, or boss, built from its setup steps. Tests pass
  * `testDeps()` so commit ids come out the same on every run.
  */

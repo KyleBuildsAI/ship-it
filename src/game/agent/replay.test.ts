@@ -3,16 +3,10 @@ import { repo, windows } from '../../engine/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { snapshotMachine } from '../../engine/machine/snapshot';
-import { DriverError, type DriverAction } from '../../engine/shell/driver';
+import { DriverError } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
-import {
-  AgentActionSchema,
-  BaseActionSchema,
-  type AgentAction,
-  type BaseAction,
-} from '../missions/agentSchema';
-import { applySteps, createSandbox } from '../missions/sandbox';
-import { DISPLAY_ROOT } from '../sandbox';
+import { AgentActionSchema } from '../missions/agentSchema';
+import { applySteps, createSandbox, DISPLAY_ROOT } from '../missions/sandbox';
 import { playAction, replay, startLog, withEntry, type LogEntry } from './replay';
 import type { TranscriptEntry } from './transcript';
 
@@ -113,21 +107,14 @@ describe('replay', () => {
 });
 
 describe("the content's actions", () => {
-  // These compile only if every action a plan, a deny branch or a drill can hold is one
-  // drive() takes. So content goes to the driver, and into the log, exactly as written.
-  const fromBase = (action: BaseAction): DriverAction => action;
-  const fromScript = (action: AgentAction): DriverAction => action;
-
-  it("go to the driver and into a log as written, with Otto's words kept for the screen", () => {
-    const script = AgentActionSchema.parse({ do: 'run', line: 'mkdir notes', say: 'Notes.' });
-    const deny = BaseActionSchema.parse({ do: 'newTerminal', say: 'A fresh terminal.' });
-    const log = startLog(setup, [fromScript(script), fromBase(deny)]);
-    expect(log.entries).toEqual([
-      { kind: 'action', action: script },
-      { kind: 'action', action: deny },
-    ]);
-    const { shell } = replay(log, testDeps());
-    expect(shell.ws.machine?.drive.isDir(`${HOME}/notes`)).toBe(true);
-    expect(shell.ws.machine?.sessions()).toHaveLength(2);
+  it('stay out of a log while a line carries its Confirm answer, which would be dropped', () => {
+    const line = 'Remove-Item C:\\Users\\kyle\\old';
+    const script = AgentActionSchema.parse({ do: 'run', line, answer: 'A' });
+    // @ts-expect-error: this line is two actions, the line and then its answer.
+    const dropped = startLog(setup, [script]);
+    // What would happen: the line runs, the question stays open, and old is still there.
+    const { shell } = replay(dropped, testDeps());
+    expect(shell.machineShell?.asking).toBe(true);
+    expect(shell.ws.machine?.drive.exists(`${HOME}/old`)).toBe(true);
   });
 });

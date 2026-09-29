@@ -1082,13 +1082,14 @@ export interface TranscriptQueries { readonly printed: (text: string) => boolean
 export function transcriptQueries(entries: readonly TranscriptEntry[]): TranscriptQueries; // a live view
 
 // src/game/agent/replay.ts (A11)
+export type LoggedAction = DriverAction & { readonly answer?: never }; // a line with an answer is two actions
 export type LogEntry =
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
-  | { readonly kind: 'action'; readonly action: DriverAction };   // exactly as passed to drive()
+  | { readonly kind: 'action'; readonly action: LoggedAction };   // exactly as passed to drive()
 export interface SandboxLog { readonly setup: readonly FixtureStep[]; readonly entries: readonly LogEntry[] }
-export function startLog(setup, actions?: readonly DriverAction[]): SandboxLog;  // e.g. a drill's scene
+export function startLog(setup, actions?: readonly LoggedAction[]): SandboxLog;  // driver actions only
 export function withEntry(log, entry: LogEntry): SandboxLog;                     // logs never change
-export function playAction(shell, transcript, action): DriverStep;  // drive + transcript, live or replayed
+export function playAction(shell, transcript, action: LoggedAction): DriverStep; // drive + transcript, live or replayed
 export function replay(log: SandboxLog, deps: RepositoryDeps): { shell: Shell; transcript: TranscriptEntry[] };
 export interface DryRun {
   readonly step: DriverStep; readonly changes: readonly MachineChange[];

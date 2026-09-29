@@ -2,8 +2,7 @@ import type { FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
 import { drive, type DriverAction, type DriverStep } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
-import { applySteps, createSandbox } from '../missions/sandbox';
-import { DISPLAY_ROOT } from '../sandbox';
+import { applySteps, createSandbox, DISPLAY_ROOT } from '../missions/sandbox';
 import { transcriptEntry, type TranscriptEntry } from './transcript';
 
 /*
@@ -15,22 +14,30 @@ import { transcriptEntry, type TranscriptEntry } from './transcript';
  *   - drill scenes: a drill's setup and the lines Otto already ran are a log too
  */
 
+/**
+ * One action for the driver, as the log keeps it. Content's run line may carry Otto's
+ * answer to PowerShell's Confirm question, and that is two actions: the line, then the
+ * answer, which gets a gate of its own (D7). Passed straight in, it would run the line and
+ * quietly drop the answer, so `answer?: never` makes TypeScript refuse it here.
+ */
+export type LoggedAction = DriverAction & { readonly answer?: never };
+
 /** One thing done to a sandbox after its setup. */
 export type LogEntry =
   /** Setup steps applied to the live sandbox, like a step's `before` or a boss twist. */
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
   /** One of Otto's actions, exactly as it was passed to drive(). */
-  | { readonly kind: 'action'; readonly action: DriverAction };
+  | { readonly kind: 'action'; readonly action: LoggedAction };
 
 export interface SandboxLog {
   readonly setup: readonly FixtureStep[];
   readonly entries: readonly LogEntry[];
 }
 
-/** A log that starts from a setup, with the actions Otto has already taken: a drill's scene. */
+/** A log that starts from a setup, with driver actions Otto has already taken. */
 export function startLog(
   setup: readonly FixtureStep[],
-  actions: readonly DriverAction[] = [],
+  actions: readonly LoggedAction[] = [],
 ): SandboxLog {
   return { setup, entries: actions.map((action) => ({ kind: 'action', action })) };
 }
@@ -47,7 +54,7 @@ export function withEntry(log: SandboxLog, entry: LogEntry): SandboxLog {
 export function playAction(
   shell: Shell,
   transcript: TranscriptEntry[],
-  action: DriverAction,
+  action: LoggedAction,
 ): DriverStep {
   const step = drive(shell, action);
   transcript.push(transcriptEntry(action, step));
@@ -60,10 +67,10 @@ export interface Replay {
 }
 
 /**
- * Plays a log into a brand-new sandbox. With the same `deps` (tests pass testDeps()), the
- * result equals the live sandbox the log came from, commit ids included. Entries play in
- * order, so an answer still follows the line that asked: the driver refuses a line while a
- * question is open, and would refuse an answer that came before its question.
+ * Plays a log into a brand-new sandbox. Given fresh deps that start the same way (tests
+ * pass a new testDeps()), the result equals the live sandbox the log came from, commit ids
+ * included. Entries play in order, so an answer still follows the line that asked: the
+ * driver refuses a line while a question is open, and an answer before its question.
  */
 export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
   const shell = new Shell(createSandbox(log.setup, deps), DISPLAY_ROOT);
