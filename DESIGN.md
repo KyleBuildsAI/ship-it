@@ -282,6 +282,7 @@ ship-it/
     engine/verify/     Field Mission output parsers + tests
     game/world/        three.js scenes (Campus, Git World), renderer boot, post; zones.ts lists each island as data
     game/missions/     mission runner, grading
+    game/agent/        Otto's side (pure): his transcript, and the sandbox log that replays a sandbox exactly
     game/progression/  XP, ranks, review queue (SM-2), stats, mastery
     game/save/         IndexedDB, schema versions, migrations, export/import, autosave
     ui/                React HUD, terminal, editor, menus, settings

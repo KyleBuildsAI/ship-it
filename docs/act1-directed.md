@@ -1033,7 +1033,7 @@ export type MachinePredicate =
 // predicates.ts
 export type SandboxQueries = GitQueries & {
   readonly machine?: MachineQueries;       // requireMachine() throws PredicateContextError when absent
-  readonly transcript?: TranscriptQueries; // C1: printed(text) over Otto's lines, output and pastes
+  readonly transcript?: TranscriptQueries; // A11: printed(text) over what Otto typed, wrote and got back; C1 adds pastes
 };
 // evaluate(p, q: SandboxQueries), explain(p, q), describe(p, display = identity).
 // Every existing gitQueries(ws) call still type-checks.
@@ -1075,11 +1075,20 @@ export function snapshotMachine(machine: Machine): MachineSnapshot;  // values s
 export function diffSnapshots(before: MachineSnapshot, after: MachineSnapshot,
   events?: readonly EngineEvent[]): MachineChange[];                  // itemMoved pairs deletes and creates into moves
 
+// src/game/agent/transcript.ts (A11)
+export interface TranscriptEntry { readonly tab: number; readonly action: DriverAction;
+  readonly output: readonly string[]; readonly exitCode: number }
+export interface TranscriptQueries { readonly printed: (text: string) => boolean } // ignores case
+export function transcriptQueries(entries: readonly TranscriptEntry[]): TranscriptQueries; // a live view
+
 // src/game/agent/replay.ts (A11)
 export type LogEntry =
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
-  | { readonly kind: 'action'; readonly action: DriverAction };
+  | { readonly kind: 'action'; readonly action: DriverAction };   // exactly as passed to drive()
 export interface SandboxLog { readonly setup: readonly FixtureStep[]; readonly entries: readonly LogEntry[] }
+export function startLog(setup, actions?: readonly DriverAction[]): SandboxLog;  // e.g. a drill's scene
+export function withEntry(log, entry: LogEntry): SandboxLog;                     // logs never change
+export function playAction(shell, transcript, action): DriverStep;  // drive + transcript, live or replayed
 export function replay(log: SandboxLog, deps: RepositoryDeps): { shell: Shell; transcript: TranscriptEntry[] };
 export interface DryRun {
   readonly step: DriverStep; readonly changes: readonly MachineChange[];
