@@ -1,4 +1,5 @@
 import { folder, repo } from '../../engine/git/fixtures';
+import type { AgentTaskInput } from './agentSchema';
 import {
   ActSchema,
   MissionSchema,
@@ -349,3 +350,71 @@ export function earlySampleAct(): { act: Act; missions: Mission[] } {
   });
   return { act: ActSchema.parse(earlyActInput), missions: [mission] };
 }
+
+const HOME = 'Users/kyle';
+const API = 'Users/kyle/quillwork/api';
+
+/**
+ * A directed step's agent task, modelled on Act 1's first step: get Otto's terminal
+ * standing in the API folder. The weak card fails and Otto claims success anyway.
+ */
+export const sampleAgentTaskInput = {
+  plans: [
+    {
+      id: 'guess',
+      text: 'Go to the api folder.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['go to the api folder', 'cd api'],
+      script: [{ do: 'run', line: 'cd api', fails: true }],
+      claim: "Done: I'm in the API folder.",
+      lesson: 'cd api looked inside home, where the terminal stands. It failed.',
+      slip: 'overclaim',
+    },
+    {
+      id: 'full-path',
+      text: 'Go to C:\\Users\\kyle\\quillwork\\api, then show where you are.',
+      quality: 'strong',
+      covers: ['goal', 'place', 'check'],
+      intents: ['full path to the api', 'show where you are'],
+      script: [
+        { do: 'run', line: 'cd C:\\Users\\kyle\\quillwork\\api' },
+        { do: 'run', line: 'Get-Location' },
+      ],
+      claim: "Done: I'm in the API folder.",
+      lesson: 'A full path works from any folder, and Get-Location proves it.',
+    },
+  ],
+  fixes: [
+    {
+      id: 'fix-full-path',
+      text: "You're still at home. Go to C:\\Users\\kyle\\quillwork\\api.",
+      quality: 'strong',
+      covers: ['goal', 'place'],
+      intents: ['still at home', 'go to the full path'],
+      script: [{ do: 'run', line: 'cd C:\\Users\\kyle\\quillwork\\api' }],
+      claim: "Fixed: I'm in the API folder now.",
+      lesson: 'The full path landed Otto where you meant.',
+    },
+  ],
+  hintPlan: 'full-path',
+  check: {
+    question: "Where is Otto's terminal standing now?",
+    options: [
+      {
+        id: 'api',
+        text: 'C:\\Users\\kyle\\quillwork\\api',
+        truth: { kind: 'currentDirectory', path: API },
+        feedback: 'Right: the prompt names the API folder.',
+      },
+      {
+        id: 'home',
+        text: 'Still C:\\Users\\kyle: the cd failed',
+        truth: { kind: 'currentDirectory', path: HOME },
+        feedback: 'Read the prompt: it names the folder the terminal stands in.',
+      },
+    ],
+  },
+  guards: [{ kind: 'driveFile', path: `${API}/package.json`, label: 'The API is intact' }],
+  looks: [{ id: 'where', label: 'Where is Otto?', line: 'Get-Location' }],
+} satisfies AgentTaskInput;

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AgentActionSchema, BaseActionSchema, OutcomeSchema } from './agentSchema';
+import {
+  AgentActionSchema,
+  AgentTaskSchema,
+  BaseActionSchema,
+  ChangeStepsSchema,
+  OutcomeSchema,
+  PlanSchema,
+} from './agentSchema';
+import { sampleAgentTaskInput } from './sample.test-mission';
 
 /** The messages zod reports, so a test can check the right rule fired. */
 function problems(result: { success: boolean; error?: { issues: { message: string }[] } }) {
@@ -8,6 +16,24 @@ function problems(result: { success: boolean; error?: { issues: { message: strin
 
 const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
 const times = <T>(count: number, item: T) => Array.from({ length: count }, () => item);
+const windows = { op: 'windows', user: 'kyle', computer: 'QUILL-LT-7' };
+const [guess, fullPath] = sampleAgentTaskInput.plans;
+const [fix] = sampleAgentTaskInput.fixes;
+
+/** The sample task, or its weak card, with some fields replaced: one broken rule per test. */
+const task = (changes: object) =>
+  AgentTaskSchema.safeParse({ ...sampleAgentTaskInput, ...changes });
+const plan = (changes: object) => PlanSchema.safeParse({ ...guess, ...changes });
+
+describe('ChangeStepsSchema', () => {
+  it('lets laptop steps come first, but never builds a new laptop with windows()', () => {
+    const steps = [{ op: 'restartTerminals' }, { op: 'cd', path: 'Users/kyle/quillwork/api' }];
+    expect(ChangeStepsSchema.parse(steps)).toEqual(steps);
+    expect(problems(ChangeStepsSchema.safeParse([{ op: 'session' }, windows]))).toEqual([
+      'windows() starts a sandbox; it cannot change one.',
+    ]);
+  });
+});
 
 describe('OutcomeSchema', () => {
   it('needs a result, printed text, or a state', () => {
@@ -50,6 +76,7 @@ describe('actions', () => {
     const run = (say: string) => BaseActionSchema.safeParse({ do: 'run', line: 'cd api', say });
     expect(run(words(12)).success).toBe(true);
     expect(problems(run(words(13)))).toEqual(['Otto speaks in 12 words or fewer.']);
+    expect(plan({ claim: words(13) }).success).toBe(false);
     const denyLine = { do: 'run', line: 'cd api', denyLine: words(13) };
     expect(AgentActionSchema.safeParse(denyLine).success).toBe(false);
   });
@@ -92,5 +119,84 @@ describe('actions', () => {
     expect(BaseActionSchema.safeParse(run).success).toBe(false);
     expect(AgentActionSchema.safeParse({ ...run, onDeny: [run] }).success).toBe(false);
     expect(AgentActionSchema.safeParse({ do: 'newTerminal', onDeny: [] }).success).toBe(false);
+  });
+});
+
+describe('PlanSchema', () => {
+  it('covers 1 to 4 parts of a good request, from the list', () => {
+    expect(plan({ covers: [] }).success).toBe(false);
+    expect(plan({ covers: ['goal', 'place', 'limits', 'check'] }).success).toBe(true);
+    expect(plan({ covers: ['goal', 'tone'] }).success).toBe(false);
+  });
+
+  it('needs 2 intents, 1 to 8 script actions, and a slip from the list', () => {
+    expect(plan({ intents: ['cd api'] }).success).toBe(false);
+    expect(plan({ intents: ['cd api', 'x'] }).success).toBe(false);
+    const line = { do: 'run', line: 'Get-Location' };
+    expect([0, 1, 8, 9].map((count) => plan({ script: times(count, line) }).success)).toEqual([
+      false,
+      true,
+      true,
+      false,
+    ]);
+    expect(plan({ slip: 'typo' }).success).toBe(false);
+    expect(plan({ quality: 'great' }).success).toBe(false);
+  });
+});
+
+describe('AgentTaskSchema', () => {
+  it('accepts the sample task and fills in defaults', () => {
+    const parsed = AgentTaskSchema.parse({ ...sampleAgentTaskInput, looks: undefined });
+    expect(parsed).toMatchObject({ before: [], focus: [], looks: [] });
+    expect(parsed.plans[0]?.script[0]).toMatchObject({ onDeny: [] });
+  });
+
+  it('offers 2 to 3 start cards and 1 to 3 fixes', () => {
+    const extra = (id: string) => ({ ...guess, id });
+    expect(task({ plans: [fullPath] }).success).toBe(false);
+    expect(task({ plans: [guess, fullPath, extra('c')] }).success).toBe(true);
+    expect(task({ plans: [guess, fullPath, extra('c'), extra('d')] }).success).toBe(false);
+    expect(task({ fixes: [] }).success).toBe(false);
+    expect(task({ fixes: [fix, extra('e'), extra('f'), extra('g')] }).success).toBe(false);
+  });
+
+  it('points the last hint at a strong start plan', () => {
+    for (const hintPlan of ['guess', 'fix-full-path', 'no-such-plan']) {
+      expect(problems(task({ hintPlan }))).toEqual(['hintPlan must name a strong start plan.']);
+    }
+  });
+
+  it('rejects an id used twice, even once as a plan and once as a fix', () => {
+    expect(problems(task({ fixes: [{ ...fix, id: 'guess' }] }))).toEqual([
+      'Duplicate id "guess": a start plan uses it.',
+    ]);
+    expect(problems(task({ fixes: [fix, fix] }))).toEqual(['Duplicate id "fix-full-path".']);
+    const [api] = sampleAgentTaskInput.check.options;
+    const check = { ...sampleAgentTaskInput.check, options: [api, api] };
+    expect(problems(task({ check }))).toEqual(['Duplicate id "api".']);
+    const [where] = sampleAgentTaskInput.looks;
+    expect(problems(task({ looks: [where, where] }))).toEqual(['Duplicate id "where".']);
+  });
+
+  it('asks one check with 2 to 4 options, each graded by its own truth', () => {
+    const [api, home] = sampleAgentTaskInput.check.options;
+    const withOptions = (options: unknown[]) =>
+      task({ check: { ...sampleAgentTaskInput.check, options } }).success;
+    const more = (id: string) => ({ ...api, id });
+    expect(withOptions([api])).toBe(false);
+    expect(withOptions([api, home, more('c'), more('d')])).toBe(true);
+    expect(withOptions([api, home, more('c'), more('d'), more('e')])).toBe(false);
+    expect(withOptions([{ ...api, truth: undefined }, home])).toBe(false);
+  });
+
+  it('limits looks to 3, guards and focus folders to 4, and starts without windows()', () => {
+    const look = (id: string) => ({ id, label: id, line: 'Get-Location' });
+    expect(task({ looks: ['a', 'b', 'c', 'd'].map(look) }).success).toBe(false);
+    const guard = { kind: 'driveFolder', path: 'Users/kyle/notes', exists: false };
+    expect(task({ guards: times(5, guard) }).success).toBe(false);
+    expect(task({ focus: ['a', 'b', 'c', 'd', 'e'] }).success).toBe(false);
+    expect(task({ focus: ['C:\\Users\\kyle'] }).success).toBe(false);
+    expect(task({ before: [{ op: 'restartTerminals' }] }).success).toBe(true);
+    expect(task({ before: [windows] }).success).toBe(false);
   });
 });

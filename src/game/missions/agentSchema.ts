@@ -2,8 +2,11 @@ import { z } from 'zod';
 import {
   checkUniqueIds,
   countWords,
+  FixtureStepSchema,
   IdSchema,
+  NameSchema,
   PredicateSchema,
+  QUALITIES,
   RepoPathSchema,
   ScreenTextSchema,
 } from './schemaParts';
@@ -17,6 +20,25 @@ import {
  * file decides whether Kyle was right. The engine does that by checking predicates
  * against the sandbox, the same way Act 2 grades a typed step.
  */
+
+/** The four parts of a good request to an agent. A card lights up the ones it covers. */
+export const ANATOMY = ['goal', 'place', 'limits', 'check'] as const;
+export type AnatomyPart = (typeof ANATOMY)[number];
+
+/** Real agent mistakes, named the same way everywhere (docs/act1-directed.md section 1.2). */
+export const SLIPS = [
+  'wrong-place',
+  'overclaim',
+  'too-broad',
+  'wrong-verb',
+  'leak',
+  'stale-terminal',
+  'shell-mixup',
+  'big-hammer',
+  'invented-fact',
+  'moved-goalposts',
+] as const;
+export type Slip = (typeof SLIPS)[number];
 
 /**
  * Which of Otto's lines pause for Kyle's approval, like a real agent's permission modes.
@@ -38,6 +60,26 @@ const OttoLineSchema = ScreenTextSchema.refine((text) => countWords(text) <= OTT
 
 /** PowerShell's Confirm choices: Yes, Yes to All, No, No to All. Otto answers for himself. */
 const ConfirmAnswerSchema = z.enum(['Y', 'A', 'N', 'L']);
+
+/**
+ * Changes applied to a sandbox the player is already in: a step's `before` and a boss
+ * twist. Unlike a setup, laptop steps like `cd` may come first here, because the laptop
+ * already exists. That's also why windows(), which builds a laptop, is refused.
+ */
+export const ChangeStepsSchema = z
+  .array(FixtureStepSchema)
+  .readonly()
+  .superRefine((steps, ctx) => {
+    steps.forEach((step, index) => {
+      if (step.op === 'windows') {
+        ctx.addIssue({
+          code: 'custom',
+          path: [index],
+          message: 'windows() starts a sandbox; it cannot change one.',
+        });
+      }
+    });
+  });
 
 /** What happens when a line runs. A predict option is right when its outcome holds. */
 export const OutcomeSchema = z
@@ -122,6 +164,91 @@ export const AgentActionSchema = z.discriminatedUnion('do', [
   ...terminalActions,
 ]);
 
+/** A request card Kyle can give Otto, and everything that follows from picking it. */
+export const PlanSchema = z.strictObject({
+  id: IdSchema,
+  /** What Kyle tells Otto: one card. validateAct keeps it to 12 words. */
+  text: ScreenTextSchema,
+  /** Like a Question Round candidate: teaching, shown after the step. Never used for grading. */
+  quality: z.enum(QUALITIES),
+  /** Which parts of a good request this card has: lit on the Result screen. */
+  covers: z.array(z.enum(ANATOMY)).min(1).max(ANATOMY.length),
+  /** Phrases that mean this plan, for matching Kyle's own words offline. Never shown. */
+  intents: z.array(z.string().trim().min(2)).min(2),
+  script: z.array(AgentActionSchema).min(1).max(8),
+  /** Otto's report. It may be wrong on purpose: catching that is the lesson. */
+  claim: OttoLineSchema,
+  /** Why this direction worked or didn't. validateAct keeps it to 25 words. */
+  lesson: ScreenTextSchema,
+  slip: z.enum(SLIPS).optional(),
+});
+
+const CheckOptionSchema = z.strictObject({
+  id: IdSchema,
+  text: ScreenTextSchema,
+  /** When this option is the right answer. The engine decides, never a flag. */
+  truth: PredicateSchema,
+  /** Shown on a miss or a false alarm. validateAct keeps it to 25 words. */
+  feedback: ScreenTextSchema,
+});
+
+/** A read-only line Kyle can have Otto run while checking his claim, like Get-Location. */
+const LookSchema = z.strictObject({ id: IdSchema, label: NameSchema, line: CommandLineSchema });
+
+/** A directed step's `agent` field: the cards, the check, and what must stay true. */
+export const AgentTaskSchema = z
+  .strictObject({
+    /** Applied when the step starts, e.g. restartTerminals, so every path starts the same. */
+    before: ChangeStepsSchema.default([]),
+    /** One line of story shown with the goal, like why the terminal is fresh. */
+    note: ScreenTextSchema.optional(),
+    /** Folders the world must show for this step. */
+    focus: z.array(RepoPathSchema).max(4).default([]),
+    /** The cards Kyle first picks from. */
+    plans: z.array(PlanSchema).min(2).max(3),
+    /** Extra cards for a fix round, offered with the start plans not tried yet. */
+    fixes: z.array(PlanSchema).min(1).max(3),
+    /** The start plan the last hint points at. It must be strong. */
+    hintPlan: IdSchema,
+    check: z.strictObject({
+      question: ScreenTextSchema,
+      options: z.array(CheckOptionSchema).min(2).max(4),
+    }),
+    /** Must stay true. Denying a line is right exactly when a dry run of it breaks one. */
+    guards: z.array(PredicateSchema).max(4).default([]),
+    looks: z.array(LookSchema).max(3).default([]),
+  })
+  .superRefine((task, ctx) => {
+    checkUniqueIds(task.plans, 'plans', ctx);
+    checkUniqueIds(task.fixes, 'fixes', ctx);
+    // A fix round offers fixes beside untried start plans, and play remembers which
+    // were tried by id, so an id may be used only once across both lists.
+    const startIds = new Set(task.plans.map((plan) => plan.id));
+    task.fixes.forEach((fix, index) => {
+      if (startIds.has(fix.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fixes', index, 'id'],
+          message: `Duplicate id "${fix.id}": a start plan uses it.`,
+        });
+      }
+    });
+    checkUniqueIds(task.check.options, 'check', ctx);
+    checkUniqueIds(task.looks, 'looks', ctx);
+    const hint = task.plans.find((plan) => plan.id === task.hintPlan);
+    if (hint?.quality !== 'strong') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['hintPlan'],
+        message: 'hintPlan must name a strong start plan.',
+      });
+    }
+  });
+
+export type AgentTask = z.output<typeof AgentTaskSchema>;
+/** What a content file writes: fields with defaults may be left out. */
+export type AgentTaskInput = z.input<typeof AgentTaskSchema>;
+export type Plan = z.output<typeof PlanSchema>;
 export type AgentAction = z.output<typeof AgentActionSchema>;
 export type BaseAction = z.output<typeof BaseActionSchema>;
 export type Outcome = z.output<typeof OutcomeSchema>;
