@@ -1,5 +1,6 @@
 import { endDrill } from '../../mentor/drillGuard';
 import { explain } from '../missions/predicates';
+import { requireBoss } from '../missions/schema';
 import { applySteps } from '../missions/sandbox';
 import { checkBoss, secondsRemaining, startBoss, tick } from '../missions/runner';
 import { saveProgressNow } from '../progress';
@@ -19,28 +20,26 @@ function activity(): BossActivity | null {
 }
 
 function setActivity(next: BossActivity): void {
-  const { boss } = getAct(next.act).act;
+  const { objectives } = requireBoss(getAct(next.act).act);
   const queries = currentQueries();
   play.update({
     activity: next,
-    checklist: boss.objectives.flatMap((objective) => explain(objective, queries)),
+    checklist: objectives.flatMap((objective) => explain(objective, queries)),
   });
 }
 
 export function startBossFight(actNumber: number, nowMs: number = Date.now()): void {
   const { act } = getAct(actNumber);
+  // Throws before anything changes when this Act's boss isn't built yet.
+  const { setup, title, timeLimitSeconds } = requireBoss(act);
   endDrill();
-  loadSandbox(
-    act.boss.setup,
-    `${act.boss.title}: Dex deploys in ${formatClock(act.boss.timeLimitSeconds)}.`,
-  );
-  const boss = startBoss(act, nowMs);
+  loadSandbox(setup, `${title}: Dex deploys in ${formatClock(timeLimitSeconds)}.`);
   setActivity({
     kind: 'boss',
     act: actNumber,
-    boss,
+    boss: startBoss(act, nowMs),
     outcome: 'running',
-    secondsLeft: act.boss.timeLimitSeconds,
+    secondsLeft: timeLimitSeconds,
     messages: [],
   });
 }

@@ -9,7 +9,7 @@ import {
   type MissionProgress,
   type SaveData,
 } from '../save/schema';
-import type { Act, Drill, Mission } from '../missions/schema';
+import { requireFieldMission, type Act, type Drill, type Mission } from '../missions/schema';
 
 /*
  * How play changes the save. Every function takes a save and returns a new one, so the
@@ -190,7 +190,7 @@ export function recordFieldMission(
   passedIds: readonly string[],
   now: Date,
 ): SaveData {
-  const field = target.fieldMission;
+  const field = requireFieldMission(target);
   const previous = save.fieldMissions[field.id] ?? { checklist: {}, verifiedAt: null };
   const checklist = { ...previous.checklist };
   for (const id of passedIds) checklist[id] = true;

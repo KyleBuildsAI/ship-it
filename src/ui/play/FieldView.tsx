@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { requireFieldMission } from '../../game/missions/schema';
 import { getAct } from '../../game/play/catalog';
 import type { FieldVerdict } from '../../game/play/fieldCheck';
 import { submitFieldPaste } from '../../game/play/fieldPlay';
@@ -12,7 +13,7 @@ import { useStore } from '../useStore';
  * paste checks that verify it. Passed checks are saved, so it can be done over days.
  */
 export function FieldView({ activity }: { activity: FieldActivity }) {
-  const field = getAct(activity.act).act.fieldMission;
+  const field = requireFieldMission(getAct(activity.act).act);
   const { save } = useStore(progress);
   const [pastes, setPastes] = useState<Record<string, string>>({});
   const [verdicts, setVerdicts] = useState<Record<string, FieldVerdict>>({});

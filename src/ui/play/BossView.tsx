@@ -1,4 +1,5 @@
 import type { CheckRow } from '../../game/missions/predicates';
+import { requireBoss } from '../../game/missions/schema';
 import { formatClock, startBossFight } from '../../game/play/bossPlay';
 import { getAct } from '../../game/play/catalog';
 import { leavePlay } from '../../game/play/play';
@@ -21,7 +22,7 @@ export function BossView({
 }) {
   const running = activity.outcome === 'running';
   useClock(running);
-  const { boss } = getAct(activity.act).act;
+  const boss = requireBoss(getAct(activity.act).act);
   const latest = activity.messages.at(-1);
 
   return (

@@ -58,6 +58,11 @@ function laptopProblem(
   return `"${laptopCheck.kind}" checks the laptop, so ${setupName} must start with windows().`;
 }
 
+/** The ids of the boss and Field Mission, for an Act that has them so far. */
+function partIds(act: Act): string[] {
+  return [act.boss?.id, act.fieldMission?.id].filter((id) => id !== undefined);
+}
+
 /** Each piece of text the player reads on screen, labelled with where it lives. */
 function screenTexts(act: Act, missions: readonly Mission[]): [string, string][] {
   const texts: [string, string][] = [];
@@ -88,22 +93,27 @@ function screenTexts(act: Act, missions: readonly Mission[]): [string, string][]
       texts.push([`${at} > candidate ${candidate.id} > rationale`, candidate.rationale]);
     }
   }
-  texts.push(['placement test > pitch', act.placementTest.pitch]);
-  act.boss.briefing.forEach((caption, index) => {
-    texts.push([`boss > briefing caption ${String(index + 1)}`, caption]);
-  });
-  act.boss.twists.forEach((twist, index) => {
-    texts.push([`boss > twist ${String(index + 1)}`, twist.message]);
-  });
-  addLabels('boss', [...act.boss.objectives, ...act.boss.failIf]);
-  act.fieldMission.briefing.forEach((caption, index) => {
-    texts.push([`field mission > briefing caption ${String(index + 1)}`, caption]);
-  });
-  for (const item of act.fieldMission.checklist) {
-    texts.push([`field mission > checklist ${item.id}`, item.text]);
+  const { placementTest, boss, fieldMission } = act;
+  if (placementTest !== undefined) texts.push(['placement test > pitch', placementTest.pitch]);
+  if (boss !== undefined) {
+    boss.briefing.forEach((caption, index) => {
+      texts.push([`boss > briefing caption ${String(index + 1)}`, caption]);
+    });
+    boss.twists.forEach((twist, index) => {
+      texts.push([`boss > twist ${String(index + 1)}`, twist.message]);
+    });
+    addLabels('boss', [...boss.objectives, ...boss.failIf]);
   }
-  for (const check of act.fieldMission.verifications) {
-    texts.push([`field mission > verification ${check.id}`, check.instruction]);
+  if (fieldMission !== undefined) {
+    fieldMission.briefing.forEach((caption, index) => {
+      texts.push([`field mission > briefing caption ${String(index + 1)}`, caption]);
+    });
+    for (const item of fieldMission.checklist) {
+      texts.push([`field mission > checklist ${item.id}`, item.text]);
+    }
+    for (const check of fieldMission.verifications) {
+      texts.push([`field mission > verification ${check.id}`, check.instruction]);
+    }
   }
   return texts;
 }
@@ -143,7 +153,7 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
 
   // The boss and Field Mission are saved and unlocked alongside missions, so all three
   // kinds of id must be told apart.
-  const activityIds = [...byId.keys(), act.boss.id, act.fieldMission.id];
+  const activityIds = [...byId.keys(), ...partIds(act)];
   for (const id of duplicates(activityIds)) {
     report('act', `The id "${id}" is used by more than one mission, boss, or Field Mission.`);
   }
@@ -154,10 +164,11 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     report(`drill ${id}`, 'Two drills in this Act share this id.');
   }
   const knownDrills = new Set(drillIds);
-  for (const id of duplicates(act.placementTest.drillIds)) {
+  const placementIds = act.placementTest?.drillIds ?? [];
+  for (const id of duplicates(placementIds)) {
     report('placement test', `Drill "${id}" is listed more than once.`);
   }
-  for (const id of act.placementTest.drillIds) {
+  for (const id of placementIds) {
     if (!knownDrills.has(id)) report('placement test', `No drill in this Act has the id "${id}".`);
   }
 
@@ -179,10 +190,12 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     }
   }
   const { boss } = act;
-  reportLaptop(
-    'boss',
-    laptopProblem([...boss.objectives, ...boss.failIf], boss.setup, "the boss's setup"),
-  );
+  if (boss !== undefined) {
+    reportLaptop(
+      'boss',
+      laptopProblem([...boss.objectives, ...boss.failIf], boss.setup, "the boss's setup"),
+    );
+  }
 
   for (const [where, text] of screenTexts(act, missions)) {
     const words = countWords(text);
@@ -207,8 +220,7 @@ export function validateCatalog(
   }
   const activityIds = acts.flatMap(({ act, missions }) => [
     ...missions.map((mission) => mission.id),
-    act.boss.id,
-    act.fieldMission.id,
+    ...partIds(act),
   ]);
   for (const id of duplicates(activityIds)) {
     issues.push({ where: 'catalog', problem: `The id "${id}" is used in more than one place.` });

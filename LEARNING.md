@@ -1837,3 +1837,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/134
 3. Windows deletes a variable that's set to an empty value, so no variable can ever equal `''`. The check could never pass, which makes it a content bug the schema catches when the mission loads.
 
 </details>
+
+---
+
+## #135 refactor: read an act's parts through require helpers
+
+https://github.com/KyleBuildsAI/ship-it/pull/135
+
+1. Why does `startBossFight` call `requireBoss` before `endDrill()` and `loadSandbox`?
+2. Every Act still needs a boss. So why make `boss` optional in the shape at all?
+3. What would break if `act2` were typed `Act` instead of `CompleteAct`?
+
+<details><summary>Answers</summary>
+
+1. So a missing boss throws before anything changes. If it threw after `loadSandbox`, the terminal would already show a new sandbox with no fight in it.
+2. So the next PR can let an early-access Act leave it out by changing one rule. This PR moves every reader onto `requireBoss` first, while behaviour is unchanged and the tests prove it.
+3. The Act 2 tests that read `act2.boss.timeLimitSeconds` or `act2.placementTest.drillIds` would stop compiling, because TypeScript would say those parts might be `undefined`.
+
+</details>
