@@ -51,6 +51,15 @@ export type ApprovalMode = (typeof APPROVAL_MODES)[number];
 /** Otto keeps it short: upbeat, literal, and readable at a glance. */
 export const OTTO_LINE_WORDS = 12;
 
+/**
+ * How Otto opens a fix round, after a Stop or after a missed check. Every step uses the
+ * same two lines, so they aren't content. validateAct counts the longer one.
+ */
+export const FIX_ROUND_LINES = [
+  'Stopped. What should I do instead?',
+  'Missed that. How should I fix it?',
+] as const;
+
 /** A PowerShell line Otto types. It is code, so it doesn't count toward the screen-word limit. */
 const CommandLineSchema = z.string().trim().min(1).max(200);
 
@@ -247,9 +256,10 @@ export const AgentTaskSchema = z
 
 /**
  * Why a task's hintPlan is wrong, or null when it names a strong start plan. The last
- * hint points at that card, so it must be one that works.
+ * hint points at that card, so it must be one that works. validateAct asks too, for
+ * content built without parsing.
  */
-function hintPlanProblem(task: {
+export function hintPlanProblem(task: {
   readonly plans: readonly { readonly id: string; readonly quality: string }[];
   readonly hintPlan: string;
 }): string | null {

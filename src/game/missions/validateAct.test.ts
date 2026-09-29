@@ -323,11 +323,67 @@ describe('validateAct on a directed mission', () => {
     ]);
   });
 
-  it("counts the guards' labels, which join the checklist", () => {
-    const guards: Predicate[] = [
-      { kind: 'driveFolder', path: 'Users/kyle/notes', label: words(61) },
+  it('adds up a fix round: the longer opening line, every fix, and the untried cards', () => {
+    // Otto opens with 7 words. At least one start card was tried, and the round is
+    // fullest when that was the shortest, so the 5-word card drops out.
+    const card = (plan: Plan, id: string, count: number) => ({ ...plan, id, text: words(count) });
+    const fixes = ['fix-a', 'fix-b', 'fix-c'].map((id) => card(fix, id, 12));
+    const plans = (last: number) => [
+      card(guess, 'guess', 9),
+      card(fullPath, 'full-path', 5),
+      card(guess, 'extra', last),
     ];
-    expect(check({}, { guards })).toEqual([over(' > label 1', 61, 60)]);
+    expect(check({}, { plans: plans(8), fixes })).toEqual([]);
+    expect(check({}, { plans: plans(9), fixes })).toEqual([over(' > fix round screen', 61, 60)]);
+  });
+
+  it("holds the checklist's labels, the guards' too, to 8 words each", () => {
+    const guards: Predicate[] = [
+      { kind: 'driveFolder', path: 'Users/kyle/notes', label: words(8) },
+      { kind: 'driveFolder', path: 'Users/kyle/notes', label: words(9) },
+    ];
+    const success: Predicate = { ...step.success, label: words(9) };
+    expect(check({ success }, { guards })).toEqual([
+      over(' > label 1', 9, 8),
+      over(' > label 3', 9, 8),
+    ]);
+  });
+
+  it("repeats the schema's directed rules, for content built without parsing", () => {
+    const mission = 'mission sample-where-things-live';
+    const typed: MissionStep = { ...step, id: 'typed', agent: undefined };
+    const mixed = { ...directedMission, approvals: undefined, steps: [step, typed] };
+    expect(validateAct(directedAct, [mixed])).toEqual([
+      {
+        where: `${mission} > steps`,
+        problem: 'Give every step an agent task, or none: a mission is directed or typed.',
+      },
+      {
+        where: `${mission} > approvals`,
+        problem: 'A directed mission sets approvals: "changes" or "destructive".',
+      },
+    ]);
+    const onGit = { ...directedMission, initialRepoState: sampleMission.initialRepoState };
+    expect(validateAct(directedAct, [onGit])).toEqual([
+      {
+        where: `${mission} > initialRepoState`,
+        problem: 'Otto works on the laptop, so start with windows().',
+      },
+      {
+        where: at,
+        problem: `"currentDirectory" checks the laptop, so the mission's initialRepoState must start with windows().`,
+      },
+    ]);
+    expect(check({}, { hintPlan: 'guess' })).toEqual([
+      { where: `${at} > hintPlan`, problem: 'hintPlan must name a strong start plan.' },
+    ]);
+    const typedWithApprovals = { ...sampleMission, approvals: 'changes' as const };
+    expect(validateAct(sampleAct, [typedWithApprovals, secondMission, thirdMission])).toEqual([
+      {
+        where: 'mission sample-three-rooms > approvals',
+        problem: 'Only a directed mission sets approvals.',
+      },
+    ]);
   });
 });
 

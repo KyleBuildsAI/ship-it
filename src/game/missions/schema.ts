@@ -105,7 +105,7 @@ const QuestionRoundSchema = z
   });
 
 /** A rule a mission breaks about being directed: the field it's about, and why. */
-interface DirectedProblem {
+export interface DirectedProblem {
   readonly field: 'steps' | 'approvals' | 'initialRepoState';
   readonly message: string;
 }
@@ -113,9 +113,10 @@ interface DirectedProblem {
 /**
  * A mission is directed (Kyle directs Otto) or typed (Kyle types, as in Act 2), never a
  * mix: the approval mode covers the whole sim, and Otto only works on the laptop.
- * MissionSchema reports these as it parses.
+ * MissionSchema reports these as it parses, and validateAct reports them again for
+ * content built without parsing.
  */
-function directedProblems(mission: {
+export function directedProblems(mission: {
   readonly steps: readonly { readonly agent?: unknown }[];
   readonly approvals?: string | undefined;
   readonly initialRepoState: readonly FixtureStep[];

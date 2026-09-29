@@ -1,8 +1,21 @@
 import type { FixtureStep } from '../../engine/git/fixtures';
-import { OTTO_LINE_WORDS, type AgentAction, type AgentTask } from './agentSchema';
+import {
+  FIX_ROUND_LINES,
+  hintPlanProblem,
+  OTTO_LINE_WORDS,
+  type AgentAction,
+  type AgentTask,
+} from './agentSchema';
 import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
-import { countWords, MAX_SCREEN_WORDS, type Act, type Mission, type MissionStep } from './schema';
+import {
+  countWords,
+  directedProblems,
+  MAX_SCREEN_WORDS,
+  type Act,
+  type Mission,
+  type MissionStep,
+} from './schema';
 
 /**
  * Word limits for a directed step (docs/act1-directed.md section 5.10). A directed step
@@ -18,10 +31,14 @@ export const DIRECTED_WORDS = {
   feedback: 25,
   /** The step's note, the goal and the start cards, shown together when Kyle directs. */
   directScreen: MAX_SCREEN_WORDS,
+  /** Otto's opening line, the fixes and the start cards not tried yet. */
+  fixRoundScreen: MAX_SCREEN_WORDS,
   /** Otto's claim, the question, its options and the look labels. */
   checkScreen: MAX_SCREEN_WORDS,
   /** A predict question and its options. */
   predict: 40,
+  /** Each row of the Result screen's checklist: the step's and the guards' labels. */
+  checklistLabel: 8,
 } as const;
 
 /** One problem in an Act's content, with where to find it. */
@@ -108,6 +125,16 @@ function agentTexts(at: string, step: MissionStep, agent: AgentTask): ScreenText
   };
   const direct = [agent.note ?? '', step.instruction, ...agent.plans.map((plan) => plan.text)];
   add('direct screen', direct, DIRECTED_WORDS.directScreen);
+  // A fix round follows at least one tried start card, and it's fullest when that card
+  // was the shortest. Every fix is offered each round.
+  const [, ...untried] = agent.plans
+    .map((plan) => plan.text)
+    .sort((a, b) => countWords(a) - countWords(b));
+  const ottoOpens = FIX_ROUND_LINES.reduce((longest, line) =>
+    countWords(line) > countWords(longest) ? line : longest,
+  );
+  const fixCards = agent.fixes.map((fix) => fix.text);
+  add('fix round screen', [ottoOpens, ...fixCards, ...untried], DIRECTED_WORDS.fixRoundScreen);
   const checkTexts = [
     agent.check.question,
     ...agent.check.options.map((option) => option.text),
@@ -141,9 +168,13 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
   const add = (where: string, text: string, limit: number = MAX_SCREEN_WORDS) => {
     texts.push([where, [text], limit]);
   };
-  const addLabels = (where: string, predicates: readonly Predicate[]) => {
+  const addLabels = (
+    where: string,
+    predicates: readonly Predicate[],
+    limit: number = MAX_SCREEN_WORDS,
+  ) => {
     predicates.flatMap(labelsIn).forEach((label, index) => {
-      add(`${where} > label ${String(index + 1)}`, label);
+      add(`${where} > label ${String(index + 1)}`, label, limit);
     });
   };
   for (const mission of missions) {
@@ -154,14 +185,16 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
     for (const step of mission.steps) {
       const where = `${at} > step ${step.id}`;
       const { agent } = step;
-      // A directed step's goal and hints sit beside the cards, so they get less room.
+      // A directed step's goal and hints sit beside the cards, and its checklist shares
+      // the Result screen, so they get less room.
       const goalWords = agent === undefined ? MAX_SCREEN_WORDS : DIRECTED_WORDS.goal;
       const hintWords = agent === undefined ? MAX_SCREEN_WORDS : DIRECTED_WORDS.hint;
+      const labelWords = agent === undefined ? MAX_SCREEN_WORDS : DIRECTED_WORDS.checklistLabel;
       add(`${where} > instruction`, step.instruction, goalWords);
       step.hints.forEach((hint, index) => {
         add(`${where} > hint ${String(index + 1)}`, hint, hintWords);
       });
-      addLabels(where, [step.success, ...(agent?.guards ?? [])]);
+      addLabels(where, [step.success, ...(agent?.guards ?? [])], labelWords);
       if (agent !== undefined) texts.push(...agentTexts(where, step, agent));
     }
     for (const drill of mission.drills) {
@@ -208,9 +241,9 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
  * only grade setups that build a laptop, an early-access Act's upcoming list names only
  * missions that haven't shipped, and every screen of text stays within DESIGN.md
  * pillar 1's word budget, with a directed step's text held to the tighter budgets of
- * DIRECTED_WORDS. The schemas also limit words; repeating it here means content
- * built without parsing is covered too, and every problem is listed at once with its
- * location.
+ * DIRECTED_WORDS. The schemas also limit words, keep a mission directed or typed, and
+ * point hintPlan at a strong card; repeating those here means content built without
+ * parsing is covered too, and every problem is listed at once with its location.
  *
  * Returns an empty list when the Act is ready to ship.
  */
@@ -270,11 +303,17 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
     if (problem !== null) report(where, problem);
   };
   for (const mission of missions) {
+    for (const { field, message } of directedProblems(mission)) {
+      report(`mission ${mission.id} > ${field}`, message);
+    }
     for (const step of mission.steps) {
+      const where = `mission ${mission.id} > step ${step.id}`;
       reportLaptop(
-        `mission ${mission.id} > step ${step.id}`,
+        where,
         laptopProblem([step.success], mission.initialRepoState, "the mission's initialRepoState"),
       );
+      const hintProblem = step.agent === undefined ? null : hintPlanProblem(step.agent);
+      if (hintProblem !== null) report(`${where} > hintPlan`, hintProblem);
     }
     for (const drill of mission.drills) {
       reportLaptop(
