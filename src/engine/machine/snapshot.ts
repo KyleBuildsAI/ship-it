@@ -1,4 +1,4 @@
-import { isWithin, joinPath } from '../fs/paths';
+import { baseName, isWithin, joinPath, parentDir } from '../fs/paths';
 import type { EngineEvent } from '../workspace';
 import type { EnvTable } from './envTable';
 import type { EnvScope } from './events';
@@ -127,8 +127,9 @@ function copyEnv(table: EnvTable): SnapshotEnv {
  * A deleted folder is one change that counts what was inside it. Comparing states, rather
  * than replaying events, means a folder made and removed again is no change at all.
  *
- * Events are optional and only pair moves: without an itemMoved event, a moved item shows
- * as a delete plus a create, because that's all two states can show.
+ * Events are optional, and only their itemMoved events are read: they say which item went
+ * where, which two states alone can't. Without them, a moved item shows as a delete plus a
+ * create.
  */
 export function diffSnapshots(
   before: MachineSnapshot,
@@ -136,38 +137,50 @@ export function diffSnapshots(
   events: readonly (EngineEvent | ItemMovedEvent)[] = [],
 ): MachineChange[] {
   return [
-    ...diffItems(before.items, after.items, netMoves(events)),
+    ...diffItems(before.items, after.items, followMoves(before.items, events)),
     ...diffEnv(before.saved.machine, after.saved.machine, 'machine', null),
     ...diffEnv(before.saved.user, after.saved.user, 'user', null),
     ...diffTabs(before.tabs, after.tabs),
   ];
 }
 
-interface Move {
-  readonly from: string;
-  readonly to: string;
-  readonly item: 'file' | 'folder';
+/** An item from the before snapshot, at the path the moves have taken it to. */
+interface Placed {
+  /** Its path in the before snapshot. */
+  readonly origin: string;
+  /** Made by a copy, so the original didn't leave. */
   readonly copy: boolean;
 }
 
 /**
- * The moves, each traced back to where its item started: after `mv a b` and `mv b c`, the
- * item at c came from a. Moving something a copy made is still a copy, since the original
- * never left.
+ * Follows every item in the before snapshot through the moves, in the order they happened,
+ * and returns each one by the path it's at now. A moved folder takes everything in it
+ * along, including what earlier moves put there, so `mv notes.txt api` then `mv api server`
+ * leaves notes.txt at server/notes.txt, still from notes.txt. Whatever stood at a move's
+ * destination is written over. Whatever a copy made stays a copy wherever it goes next.
+ *
+ * Only moves are followed. Anything deleted or made along the way shows up when the result
+ * is compared with the after snapshot.
  */
-function netMoves(events: readonly (EngineEvent | ItemMovedEvent)[]): Move[] {
-  const moves: Move[] = [];
+function followMoves(
+  before: SnapshotItems,
+  events: readonly (EngineEvent | ItemMovedEvent)[],
+): ReadonlyMap<string, Placed> {
+  const where = new Map<string, Placed>();
+  for (const path of before.keys()) where.set(path, { origin: path, copy: false });
   for (const event of events) {
-    if (event.type !== 'itemMoved') continue;
-    const earlier = moves.findLast((move) => isWithin(event.from, move.to));
-    moves.push({
-      from: earlier === undefined ? event.from : reroot(event.from, earlier.to, earlier.from),
-      to: event.to,
-      item: event.kind,
-      copy: event.copy || earlier?.copy === true,
-    });
+    if (event.type !== 'itemMoved' || event.from === event.to) continue;
+    const carried = [...where].filter(([path]) => isWithin(path, event.from));
+    for (const path of [...where.keys()]) {
+      const left = !event.copy && isWithin(path, event.from);
+      if (left || isWithin(path, event.to)) where.delete(path);
+    }
+    for (const [path, placed] of carried) {
+      const copy = placed.copy || event.copy;
+      where.set(reroot(path, event.from, event.to), { origin: placed.origin, copy });
+    }
   }
-  return moves;
+  return where;
 }
 
 /** The same place under another folder: 'b/x', moved from under 'b' to under 'a', is 'a/x'. */
@@ -178,48 +191,74 @@ function reroot(path: string, from: string, to: string): string {
 function diffItems(
   before: SnapshotItems,
   after: SnapshotItems,
-  moves: readonly Move[],
+  where: ReadonlyMap<string, Placed>,
 ): MachineChange[] {
-  // A path whose item changed kind (a folder became a file) is both deleted and created.
-  const created = new Map([...after].filter(([path, now]) => before.get(path)?.item !== now.item));
-  const deleted = new Map([...before].filter(([path, was]) => after.get(path)?.item !== was.item));
-  // Where each moved or copied item was before, so an edit after the move still shows.
-  const cameFrom = new Map<string, string>();
-  const moved: MachineChange[] = [];
-  for (const move of moves) {
-    // A move onto itself changed nothing. A move whose item was later deleted or replaced
-    // shows as whatever is left.
-    const landed =
-      before.get(move.from)?.item === move.item && after.get(move.to)?.item === move.item;
-    if (move.from === move.to || !landed) continue;
-    moved.push({ kind: 'moved', ...move });
-    // What's under the destination came along with the move, unless it's new.
-    for (const [path, now] of [...created]) {
-      if (!isWithin(path, move.to)) continue;
-      const source = reroot(path, move.to, move.from);
-      if (before.get(source)?.item !== now.item) continue;
-      created.delete(path);
-      cameFrom.set(path, source);
-      if (!move.copy) deleted.delete(source);
-    }
+  // An item is followed only if it's still where the moves left it, as the same kind of
+  // item. Otherwise it was deleted or replaced along the way.
+  const followed = new Map<string, Placed>();
+  // The items from before that are still somewhere. A copy doesn't keep its original.
+  const kept = new Set<string>();
+  for (const [path, placed] of where) {
+    if (after.get(path)?.item !== before.get(placed.origin)?.item) continue;
+    followed.set(path, placed);
+    if (!placed.copy) kept.add(placed.origin);
   }
+  const moved: MachineChange[] = [];
+  const created: MachineChange[] = [];
   const modified: MachineChange[] = [];
+  const made = new Set<string>();
+  // Paths whose item from before was lost, with one of the same kind standing there now.
+  const takenOver = new Set<string>();
   for (const [path, now] of after) {
-    const was = before.get(cameFrom.get(path) ?? path);
-    if (now.item !== 'file' || was?.item !== 'file' || was.content === now.content) continue;
-    const how = now.content.startsWith(was.content) ? 'appended' : 'replaced';
+    const placed = followed.get(path);
+    const was = before.get(path);
+    // The item that was here is gone, but not moved away, and another took its place in the
+    // same folder: a file written over by a copy or Move-Item -Force, or written again. It
+    // counts as the old file changed, so the content it lost still shows.
+    const tookOver = was?.item === now.item && !kept.has(path) && !made.has(parentDir(path));
+    if (placed === undefined && !tookOver) {
+      // New, even where a moved item used to be: that one is somewhere else now.
+      created.push({ kind: 'created', path, item: now.item });
+      made.add(path);
+      continue;
+    }
+    if (tookOver) takenOver.add(path);
+    if (placed !== undefined && placed.origin !== path && !cameWithFolder(path, placed, followed))
+      moved.push({
+        kind: 'moved',
+        from: placed.origin,
+        to: path,
+        item: now.item,
+        copy: placed.copy,
+      });
+    // A file that took over is compared with the one it replaced; any other, with where it
+    // came from, so an edit after a move still shows.
+    const baseline = tookOver || placed === undefined ? was : before.get(placed.origin);
+    if (now.item !== 'file' || baseline?.item !== 'file' || baseline.content === now.content)
+      continue;
+    const how = now.content.startsWith(baseline.content) ? 'appended' : 'replaced';
     modified.push({ kind: 'modified', path, how });
   }
-  return [
-    ...moved,
-    ...[...created].map(([path, now]): MachineChange => ({
-      kind: 'created',
-      path,
-      item: now.item,
-    })),
-    ...collapseDeletes(deleted),
-    ...modified,
-  ];
+  const deleted = new Map([...before].filter(([path]) => !kept.has(path) && !takenOver.has(path)));
+  return [...moved, ...created, ...collapseDeletes(deleted), ...modified];
+}
+
+/**
+ * Whether an item only came along when its folder moved, so the folder's own move covers
+ * it: its folder came from its old folder, the same way (moved or copied), and it kept its
+ * name.
+ */
+function cameWithFolder(
+  path: string,
+  placed: Placed,
+  followed: ReadonlyMap<string, Placed>,
+): boolean {
+  const folder = followed.get(parentDir(path));
+  return (
+    folder?.origin === parentDir(placed.origin) &&
+    folder.copy === placed.copy &&
+    baseName(path) === baseName(placed.origin)
+  );
 }
 
 /**

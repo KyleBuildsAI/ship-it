@@ -264,6 +264,102 @@ describe('diffSnapshots with itemMoved events', () => {
     ]);
   });
 
+  it('takes along what earlier moves put in a folder, however many moves back', () => {
+    const intoApi = movedEvent('Users/kyle/notes.txt', 'Users/kyle/api/notes.txt', 'file');
+    const apiToServer = movedEvent('Users/kyle/api', 'Users/kyle/server', 'folder');
+    const moveNotesAndApi = (notesEndsAt: string) => (machine: Machine) => {
+      copyTree(machine, 'Users/kyle/api', 'Users/kyle/server');
+      machine.drive.removeDir('Users/kyle/api', { recursive: true });
+      machine.drive.writeFile(notesEndsAt, 'ship it\n');
+      machine.drive.deleteFile('Users/kyle/notes.txt');
+    };
+    // mv notes.txt api; mv api server
+    const twoMoves = changesAfter(moveNotesAndApi('Users/kyle/server/notes.txt'), [
+      intoApi,
+      apiToServer,
+    ]);
+    // ...then mv server\notes.txt todo.txt
+    const threeMoves = changesAfter(moveNotesAndApi('Users/kyle/todo.txt'), [
+      intoApi,
+      apiToServer,
+      movedEvent('Users/kyle/server/notes.txt', 'Users/kyle/todo.txt', 'file'),
+    ]);
+
+    expect(twoMoves).toEqual([
+      movedChange('Users/kyle/api', 'Users/kyle/server', 'folder'),
+      // It reached server inside api, but it started out beside api, not in it.
+      movedChange('Users/kyle/notes.txt', 'Users/kyle/server/notes.txt', 'file'),
+    ]);
+    expect(threeMoves).toEqual([
+      movedChange('Users/kyle/api', 'Users/kyle/server', 'folder'),
+      movedChange('Users/kyle/notes.txt', 'Users/kyle/todo.txt', 'file'),
+    ]);
+  });
+
+  it('moves onto a file as a move that replaced it, not a delete', () => {
+    // Move-Item notes.txt api\package.json -Force
+    const changes = changesAfter(
+      (machine) => {
+        machine.drive.writeFile('Users/kyle/api/package.json', 'ship it\n');
+        machine.drive.deleteFile('Users/kyle/notes.txt');
+      },
+      [movedEvent('Users/kyle/notes.txt', 'Users/kyle/api/package.json', 'file')],
+    );
+
+    expect(changes).toEqual([
+      movedChange('Users/kyle/notes.txt', 'Users/kyle/api/package.json', 'file'),
+      // notes.txt lost nothing. What package.json had is what's gone.
+      { kind: 'modified', path: 'Users/kyle/api/package.json', how: 'replaced' },
+    ]);
+  });
+
+  it('shows something made where a moved item used to be as new', () => {
+    const apiToServer = movedEvent('Users/kyle/api', 'Users/kyle/server', 'folder');
+    // Move-Item api server; mkdir api
+    const folder = changesAfter(
+      (machine) => {
+        copyTree(machine, 'Users/kyle/api', 'Users/kyle/server');
+        machine.drive.removeDir('Users/kyle/api', { recursive: true });
+        machine.drive.makeDir('Users/kyle/api');
+      },
+      [apiToServer],
+    );
+    // Move-Item notes.txt todo.txt; New-Item notes.txt -Value 'new'
+    const file = changesAfter(
+      (machine) => {
+        machine.drive.writeFile('Users/kyle/todo.txt', 'ship it\n');
+        machine.drive.writeFile('Users/kyle/notes.txt', 'new');
+      },
+      [movedEvent('Users/kyle/notes.txt', 'Users/kyle/todo.txt', 'file')],
+    );
+    // Remove-Item api\package.json; Move-Item api server; New-Item api\package.json -Force
+    const inNewFolder = changesAfter(
+      (machine) => {
+        copyTree(machine, 'Users/kyle/api/src', 'Users/kyle/server/src');
+        machine.drive.removeDir('Users/kyle/api', { recursive: true });
+        machine.drive.writeFile('Users/kyle/api/package.json', '');
+      },
+      [apiToServer],
+    );
+
+    expect(folder).toEqual([
+      movedChange('Users/kyle/api', 'Users/kyle/server', 'folder'),
+      { kind: 'created', path: 'Users/kyle/api', item: 'folder' },
+    ]);
+    // Not notes.txt replaced: the old notes.txt lost nothing, it's todo.txt now.
+    expect(file).toEqual([
+      movedChange('Users/kyle/notes.txt', 'Users/kyle/todo.txt', 'file'),
+      { kind: 'created', path: 'Users/kyle/notes.txt', item: 'file' },
+    ]);
+    // A file in a new folder is new too, even where a deleted one used to be.
+    expect(inNewFolder).toEqual([
+      movedChange('Users/kyle/api', 'Users/kyle/server', 'folder'),
+      { kind: 'created', path: 'Users/kyle/api', item: 'folder' },
+      { kind: 'created', path: 'Users/kyle/api/package.json', item: 'file' },
+      { kind: 'deleted', path: 'Users/kyle/api/package.json', item: 'file', inside: 0 },
+    ]);
+  });
+
   it('shows what is left after a move: gone again, edited, or written over', () => {
     const moveNotes = movedEvent('Users/kyle/notes.txt', 'Users/kyle/api/notes.txt', 'file');
     const goneAgain = changesAfter(
