@@ -55,10 +55,10 @@ describe('machineQueries', () => {
     machine.drive.makeDir('Users/kyle/Notes/Archive');
     machine.drive.writeFile('Users/kyle/Notes/Plan.md', '');
     expect(q.list('users/KYLE/notes')).toEqual([
-      { name: 'Archive', kind: 'folder' },
-      { name: 'zeta', kind: 'folder' },
-      { name: 'Plan.md', kind: 'file' },
-      { name: 'today.txt', kind: 'file' },
+      { name: 'Archive', kind: 'folder', hidden: false },
+      { name: 'zeta', kind: 'folder', hidden: false },
+      { name: 'Plan.md', kind: 'file', hidden: false },
+      { name: 'today.txt', kind: 'file', hidden: false },
     ]);
     expect(q.list('').map((listed) => listed.name)).toEqual(['Program Files', 'Users', 'Windows']);
   });
@@ -112,6 +112,17 @@ describe('machineQueries', () => {
       'Notes',
       'quillwork',
     ]);
+  });
+
+  it('marks what has the Hidden attribute, so a drawing can leave out what dir does', () => {
+    const { machine, q } = laptop();
+    machine.drive.hide('Users/kyle/Notes/today.txt');
+    const hiddenAtHome = q.list('Users/kyle').filter((listed) => listed.hidden);
+    expect(hiddenAtHome.map((listed) => listed.name)).toEqual(['AppData']);
+    // Found in any case, like every other query.
+    expect(q.list('users/kyle/notes')).toEqual([{ name: 'today.txt', kind: 'file', hidden: true }]);
+    // The attribute belongs to the item alone: what's inside AppData isn't hidden itself.
+    expect(q.list('Users/kyle/AppData').map((listed) => listed.hidden)).toEqual([false, false]);
   });
 
   it('has nothing to list at a file or a missing path, and item tells those apart', () => {
