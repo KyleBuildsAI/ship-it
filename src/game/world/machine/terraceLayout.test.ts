@@ -3,7 +3,13 @@ import { windows } from '../../../engine/fixtures';
 import { testDeps } from '../../../engine/git/testDeps';
 import { machineQueries } from '../../../engine/machine/queries';
 import { recordMachineEvents } from '../../../engine/machine/testDeps';
-import { describeTerraces, MAX_CARDS, MAX_TILES, type TerraceSpec } from './terraceLayout';
+import {
+  describeTerraces,
+  MAX_CARDS,
+  MAX_LANTERNS,
+  MAX_TILES,
+  type TerraceSpec,
+} from './terraceLayout';
 
 const HOME = 'Users/kyle';
 const API = 'Users/kyle/quillwork/api';
@@ -192,5 +198,103 @@ describe('describeTerraces', () => {
     describeTerraces(q, { focus: [`${WEB}/notes`] });
     expect(events).toEqual([]);
     expect(machine.drive.exists(`${WEB}/notes`)).toBe(false);
+  });
+});
+
+describe('describeTerraces: lanterns and the signpost', () => {
+  it('stands a lantern on each tab folder, the active one marked, and signposts it', () => {
+    const { machine, q } = laptop();
+    machine.setLocation(1, API, 'absolute');
+    machine.setLocation(machine.openSession().id, WEB, 'absolute');
+    const spec = describeTerraces(q);
+    expect(spec.lanterns).toEqual([
+      { tab: 1, label: 'PS 1', folder: API, tile: API, active: false },
+      { tab: 2, label: 'PS 2', folder: WEB, tile: WEB, active: true },
+    ]);
+    expect(spec.breadcrumb).toEqual(['C:\\', 'Users', 'kyle', 'quillwork', 'web']);
+  });
+
+  it('stands a lantern on the nearest folder left when another tab removed its own', () => {
+    const { machine, q } = laptop();
+    machine.setLocation(1, WEB, 'absolute');
+    machine.openSession();
+    machine.activate(1);
+    // Remove-Item lets tab 2 delete the folder tab 1 stands in, as in real pwsh.
+    machine.drive.removeDir(WEB, { recursive: true });
+    const spec = describeTerraces(q);
+    expect(spec.lanterns[0]).toMatchObject({ folder: WEB, tile: 'Users/kyle/quillwork' });
+    // The prompt still shows the folder, so the signpost does too.
+    expect(spec.breadcrumb.at(-1)).toBe('web');
+  });
+
+  it('stands a lantern on the deepest tile that fits when its route is longer than the cap', () => {
+    const { machine, q } = laptop();
+    const deep = `${HOME}/${Array.from({ length: 45 }, () => 'd').join('/')}`;
+    machine.drive.makeDir(deep);
+    machine.setLocation(1, deep, 'absolute');
+    const spec = describeTerraces(q);
+    expect(spec.lanterns[0]?.tile).toBe(spec.tiles.at(-1)?.path);
+  });
+
+  it('stands a tab at C:\\ on the pad, and signposts just C:\\', () => {
+    const { machine, q } = laptop();
+    machine.setLocation(1, '', 'absolute');
+    const spec = describeTerraces(q);
+    expect(spec.lanterns[0]?.tile).toBe('');
+    expect(spec.breadcrumb).toEqual(['C:\\']);
+  });
+
+  it(`keeps the active tab's lantern when more than ${String(MAX_LANTERNS)} tabs are open`, () => {
+    const { machine, q } = laptop();
+    for (let opened = 1; opened < MAX_LANTERNS + 2; opened++) machine.openSession();
+    machine.setLocation(8, WEB, 'absolute');
+    machine.activate(7);
+    const spec = describeTerraces(q);
+    expect(spec.lanterns.map((lantern) => lantern.tab)).toEqual([1, 2, 3, 4, 5, 7]);
+    expect(spec.moreTerminals).toBe(2);
+    // Tab 8 has no lantern, so nothing draws its folder.
+    expect(tilePaths(spec)).not.toContain(WEB);
+  });
+
+  it('has no lanterns and no signpost with no tab open', () => {
+    const { machine, q } = laptop();
+    machine.closeSession(1);
+    const spec = describeTerraces(q);
+    expect(spec.lanterns).toEqual([]);
+    expect(spec.moreTerminals).toBe(0);
+    expect(spec.breadcrumb).toEqual([]);
+  });
+});
+
+describe('describeTerraces: recent changes', () => {
+  it('draws recent paths wherever they are, marks them, and skips ones that are gone', () => {
+    const { machine, q } = laptop();
+    machine.drive.makeDir(`${WEB}/notes`);
+    const gone = `${API}/src/routes/old.js`;
+    const spec = describeTerraces(q, { recent: [`${WEB}/NOTES`, `${API}/server.js`, gone] });
+    expect(spec.tiles.filter((tile) => tile.recent).map((tile) => tile.path)).toEqual([
+      `${WEB}/notes`,
+    ]);
+    expect(spec.cards.filter((card) => card.recent).map((card) => card.path)).toEqual([
+      `${API}/server.js`,
+    ]);
+    // A gone file still draws the folder it was in, where the world shows it leaving.
+    expect(tilePaths(spec)).toContain(`${API}/src/routes`);
+    expect(cardPaths(spec)).not.toContain(gone);
+  });
+
+  it('draws a recent change even in a crowd, because routes come before listings', () => {
+    const { machine, q } = laptop();
+    const crowded = `${HOME}/crowded`;
+    for (let index = 0; index < 50; index++) {
+      machine.drive.makeDir(`${crowded}/f${String(index)}`);
+      machine.drive.writeFile(`${crowded}/n${String(index)}.txt`, '');
+    }
+    machine.setLocation(1, crowded, 'absolute');
+    const spec = describeTerraces(q, { recent: [`${WEB}/index.html`] });
+    expect(spec.tiles).toHaveLength(MAX_TILES);
+    expect(tilePaths(spec)).toContain(WEB);
+    expect(cardPaths(spec)).toContain(`${WEB}/index.html`);
+    expect(spec.cards).toHaveLength(MAX_CARDS);
   });
 });
