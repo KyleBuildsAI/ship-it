@@ -130,9 +130,9 @@ The story line, from Marco in the first briefing: *"The Quillwork API must run o
 
 **Where his work appears**
 1. **Terminal (xterm).** The active tab's real prompt, then the line typed out at about 40 characters per second, then the real output in today's tones.
-   - A magenta `otto ›` marker sits in the gutter.
+   - A magenta `otto ›` marker starts each line he types (Kyle's looks have none). A denied line ends with a dim `(denied)`.
    - A tab switch prints `── PS 2 ──`.
-   - A small read-only tab strip above the terminal shows `PS 1 · PS 2`.
+   - A small read-only tab strip above the terminal shows `PS 1 · PS 2`, the active tab lit.
 2. **Panel.** Otto's lines in a speech bubble, and a compact run log (one row per line, with its exit status).
 3. **World.** The drone and a lantern per terminal (§4).
 
@@ -1162,6 +1162,7 @@ export function startFeed(tab: number, prompt?: string | null): FeedState;
 export function feedPrompt(state, tab, prompt): Fed;  // a prompt waiting between commands, never twice
 // Typing can be built before driving (active tab, shell.prompt(), the line): a predict or gate waits there.
 export function feedTyping(state, typing: Pick<DriverStep, 'tab' | 'prompt' | 'echo'>, by?): Fed;
+// It moves to step.tab with no divider, so feed newTerminal and useTerminal with feedAction after driving.
 export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHOICES if not yet open, world, result
 export function feedAction(state, step, by?): Fed;    // feedTyping, then feedOutcome
 export function feedCancel(state): Fed;               // a denied line ends unrun
@@ -1180,6 +1181,15 @@ export function advance(beats, pace, head: Playhead, elapsedMs: number):
   // NaN or negative elapsed counts as 0; what's typed never un-types if the pace changes mid-line
 export function timing(beat, pace): { lead: number; span: number };  // whole ms: think before Otto types, settle after a result
 export function totalMs(beats, pace): number;
+
+// src/game/agent/terminalFeed.ts (A19): how each frame's reveals reach the terminal.
+export function showInTerminal(reveals: readonly Reveal[]): void;   // an event, so no frame is skipped; [] sends nothing
+export function onTerminalFeed(listener: (reveals: readonly Reveal[]) => void): () => void;
+// The terminal (ui/terminal/feedText.ts draws, readOnly.ts decides when) is Otto's while
+// isReadOnly(activity): a directed mission, or a series whose drill on screen or next is a
+// judgment drill. When he takes it, and after any notice, the shell's prompt waits on its last
+// line: start with startFeed(tab, shell.prompt()). A prompt beat equal to the one waiting prints
+// nothing, so startFeed(tab) works too.
 ```
 
 Store changes:
@@ -1430,7 +1440,7 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/world/testHooks.ts` | `portalPoint(1)` works as is | — |
 | `src/ui/TitleCard.tsx` | `HINTS` keyed by `ZoneId`. campus: "…step through the glowing Act 1 portal". machine: "Direct Otto from the panel. Watch the terraces." Names `{ campus: 'Campus', machine: 'The Machine', gitworld: 'Git World' }`. | `world.spec.ts` still sees "Git World" |
 | `src/game/tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts` | Drop the `'command'` step (typing `pwd`). `terminal` text: "The terminal shows what your agent runs. Press Ctrl and ` to hide it, then again to bring it back." `portal`: "…the Act 1 portal, or open Acts." | The save keeps only `completedAt` |
-| `src/ui/terminal/TerminalPanel.tsx` | Prints the agent feed (typing animation, dividers). Read-only during Act 1 missions and drills. Neutral `WELCOME`: "SHIP IT terminal. Your agent's commands show up here. Free play: type help." New `TerminalTabs.tsx` strip. | Typing is unchanged for Act 2 and Campus; `terminal.spec.ts` still types git on Campus |
+| `src/ui/terminal/TerminalPanel.tsx` | Prints the agent feed (typing animation, dividers). Read-only during Act 1 missions and drills; the first key shows a hint. New `TerminalTabs.tsx` strip on laptops (A19). Neutral `WELCOME` in A27, once a new save starts in Act 1: "SHIP IT terminal. Your agent's commands show up here. Free play: type help." | Typing is unchanged for Act 2 and Campus; `terminal.spec.ts` still types git on Campus |
 | `src/ui/play/ActMenu.tsx` | Rows only for parts that exist; "Early access" line; "Coming soon" rows from `upcoming` | Act 2 rows identical |
 | `src/ui/play/MissionView.tsx` | `step.agent` → `AgentStepView`; `isJudgmentDrill` → `JudgmentDrillView`; briefing strip from `DIAGRAM_STRIPS[diagram]` (NEW `diagramStrips.ts`); unknown ids fall back to today's Workbench → Loading Dock → Vault strip | Act 2's diagrams (`workbench-dock-vault`, `diff-between-rooms`, `atomic-commits`, `blocklist-sign`, `undo-map`) show the same strip |
 | `src/ui/play/SeriesView.tsx`, `useClock.ts` | Judgment drills; the clock also runs while Otto acts | — |
@@ -1513,7 +1523,7 @@ Sizes exclude content data, captures and lockfiles.
 | A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick; Otto's typing is advanced once per drawn frame, not by the 250 ms `tickPlay`, §5.6), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
 | A17 | `feat: approval gates, predictions, stop, and rewind in play` | `play/agentPlay.ts`, `game/agent/effects.ts` (NEW: `isConsequential`, `describeChanges`) | `effects.test.ts`, `play.test.ts` (allow, deny, onDeny, Confirm answer, rewind) | 330 |
 | A18 | `feat: judgment drills in missions, placement, and reviews` | `missionPlay.ts`, `seriesPlay.ts` (scene playback, clock after the scene, `submitJudgment`) | `play.test.ts`: pass or miss, review queue through `addMiss`, the clock starts after the scene | 300 |
-| A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure) | `feedText.test.ts`; verify loop | 220 |
+| A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure), `ui/terminal/readOnly.ts` (NEW), `game/agent/terminalFeed.ts` (NEW) | `feedText.test.ts`, `readOnly.test.ts`, `TerminalTabs.test.tsx`, `terminalFeed.test.ts`; verify loop | 220 |
 | A20 | `feat: directing panels: cards, otto's run, predicts, and gates` | `ui/play/agent/{AgentStepView,PlanCards,RunLog,PredictCard,GateCard,OttoBubble}.tsx`, `ui/play/agent/ottoLines.ts`, `ui/play/diagramStrips.ts`, `MissionView.tsx`, CSS | verify loop with `?preview=act1` | 380 |
 | A21 | `feat: directing panels: checking the claim and the step result` | `ui/play/agent/{CheckCard,LookChips,ResultCard,AnatomyChips,Stars}.tsx`, the Done screen in `MissionView.tsx` | verify loop | 330 |
 | A22 | `feat: judgment drill cards` | `ui/play/JudgmentDrillView.tsx` (predict, diagnose, fix, approve), `MissionView.tsx`, `SeriesView.tsx` | verify loop | 350 |
@@ -1521,7 +1531,7 @@ Sizes exclude content data, captures and lockfiles.
 | A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus) | 260 |
 | A25 | `feat: folder terraces, lanterns, and otto's drone` | `world/machine/{terraces,lanterns,ottoDrone}.ts` (NEW), `world.ts` (machine sync, event queue, pulses) | verify loop (two differing screenshots) | 380 |
 | A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed | `ghostLayout.test.ts`; verify loop | 300 |
-| A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), `main.tsx`, `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
+| A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), `main.tsx`, `ui/terminal/TerminalPanel.tsx` (neutral `WELCOME`), `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
 
 **Milestone A result:** a new save starts in Act 1. Mission 1.1 plays end to end, offline, with its world, ghosts, drills and Question Round. Act 2 plays as before.
 

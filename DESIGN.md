@@ -302,6 +302,7 @@ ship-it/
 - Dark, atmospheric night campus. Fog or depth falloff. Key + rim + low ambient lighting. Bloom on glowing crates, banners, and portals. Stars fill the whole sky around every island, below the horizon too.
 - Glassmorphism UI panels (blurred translucent backgrounds, 1px subtle strokes, rounded corners).
 - Terminal is readable: monospace, 14px+, high contrast. UI text never goes through post effects.
+- While Otto drives (Act 1's missions and judgment drills) the terminal is read-only: it types his lines after a magenta `otto ›` marker, prints `── PS 2 ──` when he changes tabs, and a strip above it shows the laptop's tabs (`PS 1 · PS 2`). The first key pressed says why nothing types. Act 2, Campus and free play type as before.
 - **Zero console errors and zero warnings** in dev and production builds.
 - Motion from the first frame. A static opening screen reads as broken.
 - Target 60fps on an NVIDIA desktop GPU. Respect the reduced-motion setting.
