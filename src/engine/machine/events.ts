@@ -30,4 +30,15 @@ export type MachineEvent =
       readonly type: 'sessionOpened' | 'sessionClosed' | 'sessionActivated';
       readonly session: number;
     }
-  | { readonly type: 'terminalsRestarted' };
+  | { readonly type: 'terminalsRestarted' }
+  | {
+      /**
+       * A folder was made or removed, so the world can raise or clear its terrace. Files
+       * have git's fileChanged instead. Made parents come before the folder inside them;
+       * removed children come before the folder that held them.
+       */
+      readonly type: 'folderChanged';
+      /** Canonical and spelled as stored, like 'Users/kyle/Projects'. */
+      readonly path: string;
+      readonly change: 'created' | 'deleted';
+    };

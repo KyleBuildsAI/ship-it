@@ -1,14 +1,14 @@
 import { openActMenu } from '../../game/hud';
-import { requireComplete } from '../../game/missions/schema';
+import type { Act, Boss, FieldMission, PlacementTest } from '../../game/missions/schema';
 import { startBossFight } from '../../game/play/bossPlay';
-import { getAct, getCatalog } from '../../game/play/catalog';
+import { getAct, getCatalog, hasWorkLeft } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startMission } from '../../game/play/missionPlay';
 import { missionDone } from '../../game/play/saveRules';
 import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
 import { progress } from '../../game/progress';
 import { completedActNumbers, rankFor } from '../../game/progression/xp';
-import type { MissionStatus } from '../../game/save/schema';
+import type { ActProgress, MissionStatus, SaveData } from '../../game/save/schema';
 import { useStore } from '../useStore';
 
 const STATUS: Record<MissionStatus, string> = {
@@ -42,14 +42,132 @@ function ActTabs({ current }: { current: number }) {
   );
 }
 
-/** An Act's menu: placement test, the missions, the boss, the Field Mission, and reviews. */
+/** What each part's row needs: which Act it starts, and that Act's saved progress. */
+interface PartRowProps {
+  readonly actNumber: number;
+  readonly actProgress: ActProgress | undefined;
+}
+
+function PlacementRow({ actNumber, actProgress, test }: PartRowProps & { test: PlacementTest }) {
+  return (
+    <li>
+      <span>
+        Placement test
+        <small>
+          {actProgress?.placement.testedOut
+            ? 'Tested out'
+            : actProgress?.placement.bestPercent != null
+              ? `Best ${String(actProgress.placement.bestPercent)}% · 85% tests out`
+              : test.pitch}
+        </small>
+      </span>
+      <button
+        type="button"
+        className="play-button"
+        onClick={() => {
+          startPlacement(actNumber);
+        }}
+      >
+        Take
+      </button>
+    </li>
+  );
+}
+
+function BossRow({
+  actNumber,
+  actProgress,
+  boss,
+  unlocked,
+  hasPlacement,
+}: PartRowProps & { boss: Boss; unlocked: boolean; hasPlacement: boolean }) {
+  // An early-access Act has no placement test, so testing out can't open its boss.
+  const locked = hasPlacement
+    ? 'Opens after every mission (or the placement test)'
+    : 'Opens after every mission';
+  return (
+    <li>
+      <span>
+        Boss: {boss.title}
+        <small>
+          {actProgress?.bossCompletedAt ? 'Beaten' : unlocked ? 'Dex is waiting' : locked}
+        </small>
+      </span>
+      <button
+        type="button"
+        className="play-button"
+        disabled={!unlocked}
+        onClick={() => {
+          startBossFight(actNumber);
+        }}
+      >
+        Fight
+      </button>
+    </li>
+  );
+}
+
+function FieldRow({ actNumber, actProgress, field }: PartRowProps & { field: FieldMission }) {
+  return (
+    <li>
+      <span>
+        Field Mission: {field.title}
+        <small>
+          {actProgress?.fieldMissionCompletedAt
+            ? 'Verified'
+            : `Real work on your ${field.repoName} repo`}
+        </small>
+      </span>
+      <button
+        type="button"
+        className="play-button"
+        onClick={() => {
+          startFieldMission(actNumber);
+        }}
+      >
+        Open
+      </button>
+    </li>
+  );
+}
+
+/** An early-access Act's missions still being built, numbered after the ones that shipped. */
+function UpcomingRows({ act }: { act: Act }) {
+  return act.upcoming.map((title, index) => {
+    const number = act.missionIds.length + index + 1;
+    return (
+      <li key={number} className="act-menu__upcoming">
+        <span>
+          {act.act}.{number} {title}
+          <small>Coming soon</small>
+        </span>
+      </li>
+    );
+  });
+}
+
+/** Says the Act is unfinished on purpose, and when the player has caught up with it. */
+function EarlyAccessNote({ act, save }: { act: Act; save: SaveData }) {
+  // Promise missions only while some are listed. With none left, what's coming is a part
+  // not built yet, like the boss, so the line stays general.
+  const coming = act.upcoming.length > 0 ? 'More missions are on the way.' : 'More is on the way.';
+  return (
+    <p className="play-panel__muted">
+      Early access ·{' '}
+      {hasWorkLeft(save, act) ? coming : `You've played everything built so far. ${coming}`}
+    </p>
+  );
+}
+
+/**
+ * An Act's menu: placement test, the missions, the boss, the Field Mission, and reviews.
+ * An early-access Act shows only the parts built so far, then its upcoming missions.
+ */
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   if (save === null) return null;
   const { act, missions } = getAct(number);
-  // Every Act in the catalog has all its parts so far. If one arrives without them before
-  // this menu can leave out missing rows, requireComplete fails loudly instead of drawing blanks.
-  const { placementTest, boss, fieldMission } = requireComplete(act);
+  const { placementTest, boss, fieldMission } = act;
   const actProgress = save.acts[String(act.act)];
   const bossUnlocked = act.missionIds.every((id) => missionDone(save, id));
   const reviews = reviewItemsToday();
@@ -66,28 +184,11 @@ export function ActMenu({ act: number }: { act: number }) {
       <p className="play-panel__muted">
         {rank} · {save.profile.xp} XP{actProgress?.completedAt ? ' · Act complete' : ''}
       </p>
+      {act.earlyAccess ? <EarlyAccessNote act={act} save={save} /> : null}
       <ol className="act-menu">
-        <li>
-          <span>
-            Placement test
-            <small>
-              {actProgress?.placement.testedOut
-                ? 'Tested out'
-                : actProgress?.placement.bestPercent != null
-                  ? `Best ${String(actProgress.placement.bestPercent)}% · 85% tests out`
-                  : placementTest.pitch}
-            </small>
-          </span>
-          <button
-            type="button"
-            className="play-button"
-            onClick={() => {
-              startPlacement(act.act);
-            }}
-          >
-            Take
-          </button>
-        </li>
+        {placementTest ? (
+          <PlacementRow actNumber={act.act} actProgress={actProgress} test={placementTest} />
+        ) : null}
         {act.missionIds.map((id, index) => {
           const mission = missions.find((entry) => entry.id === id);
           if (mission === undefined) return null;
@@ -112,47 +213,19 @@ export function ActMenu({ act: number }: { act: number }) {
             </li>
           );
         })}
-        <li>
-          <span>
-            Boss: {boss.title}
-            <small>
-              {actProgress?.bossCompletedAt
-                ? 'Beaten'
-                : bossUnlocked
-                  ? 'Dex is waiting'
-                  : 'Opens after every mission (or the placement test)'}
-            </small>
-          </span>
-          <button
-            type="button"
-            className="play-button"
-            disabled={!bossUnlocked}
-            onClick={() => {
-              startBossFight(act.act);
-            }}
-          >
-            Fight
-          </button>
-        </li>
-        <li>
-          <span>
-            Field Mission: {fieldMission.title}
-            <small>
-              {actProgress?.fieldMissionCompletedAt
-                ? 'Verified'
-                : `Real work on your ${fieldMission.repoName} repo`}
-            </small>
-          </span>
-          <button
-            type="button"
-            className="play-button"
-            onClick={() => {
-              startFieldMission(act.act);
-            }}
-          >
-            Open
-          </button>
-        </li>
+        <UpcomingRows act={act} />
+        {boss ? (
+          <BossRow
+            actNumber={act.act}
+            actProgress={actProgress}
+            boss={boss}
+            unlocked={bossUnlocked}
+            hasPlacement={placementTest !== undefined}
+          />
+        ) : null}
+        {fieldMission ? (
+          <FieldRow actNumber={act.act} actProgress={actProgress} field={fieldMission} />
+        ) : null}
         {reviews > 0 ? (
           <li>
             <span>

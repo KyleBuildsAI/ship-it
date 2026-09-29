@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  directedMission,
   earlySampleAct,
   otherSampleAct,
   sampleAct,
@@ -7,7 +8,7 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
-import { ContentError } from '../missions/schema';
+import { ActSchema, ContentError } from '../missions/schema';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
 import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
@@ -26,7 +27,13 @@ import {
 } from './missionPlay';
 import { leavePlay } from './play';
 import { play, type BossActivity, type MissionActivity, type SeriesActivity } from './playStore';
-import { seriesSandboxChanged, startNextSeriesDrill, startPlacement } from './seriesPlay';
+import {
+  seriesSandboxChanged,
+  seriesTick,
+  startNextSeriesDrill,
+  startPlacement,
+  startReview,
+} from './seriesPlay';
 
 const NOW = new Date('2026-09-27T12:00:00.000Z');
 const T0 = NOW.getTime();
@@ -236,6 +243,49 @@ describe('two Acts in one catalog', () => {
     expect(boss().outcome).toBe('won');
     expect(progress.get().save?.acts['3']?.bossCompletedAt).toBeTruthy();
     expect(progress.get().save?.acts['2']).toBeUndefined();
+  });
+});
+
+describe('judgment drills', () => {
+  beforeEach(() => {
+    const act = ActSchema.parse({
+      act: 1,
+      title: 'Directed Sample',
+      earlyAccess: true,
+      missionIds: [directedMission.id],
+    });
+    setCatalog({ acts: [{ act, missions: [directedMission] }] });
+  });
+
+  it('wait for an answer: no checklist, no pass by the sandbox, and a timeout is a miss', () => {
+    const first = directedMission.drills[0];
+    startMission(directedMission.id);
+    endBriefing();
+    run('cd C:\\Users\\kyle\\quillwork\\api');
+    missionSandboxChanged(T0);
+    expect(mission().run.phase).toBe('drills');
+
+    startNextDrill(T0);
+    expect(play.get().checklist).toEqual([]);
+    // Changing the sandbox leaves the drill running: only an answer or the clock ends it.
+    run('cd C:\\Users\\kyle\\quillwork\\api');
+    missionSandboxChanged(T0 + 1_000);
+    expect(mission().run.activeDrill).not.toBeNull();
+    missionTick(T0 + 40_000);
+    expect(mission().lastDrill).toMatchObject({ drillId: first?.id, passed: false });
+    expect(progress.get().save?.reviewQueue.map((item) => item.drillId)).toEqual([first?.id]);
+
+    // The miss comes back at the Standup Board, where it waits for an answer too.
+    startReview(NOW);
+    startNextSeriesDrill(T0 + 50_000);
+    expect(play.get().checklist).toEqual([]);
+    run('cd ..');
+    seriesSandboxChanged(T0 + 51_000);
+    expect(series().active).not.toBeNull();
+    seriesTick(T0 + 90_000);
+    expect(series().results).toEqual([
+      { drillId: first?.id, passed: false, seconds: 40, overtime: false },
+    ]);
   });
 });
 

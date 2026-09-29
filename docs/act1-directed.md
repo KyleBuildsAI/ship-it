@@ -165,7 +165,7 @@ Layout, unchanged in frame:
 
 | Stage | Kyle sees | Kyle does | Word budget (checked by `validateAct`) |
 |---|---|---|---|
-| **1. Direct** | "1.1 Where Things Live · Step 2 of 4". The goal. Otto: "Your call." 2-3 request cards. A secondary **Say it your way** button. Hint. | Clicks a card. Or writes a sentence: Otto repeats it back as "Plan: *card text*. Go?" [Go] [Pick instead]. | goal ≤ 20; each card ≤ 12; goal + all cards ≤ 60 |
+| **1. Direct** | "1.1 Where Things Live · Step 2 of 4". The goal, and the step's `note` if it has one. Otto: "Your call." 2-3 request cards. A secondary **Say it your way** button. Hint. | Clicks a card. Or writes a sentence: Otto repeats it back as "Plan: *card text*. Go?" [Go] [Pick instead]. | goal ≤ 20; each card ≤ 12; note + goal + all cards ≤ 60 |
 | **2. Run** | Otto's bubble. The terminal types each line. The world animates. **Stop** (between lines). | Watches and reads. Stop returns to Direct with the plan marked as tried. | Otto lines ≤ 12 |
 | · **Predict** (only lines with `predict`) | The line sits at the prompt, not yet run. "Before Otto runs it: where will notes land?" 2-4 options. | Picks. Then a ghost shows what will happen for 1.5 s and the line runs. The prediction is graded after it runs. | question + options ≤ 40 |
 | · **Gate** (lines that pause, D6) | "Otto wants to run:" the command, Otto's `say`, the **worked-out effects** (up to 3 lines), a diff for `write`, and the blast radius in the world. [Allow] [Deny]. For Confirm: PowerShell's question and "Otto will answer A". | Allow or deny. Deny runs `onDeny` (Otto corrects himself), or stops for new directions. Denying a safe line makes Otto ask "I need this to finish: <effect>. Run it?" | say ≤ 12 |
@@ -874,14 +874,23 @@ export const AgentTaskSchema = z
     fixes: z.array(PlanSchema).min(1).max(3),
     /** The start plan hint rung 3 highlights. It must be strong. */
     hintPlan: IdSchema,
-    check: z.strictObject({ question: ScreenTextSchema, options: z.array(CheckOptionSchema).min(2).max(4) }),
+    check: z
+      .strictObject({ question: ScreenTextSchema, options: z.array(CheckOptionSchema).min(2).max(4) })
+      // Checked on the check, not the task, so a duplicate points at ['check', 'options', i, 'id'].
+      .superRefine((check, ctx) => { checkUniqueIds(check.options, 'options', ctx); }),
     /** Must stay true. Denying is right exactly when a dry run breaks one. The step passes on success and every guard. */
     guards: z.array(PredicateSchema).max(4).default([]),
     looks: z.array(LookSchema).max(3).default([]),
   })
   .superRefine((task, ctx) => {
-    checkUniqueIds([...task.plans, ...task.fixes], 'plans', ctx);
-    checkUniqueIds(task.check.options, 'check', ctx);
+    checkUniqueIds(task.plans, 'plans', ctx);
+    checkUniqueIds(task.fixes, 'fixes', ctx);
+    // A fix round offers fixes beside untried start plans, so a fix can't reuse a start plan's id.
+    const startIds = new Set(task.plans.map((plan) => plan.id));
+    task.fixes.forEach((fix, index) => {
+      if (startIds.has(fix.id))
+        ctx.addIssue({ code: 'custom', path: ['fixes', index, 'id'], message: `Duplicate id "${fix.id}": a start plan uses it.` });
+    });
     checkUniqueIds(task.looks, 'looks', ctx);
     const hint = task.plans.find((plan) => plan.id === task.hintPlan);
     if (hint?.quality !== 'strong')
@@ -1261,17 +1270,19 @@ Drill example:
 **Budgets**
 - Directed goal ≤ 20
 - Each card ≤ 12
-- Goal + the three longest start cards ≤ 60
+- The step's `note` + goal + all start cards ≤ 60 (the note is shown with the goal)
+- A fix round: Otto's longer opening line + every fix + the start cards not tried yet ≤ 60, counted as if the shortest start card was the one tried
 - Otto's lines (`say`, `claim`, `denyLine`) ≤ 12
 - Claim + question + options + look labels ≤ 60
 - `lesson` and `feedback` ≤ 25
 - Hints in directed steps ≤ 20
+- Checklist labels in directed steps (the step's and the guards') ≤ 8 each
 - Predict question + options ≤ 40
 - Drill prompt + claim + options ≤ 60
 - Drill `explain` ≤ 30
 
 **Rules**
-- Directed steps are all-or-none.
+- Directed steps are all-or-none: a mission's steps are all directed or all typed. A directed mission also sets `approvals` and starts with `windows()`, and a typed one sets no `approvals`. `validateAct` and `MissionSchema` share these checks (`directedProblems`).
 - The `windows()` rule for machine predicates (§5.5).
 - `hintPlan` names a strong plan.
 - Ids are unique across the catalog (`validateCatalog` handles an optional boss and field).

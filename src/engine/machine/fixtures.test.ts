@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { buildWorkspace, folder, repo, windows } from '../fixtures';
 import { gitText } from '../git/cli/testRun';
 import { testDeps } from '../git/testDeps';
+import { applyMachineStep } from './fixtures';
 import type { Machine } from './machine';
 import { STOCK_MACHINE_ENV } from './stock';
+import { recordMachineEvents } from './testDeps';
 
 function build(steps: ReturnType<typeof windows>) {
   const ws = steps.build(testDeps());
@@ -150,6 +152,18 @@ describe('laptop steps', () => {
     );
     expect(machine.saved.user.expands('Path')).toBe(true);
     expect(tab(machine).env.get('Path')?.startsWith('C:\\Program Files\\nodejs;')).toBe(true);
+  });
+
+  it('announces the folders a mkdir step makes on a live laptop, and only new ones', () => {
+    const { machine } = build(windows().mkdir('Users/kyle/Projects'));
+    const events = recordMachineEvents(machine);
+    applyMachineStep(machine, { op: 'mkdir', path: 'Users/kyle/projects/api/src' });
+    applyMachineStep(machine, { op: 'mkdir', path: 'Users/kyle/Projects' });
+
+    expect(events).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/Projects/api', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/Projects/api/src', change: 'created' },
+    ]);
   });
 
   it('restarts every terminal', () => {

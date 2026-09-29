@@ -318,6 +318,45 @@ describe('Machine', () => {
   });
 });
 
+describe('folders', () => {
+  it('announces each new folder, outermost first, spelled as stored', () => {
+    const machine = testMachine();
+    machine.drive.makeDir('Users/kyle/Projects');
+    const events = recordMachineEvents(machine);
+
+    expect(machine.makeFolder('users/kyle/projects/api/src')).toBe('Users/kyle/Projects/api/src');
+    expect(events).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/Projects/api', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/Projects/api/src', change: 'created' },
+    ]);
+  });
+
+  it('stays quiet about a folder that was already there', () => {
+    const machine = testMachine();
+    const events = recordMachineEvents(machine);
+
+    expect(machine.makeFolder('USERS/KYLE')).toBe('Users/kyle');
+    expect(events).toEqual([]);
+  });
+
+  it('removes an empty folder and announces it, but never a full one', () => {
+    const machine = testMachine();
+    machine.drive.writeFile('Users/kyle/old/notes.txt', 'x');
+    machine.drive.makeDir('Users/kyle/empty');
+    const events = recordMachineEvents(machine);
+
+    machine.removeFolder('users/kyle/EMPTY');
+    expect(machine.drive.exists('Users/kyle/empty')).toBe(false);
+    expect(() => {
+      machine.removeFolder('Users/kyle/old');
+    }).toThrow('ENOTEMPTY');
+    expect(machine.drive.isFile('Users/kyle/old/notes.txt')).toBe(true);
+    expect(events).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/empty', change: 'deleted' },
+    ]);
+  });
+});
+
 describe('a workspace with a machine', () => {
   it("passes the machine's events along with git's on one stream", () => {
     const machine = testMachine();

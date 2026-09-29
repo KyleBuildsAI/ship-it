@@ -180,6 +180,49 @@ describe('Remove-Item, as PowerShell 7.6 answers', () => {
   });
 });
 
+describe('removed folders are announced', () => {
+  it('announces an empty folder it removes', () => {
+    const { shell, events } = laptop();
+    shell.run('rm empty');
+    expect(events).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/empty', change: 'deleted' },
+    ]);
+  });
+
+  it('announces everything inside a folder first, children before their folder', () => {
+    const { shell, events } = laptop();
+    shell.run('rm tmp -Recurse');
+    expect(events).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/tmp/deep/two.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/tmp/deep', change: 'deleted' },
+      { type: 'fileChanged', path: 'Users/kyle/tmp/one.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/tmp', change: 'deleted' },
+    ]);
+  });
+
+  it('announces a folder when the Confirm answer removes it, not when it asks', () => {
+    const { shell, events } = laptop();
+    shell.run('rm old');
+    expect(events).toEqual([]);
+    shell.run('y');
+    expect(events).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/old/three.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/old', change: 'deleted' },
+    ]);
+  });
+
+  it('says nothing about a folder that stays: kept by N, hidden, or holding a hidden item', () => {
+    const { shell, drive, events } = laptop();
+    shell.run('rm old');
+    shell.run('n');
+    shell.run('rm .cache');
+    drive.hide('Users/kyle/tmp/deep');
+    shell.run('rm tmp -Recurse');
+    expect(events.filter((event) => event.type === 'folderChanged')).toEqual([]);
+    expect(drive.isDir('Users/kyle/old') && drive.isDir('Users/kyle/tmp/deep')).toBe(true);
+  });
+});
+
 describe("Remove-Item's Confirm question", () => {
   it('asks before deleting a full folder, and Y (or Enter) deletes it', () => {
     for (const answer of ['y', '', 'Yes']) {
@@ -221,6 +264,29 @@ describe("Remove-Item's Confirm question", () => {
     expect(shell.run('maybe')).toEqual({ lines: [], exitCode: 0 });
     expect(shell.prompt()).toBe(CHOICES);
     expect(drive.exists('Users/kyle/tmp')).toBe(true);
+  });
+
+  it('reports what another tab removed while this one asked, and carries on', () => {
+    const { shell, machine, drive } = laptop();
+    // The wildcard finds both folders before the question, so tmp is already a found item.
+    expect(texts(shell.run('rm [ot]*'))).toEqual(['Confirm', QUESTION('old')]);
+    machine.openSession();
+    expect(shell.run('rm old, tmp -Recurse').exitCode).toBe(0);
+    machine.activate(1);
+    expect(shell.run('y')).toEqual({
+      lines: [
+        {
+          text: "Remove-Item: Cannot find path 'C:\\Users\\kyle\\old' because it does not exist.",
+          tone: 'error',
+        },
+        {
+          text: "Remove-Item: Cannot find path 'C:\\Users\\kyle\\tmp' because it does not exist.",
+          tone: 'error',
+        },
+      ],
+      exitCode: 1,
+    });
+    expect(drive.exists('Users/kyle/notes.txt')).toBe(true);
   });
 
   it('runs what came after ; once answered, and keeps answers out of history', () => {
