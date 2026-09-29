@@ -1891,3 +1891,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/137
 3. On Act 1. Mission 1.2 isn't done, so `hasWorkLeft` is true again. The recommendation is worked out from the content and the save on every click, so there's nothing stored to update.
 
 </details>
+
+---
+
+## #138 docs: next ideas list every unmerged act 1 branch in merge order
+
+https://github.com/KyleBuildsAI/ship-it/pull/138
+
+1. Why must `feat/early-access-menu` merge before `refactor/schema-parts`?
+2. What does item 2's `git rebase --onto` do?
+3. Why is A17a on a `wip/` branch rather than a `feat/` one?
+
+<details><summary>Answers</summary>
+
+1. `refactor/schema-parts` is built on top of `feat/early-access-menu`. Its PR would show both changes, and could conflict, if the lower one wasn't in `main` first.
+2. It takes the commits made after `9c84398` (the second batch) and replays them on top of the first batch's last branch, so the second batch sits on the first again after the first batch's PRs are squash-merged.
+3. The session stopped before its lint, type and test checks ran. `wip/` says "not checked yet".
+
+</details>
