@@ -166,9 +166,12 @@ describe('two tabs', () => {
     const tab = otherTab();
     const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
     await settle();
-    expect(tab.posted).toEqual([
-      { ask: 'ship-it-handover', at: expect.any(Number), nonce: expect.any(Number) },
-    ]);
+    // One ask, saying when this tab asked, so the other tab can tell which of them is newer.
+    expect(tab.posted).toHaveLength(1);
+    const [ask] = tab.posted as { ask: unknown; at: unknown; nonce: unknown }[];
+    expect(ask?.ask).toBe('ship-it-handover');
+    expect(typeof ask?.at).toBe('number');
+    expect(typeof ask?.nonce).toBe('number');
     expect(load).not.toHaveBeenCalled();
     void tab.grant();
     await starting;
