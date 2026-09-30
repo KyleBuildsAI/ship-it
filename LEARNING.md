@@ -1909,3 +1909,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/138
 3. The session stopped before its lint, type and test checks ran. `wip/` says "not checked yet".
 
 </details>
+
+---
+
+## #139 feat: roll out the act 1 machinery built so far
+
+https://github.com/KyleBuildsAI/ship-it/pull/139
+
+1. Why does this PR change nothing you can see in the game?
+2. What does Otto's driver do that typing in the terminal doesn't?
+3. Why does a dry run use a scratch copy of the laptop?
+
+<details><summary>Answers</summary>
+
+1. It adds the machinery Act 1's screens will use: grading, schemas, the driver, snapshots and replays. Nothing in the menu or world calls it yet; the next PR does.
+2. It runs an action as data (a command, a Confirm answer, a file write, a new tab) and records exactly what happened, so the game can show, grade and replay it.
+3. So the game can show what a risky command would do before Otto runs it for real, without touching the laptop you're playing on.
+
+</details>
