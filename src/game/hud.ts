@@ -61,6 +61,12 @@ export function toggleTerminal(): void {
   });
 }
 
+/** Opens the terminal (if it's closed) and puts the cursor in it. */
+export function openTerminal(): void {
+  const { terminalFocusRequests } = hud.get();
+  hud.update({ terminalOpen: true, terminalFocusRequests: terminalFocusRequests + 1 });
+}
+
 /** Counts a command the player ran in the terminal. */
 export function countCommand(): void {
   hud.update({ commandsRun: hud.get().commandsRun + 1 });

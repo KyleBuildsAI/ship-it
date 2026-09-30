@@ -1,4 +1,6 @@
-import type { RoadmapAct } from '../../game/missions/roadmapSchema';
+import { LAPTOP_NOTICE, LAPTOP_SANDBOX } from '../../content/act1/laptop';
+import type { RoadmapAct, Tryout } from '../../game/missions/roadmapSchema';
+import { startFreePlay } from '../../game/play/freePlay';
 import { ActTabs } from './ActTabs';
 
 /** What a part that doesn't exist yet says, in place of a button. */
@@ -16,13 +18,37 @@ function PlannedRow({ label }: { label: string }) {
   );
 }
 
+/** Something that already works in an Act with no missions yet, with a button to try it. */
+function TryoutRow({ tryout }: { tryout: Tryout }) {
+  switch (tryout) {
+    case 'laptop-sandbox':
+      return (
+        <li>
+          <span>
+            Laptop sandbox
+            <small>Type PowerShell on the Windows laptop Act 1 runs on. Nothing is graded.</small>
+          </span>
+          <button
+            type="button"
+            className="play-button play-button--primary"
+            onClick={() => {
+              startFreePlay(LAPTOP_SANDBOX, LAPTOP_NOTICE);
+            }}
+          >
+            Open
+          </button>
+        </li>
+      );
+  }
+}
+
 /**
- * Preview mode's menu for an Act the game doesn't ship yet, read from the roadmap: where
- * it stands, its topics, and every part DESIGN.md plans for it, each marked not built.
- * Nothing here starts a mission, because there is none to start.
+ * The menu for an Act the game doesn't ship yet, read from the roadmap: where it stands,
+ * its topics, anything that can already be tried, and every part DESIGN.md plans for it,
+ * each marked not built.
  */
 export function PreviewActMenu({ entry }: { entry: RoadmapAct }) {
-  const { act, title, stage, status, topics, missions, boss, fieldMission } = entry;
+  const { act, title, stage, status, topics, missions, boss, fieldMission, tryouts } = entry;
   return (
     <>
       <ActTabs current={act} />
@@ -35,6 +61,9 @@ export function PreviewActMenu({ entry }: { entry: RoadmapAct }) {
       <p className="play-panel__muted">{status}</p>
       <p className="play-panel__instruction">{topics}</p>
       <ol className="act-menu">
+        {tryouts.map((tryout) => (
+          <TryoutRow key={tryout} tryout={tryout} />
+        ))}
         {missions.map((mission, index) => (
           <PlannedRow
             key={mission.title}

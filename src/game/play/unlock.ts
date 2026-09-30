@@ -6,10 +6,10 @@ import { findAct } from './catalog';
 import { missionDone } from './saveRules';
 
 /*
- * Preview mode, "Unlock everything (preview)" in Settings: a way to look at unfinished
- * work. It shows a tab for every Act, opens every boss before its missions are done, and
- * says plainly what isn't built yet. It's a saved setting and off by default, so normal
- * play never sees it.
+ * "Unlock everything" in Settings: every Act at once. It shows a tab for every Act, opens
+ * every boss before its missions are done, lets Act 1's laptop be tried, and says plainly
+ * what isn't built yet. It's a saved setting, on by default while the course is being
+ * built; turning it off gives normal progression.
  */
 
 /** The address flag that turns preview mode on: `?unlock=all`. Only a flag, never a secret. */

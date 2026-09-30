@@ -116,12 +116,11 @@ export const settingsSchema = z.object({
   // 'system' follows the operating system's reduced-motion preference.
   reducedMotion: z.enum(['system', 'on', 'off']),
   textSize: z.enum(['normal', 'large', 'x-large']),
-  // Preview mode: every Act's tab shows, bosses open early, and unbuilt parts say so.
-  // A default, not a new schemaVersion, on purpose. A preview build and main share one
-  // save (the same address in the same browser), and a version bump would make main
-  // refuse it as "from a newer game". This way main drops the key it doesn't know, and a
-  // save written before the setting existed reads as off.
-  unlockAll: z.boolean().default(false),
+  // "Unlock everything": every Act's tab shows, bosses open early, and unbuilt parts say
+  // so. On by default while the course is being built, so everything made so far can be
+  // seen; Settings turns it off for normal progression. A default, not a new
+  // schemaVersion, so a save written before the setting existed loads, and reads as on.
+  unlockAll: z.boolean().default(true),
 });
 
 /** The first-run tutorial (version 2). Null until the player finishes or skips it. */
@@ -164,8 +163,8 @@ export function createDefaultSettings(): Settings {
     mentorModels: { hint: null, grade_question: null },
     reducedMotion: 'system',
     textSize: 'normal',
-    // Off, so normal play sees only what's finished.
-    unlockAll: false,
+    // On while the course is being built: every Act shows, built or not.
+    unlockAll: true,
   };
 }
 

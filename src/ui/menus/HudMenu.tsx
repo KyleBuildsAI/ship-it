@@ -1,6 +1,7 @@
 import { toggleMusicMuted } from '../../game/audio/mute';
 import { hud, openMenu, toggleActMenu } from '../../game/hud';
 import { recommendedAct } from '../../game/play/catalog';
+import { isUnlocked } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { releaseMouseFocus } from '../focus';
 import { useStore } from '../useStore';
@@ -27,7 +28,9 @@ export function HudMenu() {
           className="glass hud-menu__button"
           aria-pressed={actMenu !== null}
           onClick={(event) => {
-            toggleActMenu(recommendedAct(progress.get().save));
+            const { save } = progress.get();
+            // With every Act unlocked, the course starts where it starts: Act 1.
+            toggleActMenu(isUnlocked(save) ? 1 : recommendedAct(save));
             releaseMouseFocus(event);
           }}
         >

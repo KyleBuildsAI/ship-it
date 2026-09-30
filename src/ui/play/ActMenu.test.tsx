@@ -33,7 +33,8 @@ vi.mock('../useStore', () => ({
 const act2: ActContent = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
 const early = earlySampleAct();
 const EARLY_MISSION = 'early-three-rooms';
-const newSave = createDefaultSave(TEST_NOW);
+/** A new save turned back to normal progression, so only shipped parts show. */
+const newSave = withUnlock(createDefaultSave(TEST_NOW), false);
 
 /** The menu for `content`'s Act, alone in the catalog, as the player with `save` sees it. */
 function menuFor(content: ActContent, save: SaveData = newSave): string {
@@ -186,7 +187,8 @@ describe('the Act menu in preview mode', () => {
 
   const heading = (markup: string) => text(/<h2>(.*?)<\/h2>/.exec(markup)?.[1] ?? '');
 
-  it('shows a tab for every Act from 1 to 8', () => {
+  it('shows a tab for every Act from 1 to 8, and a brand new save sees them all', () => {
+    expect(tabs(menuOf(2, createDefaultSave(TEST_NOW)))).toHaveLength(8);
     expect(tabs(menuOf(2))).toEqual([
       'Act 1',
       'Act 2*',
@@ -214,10 +216,11 @@ describe('the Act menu in preview mode', () => {
     expect(after).toContain('Boss: The Dirty Tree (sample) · Unlocked for preview [Fight]');
   });
 
-  it("lists Act 1's planned missions, boss and Field Mission as not built", () => {
+  it("offers Act 1's laptop, then lists its planned missions, boss and Field Mission as not built", () => {
     const markup = menuOf(1);
     expect(heading(markup)).toBe('Act 1 · The Machine (preview)');
     expect(rows(markup)).toEqual([
+      'Laptop sandbox · Type PowerShell on the Windows laptop Act 1 runs on. Nothing is graded. [Open]',
       '1.1 Where Things Live · Not built yet',
       '1.2 Deletes Are Forever · Not built yet',
       '1.3 Secrets Stay Home · Not built yet',

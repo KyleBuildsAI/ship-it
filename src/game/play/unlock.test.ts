@@ -28,6 +28,9 @@ import {
 
 const GAME = 'http://localhost:18173/';
 
+/** A new save with every Act locked again, as Settings leaves it for normal progression. */
+const locked = (): SaveData => withUnlock(createDefaultSave(TEST_NOW), false);
+
 /** An address bar that remembers every address it was given. */
 function fakeAddress(href: string): AddressBar & { readonly history: string[] } {
   const history = [href];
@@ -74,23 +77,23 @@ afterAll(async () => {
 });
 
 describe('the unlock-everything setting', () => {
-  it('is off in a new save, and with no save at all', () => {
-    expect(createDefaultSave(TEST_NOW).settings.unlockAll).toBe(false);
-    expect(isUnlocked(createDefaultSave(TEST_NOW))).toBe(false);
+  it('is on in a new save, and off with no save at all', () => {
+    expect(createDefaultSave(TEST_NOW).settings.unlockAll).toBe(true);
+    expect(isUnlocked(createDefaultSave(TEST_NOW))).toBe(true);
     expect(isUnlocked(null)).toBe(false);
   });
 
-  it('reads as off in a save written before it existed, with no version bump', () => {
+  it('reads as on in a save written before it existed, with no version bump', () => {
     const save = createDefaultSave(TEST_NOW);
     const olderSettings: Record<string, unknown> = { ...save.settings };
     delete olderSettings.unlockAll;
     const loaded = validateSave({ ...save, settings: olderSettings });
     expect(loaded.schemaVersion).toBe(save.schemaVersion);
-    expect(loaded.settings.unlockAll).toBe(false);
+    expect(loaded.settings.unlockAll).toBe(true);
   });
 
   it('turns on and off without touching anything else, and skips a change that is none', () => {
-    const save = createDefaultSave(TEST_NOW);
+    const save = locked();
     const on = withUnlock(save, true);
     expect(isUnlocked(on)).toBe(true);
     expect({ ...on.settings, unlockAll: false }).toEqual(save.settings);
@@ -122,7 +125,7 @@ describe('the ?unlock=all address flag', () => {
   });
 
   it('waits for the save, turns preview on, saves it, and takes the flag out', async () => {
-    const { storage, writes, finishLoading } = memoryStorage();
+    const { storage, writes, finishLoading } = memoryStorage(locked());
     const address = fakeAddress(`${GAME}?unlock=all`);
     const starting = startProgress(storage, TEST_NOW);
     unlockFromAddress(address);
@@ -150,7 +153,7 @@ describe('the ?unlock=all address flag', () => {
   });
 
   it('changes nothing without the flag', async () => {
-    const { storage, finishLoading } = memoryStorage();
+    const { storage, finishLoading } = memoryStorage(locked());
     finishLoading();
     await startProgress(storage, TEST_NOW);
     const address = fakeAddress(`${GAME}?backend=webgl2`);
@@ -179,7 +182,7 @@ describe('who can fight a boss', () => {
   });
 
   it('keeps the boss locked until every mission is done, without preview', () => {
-    const save = createDefaultSave(TEST_NOW);
+    const save = locked();
     expect(bossAccess(save, sampleAct)).toBe('locked');
     expect(bossAccess(allDone(save), sampleAct)).toBe('earned');
   });

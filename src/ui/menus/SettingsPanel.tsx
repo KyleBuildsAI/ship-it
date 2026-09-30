@@ -141,7 +141,7 @@ export function SettingsPanel() {
             </select>
           </label>
           <label>
-            <span>Unlock everything (preview)</span>
+            <span>Unlock every Act</span>
             <input
               type="checkbox"
               checked={settings.unlockAll}
@@ -153,8 +153,9 @@ export function SettingsPanel() {
         </div>
       ) : null}
       <p className="play-panel__muted">
-        Reduced motion and graphics apply to the 3D world when the game next loads. Preview shows
-        every Act and opens bosses early; parts not built yet say so.
+        Reduced motion and graphics apply to the 3D world when the game next loads. Unlock every Act
+        shows all eight Acts and opens bosses early; parts not built yet say so. Turn it off for
+        normal progression.
       </p>
       <SageUsage />
 

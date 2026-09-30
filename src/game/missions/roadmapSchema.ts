@@ -20,9 +20,9 @@ export type Stage = (typeof STAGES)[number];
 
 /**
  * Things that already work in an Act that has no missions yet, each a row in its preview
- * menu: the laptop to type on, and Otto's scripted demo.
+ * menu: so far, the laptop to type on.
  */
-export const TRYOUTS = ['laptop-sandbox', 'otto-demo'] as const;
+export const TRYOUTS = ['laptop-sandbox'] as const;
 export type Tryout = (typeof TRYOUTS)[number];
 
 /** A mission, boss or Field Mission DESIGN.md plans, by the title it will have. */
