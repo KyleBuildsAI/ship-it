@@ -132,6 +132,7 @@ function otherTab() {
     coordination,
     posted,
     requests,
+    listeners,
     /** The lock is free: this tab gets it. Resolves when this tab lets go of it. */
     grant: (index = requests.length - 1) => {
       const request = requests[index];
@@ -140,9 +141,13 @@ function otherTab() {
       void held.then(request.resolve);
       return held;
     },
-    /** The other tab asks for the save. */
-    asks: () => {
-      for (const listener of [...listeners]) listener({ data: 'ship-it-handover' });
+    /**
+     * The other tab asks for the save. By default it asked after this tab (a newer tab);
+     * pass an earlier time for a tab that asked first, as when two open together.
+     */
+    asks: (at = Number.POSITIVE_INFINITY) => {
+      const ask = { ask: 'ship-it-handover', at, nonce: 0 };
+      for (const listener of [...listeners]) listener({ data: ask });
     },
     /** The other tab's fallback takes the lock without asking. */
     steals: (index = requests.length - 1) => {
@@ -161,7 +166,12 @@ describe('two tabs', () => {
     const tab = otherTab();
     const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
     await settle();
-    expect(tab.posted).toEqual(['ship-it-handover']);
+    // One ask, saying when this tab asked, so the other tab can tell which of them is newer.
+    expect(tab.posted).toHaveLength(1);
+    const [ask] = tab.posted as { ask: unknown; at: unknown; nonce: unknown }[];
+    expect(ask?.ask).toBe('ship-it-handover');
+    expect(typeof ask?.at).toBe('number');
+    expect(typeof ask?.nonce).toBe('number');
     expect(load).not.toHaveBeenCalled();
     void tab.grant();
     await starting;
@@ -231,6 +241,37 @@ describe('two tabs', () => {
     expect(progress.get().status).toBe('elsewhere');
   });
 
+  it('keeps the save when a tab that asked earlier is heard late, as when two open together', async () => {
+    const load = vi.fn(() => Promise.resolve(createDefaultSave(NOW)));
+    const tab = otherTab();
+    const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
+    await settle();
+    // The other tab asked first (time 0), and its ask arrives while this one still waits.
+    tab.asks(0);
+    void tab.grant();
+    await starting;
+    expect(load).toHaveBeenCalledOnce();
+    expect(progress.get().status).toBe('ready');
+    // Heard again once this tab holds the save: still older, so still ignored.
+    tab.asks(0);
+    expect(isSavingHere()).toBe(true);
+  });
+
+  it('ignores messages that are not asks for the save', async () => {
+    const load = vi.fn(() => Promise.resolve(createDefaultSave(NOW)));
+    const tab = otherTab();
+    const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    for (const listener of tab.listeners) {
+      listener({ data: 'ship-it-handover' });
+      listener({ data: { ask: 'ship-it-handover', at: 'soon', nonce: 1 } });
+      listener({ data: null });
+    }
+    expect(isSavingHere()).toBe(true);
+  });
+
   it('takes the save anyway when the other tab never answers', async () => {
     const { storage } = memoryStorage();
     const tab = otherTab();
@@ -246,6 +287,19 @@ describe('two tabs', () => {
     void tab.grant(1);
     await starting;
     expect(progress.get().status).toBe('ready');
+  });
+
+  it('does not steal the save from a newer tab when its own wait runs out', async () => {
+    const load = vi.fn(() => Promise.resolve(createDefaultSave(NOW)));
+    const tab = otherTab();
+    const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
+    await settle();
+    // A newer tab asked, and got the lock first, so this tab's wait times out.
+    tab.asks();
+    await starting;
+    expect(tab.requests).toHaveLength(1);
+    expect(load).not.toHaveBeenCalled();
+    expect(progress.get().status).toBe('elsewhere');
   });
 
   it("steps aside when another tab's fallback takes the save without asking", async () => {

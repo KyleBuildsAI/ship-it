@@ -76,6 +76,37 @@ function browserCoordination(): TabCoordination {
   };
 }
 
+/**
+ * A tab asking for the save: when it asked, and a random tie-break for two tabs asking in
+ * the same instant. Two tabs opened together each hear the other ask; comparing asks lets
+ * exactly one of them, the newer, end up with the save.
+ */
+interface Ask {
+  readonly ask: typeof HANDOVER;
+  readonly at: number;
+  readonly nonce: number;
+}
+
+function isAsk(data: unknown): data is Ask {
+  if (typeof data !== 'object' || data === null) return false;
+  const { ask, at, nonce } = data as Record<string, unknown>;
+  return ask === HANDOVER && typeof at === 'number' && typeof nonce === 'number';
+}
+
+/** This tab's own ask. Null before it has asked. */
+let ownAsk: Ask | null = null;
+
+/** Whether `other` asked after this tab did: only a newer tab is given the save. */
+function isNewer(other: Ask): boolean {
+  if (ownAsk === null) return true;
+  return other.at > ownAsk.at || (other.at === ownAsk.at && other.nonce > ownAsk.nonce);
+}
+
+/** Milliseconds since 1970, to a fraction of a millisecond, comparable across tabs. */
+function askTime(): number {
+  return performance.timeOrigin + performance.now();
+}
+
 let autosave: Autosave | null = null;
 /** Set the moment this tab starts handing over, before anything else can write. */
 let steppedAside = false;
@@ -131,7 +162,9 @@ async function handOver(release: boolean): Promise<void> {
 }
 
 function onTabMessage(event: { data: unknown }): void {
-  if (event.data !== HANDOVER || steppedAside) return;
+  // An older tab's ask arrives here too when two tabs start together. Giving it the save
+  // would leave both tabs handed over, each to the other, and neither saving.
+  if (steppedAside || !isAsk(event.data) || !isNewer(event.data)) return;
   // Still waiting for the lock ourselves: hand over as soon as it arrives.
   if (releaseSave === null) handoverRequested = true;
   else void handOver(true);
@@ -161,6 +194,12 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
       .catch((error: unknown) => {
         if (holding) {
           lost(error);
+          return;
+        }
+        // A newer tab already asked: it should end up with the save, so don't steal it
+        // from that tab only to hand straight over. Step aside without the lock instead.
+        if (handoverPending()) {
+          granted();
           return;
         }
         // Nobody handed over in time: a frozen or cached tab holds it. Take it anyway.
@@ -208,10 +247,11 @@ export async function startProgress(
     },
   );
 
+  ownAsk = { ask: HANDOVER, at: askTime(), nonce: Math.random() };
   if (coordination.openChannel) {
     channel = coordination.openChannel();
     channel.addEventListener('message', onTabMessage);
-    channel.postMessage(HANDOVER);
+    channel.postMessage(ownAsk);
   }
   await acquireSave(coordination.locks);
   // Read through functions: other tabs' messages change these flags during the awaits.
