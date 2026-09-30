@@ -196,6 +196,12 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
           lost(error);
           return;
         }
+        // A newer tab already asked: it should end up with the save, so don't steal it
+        // from that tab only to hand straight over. Step aside without the lock instead.
+        if (handoverPending()) {
+          granted();
+          return;
+        }
         // Nobody handed over in time: a frozen or cached tab holds it. Take it anyway.
         locks.request(SAVE_LOCK, { steal: true }, hold).catch((stealError: unknown) => {
           if (holding) {

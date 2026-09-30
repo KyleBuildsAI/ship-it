@@ -286,6 +286,19 @@ describe('two tabs', () => {
     expect(progress.get().status).toBe('ready');
   });
 
+  it('does not steal the save from a newer tab when its own wait runs out', async () => {
+    const load = vi.fn(() => Promise.resolve(createDefaultSave(NOW)));
+    const tab = otherTab();
+    const starting = startProgress({ load, write: () => Promise.resolve() }, NOW, tab.coordination);
+    await settle();
+    // A newer tab asked, and got the lock first, so this tab's wait times out.
+    tab.asks();
+    await starting;
+    expect(tab.requests).toHaveLength(1);
+    expect(load).not.toHaveBeenCalled();
+    expect(progress.get().status).toBe('elsewhere');
+  });
+
   it("steps aside when another tab's fallback takes the save without asking", async () => {
     const { storage } = memoryStorage();
     const tab = otherTab();
