@@ -18,28 +18,31 @@ function PlannedRow({ label }: { label: string }) {
   );
 }
 
+/** What each tryout's row says, and what its Open button does. */
+const TRYOUTS: Readonly<Record<Tryout, { label: string; hint: string; open: () => void }>> = {
+  'laptop-sandbox': {
+    label: 'Laptop sandbox',
+    hint: 'Type PowerShell on the Windows laptop Act 1 runs on. Nothing is graded.',
+    open: () => {
+      startFreePlay(LAPTOP_SANDBOX, LAPTOP_NOTICE);
+    },
+  },
+};
+
 /** Something that already works in an Act with no missions yet, with a button to try it. */
 function TryoutRow({ tryout }: { tryout: Tryout }) {
-  switch (tryout) {
-    case 'laptop-sandbox':
-      return (
-        <li>
-          <span>
-            Laptop sandbox
-            <small>Type PowerShell on the Windows laptop Act 1 runs on. Nothing is graded.</small>
-          </span>
-          <button
-            type="button"
-            className="play-button play-button--primary"
-            onClick={() => {
-              startFreePlay(LAPTOP_SANDBOX, LAPTOP_NOTICE);
-            }}
-          >
-            Open
-          </button>
-        </li>
-      );
-  }
+  const { label, hint, open } = TRYOUTS[tryout];
+  return (
+    <li>
+      <span>
+        {label}
+        <small>{hint}</small>
+      </span>
+      <button type="button" className="play-button play-button--primary" onClick={open}>
+        Open
+      </button>
+    </li>
+  );
 }
 
 /**
