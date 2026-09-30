@@ -1909,3 +1909,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/138
 3. The session stopped before its lint, type and test checks ran. `wip/` says "not checked yet".
 
 </details>
+
+---
+
+## #140 fix: two tabs opened together end with exactly one saving
+
+https://github.com/KyleBuildsAI/ship-it/pull/140
+
+1. Why did both tabs end up not saving before this fix?
+2. What happens now when the older tab hears the newer tab's ask?
+3. Why is a random `nonce` part of each ask?
+
+<details><summary>Answers</summary>
+
+1. Each tab heard the other's ask and agreed to hand over, or the older one stole the lock and then handed over anyway. Either way both stepped aside.
+2. If it holds the save, it stores what's pending and lets go. If it's still waiting, it steps aside without taking the lock.
+3. Two tabs could ask in the same instant. The random number breaks the tie the same way in both tabs.
+
+</details>
