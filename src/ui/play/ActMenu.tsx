@@ -1,8 +1,9 @@
 import { roadmapAct } from '../../content/roadmap';
 import type { Act, Boss, FieldMission, PlacementTest } from '../../game/missions/schema';
 import { startBossFight } from '../../game/play/bossPlay';
-import { findAct, hasWorkLeft } from '../../game/play/catalog';
+import { findAct, hasWorkLeft, type ActContent } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
+import { startFreePlay } from '../../game/play/freePlay';
 import { startMission } from '../../game/play/missionPlay';
 import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
 import { bossAccess, isUnlocked, type BossAccess } from '../../game/play/unlock';
@@ -19,6 +20,27 @@ const STATUS: Record<MissionStatus, string> = {
   completed: 'Done',
   'tested-out': 'Tested out',
 };
+
+/** An Act's free-play sandbox: open it and try things, with nothing graded. */
+function FreePlayRow({ steps, notice }: NonNullable<ActContent['freePlay']>) {
+  return (
+    <li>
+      <span>
+        Laptop sandbox
+        <small>Try anything on the laptop. Nothing is graded.</small>
+      </span>
+      <button
+        type="button"
+        className="play-button"
+        onClick={() => {
+          startFreePlay(steps, notice);
+        }}
+      >
+        Open
+      </button>
+    </li>
+  );
+}
 
 /** What each part's row needs: which Act it starts, and that Act's saved progress. */
 interface PartRowProps {
@@ -208,6 +230,7 @@ export function ActMenu({ act: number }: { act: number }) {
           );
         })}
         <UpcomingRows act={act} />
+        {content.freePlay ? <FreePlayRow {...content.freePlay} /> : null}
         {boss ? (
           <BossRow
             actNumber={act.act}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   askForHint,
   endBriefing,
@@ -16,6 +16,14 @@ import type { CheckRow } from '../../game/missions/predicates';
 import { useClock } from './useClock';
 
 const CAPTION_MS = 5000;
+
+/** Act 2's three rooms, the strip under a git mission's briefing. */
+const GIT_ROOMS = ['Workbench', 'Loading Dock', 'Vault'];
+
+/** The strip under a briefing, by Act: Act 1's is the path from C:\ to the API. */
+const BRIEFING_STRIP: Readonly<Partial<Record<number, readonly string[]>>> = {
+  1: ['C:\\', 'Users', 'kyle', 'quillwork', 'api'],
+};
 
 /** The briefing: a few captions that advance on their own, skippable at any time. */
 function Briefing({ activity }: { activity: MissionActivity }) {
@@ -37,11 +45,12 @@ function Briefing({ activity }: { activity: MissionActivity }) {
         {captions[index]}
       </p>
       <div className="briefing__rooms" aria-hidden="true">
-        <span>Workbench</span>
-        <span>→</span>
-        <span>Loading Dock</span>
-        <span>→</span>
-        <span>Vault</span>
+        {(BRIEFING_STRIP[activity.mission.act] ?? GIT_ROOMS).map((label, place) => (
+          <Fragment key={label}>
+            {place > 0 ? <span>→</span> : null}
+            <span>{label}</span>
+          </Fragment>
+        ))}
       </div>
       <div className="play-panel__actions">
         <button type="button" className="play-button play-button--primary" onClick={endBriefing}>

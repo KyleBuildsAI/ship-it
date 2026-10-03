@@ -67,7 +67,9 @@ let attempts = 0;
 export function startMission(missionId: string): void {
   const mission = findMission(missionId);
   endDrill();
-  loadSandbox(mission.initialRepoState, `${mission.title}: a fresh project is on your Workbench.`);
+  // Act 1 plays on the laptop; the git Acts start from a project on the Workbench.
+  const where = mission.act === 1 ? 'the laptop is ready' : 'a fresh project is on your Workbench';
+  loadSandbox(mission.initialRepoState, `${mission.title}: ${where}.`);
   saveProgressNow((save) => startMissionProgress(save, mission.id));
   setActivity({
     kind: 'mission',
