@@ -45,7 +45,11 @@ export interface ActIsland {
   /** The accent for the title, the props' glow and the rim, as 0xRRGGBB. */
   readonly accent: number;
   readonly center: Flat;
-  /** The title card's line on this island: what the place is, and where to start. */
+  /**
+   * The title card's line on this island: what the place is, and where to start. It names
+   * the Act's first lesson, and a test holds it to the catalog, so it never promises a
+   * lesson that isn't there.
+   */
   readonly hint: string;
 }
 
@@ -57,7 +61,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'branches',
     accent: 0x7ee2a8,
     center: { x: 0, z: 140 },
-    hint: 'Paths split into branches and merge back. Its lessons are in the menu.',
+    hint: 'Paths split into branches and merge back. Start with 3.1 Branches Are Pointers.',
   },
   {
     act: 4,
@@ -66,7 +70,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'town',
     accent: 0xffb347,
     center: { x: 0, z: -140 },
-    hint: 'The town square: issues on the board, PRs to review. Its lessons are in the menu.',
+    hint: 'The town square: issues on the board, PRs to review. Start with 4.1 Remotes and Pull Requests.',
   },
   {
     act: 5,
@@ -75,7 +79,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'gates',
     accent: 0x6fd3ff,
     center: { x: 140, z: 140 },
-    hint: 'Every change passes the gates: tests, types, lint, CI. Its lessons are in the menu.',
+    hint: 'Every change passes the gates: tests, types, lint, CI. Start with 5.1 Tests Are Guardrails.',
   },
   {
     act: 6,
@@ -84,7 +88,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'servers',
     accent: 0xc792ea,
     center: { x: 140, z: -140 },
-    hint: 'Servers, pipes and a database: how a request travels. Its lessons are in the menu.',
+    hint: 'Servers, pipes and a database: how a request travels. Start with 6.1 Requests and Responses.',
   },
   {
     act: 7,
@@ -93,7 +97,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'workshop',
     accent: 0xff7b9c,
     center: { x: -140, z: 140 },
-    hint: 'The robot workshop: brief agents, review their work. Its lessons are in the menu.',
+    hint: 'The robot workshop: brief agents, review their work. Start with 7.1 Brief the Agent.',
   },
   {
     act: 8,
@@ -102,7 +106,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'hall',
     accent: 0xffe08a,
     center: { x: -140, z: -140 },
-    hint: 'The interview hall: show what you know. Its lessons are in the menu.',
+    hint: 'The interview hall: show what you know. Start with 8.1 Think Out Loud.',
   },
 ];
 

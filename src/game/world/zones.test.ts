@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ACTS } from '../../content';
 import { ROADMAP } from '../../content/roadmap';
 import { ACTS as CAMPUS_ACTS } from './campus';
 import {
@@ -75,6 +76,15 @@ describe('the Act islands', () => {
         expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThanOrEqual(100);
       }
     });
+  });
+
+  it('point the player at a lesson that ships: their Act’s first, by number and title', () => {
+    for (const island of ACT_ISLANDS) {
+      const content = ACTS.find(({ act }) => act.act === island.act);
+      const first = content !== undefined && 'lessons' in content ? content.lessons[0] : undefined;
+      expect(first).toBeDefined();
+      expect(island.hint).toContain(`${String(island.act)}.1 ${String(first?.title)}`);
+    }
   });
 
   it('builds one value per island, keyed by zone', () => {
