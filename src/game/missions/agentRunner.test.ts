@@ -1,24 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
-import { replay, startLog } from '../agent/replay';
+import { dryRun, replay, startLog, withEntry } from '../agent/replay';
 import { transcriptQueries } from '../agent/transcript';
 import {
   answerCheck,
+  answerPredict,
   backToCards,
   beginAgentStep,
   choosePlan,
   completeAgentStep,
   echoPlan,
   finishScript,
+  markHintRung3,
   nextAction,
   offeredPlans,
+  openFixRound,
+  outcomeHolds,
+  rewindStep,
+  starXp,
+  stars,
   stepPasses,
+  stopScript,
   type AgentStepState,
 } from './agentRunner';
 import type { SandboxQueries } from './predicates';
 import { finishBriefing, MissionRunError, startRun } from './runner';
 import { sandboxQueries } from './sandbox';
-import { directedMission, directedMissionInput, sampleMission } from './sample.test-mission';
+import {
+  directedMission,
+  directedMissionInput,
+  notesMission,
+  sampleMission,
+} from './sample.test-mission';
 import { MissionSchema, type MissionStep } from './schema';
 
 /**
@@ -99,15 +112,6 @@ describe('picking a card', () => {
     expect(() => offeredPlans(start, other)).toThrow(/for step "stand-in-the-api"/);
   });
 
-  it('offers the fixes and the untried start cards in a fix round', () => {
-    const fixing: AgentStepState = {
-      ...start,
-      tried: ['guess'],
-      stage: { at: 'direct', round: 'fix' },
-    };
-    expect(ids(offeredPlans(fixing, step))).toEqual(['fix-full-path', 'full-path']);
-  });
-
   it('runs the picked card, and marks it tried', () => {
     const running = choosePlan(start, step, 'full-path');
     expect(running.tried).toEqual(['full-path']);
@@ -156,6 +160,16 @@ describe('running a script', () => {
     const running = choosePlan(beginAgentStep(step), step, 'full-path');
     expect(() => finishScript(running)).toThrow(/still has actions queued/);
   });
+
+  it('stops between lines: back to the cards in a fix round, the card spent', () => {
+    const started = choosePlan(beginAgentStep(step), step, 'full-path');
+    const next = nextAction(started);
+    if (next === null) throw new Error('The strong card has lines.');
+    const stopped = stopScript(next.state);
+    expect(stopped.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(ids(offeredPlans(stopped, step))).toEqual(['fix-full-path', 'guess']);
+    expect(() => stopScript(stopped)).toThrow(MissionRunError);
+  });
 });
 
 describe('checking the claim (section 1.4)', () => {
@@ -193,6 +207,122 @@ describe('checking the claim (section 1.4)', () => {
     const checking = runToEnd(choosePlan(start, step, 'guess')).state;
     expect(() => answerCheck(checking, step, 'nowhere', atHome)).toThrow(/no check option/);
     expect(() => answerCheck(start, step, 'api', atHome)).toThrow(/while Otto is at direct/);
+  });
+});
+
+describe('fix rounds and rewind', () => {
+  const missed = playCard(beginAgentStep(step), 'guess', 'api', atHome);
+
+  it('opens a fix round after a failed check, with the fixes and the untried cards', () => {
+    const fixing = openFixRound(missed);
+    expect(fixing.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(ids(offeredPlans(fixing, step))).toEqual(['fix-full-path', 'full-path']);
+    expect(() => choosePlan(fixing, step, 'guess')).toThrow(/isn't on offer/);
+    const fixed = playCard(fixing, 'fix-full-path', 'api', inTheApi);
+    expect(fixed.verdicts).toEqual(['missed', 'confirmed']);
+    expect(fixed.tried).toEqual(['guess', 'fix-full-path']);
+  });
+
+  it('has nothing to fix or rewind once the step passed', () => {
+    const passed = playCard(beginAgentStep(step), 'full-path', 'api', inTheApi);
+    expect(() => openFixRound(passed)).toThrow(/nothing to fix/);
+    expect(() => rewindStep(passed)).toThrow(/nothing to rewind/);
+    expect(() => openFixRound(beginAgentStep(step))).toThrow(MissionRunError);
+  });
+
+  it('rewinds to the start cards and remembers it did', () => {
+    const rewound = rewindStep(missed);
+    expect(rewound.stage).toEqual({ at: 'direct', round: 'start' });
+    expect(rewound.rewound).toBe(true);
+    expect(ids(offeredPlans(rewound, step))).toEqual(['guess', 'full-path']);
+  });
+});
+
+/**
+ * The notes step: its weak card runs `mkdir notes` with a prediction, in a terminal the
+ * step's `before` just restarted at home.
+ */
+const notesStep = requireStep(notesMission.steps[0]);
+const notesTask = notesStep.agent ?? { before: [], guards: [] };
+const notesStart = withEntry(startLog(notesMission.initialRepoState), {
+  kind: 'steps',
+  steps: notesTask.before,
+});
+const tryLine = (line: string) => dryRun(notesStart, { do: 'run', line }, notesTask, testDeps());
+
+describe('predictions', () => {
+  const picked = choosePlan(beginAgentStep(notesStep), notesStep, 'bare-name');
+
+  it('stops a predicted line at the prompt, then carries on once Kyle has guessed', () => {
+    const next = nextAction(picked);
+    expect(next?.action).toMatchObject({ do: 'run', line: 'mkdir notes' });
+    const waiting = next?.state ?? picked;
+    expect(waiting.stage).toMatchObject({ at: 'predict', planId: 'bare-name', queue: [] });
+    expect(() => nextAction(waiting)).toThrow(/while Otto is at predict/);
+
+    const guessed = answerPredict(waiting, false);
+    expect(guessed.predicts).toEqual([false]);
+    expect(guessed.stage).toEqual({ at: 'running', planId: 'bare-name', queue: [] });
+    expect(nextAction(guessed)).toBeNull();
+    expect(() => answerPredict(guessed, true)).toThrow(MissionRunError);
+  });
+
+  it('grades each option by what the line really does, never by a flag', () => {
+    const next = nextAction(picked);
+    if (next?.state.stage.at !== 'predict') throw new Error('The weak card predicts.');
+    const { action } = next.state.stage;
+    const dry = tryLine(action.line);
+    const held = action.predict.options
+      .filter((option) => outcomeHolds(option.outcome, dry.step, dry.queries))
+      .map((option) => option.id);
+    expect(held).toEqual(['home']);
+  });
+
+  it('reads the exit code and the printed text, ignoring case', () => {
+    const failed = tryLine('cd api');
+    const { queries } = failed;
+    expect(outcomeHolds({ result: 'error' }, failed.step, queries)).toBe(true);
+    expect(outcomeHolds({ result: 'ok' }, failed.step, queries)).toBe(false);
+    expect(outcomeHolds({ printed: 'CANNOT FIND PATH' }, failed.step, queries)).toBe(true);
+    expect(outcomeHolds({ printed: 'Directory:' }, failed.step, queries)).toBe(false);
+    const made = tryLine('mkdir notes');
+    expect(outcomeHolds({ result: 'ok', printed: 'directory: c:' }, made.step, queries)).toBe(true);
+  });
+});
+
+describe('stars', () => {
+  const start = beginAgentStep(step);
+  const perfect = playCard(start, 'full-path', 'api', inTheApi);
+
+  it('gives all three for a strong first card, confirmed, with nothing to approve', () => {
+    expect(stars(perfect)).toEqual({ plan: true, safety: true, check: true });
+    expect(starXp(stars(perfect))).toBe(6);
+  });
+
+  it('takes the Plan star for a fix, a rewind, or the hint that names the card', () => {
+    const missed = playCard(start, 'guess', 'home', atHome);
+    const fixed = playCard(openFixRound(missed), 'fix-full-path', 'api', inTheApi);
+    expect(stars(fixed)).toEqual({ plan: false, safety: true, check: true });
+
+    const afterRewind = playCard(rewindStep(start), 'full-path', 'api', inTheApi);
+    expect(stars(afterRewind).plan).toBe(false);
+
+    const hinted = playCard(markHintRung3(start), 'full-path', 'api', inTheApi);
+    expect(stars(hinted)).toEqual({ plan: false, safety: true, check: true });
+    expect(starXp(stars(hinted))).toBe(4);
+  });
+
+  it('takes the Check star for a miss or a false alarm, and gives no Plan star mid-step', () => {
+    const falseAlarm = playCard(start, 'full-path', 'home', inTheApi);
+    expect(stars(falseAlarm)).toEqual({ plan: true, safety: true, check: false });
+    expect(stars(playCard(start, 'guess', 'api', atHome)).check).toBe(false);
+    expect(stars(start).plan).toBe(false);
+  });
+
+  it('takes the Safety star for a wrong gate, and Check for a wrong prediction', () => {
+    expect(stars({ ...perfect, gates: [true, false] }).safety).toBe(false);
+    expect(stars({ ...perfect, predicts: [false] }).check).toBe(false);
+    expect(starXp({ plan: false, safety: false, check: false })).toBe(0);
   });
 });
 
