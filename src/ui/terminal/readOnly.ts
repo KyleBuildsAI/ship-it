@@ -12,13 +12,14 @@ export type Playing =
       readonly active: { readonly index: number } | null;
       readonly results: readonly unknown[];
     }
-  | { readonly kind: 'boss' | 'field' };
+  | { readonly kind: 'boss' | 'field' | 'lesson' };
 
 /**
  * Otto has the terminal (spec D12): it shows his feed, and typing is off because nothing
  * in Act 1 needs it. That's a directed mission from start to finish, and a placement test
  * or review whose drill on screen, or next up, is a judgment drill. Everything else is
- * typed as before: Act 2's missions, drills, boss and Field Mission, and free play.
+ * typed as before: Act 2's missions, drills, boss and Field Mission, and free play. A
+ * lesson is answered by clicking and never grades the terminal, so it leaves it alone.
  */
 export function isReadOnly(activity: Playing | null): boolean {
   if (activity === null) return false;
@@ -34,6 +35,7 @@ export function isReadOnly(activity: Playing | null): boolean {
     }
     case 'boss':
     case 'field':
+    case 'lesson':
       return false;
   }
 }

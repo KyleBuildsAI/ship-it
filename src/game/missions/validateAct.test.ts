@@ -12,6 +12,7 @@ import {
   thirdMission,
 } from './sample.test-mission';
 import type { Predicate } from './predicates';
+import { lessonActInput, sampleFinal, sampleLesson, sampleLessonAct } from './sample.test-lesson';
 import { ActSchema, type Act, type CompleteAct, type Mission, type MissionStep } from './schema';
 import { validateAct, validateCatalog } from './validateAct';
 
@@ -485,5 +486,64 @@ describe('validateCatalog', () => {
     expect(problems).toContain(
       `Drill "${String(sampleMission.drills[0]?.id)}" appears in more than one mission.`,
     );
+  });
+});
+
+describe('an Act made of lessons', () => {
+  const lessonAct = sampleLessonAct();
+  const { act, lessons } = lessonAct;
+
+  it('ships with its lessons named in missionIds, final last', () => {
+    expect(validateAct(act, [], lessons)).toEqual([]);
+    expect(validateCatalog([{ act: sampleAct, missions }, lessonAct])).toEqual([]);
+  });
+
+  it('catches a lesson that is missing, unlisted, or in the wrong Act', () => {
+    expect(validateAct(act, [], [sampleFinal])).toEqual([
+      { where: 'act > missionIds', problem: `No mission has the id "${sampleLesson.id}".` },
+    ]);
+    const stray = { ...sampleLesson, id: 'sample-stray', act: 5 };
+    expect(validateAct(act, [], [...lessons, stray])).toEqual([
+      { where: 'lesson sample-stray', problem: "Not listed in Act 4's missionIds." },
+      { where: 'lesson sample-stray', problem: 'Says act 5, not 4.' },
+    ]);
+  });
+
+  it('keeps one final, played last', () => {
+    const finalFirst = { ...act, missionIds: [sampleFinal.id, sampleLesson.id] };
+    expect(validateAct(finalFirst, [], lessons)).toEqual([
+      { where: `lesson ${sampleFinal.id}`, problem: 'A final lesson comes last in missionIds.' },
+    ]);
+    const second = { ...sampleFinal, id: 'sample-final-two' };
+    const twoFinals = { ...act, missionIds: [...act.missionIds, second.id] };
+    expect(validateAct(twoFinals, [], [...lessons, second])).toContainEqual({
+      where: 'act',
+      problem: 'An Act has at most one final lesson.',
+    });
+  });
+
+  it('catches a lesson that shares an id with a mission, here or in another Act', () => {
+    const clash = { ...sampleLesson, id: sampleMission.id };
+    const listed = { ...act, missionIds: [sampleMission.id, sampleFinal.id] };
+    expect(validateAct(listed, [], [clash, sampleFinal])).toEqual([]);
+    expect(
+      validateCatalog([
+        { act: sampleAct, missions },
+        { act: listed, missions: [], lessons: [clash, sampleFinal] },
+      ]),
+    ).toContainEqual({
+      where: 'catalog',
+      problem: `The id "${sampleMission.id}" is used in more than one place.`,
+    });
+  });
+
+  it('takes a shipped lesson off the upcoming list', () => {
+    const stale = ActSchema.parse({ ...lessonActInput, upcoming: [sampleLesson.title] });
+    expect(validateAct(stale, [], lessons)).toEqual([
+      {
+        where: 'act > upcoming',
+        problem: `"${sampleLesson.title}" has shipped, so it isn't upcoming.`,
+      },
+    ]);
   });
 });

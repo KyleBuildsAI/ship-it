@@ -1,12 +1,18 @@
 import type { FixtureStep } from '../../engine/fixtures';
+import type { Lesson } from '../missions/lessonSchema';
 import type { Act, Drill, Mission } from '../missions/schema';
 import type { SaveData } from '../save/schema';
 import { missionDone } from './saveRules';
 
-/** One Act's content: its definition and its missions. */
+/**
+ * One Act's content: its definition, its missions, and its lessons. The Act's missionIds
+ * name both, in play order: an Act the game simulates has missions, an Act it teaches by
+ * situations and choices has lessons, and an Act could mix them.
+ */
 export interface ActContent {
   readonly act: Act;
   readonly missions: readonly Mission[];
+  readonly lessons?: readonly Lesson[];
   /** A sandbox to try things in with nothing graded, and what the terminal says when it opens. */
   readonly freePlay?: { readonly steps: readonly FixtureStep[]; readonly notice: string };
 }
@@ -52,6 +58,16 @@ export function findMission(id: string): Mission {
   const mission = allMissions().find((entry) => entry.id === id);
   if (mission === undefined) throw new Error(`No mission has the id "${id}".`);
   return mission;
+}
+
+/** Every lesson of every Act. */
+export function allLessons(): readonly Lesson[] {
+  return getCatalog().acts.flatMap((entry) => entry.lessons ?? []);
+}
+
+/** The lesson with this id, or undefined when the id names a mission (or nothing). */
+export function findLesson(id: string): Lesson | undefined {
+  return allLessons().find((entry) => entry.id === id);
 }
 
 /** Drills live inside missions; placement tests and reviews refer to them by id. */

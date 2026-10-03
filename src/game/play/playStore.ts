@@ -1,6 +1,8 @@
 import type { CheckRow } from '../missions/predicates';
 import type { PlacementResult, QuestionRoundScore } from '../missions/grading';
 import type { BossOutcome, BossRun, MissionRun } from '../missions/runner';
+import type { LessonRun } from '../missions/lessonRunner';
+import type { Lesson } from '../missions/lessonSchema';
 import type { Drill, Mission } from '../missions/schema';
 import { createStore } from '../store';
 
@@ -72,7 +74,17 @@ export interface FieldActivity {
   readonly act: number;
 }
 
-export type Activity = MissionActivity | SeriesActivity | BossActivity | FieldActivity;
+/** A lesson: cards answered by clicking. A final's shared clock lives in its run. */
+export interface LessonActivity {
+  readonly kind: 'lesson';
+  readonly lesson: Lesson;
+  readonly run: LessonRun;
+  /** XP this run paid into the save: the lesson's XP the first time, 0 on a replay. */
+  readonly xpEarned: number;
+}
+
+export type Activity =
+  MissionActivity | SeriesActivity | BossActivity | FieldActivity | LessonActivity;
 
 export interface PlayState {
   readonly activity: Activity | null;

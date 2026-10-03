@@ -9,6 +9,7 @@ import {
   type MissionProgress,
   type SaveData,
 } from '../save/schema';
+import type { Lesson } from '../missions/lessonSchema';
 import { requireFieldMission, type Act, type Drill, type Mission } from '../missions/schema';
 
 /*
@@ -147,6 +148,31 @@ export function completeMission(
   };
   return refreshAct(addXp(withMission(save, finished.id, updated), xp), target, now);
 }
+/**
+ * Finishes a lesson. Its XP is paid the first time only, like a mission's, so replays
+ * practise without farming. The save has no stars field: a lesson's best first-try
+ * percent goes in bestDrillScore (a lesson has no drills to need it), and the stars are
+ * worked out from it, so no save migration is needed.
+ */
+export function completeLesson(
+  save: SaveData,
+  target: Act,
+  finished: Lesson,
+  firstTryPercent: number,
+  now: Date,
+): SaveData {
+  const current = mission(save, finished.id);
+  const xp = current.completedAt === null ? finished.xp : 0;
+  const updated: MissionProgress = {
+    ...current,
+    status: 'completed',
+    completedAt: current.completedAt ?? now.toISOString(),
+    bestDrillScore: Math.max(current.bestDrillScore ?? 0, firstTryPercent),
+    xpEarned: current.xpEarned + xp,
+  };
+  return refreshAct(addXp(withMission(save, finished.id, updated), xp), target, now);
+}
+
 /** Records a placement test. Testing out completes the Act's missions at half XP, once. */
 export function recordPlacement(
   save: SaveData,
