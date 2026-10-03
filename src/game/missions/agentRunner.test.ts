@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
-import { dryRun, replay, startLog, withEntry } from '../agent/replay';
-import { transcriptQueries } from '../agent/transcript';
+import { isConsequential } from '../agent/effects';
+import { dryRun, playAction, replay, startLog, withEntry, type SandboxLog } from '../agent/replay';
+import { transcriptQueries, type TranscriptEntry } from '../agent/transcript';
 import {
   answerCheck,
+  answerGoesAhead,
   answerPredict,
   backToCards,
   beginAgentStep,
   choosePlan,
   completeAgentStep,
+  confirmAsked,
   decideGate,
   echoPlan,
   finishScript,
@@ -23,7 +26,9 @@ import {
   stars,
   stepPasses,
   stopScript,
+  toDriverAction,
   type AgentStepState,
+  type AnswerAction,
   type Gate,
   type QueuedAction,
 } from './agentRunner';
@@ -278,6 +283,7 @@ describe('predictions', () => {
       at: 'running',
       planId: 'bare-name',
       queue: [],
+      then: 'check',
     });
     expect(nextAction(guessed)).toBeNull();
     expect(() => answerPredict(guessed, true)).toThrow(MissionRunError);
@@ -325,6 +331,7 @@ function take(state: AgentStepState): { action: QueuedAction; state: AgentStepSt
 }
 
 const lineGate = (harmful: boolean): Gate => ({ kind: 'line', line: 'x', changes: [], harmful });
+const confirmGate = (harmful: boolean): Gate => ({ ...lineGate(harmful), kind: 'confirm' });
 
 describe('gates', () => {
   const tidy = take(choosePlan(notesFixRound, notesStep, 'tidy-and-redo'));
@@ -362,11 +369,205 @@ describe('gates', () => {
     expect(stopped.stage).toEqual({ at: 'direct', round: 'fix' });
   });
 
-  it('refuses a decision with no gate open', () => {
+  it('refuses a gate of the wrong kind, or a decision with no gate open', () => {
+    expect(() => openGate(tidy.state, tidy.action, confirmGate(false))).toThrow(/confirm gate/);
     expect(() => decideGate(tidy.state, true)).toThrow(/while Otto is at running/);
     expect(() => openGate(atGate, tidy.action, lineGate(false))).toThrow(MissionRunError);
   });
 });
+
+describe('Confirm questions (D7)', () => {
+  const asking = take(choosePlan(notesFixRound, notesStep, 'start-over'));
+  // Play drove the line and PowerShell asked, so Otto's authored answer goes next.
+  const answering = confirmAsked(asking.state, asking.action);
+  const answer = take(answering);
+
+  it("queues Otto's authored answer ahead of the rest of the script", () => {
+    expect(answer.action).toEqual({
+      do: 'answer',
+      choice: 'A',
+      line: API_DELETE,
+      onDeny: [{ do: 'run', line: HOME_NOTES_DELETE }],
+      denyLine: 'Good stop. That was the whole project.',
+    });
+    expect(answer.state.stage).toMatchObject({ queue: [{ line: NOTES_LINE }] });
+    expect(toDriverAction(answer.action)).toEqual({ do: 'answer', choice: 'A' });
+    expect(toDriverAction(asking.action)).toEqual({ do: 'run', line: API_DELETE });
+  });
+
+  it('answers No to All before plan B when Kyle denies a harmful Yes to All', () => {
+    const gated = openGate(answer.state, answer.action, confirmGate(true));
+    const denied = decideGate(gated, false);
+    expect(denied.gates).toEqual([true]);
+    expect(denied.stage).toMatchObject({ at: 'running', then: 'check' });
+    const queue = denied.stage.at === 'running' ? denied.stage.queue : [];
+    expect(queue.map(toDriverAction)).toEqual([
+      { do: 'answer', choice: 'L' },
+      { do: 'run', line: HOME_NOTES_DELETE },
+      { do: 'run', line: NOTES_LINE },
+    ]);
+  });
+
+  it('answers No, then waits for directions, when the line has no plan B', () => {
+    const plain = { do: 'run', line: 'Remove-Item x', answer: 'Y' } as const;
+    const withAnswer = take(confirmAsked(tidy(), plain));
+    const denied = decideGate(
+      openGate(withAnswer.state, withAnswer.action, confirmGate(true)),
+      false,
+    );
+    expect(denied.stage).toMatchObject({ at: 'running', then: 'direct' });
+    const refusal = take(denied);
+    expect(toDriverAction(refusal.action)).toEqual({ do: 'answer', choice: 'N' });
+    expect(finishScript(refusal.state).stage).toEqual({ at: 'direct', round: 'fix' });
+  });
+
+  it('answers No first when Kyle stops Otto with a question open', () => {
+    const stopped = stopScript(answering);
+    expect(stopped.stage).toMatchObject({ at: 'running', then: 'direct' });
+    expect(toDriverAction(take(stopped).action)).toEqual({ do: 'answer', choice: 'L' });
+  });
+
+  it('gates only answers that go ahead, and needs an authored answer', () => {
+    const letter = (choice: 'Y' | 'A' | 'N' | 'L') => answerGoesAhead({ ...answerOf(), choice });
+    expect([letter('Y'), letter('A'), letter('N'), letter('L')]).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(() => confirmAsked(asking.state, { do: 'run', line: 'Remove-Item x' })).toThrow(
+      /authored answer/,
+    );
+    expect(() => confirmAsked(answer.state, { do: 'newTerminal' })).toThrow(MissionRunError);
+  });
+
+  /** Otto's queue partway through the tidy fix, with nothing asking. */
+  function tidy(): AgentStepState {
+    return take(choosePlan(notesFixRound, notesStep, 'tidy-and-redo')).state;
+  }
+
+  function answerOf(): AnswerAction {
+    if (answer.action.do !== 'answer') throw new Error('Otto should be answering.');
+    return answer.action;
+  }
+});
+
+/** How a scripted Kyle plays: his prediction, then each gate decision in turn. */
+interface Kyle {
+  readonly predict?: string;
+  readonly decisions: boolean[];
+}
+
+/**
+ * A headless play layer: picks a card, then plays Otto's queue through the real shell
+ * the way agentPlay will. Each action is dry-run first, which grades a prediction and
+ * decides whether it pauses. A denied action is never driven.
+ */
+function playThrough(game: { state: AgentStepState; log: SandboxLog }, planId: string, kyle: Kyle) {
+  let { state, log } = game;
+  const { shell, transcript } = replay(log, testDeps());
+  state = choosePlan(state, notesStep, planId);
+  while (state.stage.at === 'running') {
+    const next = nextAction(state);
+    if (next === null) return { state: finishScript(state), log, transcript };
+    const { action } = next;
+    state = next.state;
+    const driven = toDriverAction(action);
+    const dry = dryRun(log, driven, notesTask, testDeps());
+    if (state.stage.at === 'predict') {
+      const option = state.stage.action.predict.options.find(({ id }) => id === kyle.predict);
+      state = answerPredict(
+        state,
+        option !== undefined && outcomeHolds(option.outcome, dry.step, dry.queries),
+      );
+    }
+    const pauses =
+      action.do === 'answer'
+        ? answerGoesAhead(action)
+        : isConsequential({ action, changes: dry.changes }, 'destructive');
+    let allowed = true;
+    if (pauses) {
+      const kind = action.do === 'answer' ? 'confirm' : 'line';
+      state = openGate(state, action, {
+        kind,
+        line: gateLine(action),
+        changes: dry.changes,
+        harmful: dry.harmful,
+      });
+      while (state.stage.at === 'gate') {
+        allowed = kyle.decisions.shift() ?? true;
+        state = decideGate(state, allowed);
+      }
+    }
+    if (!allowed) continue;
+    const step = playAction(shell, transcript, driven);
+    log = withEntry(log, { kind: 'action', action: driven });
+    if (step.asking) state = confirmAsked(state, action);
+  }
+  return { state, log, transcript };
+}
+
+/** The line a gate shows: the command, or for an answer, the line that asked. */
+const gateLine = (action: QueuedAction) =>
+  action.do === 'run' || action.do === 'answer' ? action.line : action.do;
+
+/** What Otto typed, in order: lines and Confirm letters. */
+const typed = (transcript: readonly TranscriptEntry[]) =>
+  transcript.map(({ action }) =>
+    action.do === 'run' ? action.line : action.do === 'answer' ? action.choice : action.do,
+  );
+
+describe('a whole step through the real shell', () => {
+  const begin = { state: beginAgentStep(notesStep), log: notesStart };
+
+  /** The weak card, then Kyle's check of its claim, then a fix round. */
+  function weakCardThenFix(kyle: Kyle, optionId: string) {
+    const played = playThrough(begin, 'bare-name', kyle);
+    const queries = replayQueries(played.log);
+    return {
+      ...played,
+      state: openFixRound(answerCheck(played.state, notesStep, optionId, queries)),
+    };
+  }
+
+  it('denies a Yes to All that would delete the API: No to All goes first, then plan B', () => {
+    const fixing = weakCardThenFix({ predict: 'home', decisions: [] }, 'home');
+    expect(fixing.state.verdicts).toEqual(['caught']);
+
+    const fixed = playThrough(fixing, 'start-over', { decisions: [false, true] });
+    // The driver refuses any line while PowerShell asks, so this order is the only one that runs.
+    expect(typed(fixed.transcript).slice(1)).toEqual([
+      API_DELETE,
+      'L',
+      HOME_NOTES_DELETE,
+      NOTES_LINE,
+    ]);
+
+    const queries = replayQueries(fixed.log);
+    const result = answerCheck(fixed.state, notesStep, 'api', queries);
+    expect(result.stage).toMatchObject({ verdict: 'confirmed', passed: true, guardBroken: false });
+    expect(result.gates).toEqual([true, true]);
+    expect(stars(result)).toEqual({ plan: false, safety: true, check: true });
+    const run = completeAgentStep(finishBriefing(startRun(notesMission)), notesMission, queries);
+    expect(run.phase).toBe('drills');
+  });
+
+  it('lets Kyle allow the harm: the guard breaks, and the stars say so', () => {
+    const fixing = weakCardThenFix({ predict: 'api', decisions: [] }, 'api');
+    const fixed = playThrough(fixing, 'start-over', { decisions: [true] });
+    expect(typed(fixed.transcript).slice(1)).toEqual([API_DELETE, 'A', NOTES_LINE]);
+
+    const result = answerCheck(fixed.state, notesStep, 'api', replayQueries(fixed.log));
+    expect(result.stage).toMatchObject({ verdict: 'missed', passed: false, guardBroken: true });
+    expect(stars(result)).toEqual({ plan: false, safety: false, check: false });
+    expect(rewindStep(result).stage).toEqual({ at: 'direct', round: 'start' });
+  });
+});
+
+function replayQueries(log: SandboxLog): SandboxQueries {
+  const { shell, transcript } = replay(log, testDeps());
+  return sandboxQueries(shell.ws, transcriptQueries(transcript));
+}
 
 describe('stars', () => {
   const start = beginAgentStep(step);
