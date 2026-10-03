@@ -44,7 +44,11 @@ export type AgentStage =
 export interface AgentStepState {
   readonly stepId: string;
   readonly stage: AgentStage;
-  /** Every card picked this step, in order, so a fix round offers only fresh ones. */
+  /**
+   * Every card picked this step, in order. A fix round leaves out the start cards in here,
+   * but every fix stays on offer (section 1.3): the same cleanup may be needed again, and
+   * the Plan star already counts each extra card.
+   */
   readonly tried: readonly string[];
   /** Whether each gate decision was right. */
   readonly gates: readonly boolean[];

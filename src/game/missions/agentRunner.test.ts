@@ -132,6 +132,15 @@ describe('picking a card', () => {
     expect(() => echoPlan(running, step, 'full-path')).toThrow(MissionRunError);
     expect(() => backToCards(start)).toThrow(/while Otto is at direct/);
   });
+
+  it('keeps a fix on offer after it was tried, and drops only tried start cards', () => {
+    const fixTried: AgentStepState = {
+      ...start,
+      tried: ['guess', 'fix-full-path'],
+      stage: { at: 'direct', round: 'fix' },
+    };
+    expect(ids(offeredPlans(fixTried, step))).toEqual(['fix-full-path', 'full-path']);
+  });
 });
 
 describe('running a script', () => {
