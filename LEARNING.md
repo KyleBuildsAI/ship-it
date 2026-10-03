@@ -1945,3 +1945,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/140
 3. Two tabs could ask in the same instant. The random number breaks the tie the same way in both tabs.
 
 </details>
+
+---
+
+## #141 feat: every act opens, and act 1 opens a powershell laptop
+
+https://github.com/KyleBuildsAI/ship-it/pull/141
+
+1. Why does a save made last week load with every Act unlocked?
+2. What stops the laptop sandbox from grading what you type?
+3. Where would you change what Act 5's menu says?
+
+<details><summary>Answers</summary>
+
+1. The save's settings schema gives `unlockAll` a default of `true`, so a save without the key gets it filled in as it loads.
+2. `startFreePlay` calls `leavePlay()` first, so no mission, drill or boss is active to grade the sandbox.
+3. In `src/content/roadmap.ts`, the Act 5 entry. The menu just reads it.
+
+</details>
