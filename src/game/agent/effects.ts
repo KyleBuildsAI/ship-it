@@ -61,7 +61,8 @@ export function weighChange(change: MachineChange): ChangeWeight {
 
 /** An action Otto is about to take, and what a dry run of it changed on the laptop. */
 export interface PendingAction {
-  readonly action: AgentAction | BaseAction;
+  /** A content action, or Otto's answer to a Confirm question, which pauses the same way. */
+  readonly action: AgentAction | BaseAction | { readonly do: 'answer' };
   readonly changes: readonly MachineChange[];
 }
 

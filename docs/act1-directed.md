@@ -1106,14 +1106,19 @@ export interface DryRun {
 } // broken: guards with a part (an `all`'s check, one path of many) that held before and fails after
 export function dryRun(log: SandboxLog, action: LoggedAction,
   judge: { guards: readonly Predicate[] }, deps: RepositoryDeps): DryRun;
+export function dryRunRefused(log, action, judge, deps, refusal: ConfirmLetter): DryRun;
+  // the line, then `refusal` for every question it asks: a line gate weighs this, since
+  // refusing can't undo the paths that never ask (`Remove-Item a, b` still removes a file b)
 
 // src/game/missions/agentRunner.ts (A12). Pure: play drives every action and reports back.
 export type Verdict = 'confirmed' | 'caught' | 'missed' | 'false-alarm';
 export interface Gate { readonly kind: 'line' | 'confirm'; readonly line: string;
   readonly changes: readonly MachineChange[]; readonly harmful: boolean }
-export interface AnswerAction { do: 'answer'; choice: ConfirmLetter; line; onDeny: BaseAction[]; denyLine? }
+export interface AnswerAction { do: 'answer'; choice: ConfirmLetter; line; onDeny: BaseAction[]; denyLine?;
+  refusal: boolean }  // refusal: Otto typing Kyle's own "No" after a deny or a stop, never gated
+export const REFUSAL: ConfirmLetter = 'L';  // No to All closes every question the line had left
 export type QueuedAction = AgentAction | BaseAction | AnswerAction; // plan B lines and answers join the queue
-export type AfterQueue = 'check' | 'direct';                     // 'direct': a stop or a deny left only a No to answer
+export type AfterQueue = 'check' | 'direct';                     // 'direct': a stop or a deny left only a refusal to type
 export type AgentStage =
   | { at: 'direct'; round: 'start' | 'fix' }
   | { at: 'echo'; round; planId }
@@ -1136,17 +1141,20 @@ export function answerPredict(state, correct: boolean): AgentStepState;    // gr
 export function outcomeHolds(outcome, result: { lines; exitCode }, q: SandboxQueries): boolean;
 export function openGate(state, action: QueuedAction, gate: Gate): AgentStepState; // the action play holds
 export function decideGate(state, allow: boolean): AgentStepState;
-  // allow → running; deny a safe line → asked again once; deny → a No (N for Y, L for A) if a
-  // Confirm is open, then onDeny and the rest of the script; no onDeny → a fix round
-export function confirmAsked(state, action): AgentStepState;       // the driven line asked: its `answer` goes next
-export function answerGoesAhead(answer: AnswerAction): boolean;    // Y or A: a confirm gate; N or L never gates
+  // allow → running; deny a safe line → asked again once; deny → REFUSAL if a Confirm is
+  // open, then onDeny and the rest of the script; no onDeny → a fix round
+export function confirmAsked(state, action): AgentStepState;
+  // the driven line asked: its `answer` goes next; an answer that asked again: the same answer again
+export function pausesBefore(action: QueuedAction, changes, mode: ApprovalMode): boolean;
+  // isConsequential on the dry run, for any letter (a No can let the rest of a line go on); refusals never
 export function toDriverAction(action: QueuedAction): DriverAction;
-export function stopScript(state): AgentStepState;                 // answers No first if a question is open
+export function stopScript(state): AgentStepState;                 // types REFUSAL first if a question is open
 export function finishScript(state): AgentStepState;               // → check, or → direct after a stop
 export function stepPasses(step, q): boolean;                      // success and every guard
 export function answerCheck(state, step, optionId: string, q: SandboxQueries): AgentStepState;
 export function openFixRound(state): AgentStepState;               // a result that didn't pass
-export function rewindStep(state): AgentStepState;                 // play swaps in the log kept at step start
+export function rewindStep(state): AgentStepState;                 // play swaps in the log kept at step start;
+  // free before any card was picked, since nothing has run
 export function markHintRung3(state): AgentStepState;
 export function stars(state): Stars;  starXp(stars): number;       // STAR_XP = 2 each
 export function completeAgentStep(run: MissionRun, mission: Mission, q: SandboxQueries): MissionRun; // exactly one step
