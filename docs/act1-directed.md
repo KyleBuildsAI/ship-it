@@ -1159,14 +1159,18 @@ export function markHintRung3(state): AgentStepState;
 export function stars(state): Stars;  starXp(stars): number;       // STAR_XP = 2 each
 export function completeAgentStep(run: MissionRun, mission: Mission, q: SandboxQueries): MissionRun; // exactly one step
 
-// src/game/missions/judgment.ts (A13)
+// src/game/missions/judgment.ts (A13). Pure: every key comes from a scratch replay of the scene.
 export type JudgmentAnswer =
   | { readonly kind: 'pick'; readonly optionId: string }     // predict, diagnose, fix
-  | { readonly kind: 'approve'; readonly allow: boolean }
-  | { readonly kind: 'order'; readonly cardIds: readonly string[] }
-  | { readonly kind: 'spot'; readonly lineId: string };
+  | { readonly kind: 'approve'; readonly allow: boolean };
+  // B11 adds { kind: 'order'; cardIds } and { kind: 'spot'; lineId } with their drill kinds
+// Every right answer: predict and diagnose exactly one, fix one or more, approve ['allow'] or ['deny'].
+// A drill that breaks those counts throws JudgmentError (a content bug). Predict judges the line
+// as it stands when PowerShell asks; approve also dry runs Otto's `answer` when the line asks.
+export function answerKey(drill: JudgmentDrill, deps: RepositoryDeps): readonly string[];
+// keyId: Kyle's answer when it passed, else the first right one. A pick of a missing option throws.
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
-export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[];
+export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[]; // FNV-1a seed, Mulberry32
 
 // src/game/agent/feed.ts (A15): what the terminal shows, in order. The world hears ws.events live (§4).
 export type Typist = 'otto' | 'kyle';                 // Kyle's lines are looks: no `otto ›` marker
