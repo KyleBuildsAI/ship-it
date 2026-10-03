@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allCardsSolved,
   checkOrder,
   currentCard,
   finishLessonBriefing,
@@ -209,6 +210,22 @@ describe("a final's shared clock", () => {
     expect(firstTryPercent(out, sampleFinal)).toBe(17);
     // A finished run ignores the clock.
     expect(tickLesson(out, sampleFinal, T0 + 200_000)).toBe(out);
+  });
+
+  it('stops once every card is answered, so Finish completes even after zero', () => {
+    // Every card solved a second in, and the last explanation still on screen.
+    let run = cards(sampleFinal);
+    for (let index = 0; index < sampleFinal.cards.length - 1; index++) {
+      run = nextCard(solve(run, sampleFinal), sampleFinal);
+    }
+    expect(allCardsSolved(run, sampleFinal)).toBe(false);
+    run = solve(run, sampleFinal);
+    expect(allCardsSolved(run, sampleFinal)).toBe(true);
+    // The clock passes zero while Kyle reads: the run is still his to finish.
+    expect(tickLesson(run, sampleFinal, T0 + 121_000)).toBe(run);
+    const done = nextCard(tickLesson(run, sampleFinal, T0 + 500_000), sampleFinal);
+    expect(done).toMatchObject({ phase: 'done', outcome: 'finished' });
+    expect(firstTryPercent(done, sampleFinal)).toBe(100);
   });
 
   it('can be answered wrong too, in a final', () => {

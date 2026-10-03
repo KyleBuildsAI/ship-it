@@ -158,4 +158,25 @@ describe('a final lesson', () => {
       xp: sampleFinal.xp,
     });
   });
+
+  it('saves a final whose last card was answered before the clock hit zero', () => {
+    startLesson(sampleFinal.id);
+    endLessonBriefing(T0);
+    const count = sampleFinal.cards.length;
+    for (let index = 0; index < count - 1; index++) answer();
+    // The last card is solved, but Finish waits while its explanation is read.
+    const last = currentCard(lesson().run, lesson().lesson);
+    if (last === undefined || last.kind === 'order') throw new Error('expected a pick card');
+    const right = last.options.find((option) => option.correct);
+    if (right === undefined) throw new Error('no right option');
+    answerLesson(right.id, T0);
+    tickPlay(T0 + 121_000);
+    expect(lesson().run.outcome).toBe('running');
+    nextLessonCard(T0 + 122_000);
+    expect(lesson().run).toMatchObject({ phase: 'done', outcome: 'finished' });
+    expect(saved(sampleFinal.id)).toMatchObject({
+      mission: { status: 'completed', bestDrillScore: 100 },
+      xp: sampleFinal.xp,
+    });
+  });
 });

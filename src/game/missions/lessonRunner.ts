@@ -181,11 +181,22 @@ export function lessonSecondsLeft(run: LessonRun, lesson: Lesson, nowMs: number)
 }
 
 /**
+ * Whether every card is answered: the last card is on screen and solved, and only its
+ * explanation and the Finish button are left. A final's clock stops here, because the
+ * challenge is beaten; reading why the last answer is right is never a race.
+ */
+export function allCardsSolved(run: LessonRun, lesson: Lesson): boolean {
+  return run.phase === 'cards' && run.card.solved && run.cardIndex === lesson.cards.length - 1;
+}
+
+/**
  * Runs a final's clock. When it hits zero before the last card is answered, the run ends
  * timed out: the cards still unanswered count as missed, and the lesson isn't completed.
+ * Once every card is answered the clock is stopped, so Finish always completes the run.
  */
 export function tickLesson(run: LessonRun, lesson: Lesson, nowMs: number): LessonRun {
   if (run.phase !== 'cards' || run.outcome !== 'running') return run;
+  if (allCardsSolved(run, lesson)) return run;
   if (lessonSecondsLeft(run, lesson, nowMs) !== 0) return run;
   return { ...run, phase: 'done', outcome: 'timed-out' };
 }

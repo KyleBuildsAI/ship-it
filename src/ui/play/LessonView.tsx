@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  allCardsSolved,
   currentCard,
   firstTryPercent,
   lessonSecondsLeft,
@@ -301,8 +302,13 @@ function Done({ activity }: { activity: LessonActivity }) {
  */
 export function LessonView({ activity }: { activity: LessonActivity }) {
   const { lesson, run } = activity;
+  // The clock stops once every card is answered, so the time shown freezes where Kyle
+  // beat it instead of running on while he reads the last explanation.
   const clockRunning =
-    lesson.timeLimitSeconds !== undefined && run.phase === 'cards' && run.outcome === 'running';
+    lesson.timeLimitSeconds !== undefined &&
+    run.phase === 'cards' &&
+    run.outcome === 'running' &&
+    !allCardsSolved(run, lesson);
   const now = useClock(clockRunning);
   const secondsLeft = lessonSecondsLeft(run, lesson, now);
   return (
