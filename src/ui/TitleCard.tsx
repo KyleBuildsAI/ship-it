@@ -4,9 +4,12 @@ import { useStore } from './useStore';
 
 const HINTS = {
   campus:
-    'WASD or click to walk · Space to jump · drag to look around · step through the glowing Act 2 portal',
+    'WASD or click to walk · Space to jump · drag to look around · step through a glowing portal',
   gitworld: 'Workbench · Loading Dock · Vault. Try git status in the terminal.',
+  machine: 'Folders are terraces, terminals are lanterns. Try cd and mkdir in the terminal.',
 } as const;
+
+const ZONE_NAMES = { campus: 'Campus', gitworld: 'Git World', machine: 'The Machine' } as const;
 
 export function TitleCard() {
   const { zone, hasMoved } = useStore(worldState);
@@ -23,7 +26,7 @@ export function TitleCard() {
           <h1 className="title-card__title">SHIP IT</h1>
         </>
       ) : (
-        <h1 className="title-card__zone">{zone === 'campus' ? 'Campus' : 'Git World'}</h1>
+        <h1 className="title-card__zone">{ZONE_NAMES[zone]}</h1>
       )}
       {showHint ? <p className="title-card__tagline">{HINTS[zone]}</p> : null}
     </header>

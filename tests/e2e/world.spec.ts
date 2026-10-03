@@ -57,37 +57,50 @@ test('Space jumps, even right after clicking a HUD button', async ({ page }) => 
   expect(problems).toEqual([]);
 });
 
-test('clicking the Act 2 portal walks through it into the Git World', async ({ page }) => {
-  // A walk across Campus: CI renders the 3D world in software, so allow extra time.
-  test.slow();
-  const problems = collectConsoleProblems(page);
-  await page.goto('./');
-  const badge = page.getByLabel('Developer status');
-  await expect(badge).toContainText('saved', { timeout: 15_000 });
-  await expect(badge).toContainText(/WebGPU|WebGL2 fallback/, { timeout: 15_000 });
-  // The tutorial card would sit between the mouse and the portal.
-  await page.getByRole('button', { name: 'Skip tutorial' }).click();
+const PORTALS = [
+  { act: 1, zone: 'machine', heading: 'The Machine' },
+  { act: 2, zone: 'gitworld', heading: 'Git World' },
+] as const;
 
-  // Each function below runs inside the page, so it reads the hooks there itself.
-  interface Hooks {
-    zone: () => string;
-    portalPoint: (act: number) => { x: number; y: number } | null;
-  }
-  const portalPoint = () =>
-    page.evaluate(() => (window as { __shipItTest?: Hooks }).__shipItTest?.portalPoint(2) ?? null);
-  // The hooks arrive with the 3D world, which loads after the page.
-  await expect.poll(portalPoint).not.toBeNull();
-  const portal = await portalPoint();
-  if (!portal) throw new Error('the Act 2 portal is not on screen from the spawn point');
-  await page.mouse.click(portal.x, portal.y);
+for (const { act, zone, heading } of PORTALS) {
+  test(`clicking the Act ${String(act)} portal walks through it to ${heading}`, async ({
+    page,
+  }) => {
+    // A walk across Campus: CI renders the 3D world in software, so allow extra time.
+    test.slow();
+    const problems = collectConsoleProblems(page);
+    await page.goto('./');
+    const badge = page.getByLabel('Developer status');
+    await expect(badge).toContainText('saved', { timeout: 15_000 });
+    await expect(badge).toContainText(/WebGPU|WebGL2 fallback/, { timeout: 15_000 });
+    // The tutorial card would sit between the mouse and the portal.
+    await page.getByRole('button', { name: 'Skip tutorial' }).click();
 
-  await expect
-    .poll(
-      () =>
-        page.evaluate(() => (window as { __shipItTest?: Hooks }).__shipItTest?.zone() ?? 'none'),
-      { timeout: 60_000 },
-    )
-    .toBe('gitworld');
-  await expect(page.getByRole('heading', { name: 'Git World' })).toBeVisible();
-  expect(problems).toEqual([]);
-});
+    // Each function below runs inside the page, so it reads the hooks there itself.
+    interface Hooks {
+      zone: () => string;
+      portalPoint: (act: number) => { x: number; y: number } | null;
+    }
+    const portalPoint = () =>
+      page.evaluate(
+        (number) => (window as { __shipItTest?: Hooks }).__shipItTest?.portalPoint(number) ?? null,
+        act,
+      );
+    // The hooks arrive with the 3D world, which loads after the page.
+    await expect.poll(portalPoint).not.toBeNull();
+    const portal = await portalPoint();
+    if (!portal)
+      throw new Error(`the Act ${String(act)} portal is not on screen from the spawn point`);
+    await page.mouse.click(portal.x, portal.y);
+
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => (window as { __shipItTest?: Hooks }).__shipItTest?.zone() ?? 'none'),
+        { timeout: 60_000 },
+      )
+      .toBe(zone);
+    await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+    expect(problems).toEqual([]);
+  });
+}
