@@ -1981,3 +1981,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/142
 3. The steps are graded by what's on the drive, not by who typed the command. Otto's commands run through the same laptop engine.
 
 </details>
+
+---
+
+## #143 feat: act 1's portal opens onto the machine island
+
+https://github.com/KyleBuildsAI/ship-it/pull/143
+
+1. Why does the lantern move when you type `cd`?
+2. What does the island show if you walk in while playing an Act 2 mission?
+3. Why is the layout decided in one file and drawn in another?
+
+<details><summary>Answers</summary>
+
+1. `cd` makes the engine emit a location event. The world redraws the terraces from the laptop, and the lantern stands on the folder the terminal is in now.
+2. A sign saying to open Mission 1.1 or the Laptop sandbox, because an Act 2 sandbox has no laptop to draw.
+3. The layout is pure, so it's unit-tested without a browser. The drawing needs three.js and a GPU, so it's checked by playing and by the end-to-end test.
+
+</details>
