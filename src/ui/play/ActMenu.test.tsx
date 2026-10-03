@@ -168,6 +168,17 @@ describe('the Act menu of a finished Act', () => {
   });
 });
 
+describe('an Act with a free-play sandbox', () => {
+  it('offers the laptop after the missions, with nothing graded', () => {
+    const withLaptop: ActContent = { ...early, freePlay: { steps: [], notice: 'A laptop.' } };
+    expect(rows(menuFor(withLaptop))).toContain(
+      'Laptop sandbox · Try anything on the laptop. Nothing is graded. [Open]',
+    );
+    expect(rows(menuFor(early))).not.toContain(
+      'Laptop sandbox · Try anything on the laptop. Nothing is graded. [Open]',
+    );
+  });
+});
 describe('the Act menu in preview mode', () => {
   const preview = withUnlock(newSave, true);
 
@@ -216,11 +227,10 @@ describe('the Act menu in preview mode', () => {
     expect(after).toContain('Boss: The Dirty Tree (sample) · Unlocked for preview [Fight]');
   });
 
-  it("offers Act 1's laptop, then lists its planned missions, boss and Field Mission as not built", () => {
+  it("lists Act 1's roadmap as not built when the catalog lacks Act 1", () => {
     const markup = menuOf(1);
-    expect(heading(markup)).toBe('Act 1 · The Machine (preview)');
+    expect(heading(markup)).toBe('Act 1 · The Machine');
     expect(rows(markup)).toEqual([
-      'Laptop sandbox · Type PowerShell on the Windows laptop Act 1 runs on. Nothing is graded. [Open]',
       '1.1 Where Things Live · Not built yet',
       '1.2 Deletes Are Forever · Not built yet',
       '1.3 Secrets Stay Home · Not built yet',

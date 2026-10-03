@@ -10,7 +10,7 @@ test('every Act is open, and Act 1 opens a PowerShell laptop', async ({ page }) 
 
   // A new save shows all eight Acts, starting at Act 1.
   await page.getByRole('button', { name: 'Acts', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Act 1 · The Machine (preview)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Act 1 · The Machine' })).toBeVisible();
   await expect(page.getByRole('tab')).toHaveCount(8);
 
   await page
@@ -32,5 +32,33 @@ test('every Act is open, and Act 1 opens a PowerShell laptop', async ({ page }) 
   await page.getByRole('button', { name: 'Acts', exact: true }).click();
   await page.getByRole('tab', { name: 'Act 2' }).click();
   await expect(page.getByRole('button', { name: 'Fight' })).toBeEnabled();
+  expect(problems).toEqual([]);
+});
+
+test('Mission 1.1 plays in the terminal, graded by where things really are', async ({ page }) => {
+  test.slow();
+  const problems = collectConsoleProblems(page);
+  await page.goto('./');
+  await expect(page.getByLabel('Developer status')).toContainText('saved');
+
+  await page.getByRole('button', { name: 'Acts', exact: true }).click();
+  await page
+    .getByRole('region', { name: 'Missions' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Where Things Live' })
+    .getByRole('button', { name: 'Play' })
+    .click();
+  await page.getByRole('button', { name: 'Skip briefing' }).click();
+  await expect(page.getByText('Step 1 of 4')).toBeVisible();
+
+  // A bare name from home fails; the full path works.
+  const input = page.locator('.xterm-helper-textarea');
+  await input.focus();
+  await page.keyboard.insertText('cd api');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Step 1 of 4')).toBeVisible();
+  await page.keyboard.insertText('cd C:\\Users\\kyle\\quillwork\\api');
+  await page.keyboard.press('Enter');
+  await expect(page.getByText('Step 2 of 4')).toBeVisible();
   expect(problems).toEqual([]);
 });
