@@ -1,5 +1,6 @@
 import type { OutputLine } from '../../engine/git/cli/output';
-import type { AgentAction, AgentTask, Outcome, Plan } from './agentSchema';
+import type { MachineChange } from '../../engine/machine/snapshot';
+import type { AgentAction, AgentTask, BaseAction, Outcome, Plan } from './agentSchema';
 import { evaluate, type SandboxQueries } from './predicates';
 import { MissionRunError, type MissionRun } from './runner';
 import type { Mission, MissionStep } from './schema';
@@ -11,7 +12,7 @@ import type { Mission, MissionStep } from './schema';
  *
  *   direct -> (echo) -> running -> check -> result
  *                        |  ^
- *                      predict
+ *              predict <-+  +-> gate
  *
  * Like runner.ts, nothing here waits, draws or touches a sandbox. The play layer drives
  * each action through the real shell and tells this module what happened, so every
@@ -22,10 +23,23 @@ import type { Mission, MissionStep } from './schema';
 /** How Kyle's check of Otto's claim came out (section 1.4's table). */
 export type Verdict = 'confirmed' | 'caught' | 'missed' | 'false-alarm';
 
-/** Kyle's first pick, or a fix after a stop or a failed check. */
+/** Kyle's first pick, or a fix after a stop, a deny with no plan B, or a failed check. */
 export type Round = 'start' | 'fix';
 
-/** A run line with a prediction for Kyle to make before it runs. */
+/** What a gate asks Kyle to approve, worked out by a dry run, never written by an author. */
+export interface Gate {
+  /** A line Otto wants to run, or his answer to PowerShell's Confirm question. */
+  readonly kind: 'line' | 'confirm';
+  readonly line: string;
+  readonly changes: readonly MachineChange[];
+  /** The dry run broke a guard: denying is right exactly when this is true. */
+  readonly harmful: boolean;
+}
+
+/** Anything waiting in Otto's queue: a script action, or a plan B action after a deny. */
+export type QueuedAction = AgentAction | BaseAction;
+
+/** A run line with a prediction to make before it runs. */
 export type PredictedAction = Extract<AgentAction, { do: 'run' }> & {
   readonly predict: NonNullable<Extract<AgentAction, { do: 'run' }>['predict']>;
 };
@@ -36,13 +50,26 @@ export type AgentStage =
   /** Otto repeats a request back, "Plan: <card>. Go?", before running it. */
   | { readonly at: 'echo'; readonly round: Round; readonly planId: string }
   /** Otto works through his queue, one action at a time. Stop is allowed here. */
-  | { readonly at: 'running'; readonly planId: string; readonly queue: readonly AgentAction[] }
+  | {
+      readonly at: 'running';
+      readonly planId: string;
+      readonly queue: readonly QueuedAction[];
+    }
   /** A line waits at the prompt while Kyle predicts what it will do. */
   | {
       readonly at: 'predict';
       readonly planId: string;
       readonly action: PredictedAction;
-      readonly queue: readonly AgentAction[];
+      readonly queue: readonly QueuedAction[];
+    }
+  /** Otto waits for Allow or Deny. `again`: Kyle denied a safe line, and Otto asked again. */
+  | {
+      readonly at: 'gate';
+      readonly planId: string;
+      readonly action: QueuedAction;
+      readonly queue: readonly QueuedAction[];
+      readonly gate: Gate;
+      readonly again: boolean;
     }
   /** Otto claims he's done. Kyle answers one question about the result. */
   | { readonly at: 'check'; readonly planId: string }
@@ -178,32 +205,30 @@ export function choosePlan(
 
 /**
  * Hands play Otto's next action, or null when his queue is empty (then call
- * finishScript). A line with a prediction stops at the prompt for Kyle's guess. Play
- * drives anything else through the shell, and the world shows it.
+ * finishScript). A line with a prediction stops at the prompt for Kyle's guess. Anything
+ * else is play's to dry-run, gate if it pauses (effects.isConsequential), and drive.
  */
 export function nextAction(
   state: AgentStepState,
-): { readonly action: AgentAction; readonly state: AgentStepState } | null {
+): { readonly action: QueuedAction; readonly state: AgentStepState } | null {
   const stage = expectStage(state, 'running', "take Otto's next action");
   const [action, ...queue] = stage.queue;
   if (action === undefined) return null;
   if (isPredicted(action)) {
-    return {
-      action,
-      state: { ...state, stage: { at: 'predict', planId: stage.planId, action, queue } },
-    };
+    const { planId } = stage;
+    return { action, state: { ...state, stage: { at: 'predict', planId, action, queue } } };
   }
   return { action, state: { ...state, stage: { ...stage, queue } } };
 }
 
-function isPredicted(action: AgentAction): action is PredictedAction {
-  return action.do === 'run' && action.predict !== undefined;
+function isPredicted(action: QueuedAction): action is PredictedAction {
+  return action.do === 'run' && 'predict' in action && action.predict !== undefined;
 }
 
 /**
  * Records whether Kyle's prediction held. Play grades it with outcomeHolds on a dry run of
  * the line, so a line Kyle then denies is judged on what it would have done. The line is
- * still in play's hands to drive.
+ * still in play's hands: gate it if it pauses, then drive it.
  */
 export function answerPredict(state: AgentStepState, correct: boolean): AgentStepState {
   const { planId, queue } = expectStage(state, 'predict', 'answer a prediction');
@@ -229,6 +254,31 @@ export function outcomeHolds(
     (outcome.printed === undefined || printed.includes(outcome.printed.toLowerCase())) &&
     (outcome.state === undefined || evaluate(outcome.state, queries))
   );
+}
+
+/** Otto pauses before the action he was just handed, for Kyle to allow or deny. */
+export function openGate(state: AgentStepState, action: QueuedAction, gate: Gate): AgentStepState {
+  const { planId, queue } = expectStage(state, 'running', 'open a gate');
+  return { ...state, stage: { at: 'gate', planId, action, queue, gate, again: false } };
+}
+
+/**
+ * Kyle allows or denies. Deny is right exactly when the dry run was harmful (D4).
+ * - Allow: Otto carries on, and play drives the action it is holding.
+ * - Deny a safe line the first time: Otto asks again, "I need this to finish".
+ * - Deny otherwise: Otto runs the line's plan B and carries on with his script, or with
+ *   no plan B he stops and asks Kyle for new directions.
+ */
+export function decideGate(state: AgentStepState, allow: boolean): AgentStepState {
+  const stage = expectStage(state, 'gate', 'decide a gate');
+  const { planId, action, queue, gate } = stage;
+  const gates = [...state.gates, allow !== gate.harmful];
+  if (allow) return { ...state, gates, stage: { at: 'running', planId, queue } };
+  if (!gate.harmful && !stage.again) return { ...state, gates, stage: { ...stage, again: true } };
+
+  const planB = 'onDeny' in action ? action.onDeny : [];
+  if (planB.length === 0) return { ...state, gates, stage: { at: 'direct', round: 'fix' } };
+  return { ...state, gates, stage: { at: 'running', planId, queue: [...planB, ...queue] } };
 }
 
 /** Stop, between lines: back to the cards, with the plan marked as tried. */

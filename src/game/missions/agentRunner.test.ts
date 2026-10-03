@@ -9,12 +9,14 @@ import {
   beginAgentStep,
   choosePlan,
   completeAgentStep,
+  decideGate,
   echoPlan,
   finishScript,
   markHintRung3,
   nextAction,
   offeredPlans,
   openFixRound,
+  openGate,
   outcomeHolds,
   rewindStep,
   starXp,
@@ -22,6 +24,8 @@ import {
   stepPasses,
   stopScript,
   type AgentStepState,
+  type Gate,
+  type QueuedAction,
 } from './agentRunner';
 import type { SandboxQueries } from './predicates';
 import { finishBriefing, MissionRunError, startRun } from './runner';
@@ -270,7 +274,11 @@ describe('predictions', () => {
 
     const guessed = answerPredict(waiting, false);
     expect(guessed.predicts).toEqual([false]);
-    expect(guessed.stage).toEqual({ at: 'running', planId: 'bare-name', queue: [] });
+    expect(guessed.stage).toEqual({
+      at: 'running',
+      planId: 'bare-name',
+      queue: [],
+    });
     expect(nextAction(guessed)).toBeNull();
     expect(() => answerPredict(guessed, true)).toThrow(MissionRunError);
   });
@@ -295,6 +303,68 @@ describe('predictions', () => {
     expect(outcomeHolds({ printed: 'Directory:' }, failed.step, queries)).toBe(false);
     const made = tryLine('mkdir notes');
     expect(outcomeHolds({ result: 'ok', printed: 'directory: c:' }, made.step, queries)).toBe(true);
+  });
+});
+
+const API_DELETE = 'Remove-Item C:\\Users\\kyle\\quillwork\\api';
+const HOME_NOTES_DELETE = 'Remove-Item C:\\Users\\kyle\\notes';
+const NOTES_LINE = 'mkdir C:\\Users\\kyle\\quillwork\\api\\notes';
+
+/** The notes step in a fix round, after its weak card was tried. */
+const notesFixRound: AgentStepState = {
+  ...beginAgentStep(notesStep),
+  tried: ['bare-name'],
+  stage: { at: 'direct', round: 'fix' },
+};
+
+/** Takes Otto's next action, failing the test if his queue is empty. */
+function take(state: AgentStepState): { action: QueuedAction; state: AgentStepState } {
+  const next = nextAction(state);
+  if (next === null) throw new Error('Otto had nothing queued.');
+  return next;
+}
+
+const lineGate = (harmful: boolean): Gate => ({ kind: 'line', line: 'x', changes: [], harmful });
+
+describe('gates', () => {
+  const tidy = take(choosePlan(notesFixRound, notesStep, 'tidy-and-redo'));
+  const atGate = openGate(tidy.state, tidy.action, lineGate(false));
+
+  it('pauses before the line, and carries on with the script when allowed', () => {
+    expect(atGate.stage).toMatchObject({ at: 'gate', again: false, action: tidy.action });
+    const allowed = decideGate(atGate, true);
+    expect(allowed.gates).toEqual([true]);
+    expect(allowed.stage).toMatchObject({ at: 'running', queue: [{ line: NOTES_LINE }] });
+  });
+
+  it('asks again when Kyle denies a safe line, then stops for new directions', () => {
+    const askedAgain = decideGate(atGate, false);
+    expect(askedAgain.stage).toMatchObject({ at: 'gate', again: true });
+    expect(decideGate(askedAgain, true).gates).toEqual([false, true]);
+    const stopped = decideGate(askedAgain, false);
+    expect(stopped.gates).toEqual([false, false]);
+    expect(stopped.stage).toEqual({ at: 'direct', round: 'fix' });
+  });
+
+  it("runs a denied line's plan B instead, then the rest of the script", () => {
+    const harmful = take(choosePlan(notesFixRound, notesStep, 'start-over'));
+    expect(harmful.action).toMatchObject({ line: API_DELETE });
+    const denied = decideGate(openGate(harmful.state, harmful.action, lineGate(true)), false);
+    expect(denied.gates).toEqual([true]);
+    const queue = denied.stage.at === 'running' ? denied.stage.queue : [];
+    expect(queue.map((action) => (action.do === 'run' ? action.line : action.do))).toEqual([
+      HOME_NOTES_DELETE,
+      NOTES_LINE,
+    ]);
+    // Plan B has no plan B of its own: denying its harmful line stops Otto.
+    const planB = take(denied);
+    const stopped = decideGate(openGate(planB.state, planB.action, lineGate(true)), false);
+    expect(stopped.stage).toEqual({ at: 'direct', round: 'fix' });
+  });
+
+  it('refuses a decision with no gate open', () => {
+    expect(() => decideGate(tidy.state, true)).toThrow(/while Otto is at running/);
+    expect(() => openGate(atGate, tidy.action, lineGate(false))).toThrow(MissionRunError);
   });
 });
 
