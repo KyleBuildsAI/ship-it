@@ -251,12 +251,17 @@ describe('the Act menu in preview mode', () => {
     ]);
   });
 
-  it('shows a planned Act as its title, topics and boss, with nothing to start', () => {
+  it('shows a roadmap Act the catalog lacks as its title, topics and parts, with nothing to start', () => {
+    // Every Act ships in the real catalog; this one holds only Act 2, so Act 3 comes
+    // from the roadmap.
     const markup = menuOf(3);
     expect(heading(markup)).toBe('Act 3 · Branching');
-    expect(text(markup)).toContain('Planned · Not built yet.');
     expect(text(markup)).toContain('Pointers, switch, merge');
-    expect(rows(markup)).toEqual(['Boss: Conflict Storm · Not built yet']);
+    expect(rows(markup)).toEqual([
+      '3.1 Branches Are Pointers · Not built yet',
+      '3.2 Conflicts Without Panic · Not built yet',
+      'Boss: Conflict Storm · Not built yet',
+    ]);
     expect(markup.match(/<button/g)).toHaveLength(8);
   });
 
