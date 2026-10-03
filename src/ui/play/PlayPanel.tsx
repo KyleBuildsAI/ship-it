@@ -8,6 +8,7 @@ import { useStore } from '../useStore';
 import { ActMenu } from './ActMenu';
 import { BossView } from './BossView';
 import { FieldView } from './FieldView';
+import { LessonView } from './LessonView';
 import { MissionView } from './MissionView';
 import { SeriesView } from './SeriesView';
 
@@ -37,6 +38,8 @@ export function PlayPanel() {
     content = <BossView activity={activity} checklist={checklist} />;
   } else if (activity?.kind === 'field') {
     content = <FieldView activity={activity} />;
+  } else if (activity?.kind === 'lesson') {
+    content = <LessonView activity={activity} />;
   } else if (menuAct !== null) {
     content = <ActMenu act={menuAct} />;
   }
