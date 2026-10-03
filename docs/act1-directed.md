@@ -1170,7 +1170,7 @@ export type JudgmentAnswer =
 export function answerKey(drill: JudgmentDrill, deps: RepositoryDeps): readonly string[];
 // keyId: Kyle's answer when it passed, else the first right one. A pick of a missing option throws.
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
-export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[]; // FNV-1a seed, Mulberry32
+export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[];
 
 // src/game/agent/feed.ts (A15): what the terminal shows, in order. The world hears ws.events live (§4).
 export type Typist = 'otto' | 'kyle';                 // Kyle's lines are looks: no `otto ›` marker
