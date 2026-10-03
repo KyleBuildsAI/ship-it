@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
+import { repo } from '../../engine/git/fixtures';
+import type { AgentTask, Plan } from './agentSchema';
 import {
+  directedMission,
   earlySampleAct,
   otherSampleAct,
   sampleAct,
@@ -9,7 +12,7 @@ import {
   thirdMission,
 } from './sample.test-mission';
 import type { Predicate } from './predicates';
-import type { Act, CompleteAct, Mission } from './schema';
+import { ActSchema, type Act, type CompleteAct, type Mission, type MissionStep } from './schema';
 import { validateAct, validateCatalog } from './validateAct';
 
 const missions = [sampleMission, secondMission, thirdMission];
@@ -210,6 +213,248 @@ describe('validateAct', () => {
     expect(validateAct(stale, early.missions)).toEqual([
       { where: 'act > upcoming', problem: `"${shipped}" has shipped, so it isn't upcoming.` },
       { where: 'act > upcoming 2', problem: '61 words; the limit is 60.' },
+    ]);
+  });
+});
+
+describe('validateAct on a directed mission', () => {
+  const directedAct = ActSchema.parse({
+    act: 1,
+    title: 'Directed Sample',
+    earlyAccess: true,
+    missionIds: [directedMission.id],
+  });
+  const [step] = directedMission.steps;
+  const agent = step?.agent;
+  if (step === undefined || agent === undefined) throw new Error('The sample step is directed.');
+  const [guess, fullPath, fix] = [...agent.plans, ...agent.fixes];
+  if (guess === undefined || fullPath === undefined || fix === undefined) {
+    throw new Error('The sample has two start plans and a fix.');
+  }
+  const at = 'mission sample-where-things-live > step stand-in-the-api';
+  const over = (where: string, count: number, limit: number) => ({
+    where: `${at}${where}`,
+    problem: `${String(count)} words; the limit is ${String(limit)}.`,
+  });
+
+  /** Checks the directed sample with its one step, and that step's agent task, changed. */
+  const check = (stepChanges: Partial<MissionStep>, agentChanges: Partial<AgentTask> = {}) => {
+    const changed = { ...step, ...stepChanges, agent: { ...agent, ...agentChanges } };
+    return validateAct(directedAct, [{ ...directedMission, steps: [changed] }]);
+  };
+
+  it('passes the directed sample, beside the typed one', () => {
+    expect(check({})).toEqual([]);
+    const directed = { act: directedAct, missions: [directedMission] };
+    expect(validateCatalog([directed, { act: sampleAct, missions }])).toEqual([]);
+  });
+
+  it("gives a directed step's goal and hints 20 words each, not 60", () => {
+    const hints: MissionStep['hints'] = [words(21), step.hints[1], step.hints[2]];
+    expect(check({ instruction: words(21), hints })).toEqual([
+      over(' > instruction', 21, 20),
+      over(' > hint 1', 21, 20),
+    ]);
+  });
+
+  it("keeps each card to 12 words, and each of Otto's lines too", () => {
+    const chatty: Plan = {
+      ...guess,
+      text: words(13),
+      claim: words(13),
+      script: [
+        {
+          do: 'run',
+          line: 'cd api',
+          say: words(13),
+          onDeny: [
+            { do: 'newTerminal', say: words(13) },
+            { do: 'run', line: 'Get-Location' },
+          ],
+          denyLine: words(13),
+        },
+        { do: 'useTerminal', tab: 1 },
+        { do: 'newTerminal', say: words(13) },
+      ],
+    };
+    expect(check({}, { plans: [chatty, fullPath] })).toEqual([
+      over(' > plan guess', 13, 12),
+      over(' > plan guess > claim', 13, 12),
+      // What Otto says as he runs the line, after a deny, on a deny, and opening a terminal.
+      over(' > plan guess > Otto', 13, 12),
+      over(' > plan guess > Otto', 13, 12),
+      over(' > plan guess > Otto', 13, 12),
+      over(' > plan guess > Otto', 13, 12),
+    ]);
+  });
+
+  it('keeps lessons and feedback to 25 words', () => {
+    const [api, home] = agent.check.options;
+    if (api === undefined || home === undefined) throw new Error('The check has two options.');
+    const options = [api, { ...home, feedback: words(26) }];
+    const lesson = { ...fullPath, lesson: words(26) };
+    expect(check({}, { plans: [guess, lesson], check: { ...agent.check, options } })).toEqual([
+      over(' > plan full-path > lesson', 26, 25),
+      over(' > check home > feedback', 26, 25),
+    ]);
+  });
+
+  it('adds up the pieces shown together on one screen', () => {
+    // The note, the 12-word goal and the cards (5 and 8 words) share the Direct screen.
+    expect(check({}, { note: words(36) })).toEqual([over(' > direct screen', 61, 60)]);
+    // Each claim shows with the question, 6 words of options and a 3-word look. The fix's
+    // claim is one word longer than the start plans' claims, so only its screen runs over.
+    const question = { ...agent.check, question: words(45) };
+    expect(check({}, { check: question })).toEqual([
+      over(' > plan fix-full-path > check screen', 61, 60),
+    ]);
+    const predict = {
+      question: words(30),
+      options: [
+        { id: 'api', text: words(6), outcome: { result: 'ok' as const } },
+        { id: 'fails', text: words(5), outcome: { result: 'error' as const } },
+      ],
+    };
+    const predicting = {
+      ...fix,
+      script: [{ do: 'run' as const, line: 'cd api', predict, onDeny: [] }],
+    };
+    expect(check({}, { fixes: [predicting] })).toEqual([
+      over(' > plan fix-full-path > predict 1', 41, 40),
+    ]);
+  });
+
+  it('adds up a fix round: the longer opening line, every fix, and the untried cards', () => {
+    // Otto opens with 7 words. At least one start card was tried, and the round is
+    // fullest when that was the shortest, so the 5-word card drops out.
+    const card = (plan: Plan, id: string, count: number) => ({ ...plan, id, text: words(count) });
+    const fixes = ['fix-a', 'fix-b', 'fix-c'].map((id) => card(fix, id, 12));
+    const plans = (last: number) => [
+      card(guess, 'guess', 9),
+      card(fullPath, 'full-path', 5),
+      card(guess, 'extra', last),
+    ];
+    expect(check({}, { plans: plans(8), fixes })).toEqual([]);
+    expect(check({}, { plans: plans(9), fixes })).toEqual([over(' > fix round screen', 61, 60)]);
+  });
+
+  it("holds the checklist's labels, the guards' too, to 8 words each", () => {
+    const guards: Predicate[] = [
+      { kind: 'driveFolder', path: 'Users/kyle/notes', label: words(8) },
+      { kind: 'driveFolder', path: 'Users/kyle/notes', label: words(9) },
+    ];
+    const success: Predicate = { ...step.success, label: words(9) };
+    expect(check({ success }, { guards })).toEqual([
+      over(' > label 1', 9, 8),
+      over(' > label 3', 9, 8),
+    ]);
+  });
+
+  it("repeats the schema's directed rules, for content built without parsing", () => {
+    const mission = 'mission sample-where-things-live';
+    const typed: MissionStep = { ...step, id: 'typed', agent: undefined };
+    const mixed = { ...directedMission, approvals: undefined, steps: [step, typed] };
+    expect(validateAct(directedAct, [mixed])).toEqual([
+      {
+        where: `${mission} > steps`,
+        problem: 'Give every step an agent task, or none: a mission is directed or typed.',
+      },
+      {
+        where: `${mission} > approvals`,
+        problem: 'A directed mission sets approvals: "changes" or "destructive".',
+      },
+    ]);
+    const onGit = { ...directedMission, initialRepoState: sampleMission.initialRepoState };
+    expect(validateAct(directedAct, [onGit])).toEqual([
+      {
+        where: `${mission} > initialRepoState`,
+        problem: 'Otto works on the laptop, so start with windows().',
+      },
+      {
+        where: at,
+        problem: `"currentDirectory" checks the laptop, so the mission's initialRepoState must start with windows().`,
+      },
+    ]);
+    expect(check({}, { hintPlan: 'guess' })).toEqual([
+      { where: `${at} > hintPlan`, problem: 'hintPlan must name a strong start plan.' },
+    ]);
+    const typedWithApprovals = { ...sampleMission, approvals: 'changes' as const };
+    expect(validateAct(sampleAct, [typedWithApprovals, secondMission, thirdMission])).toEqual([
+      {
+        where: 'mission sample-three-rooms > approvals',
+        problem: 'Only a directed mission sets approvals.',
+      },
+    ]);
+  });
+
+  it("keeps a judgment drill's question to 60 words, its explain to 30, Otto's lines to 12", () => {
+    const say = { do: 'run', line: 'Get-Location', say: words(13) };
+    const changed: Record<string, object> = {
+      // The prompt shares the question with 18 words of options.
+      'sample-predict-typo': { prompt: words(43) },
+      'sample-diagnose-home': { explain: words(31) },
+      'sample-fix-cd': { claim: words(13), history: [say] },
+      'sample-approve-stray': { action: say },
+    };
+    const drills = directedMission.drills.map((drill) => ({ ...drill, ...changed[drill.id] }));
+    const at = 'mission sample-where-things-live > drill';
+    const ottoOver = { problem: '13 words; the limit is 12.' };
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      { where: `${at} sample-predict-typo > question`, problem: '61 words; the limit is 60.' },
+      { where: `${at} sample-diagnose-home > explain`, problem: '31 words; the limit is 30.' },
+      // Otto's claim, then his line in the scene before the question.
+      { where: `${at} sample-fix-cd > Otto`, ...ottoOver },
+      { where: `${at} sample-fix-cd > Otto`, ...ottoOver },
+      { where: `${at} sample-approve-stray > Otto`, ...ottoOver },
+    ]);
+  });
+
+  it("finds the laptop checks in every judgment drill's answer key", () => {
+    // Each sample key checks the laptop, so none can be graded in a setup without one.
+    const drills = directedMission.drills.map((drill) => ({ ...drill, setup: repo().toSpec() }));
+    const onGit = (id: string, kind: string) => ({
+      where: `mission sample-where-things-live > drill ${id}`,
+      problem: `"${kind}" checks the laptop, so the drill's setup must start with windows().`,
+    });
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      onGit('sample-predict-typo', 'currentDirectory'),
+      onGit('sample-diagnose-home', 'currentDirectory'),
+      onGit('sample-fix-cd', 'currentDirectory'),
+      onGit('sample-approve-stray', 'driveFile'),
+      onGit('sample-approve-notes', 'driveFile'),
+    ]);
+  });
+
+  it("finds a laptop check in a fix's failIf, even when its goal checks git", () => {
+    const goal: Predicate = { kind: 'isRepo' };
+    const failIf: Predicate[] = [{ kind: 'driveFolder', path: 'Users/kyle/api' }];
+    const drills = directedMission.drills.map((drill) =>
+      drill.id === 'sample-fix-cd' ? { ...drill, setup: repo().toSpec(), goal, failIf } : drill,
+    );
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      {
+        where: 'mission sample-where-things-live > drill sample-fix-cd',
+        problem:
+          '"driveFolder" checks the laptop, so the drill\'s setup must start with windows().',
+      },
+    ]);
+  });
+
+  it("holds the labels in a judgment drill's answer key to 60 words", () => {
+    const label = words(61);
+    const changed: Record<string, object> = {
+      'sample-fix-cd': { failIf: [{ kind: 'driveFolder', path: 'Users/kyle/api', label }] },
+      'sample-approve-stray': {
+        guards: [{ kind: 'driveFile', path: 'Users/kyle/quillwork/api/package.json', label }],
+      },
+    };
+    const drills = directedMission.drills.map((drill) => ({ ...drill, ...changed[drill.id] }));
+    const at = 'mission sample-where-things-live > drill';
+    const over = { problem: '61 words; the limit is 60.' };
+    expect(validateAct(directedAct, [{ ...directedMission, drills }])).toEqual([
+      // The fix's goal has no label, so the label in its failIf is the first.
+      { where: `${at} sample-fix-cd > label 1`, ...over },
+      { where: `${at} sample-approve-stray > label 1`, ...over },
     ]);
   });
 });

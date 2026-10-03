@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gitQueries } from '../../engine/git/queries';
 import { evaluate } from '../../game/missions/predicates';
+import { isJudgmentDrill, type Drill, type SandboxDrill } from '../../game/missions/schema';
 import { act2Missions } from './index';
 import { enter, sandboxShell } from './play.test-helpers';
 
@@ -116,7 +117,13 @@ const WRONG_ANSWERS: Record<string, string[]> = {
   'undo-soft-reset': ['git reset HEAD~1'],
 };
 
-const drills = act2Missions.flatMap((mission) => mission.drills);
+/** Act 2 is typed, so its drills are graded by state; the mission schema refuses any other. */
+function typed(drill: Drill): SandboxDrill {
+  if (isJudgmentDrill(drill)) throw new Error(`Act 2's drill "${drill.id}" should be typed.`);
+  return drill;
+}
+
+const drills = act2Missions.flatMap((mission) => mission.drills.map(typed));
 
 describe('Act 2 No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {

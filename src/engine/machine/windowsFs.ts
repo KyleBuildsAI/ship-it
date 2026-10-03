@@ -83,8 +83,12 @@ export class WindowsFs implements FileTree {
     this.hiddenPaths.add(this.stored(path).toLowerCase());
   }
 
+  /**
+   * No walk from C:\ to find the stored spelling: `stored` only changes a name's case, so
+   * the lower-case key comes out the same. A listing asks this for every item it shows.
+   */
   isHidden(path: string): boolean {
-    return this.hiddenPaths.has(this.stored(path).toLowerCase());
+    return this.hiddenPaths.has(path.toLowerCase());
   }
 
   /**
@@ -95,8 +99,9 @@ export class WindowsFs implements FileTree {
     this.readOnlyPaths.add(this.stored(path).toLowerCase());
   }
 
+  /** Like isHidden, the lower-case key needs no walk. */
   isReadOnly(path: string): boolean {
-    return this.readOnlyPaths.has(this.stored(path).toLowerCase());
+    return this.readOnlyPaths.has(path.toLowerCase());
   }
 
   /** A deleted item takes its attributes with it, and so does everything inside it. */

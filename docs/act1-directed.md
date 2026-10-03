@@ -82,7 +82,7 @@ The text and tutorial also still point at Act 2: `TitleCard.tsx` HINTS, and `tut
 | D3 | How are understanding checks graded? | Each check option has a `truth` predicate. The right answer is whichever one is true now. Tests prove every option is true on at least one reachable path. | Grades by state. Rules out made-up distractors. |
 | D4 | How is a wrong approval detected? | `harmful` = a dry run (replay into a scratch sandbox) breaks a step guard or shows a secret. | No hand-written "right answer" flags that can go stale. |
 | D5 | What explains a gate? | The effects list is worked out from the dry-run diff ("Deletes C:\…\api and 23 items inside"), never authored. Drills hide it, and hide the ghost. | Fixes the judges' "authored explain gives the answer away" problem. Scaffolding fades out in drills. |
-| D6 | Which lines pause for approval? | Worked out from the diff under the mission's `approvals` mode. **`destructive`**: deletes, replaced files, moves, saved env changes, stopped processes, or `ask`. **`changes`**: also every create or append. Moving folders and opening terminals never pause. | Mirrors real agent permission modes. 1.1 uses `destructive` to avoid approval fatigue; 1.3 uses `changes` so every file edit shows a diff. |
+| D6 | Which lines pause for approval? | Worked out from the diff under the mission's `approvals` mode (`effects.ts`). **`destructive`**: deletes, replaced files, moves, saved env changes, stopped processes, or `ask`. **`changes`**: also every create, copy or append. Moving folders, session variables and opening terminals never pause. | Mirrors real agent permission modes. 1.1 uses `destructive` to avoid approval fatigue; 1.3 uses `changes` so every file edit shows a diff. |
 | D7 | What about PowerShell's Confirm question? | Otto answers it himself, visibly in the terminal. The answer is a gate, and its effects come from a dry run of Otto's intended letter. | The lesson is that agents answer safety prompts for you. |
 | D8 | Can Kyle undo? | **Fix** is the main path: Kyle directs Otto to clean up. **Rewind** is always offered as a secondary button, and first when a guard broke. It costs the Plan star. Its line: "A real laptop has no rewind." | Practises cleaning up after an agent, and stays honest. |
 | D9 | Types of drill | `Drill = SandboxDrill` (today's, no `kind`) `\| JudgmentDrill` (`kind`: predict, diagnose, fix, order, approve, spot). `submitAnsweredDrill` sits beside an unchanged `submitDrill`. | Act 2's content and runner behave the same as today. |
@@ -130,15 +130,16 @@ The story line, from Marco in the first briefing: *"The Quillwork API must run o
 
 **Where his work appears**
 1. **Terminal (xterm).** The active tab's real prompt, then the line typed out at about 40 characters per second, then the real output in today's tones.
-   - A magenta `otto ›` marker sits in the gutter.
+   - A magenta `otto ›` marker starts each line he types (Kyle's looks have none). A denied line ends with a dim `(denied)`.
    - A tab switch prints `── PS 2 ──`.
-   - A small read-only tab strip above the terminal shows `PS 1 · PS 2`.
+   - A small read-only tab strip above the terminal shows `PS 1 · PS 2`, the active tab lit.
 2. **Panel.** Otto's lines in a speech bubble, and a compact run log (one row per line, with its exit status).
 3. **World.** The drone and a lantern per terminal (§4).
 
-Speed:
-- Instant under reduced motion and under `navigator.webdriver`.
-- 2× and Instant are available in Settings (B5).
+Speed (`game/agent/pace.ts`):
+- About 40 characters a second, with a 0.4 s pause before each line and 0.6 s after each result, so the output can be read and the world can move. Kyle's look lines appear at once.
+- Instant under reduced motion and under `navigator.webdriver`. Reduced motion is the game's setting, which follows the system's preference while it's set to "system", as the world does.
+- 2× and Instant are available in Settings (B5). A drill's scene plays at 3× (§2.2).
 
 **Slips.** Every slip is one real agent mistake from a fixed list, named the same way everywhere. Each plan carries at most one `slip`, and the Result screen names it ("Slip: wrong place").
 
@@ -165,7 +166,7 @@ Layout, unchanged in frame:
 
 | Stage | Kyle sees | Kyle does | Word budget (checked by `validateAct`) |
 |---|---|---|---|
-| **1. Direct** | "1.1 Where Things Live · Step 2 of 4". The goal. Otto: "Your call." 2-3 request cards. A secondary **Say it your way** button. Hint. | Clicks a card. Or writes a sentence: Otto repeats it back as "Plan: *card text*. Go?" [Go] [Pick instead]. | goal ≤ 20; each card ≤ 12; goal + all cards ≤ 60 |
+| **1. Direct** | "1.1 Where Things Live · Step 2 of 4". The goal, and the step's `note` if it has one. Otto: "Your call." 2-3 request cards. A secondary **Say it your way** button. Hint. | Clicks a card. Or writes a sentence: Otto repeats it back as "Plan: *card text*. Go?" [Go] [Pick instead]. | goal ≤ 20; each card ≤ 12; note + goal + all cards ≤ 60 |
 | **2. Run** | Otto's bubble. The terminal types each line. The world animates. **Stop** (between lines). | Watches and reads. Stop returns to Direct with the plan marked as tried. | Otto lines ≤ 12 |
 | · **Predict** (only lines with `predict`) | The line sits at the prompt, not yet run. "Before Otto runs it: where will notes land?" 2-4 options. | Picks. Then a ghost shows what will happen for 1.5 s and the line runs. The prediction is graded after it runs. | question + options ≤ 40 |
 | · **Gate** (lines that pause, D6) | "Otto wants to run:" the command, Otto's `say`, the **worked-out effects** (up to 3 lines), a diff for `write`, and the blast radius in the world. [Allow] [Deny]. For Confirm: PowerShell's question and "Otto will answer A". | Allow or deny. Deny runs `onDeny` (Otto corrects himself), or stops for new directions. Denying a safe line makes Otto ask "I need this to finish: <effect>. Run it?" | say ≤ 12 |
@@ -448,7 +449,7 @@ Rubric: *pins an exact absolute path for the source or destination, or the machi
 | Step | Goal | Plans and Otto's slip | Success / guards |
 |---|---|---|---|
 | `clear-tmp` | "The API's tmp folder is full of junk. Have Otto clear it out." | **okay** "Delete everything inside tmp." Otto runs `Remove-Item .\* -Recurse` (**too broad**, he dropped `tmp\`). It pauses with "Deletes 9 items in C:\…\api"; harmful. `onDeny`: `Remove-Item .\tmp\* -Recurse`; `denyLine` "Good stop. That was the whole project." **strong** "Delete C:\…\api\tmp with everything in it, then make an empty tmp." **weak** "Clean up the junk." runs `Remove-Item * -Recurse -Force`. | success: the tmp files are gone. Guards: `API/src`, `API/package.json`. |
-| `the-confirm-question` | "Have Otto delete the old logs." | **okay** "Delete the logs folder." Otto runs `Remove-Item logs`, and PowerShell asks its real Confirm question. **Otto answers A himself**, and that answer pauses: "Deletes logs and incident-2026-09.md". Denying sends `L`. **strong** "Delete only logs\*.log, then list logs." | success: three `.log` files gone. Guard: `logs/incident-2026-09.md` "Marco's incident report survived". |
+| `the-confirm-question` | "Have Otto delete the old logs." | **okay** "Delete the logs folder." Otto runs `Remove-Item logs`, and PowerShell asks its real Confirm question. **Otto answers A himself**, and that answer pauses: "Deletes C:\…\logs and 4 items inside" (incident-2026-09.md among them). Denying sends `L`. **strong** "Delete only logs\*.log, then list logs." | success: three `.log` files gone. Guard: `logs/incident-2026-09.md` "Marco's incident report survived". |
 | `backup-first` | "Otto will change config.json to port 3000. Make sure you can undo it." | **weak** `just-edit`: a `write` whose new content drops `timeout` and `retries` (**wrong verb**; the card's diff shows the red lines). **strong** `backup-then-edit`: `Copy-Item config.json config.backup.json`, then the same lossy write. The good plan contains the slip too, but it becomes recoverable. Fix `restore-from-backup`. | success: `config.json` contains port 3000, `timeout` and `retries` |
 
 **Drills.**
@@ -733,8 +734,8 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 | **Symptom Board** (0, −13) | boss | One lamp per symptom met | probe results |
 
 **How agent actions animate.**
-1. The controller runs one action at a time, only once Otto's typing of it has finished, so the world never runs ahead of the terminal.
-2. The engine emits synchronous events on `ws.events`. The machine world queues them and tweens the drone and objects one at a time, scaled by the `motion` factor.
+1. The controller runs one action at a time, only once Otto's typing of it has finished (`feedTyping`, played by the pace, then `drive`, then `feedOutcome`), so the world never runs ahead of the terminal.
+2. The engine emits synchronous events on `ws.events`. The machine world queues them and tweens the drone and objects one at a time, scaled by the `motion` factor. This is the world's only source: it never animates from the feed's `world` beat as well.
 3. A `machineDirty` flag triggers `sync(describeTerraces(…))` at most once per frame, like `cratesDirty` today.
 4. Changed items pulse amber for 4 s.
 
@@ -742,12 +743,12 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 
 | File | Function | Rules |
 |---|---|---|
-| `terraceLayout.ts` | `describeTerraces(q, { focus, recent })` | Shows the route to every tab's folder, those folders' children, home's children, and the step's `focus` paths. Deterministic. At most 40 tiles and 24 cards, then `+N`. |
+| `terraceLayout.ts` | `describeTerraces(q, { focus, recent })` | Shows the route to every lantern's folder, those folders' children, home's children, the step's `focus` paths, and the `recent` ones (marked to pulse). A tab past the lantern cap draws nothing and only counts in `moreTerminals`. Routes come before children when the caps bite: lanterns and home first, then the focus, then recent. Hidden items (AppData) stay out, as in `dir`, unless a tab, the focus or an event points at them. Deterministic. At most 40 tiles, 24 cards and 6 lanterns (the active tab's always kept), then `+N`. A lantern whose folder was cut or removed stands on the nearest drawn folder above it. A tile's `slot` counts among its drawn siblings, so a change moves only those; the world keys tiles by path. |
 | `ghostLayout.ts` | `ghostLayout(changes, terraces)` | — |
 | `envLayout.ts` | notes and lamps | Later |
 | `portLayout.ts` | the Patch Panel | Later |
 
-They read `MachineQueries`, which gains `list(path)` and `tabs()` in A1.
+They live in `src/game/world/machine/` and read `MachineQueries`, which gains `list(path)` and `tabs()` in A1, and `home()` and each listed item's `hidden` in A24.
 
 **Free play.** Arriving on the machine island with no activity loads the catalog's Act 1 free-play laptop (typing allowed). Arriving at the Git World with a laptop loaded restores `practiceProject()`. Campus and Act 2 free play are unchanged.
 
@@ -874,14 +875,23 @@ export const AgentTaskSchema = z
     fixes: z.array(PlanSchema).min(1).max(3),
     /** The start plan hint rung 3 highlights. It must be strong. */
     hintPlan: IdSchema,
-    check: z.strictObject({ question: ScreenTextSchema, options: z.array(CheckOptionSchema).min(2).max(4) }),
+    check: z
+      .strictObject({ question: ScreenTextSchema, options: z.array(CheckOptionSchema).min(2).max(4) })
+      // Checked on the check, not the task, so a duplicate points at ['check', 'options', i, 'id'].
+      .superRefine((check, ctx) => { checkUniqueIds(check.options, 'options', ctx); }),
     /** Must stay true. Denying is right exactly when a dry run breaks one. The step passes on success and every guard. */
     guards: z.array(PredicateSchema).max(4).default([]),
     looks: z.array(LookSchema).max(3).default([]),
   })
   .superRefine((task, ctx) => {
-    checkUniqueIds([...task.plans, ...task.fixes], 'plans', ctx);
-    checkUniqueIds(task.check.options, 'check', ctx);
+    checkUniqueIds(task.plans, 'plans', ctx);
+    checkUniqueIds(task.fixes, 'fixes', ctx);
+    // A fix round offers fixes beside untried start plans, so a fix can't reuse a start plan's id.
+    const startIds = new Set(task.plans.map((plan) => plan.id));
+    task.fixes.forEach((fix, index) => {
+      if (startIds.has(fix.id))
+        ctx.addIssue({ code: 'custom', path: ['fixes', index, 'id'], message: `Duplicate id "${fix.id}": a start plan uses it.` });
+    });
     checkUniqueIds(task.looks, 'looks', ctx);
     const hint = task.plans.find((plan) => plan.id === task.hintPlan);
     if (hint?.quality !== 'strong')
@@ -997,9 +1007,11 @@ Engine queries: `src/engine/machine/queries.ts`, cherry-picked from `0939145`, t
 export interface MachineQueries {
   readonly display: (path: string) => string;
   readonly cwd: () => string;
+  readonly home: () => string; // A24
   readonly item: (path: string) => { readonly kind: 'file' | 'folder'; readonly content: string | null } | null;
   readonly env: (name: string, scope: EnvScope | 'newTerminal') => string | null;
-  readonly list: (path: string) => readonly { readonly name: string; readonly kind: 'file' | 'folder' }[]; // A1
+  readonly list: (path: string) => readonly { readonly name: string; readonly kind: 'file' | 'folder';
+    readonly hidden: boolean /* A24 */ }[]; // A1
   readonly tabs: () => readonly { readonly tab: number; readonly cwd: string; readonly active: boolean }[]; // A1
   // Later: resolve (D3), listeners/processes/httpGet (F2)
 }
@@ -1024,7 +1036,7 @@ export type MachinePredicate =
 // predicates.ts
 export type SandboxQueries = GitQueries & {
   readonly machine?: MachineQueries;       // requireMachine() throws PredicateContextError when absent
-  readonly transcript?: TranscriptQueries; // C1: printed(text) over Otto's lines, output and pastes
+  readonly transcript?: TranscriptQueries; // A11: printed(text) over what Otto typed, wrote and got back; C1 adds pastes
 };
 // evaluate(p, q: SandboxQueries), explain(p, q), describe(p, display = identity).
 // Every existing gitQueries(ws) call still type-checks.
@@ -1066,17 +1078,33 @@ export function snapshotMachine(machine: Machine): MachineSnapshot;  // values s
 export function diffSnapshots(before: MachineSnapshot, after: MachineSnapshot,
   events?: readonly EngineEvent[]): MachineChange[];                  // itemMoved pairs deletes and creates into moves
 
+// src/game/agent/transcript.ts (A11)
+export interface TranscriptEntry { readonly tab: number; readonly action: DriverAction;
+  readonly output: readonly string[]; readonly exitCode: number }
+export interface TranscriptQueries { readonly printed: (text: string) => boolean } // ignores case
+export function transcriptQueries(entries: readonly TranscriptEntry[]): TranscriptQueries; // a live view
+
 // src/game/agent/replay.ts (A11)
+export type LoggedAction = DriverAction & { readonly answer?: never }; // a line with an answer is two actions
+export type ContentAction =                                        // every BaseAction and AgentAction fits
+  | { readonly do: 'run'; readonly line: string; readonly answer?: ConfirmLetter }
+  | Extract<DriverAction, { do: 'write' | 'newTerminal' | 'useTerminal' }>;
 export type LogEntry =
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
-  | { readonly kind: 'action'; readonly action: DriverAction };
+  | { readonly kind: 'action'; readonly action: LoggedAction };   // exactly as passed to drive()
 export interface SandboxLog { readonly setup: readonly FixtureStep[]; readonly entries: readonly LogEntry[] }
+export function startLog(setup, actions?: readonly LoggedAction[]): SandboxLog;  // driver actions only
+export function withEntry(log, entry: LogEntry): SandboxLog;                     // logs never change
+export function playAction(shell, transcript, action: LoggedAction): DriverStep; // drive + transcript, live or replayed
+export function driverAction(action: ContentAction): LoggedAction;  // the line, file or tab; no say, no answer
+export function playContent(shell, transcript, action: ContentAction): { action; step }[]; // the line, then its answer if asked
+export function sceneLog(setup, history: readonly ContentAction[], deps): SandboxLog;     // a drill's scene, answers logged
 export function replay(log: SandboxLog, deps: RepositoryDeps): { shell: Shell; transcript: TranscriptEntry[] };
 export interface DryRun {
   readonly step: DriverStep; readonly changes: readonly MachineChange[];
   readonly queries: SandboxQueries; readonly broken: readonly string[]; readonly harmful: boolean;
-}
-export function dryRun(log: SandboxLog, action: DriverAction,
+} // broken: guards with a part (an `all`'s check, one path of many) that held before and fails after
+export function dryRun(log: SandboxLog, action: LoggedAction,
   judge: { guards: readonly Predicate[] }, deps: RepositoryDeps): DryRun;
 
 // src/game/missions/agentRunner.ts (A12)
@@ -1119,6 +1147,51 @@ export type JudgmentAnswer =
   | { readonly kind: 'spot'; readonly lineId: string };
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
 export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[];
+
+// src/game/agent/feed.ts (A15): what the terminal shows, in order. The world hears ws.events live (§4).
+export type Typist = 'otto' | 'kyle';                 // Kyle's lines are looks: no `otto ›` marker
+export type FeedBeat =                                 // divider, prompt and output start on a fresh line
+  | { kind: 'divider'; tab }                           // a tab switch: `── PS 2 ──`
+  | { kind: 'prompt'; tab; text }                      // left open for what's typed next
+  | { kind: 'type'; tab; text; by: Typist }            // the pace types it out
+  | { kind: 'enter'; tab } | { kind: 'cancel'; tab }   // the typed line runs, or Kyle denied it
+  | { kind: 'output'; tab; lines: readonly OutputLine[] }
+  | { kind: 'world'; events: readonly EngineEvent[] } // a record in playback order, not what the world animates from
+  | { kind: 'result'; tab; exitCode; asking };
+export interface FeedState { tab: number; prompt: string | null; typed: string | null } // the last line
+export interface Fed { state: FeedState; beats: readonly FeedBeat[] }
+export function startFeed(tab: number, prompt?: string | null): FeedState;
+export function feedPrompt(state, tab, prompt): Fed;  // a prompt waiting between commands, never twice
+// Typing can be built before driving (active tab, shell.prompt(), the line): a predict or gate waits there.
+export function feedTyping(state, typing: Pick<DriverStep, 'tab' | 'prompt' | 'echo'>, by?): Fed;
+// It moves to step.tab with no divider, so feed newTerminal and useTerminal with feedAction after driving.
+export function feedOutcome(state, step: DriverStep): Fed; // Enter, output, CHOICES if not yet open, world, result
+export function feedAction(state, step, by?): Fed;    // feedTyping, then feedOutcome
+export function feedCancel(state): Fed;               // a denied line ends unrun
+
+// src/game/agent/pace.ts (A15): when each beat shows. Pure: the caller passes the elapsed time.
+// Call advance once per drawn frame with elapsed = now - previous frame. Never from tickPlay's
+// 250 ms interval (useClock): at 40 characters a second that types in bursts of 10.
+export interface Pace { charMs: number; thinkMs: number; settleMs: number } // NORMAL_PACE 25 / 400 / 600
+export interface MotionEnvironment { prefersReducedMotion(): boolean; automated(): boolean } // browserMotion.ts
+export function choosePace(env: MotionEnvironment,
+  options?: { reducedMotion?: Settings['reducedMotion']; speed?: number | 'instant' }): Pace; // speed <= 0 throws
+export interface Playhead { beat: number; spent: number; shown: number } // START = { 0, 0, 0 }
+export type Reveal = { kind: 'beat'; beat: FeedBeat } | { kind: 'keys'; tab; by: Typist; text; from: number };
+export function advance(beats, pace, head: Playhead, elapsedMs: number):
+  { head: Playhead; reveals: readonly Reveal[]; done: boolean };     // done after the last result settles
+  // NaN or negative elapsed counts as 0; what's typed never un-types if the pace changes mid-line
+export function timing(beat, pace): { lead: number; span: number };  // whole ms: think before Otto types, settle after a result
+export function totalMs(beats, pace): number;
+
+// src/game/agent/terminalFeed.ts (A19): how each frame's reveals reach the terminal.
+export function showInTerminal(reveals: readonly Reveal[]): void;   // an event, so no frame is skipped; [] sends nothing
+export function onTerminalFeed(listener: (reveals: readonly Reveal[]) => void): () => void;
+// The terminal (ui/terminal/feedText.ts draws, readOnly.ts decides when) is Otto's while
+// isReadOnly(activity): a directed mission, or a series whose drill on screen or next is a
+// judgment drill. When he takes it, and after any notice, the shell's prompt waits on its last
+// line: start with startFeed(tab, shell.prompt()). A prompt beat equal to the one waiting prints
+// nothing, so startFeed(tab) works too.
 ```
 
 Store changes:
@@ -1261,17 +1334,19 @@ Drill example:
 **Budgets**
 - Directed goal ≤ 20
 - Each card ≤ 12
-- Goal + the three longest start cards ≤ 60
+- The step's `note` + goal + all start cards ≤ 60 (the note is shown with the goal)
+- A fix round: Otto's longer opening line + every fix + the start cards not tried yet ≤ 60, counted as if the shortest start card was the one tried
 - Otto's lines (`say`, `claim`, `denyLine`) ≤ 12
 - Claim + question + options + look labels ≤ 60
 - `lesson` and `feedback` ≤ 25
 - Hints in directed steps ≤ 20
+- Checklist labels in directed steps (the step's and the guards') ≤ 8 each
 - Predict question + options ≤ 40
 - Drill prompt + claim + options ≤ 60
 - Drill `explain` ≤ 30
 
 **Rules**
-- Directed steps are all-or-none.
+- Directed steps are all-or-none: a mission's steps are all directed or all typed. A directed mission also sets `approvals` and starts with `windows()`, and a typed one sets no `approvals`. `validateAct` and `MissionSchema` share these checks (`directedProblems`).
 - The `windows()` rule for machine predicates (§5.5).
 - `hintPlan` names a strong plan.
 - Ids are unique across the catalog (`validateCatalog` handles an optional boss and field).
@@ -1317,6 +1392,7 @@ Drill example:
 | A8 | `folderChanged { path, change: 'created' \| 'deleted' }` MachineEvent from `mkdir`, `New-Item -ItemType Directory`, folder `Remove-Item`, and the `mkdir` fixture op |
 | A9 | `driver.ts` |
 | A10 | `snapshot.ts` |
+| A24 | `queries.home`, each listed item's `hidden` (read without walking the drive per item) |
 | D1 | `$env:NAME` read as a statement, `$env:NAME = '…'`, `+= '…'`, `= $null`, `"…$env:Path"` (the lexer already reads variables in double quotes, #117), `Remove-Item Env:NAME` |
 | D2 | `setx NAME value` (real `SUCCESS` text; User scope; `/M` denied; open terminals unchanged) |
 | D3 | `lookup.ts` (PATH order, PATHEXT, never the current folder), a `program` fixture op (marker files), `node --version` and `npm --version` (captures on main), `Get-Command` (`get-command.txt`) |
@@ -1358,7 +1434,7 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` takes an optional `directingXp` | Act 2 passes nothing |
 | `src/game/play/{bossPlay,fieldPlay,seriesPlay}.ts` | `require*` helpers; judgment drills in series | Same flow for Act 2 |
 | `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` | Act 2 route identical, no travel |
-| `src/game/play/sandboxControl.ts` | The log, `currentQueries(): SandboxQueries`, rewind swap | `gitQueries` still the base |
+| `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`, all-or-nothing), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`); `loadSandbox` takes a deps factory | `gitQueries` still the base |
 | `src/game/play/freePlay.ts` (NEW) | Laptop free play on the island; the practice project on Git World arrival | Campus unchanged |
 | `src/game/worldState.ts` | `ZoneId = 'campus' \| 'machine' \| 'gitworld'`; `requestedZone: ZoneId \| null` | — |
 | `src/game/world/zones.ts` | `CAMERA_RIGS.machine`; `ZONE_FOR_ACT = { 1: 'machine', 2: 'gitworld' }`; `openActs(catalogActs)` returns the Acts that are in the catalog **and** have an island | The Act 2 portal is unchanged; `zones.test.ts` updated |
@@ -1367,7 +1443,7 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/world/testHooks.ts` | `portalPoint(1)` works as is | — |
 | `src/ui/TitleCard.tsx` | `HINTS` keyed by `ZoneId`. campus: "…step through the glowing Act 1 portal". machine: "Direct Otto from the panel. Watch the terraces." Names `{ campus: 'Campus', machine: 'The Machine', gitworld: 'Git World' }`. | `world.spec.ts` still sees "Git World" |
 | `src/game/tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts` | Drop the `'command'` step (typing `pwd`). `terminal` text: "The terminal shows what your agent runs. Press Ctrl and ` to hide it, then again to bring it back." `portal`: "…the Act 1 portal, or open Acts." | The save keeps only `completedAt` |
-| `src/ui/terminal/TerminalPanel.tsx` | Prints the agent feed (typing animation, dividers). Read-only during Act 1 missions and drills. Neutral `WELCOME`: "SHIP IT terminal. Your agent's commands show up here. Free play: type help." New `TerminalTabs.tsx` strip. | Typing is unchanged for Act 2 and Campus; `terminal.spec.ts` still types git on Campus |
+| `src/ui/terminal/TerminalPanel.tsx` | Prints the agent feed (typing animation, dividers). Read-only during Act 1 missions and drills; the first key shows a hint. New `TerminalTabs.tsx` strip on laptops (A19). Neutral `WELCOME` in A27, once a new save starts in Act 1: "SHIP IT terminal. Your agent's commands show up here. Free play: type help." | Typing is unchanged for Act 2 and Campus; `terminal.spec.ts` still types git on Campus |
 | `src/ui/play/ActMenu.tsx` | Rows only for parts that exist; "Early access" line; "Coming soon" rows from `upcoming` | Act 2 rows identical |
 | `src/ui/play/MissionView.tsx` | `step.agent` → `AgentStepView`; `isJudgmentDrill` → `JudgmentDrillView`; briefing strip from `DIAGRAM_STRIPS[diagram]` (NEW `diagramStrips.ts`); unknown ids fall back to today's Workbench → Loading Dock → Vault strip | Act 2's diagrams (`workbench-dock-vault`, `diff-between-rooms`, `atomic-commits`, `blocklist-sign`, `undo-map`) show the same strip |
 | `src/ui/play/SeriesView.tsx`, `useClock.ts` | Judgment drills; the clock also runs while Otto acts | — |
@@ -1446,19 +1522,19 @@ Sizes exclude content data, captures and lockfiles.
 | A12 | `feat: the agent step state machine` | `game/missions/agentRunner.ts` (NEW) | `agentRunner.test.ts`: every transition, the verdict table, gates, predicts, stop, rewind, stars, `completeAgentStep` advancing exactly one step | 400 |
 | A13 | `feat: judgment drills are graded by running them` | `game/missions/judgment.ts` (NEW): predict, diagnose, fix, approve, `shuffleFor` | `judgment.test.ts` on a tiny laptop | 350 |
 | A14 | `feat: act 1 mission 1.1 where things live, behind a preview flag` | `content/act1/{shared,whereThingsLive,act,index,play.test-helpers}.ts`, `src/main.tsx` (`?preview=act1`) | `act1.test.ts`, `agent.test.ts`, `drills.test.ts` | tests ≈ 350 plus content |
-| A15 | `feat: otto's pace and the agent feed` | `game/agent/{feed,pace}.ts` (NEW) | `feed.test.ts`, `pace.test.ts` (instant under reduced motion or webdriver) | 180 |
-| A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
+| A15 | `feat: otto's pace and the agent feed` | `game/agent/{feed,pace,browserMotion}.ts` (NEW) | `feed.test.ts`, `pace.test.ts` (instant under reduced motion or webdriver) | 180 |
+| A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick; Otto's typing is advanced once per drawn frame, not by the 250 ms `tickPlay`, §5.6), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
 | A17 | `feat: approval gates, predictions, stop, and rewind in play` | `play/agentPlay.ts`, `game/agent/effects.ts` (NEW: `isConsequential`, `describeChanges`) | `effects.test.ts`, `play.test.ts` (allow, deny, onDeny, Confirm answer, rewind) | 330 |
 | A18 | `feat: judgment drills in missions, placement, and reviews` | `missionPlay.ts`, `seriesPlay.ts` (scene playback, clock after the scene, `submitJudgment`) | `play.test.ts`: pass or miss, review queue through `addMiss`, the clock starts after the scene | 300 |
-| A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure) | `feedText.test.ts`; verify loop | 220 |
+| A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure), `ui/terminal/readOnly.ts` (NEW), `game/agent/terminalFeed.ts` (NEW) | `feedText.test.ts`, `readOnly.test.ts`, `TerminalTabs.test.tsx`, `terminalFeed.test.ts`; verify loop | 220 |
 | A20 | `feat: directing panels: cards, otto's run, predicts, and gates` | `ui/play/agent/{AgentStepView,PlanCards,RunLog,PredictCard,GateCard,OttoBubble}.tsx`, `ui/play/agent/ottoLines.ts`, `ui/play/diagramStrips.ts`, `MissionView.tsx`, CSS | verify loop with `?preview=act1` | 380 |
 | A21 | `feat: directing panels: checking the claim and the step result` | `ui/play/agent/{CheckCard,LookChips,ResultCard,AnatomyChips,Stars}.tsx`, the Done screen in `MissionView.tsx` | verify loop | 330 |
 | A22 | `feat: judgment drill cards` | `ui/play/JudgmentDrillView.tsx` (predict, diagnose, fix, approve), `MissionView.tsx`, `SeriesView.tsx` | verify loop | 350 |
 | A23 | `feat: the machine island, its portal, and free play on the laptop` | `worldState.ts`, `world/zones.ts`, `world/world.ts`, `world/machine/machineWorld.ts` (NEW), `world/campus.ts` ("Start here"), `ui/TitleCard.tsx`, `play/freePlay.ts` (NEW), `play/catalog.ts` (`freePlay`) | `zones.test.ts`, `freePlay` unit test; verify loop | 380 |
-| A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus) | 260 |
+| A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure), `engine/machine/queries.ts` (`home`, `hidden`) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus), `queries.test.ts` | 260 |
 | A25 | `feat: folder terraces, lanterns, and otto's drone` | `world/machine/{terraces,lanterns,ottoDrone}.ts` (NEW), `world.ts` (machine sync, event queue, pulses) | verify loop (two differing screenshots) | 380 |
 | A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed | `ghostLayout.test.ts`; verify loop | 300 |
-| A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), `main.tsx`, `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
+| A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), `main.tsx`, `ui/terminal/TerminalPanel.tsx` (neutral `WELCOME`), `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
 
 **Milestone A result:** a new save starts in Act 1. Mission 1.1 plays end to end, offline, with its world, ghosts, drills and Question Round. Act 2 plays as before.
 
@@ -1563,7 +1639,7 @@ Sizes exclude content data, captures and lockfiles.
 | Scaffolding gives answers away | Effects are worked out (not written by an author) and only shown in missions. Predicts come before the ghost. Drills have no effects list, ghost or looks. |
 | Authoring blows up | 2-3 start plans and 1-3 fixes per step. `before` normalises the start. `agent.test.ts` proves every path, so a wrong intent fails CI. |
 | Engine scope creep | D13 plus `agent.test.ts`: only authored lines must run. Cut order if short of time: order and spot drills, then lamps, then the npm `-g` shelf. |
-| Dry runs drift from live | Deterministic engine; replay parity test with `testDeps`. Live dry runs reuse `ws.deps`, so commit times may differ, and nothing grades by commit id. |
+| Dry runs drift from live | Deterministic engine; replay parity tests with `testDeps`. The live log keeps a deps factory, so every dry run, rewind and `applyChange` trial replays on a fresh clock and never moves the live one. On the real clock those replays' commits get new times and ids; nothing grades by commit id. |
 | Act 2 regressions | Additive schemas (sandbox drills are unchanged, the Act 2 runner is untouched, `SandboxQueries` extends `GitQueries`). No auto-travel. Act 2 suites must pass unchanged in every PR. e2e changes are limited to `openAct2` and the tutorial. |
 | Early access keeps pointing the Acts button at Act 1 | `hasWorkLeft` moves the recommendation to Act 2 once 1.x is done. No placement test while in early access. |
 | Stacked-branch merge mistakes | One PR at a time, `--update-refs`, split only at commit boundaries, apply diffs (memory note). Push chain 2 only after rebasing; recheck its fidelity findings before B6. |

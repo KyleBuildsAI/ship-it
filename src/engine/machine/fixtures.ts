@@ -58,7 +58,8 @@ function openTab(machine: Machine, op: string) {
 export function applyMachineStep(machine: Machine, step: MachineFixtureStep): void {
   switch (step.op) {
     case 'mkdir':
-      machine.drive.makeDir(step.path);
+      // Through the machine, so a twist that adds a folder to a live laptop is announced.
+      machine.makeFolder(step.path);
       break;
     case 'session':
       machine.openSession();

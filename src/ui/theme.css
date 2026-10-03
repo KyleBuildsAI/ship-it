@@ -209,6 +209,9 @@ body {
   right: 16px;
   bottom: 16px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   height: 38vh;
   padding: 10px 12px;
   background: rgba(10, 15, 28, 0.82);
@@ -223,9 +226,38 @@ body {
   pointer-events: none;
 }
 
+/* The screen fills whatever height the tab strip above it leaves (all of it in Act 2). */
 .terminal-panel__screen {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: 100%;
+}
+
+/* The laptop's tabs, read-only: PS 1 · PS 2, with the active one lit. */
+.terminal-tabs {
+  display: flex;
+  justify-content: space-between;
+  font: 12px/1.4 var(--font-mono);
+  color: var(--text-muted);
+}
+
+.terminal-tabs ol {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.terminal-tabs li + li::before {
+  content: '·';
+  margin: 0 8px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.terminal-tabs [aria-current='true'] {
+  color: var(--text);
+  font-weight: 600;
 }
 
 /* xterm paints its own background; let the glass show through at the edges only. */
@@ -624,6 +656,11 @@ body {
   display: block;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+/* A mission still being built: dimmed, with no button, so it reads as not playable yet. */
+.act-menu__upcoming {
+  color: var(--text-muted);
 }
 
 .visually-hidden {

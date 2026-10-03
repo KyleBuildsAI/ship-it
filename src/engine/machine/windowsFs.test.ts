@@ -64,6 +64,7 @@ describe('WindowsFs', () => {
     drive.hide('users/KYLE/appdata');
 
     expect(drive.isHidden('Users/kyle/AppData')).toBe(true);
+    expect(drive.isHidden('USERS/kyle/APPDATA')).toBe(true);
     // A leading dot hides nothing on Windows.
     expect(drive.isHidden('Users/kyle/.cache')).toBe(false);
     expect(drive.isHidden('Users/kyle/AppData/Local')).toBe(false);

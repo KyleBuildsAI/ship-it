@@ -1,4 +1,5 @@
 import { Emitter } from '../events';
+import { joinPath } from '../fs/paths';
 import { WindowsFs } from './windowsFs';
 import { EnvTable, expandPercent } from './envTable';
 import type { EnvScope, MachineEvent } from './events';
@@ -92,6 +93,46 @@ export class Machine {
     const pid = this.nextPid;
     this.nextPid += PID_STEP;
     return pid;
+  }
+
+  /**
+   * Makes a folder and any parents it needs, as `mkdir` does, and announces each folder
+   * that's new, outermost first. A folder that was already there stays quiet. Returns the
+   * folder's path as stored. The drive itself never announces anything, so folders are
+   * made through here and the world hears about every one.
+   */
+  makeFolder(path: string): string {
+    const made = this.missingFolders(path);
+    this.drive.makeDir(path);
+    for (const folder of made)
+      this.events.emit({ type: 'folderChanged', path: folder, change: 'created' });
+    return this.drive.stored(path);
+  }
+
+  /**
+   * Removes an empty folder and announces it. Emptying it first is the caller's job, so
+   * each file and folder inside is announced on its own, before this one.
+   */
+  removeFolder(path: string): void {
+    const stored = this.drive.stored(path);
+    this.drive.removeDir(stored, { recursive: false });
+    this.events.emit({ type: 'folderChanged', path: stored, change: 'deleted' });
+  }
+
+  /** The folders along a path that don't exist yet, outermost first, as they'll be stored. */
+  private missingFolders(path: string): string[] {
+    const missing: string[] = [];
+    // The root, '', has no segments, so it's never missing.
+    const segments = this.drive
+      .stored(path)
+      .split('/')
+      .filter((part) => part !== '');
+    let walked = '';
+    for (const segment of segments) {
+      walked = joinPath(walked, segment);
+      if (!this.drive.exists(walked)) missing.push(walked);
+    }
+    return missing;
   }
 
   /** The open tabs, in the order they were opened. */

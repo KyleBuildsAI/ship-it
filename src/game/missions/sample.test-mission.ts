@@ -1,4 +1,6 @@
+import { windows } from '../../engine/fixtures';
 import { folder, repo } from '../../engine/git/fixtures';
+import type { AgentTaskInput } from './agentSchema';
 import {
   ActSchema,
   MissionSchema,
@@ -6,6 +8,7 @@ import {
   type Act,
   type ActInput,
   type CompleteAct,
+  type JudgmentDrillInput,
   type Mission,
   type MissionInput,
 } from './schema';
@@ -349,3 +352,227 @@ export function earlySampleAct(): { act: Act; missions: Mission[] } {
   });
   return { act: ActSchema.parse(earlyActInput), missions: [mission] };
 }
+
+const HOME = 'Users/kyle';
+const API = 'Users/kyle/quillwork/api';
+
+/**
+ * A directed step's agent task, modelled on Act 1's first step: get Otto's terminal
+ * standing in the API folder. The weak card fails and Otto claims success anyway.
+ */
+export const sampleAgentTaskInput = {
+  plans: [
+    {
+      id: 'guess',
+      text: 'Go to the api folder.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['go to the api folder', 'cd api'],
+      script: [{ do: 'run', line: 'cd api', fails: true }],
+      claim: "Done: I'm in the API folder.",
+      lesson: 'cd api looked inside home, where the terminal stands. It failed.',
+      slip: 'overclaim',
+    },
+    {
+      id: 'full-path',
+      text: 'Go to C:\\Users\\kyle\\quillwork\\api, then show where you are.',
+      quality: 'strong',
+      covers: ['goal', 'place', 'check'],
+      intents: ['full path to the api', 'show where you are'],
+      script: [
+        { do: 'run', line: 'cd C:\\Users\\kyle\\quillwork\\api' },
+        { do: 'run', line: 'Get-Location' },
+      ],
+      claim: "Done: I'm in the API folder.",
+      lesson: 'A full path works from any folder, and Get-Location proves it.',
+    },
+  ],
+  fixes: [
+    {
+      id: 'fix-full-path',
+      text: "You're still at home. Go to C:\\Users\\kyle\\quillwork\\api.",
+      quality: 'strong',
+      covers: ['goal', 'place'],
+      intents: ['still at home', 'go to the full path'],
+      script: [{ do: 'run', line: 'cd C:\\Users\\kyle\\quillwork\\api' }],
+      claim: "Fixed: I'm in the API folder now.",
+      lesson: 'The full path landed Otto where you meant.',
+    },
+  ],
+  hintPlan: 'full-path',
+  check: {
+    question: "Where is Otto's terminal standing now?",
+    options: [
+      {
+        id: 'api',
+        text: 'C:\\Users\\kyle\\quillwork\\api',
+        truth: { kind: 'currentDirectory', path: API },
+        feedback: 'Right: the prompt names the API folder.',
+      },
+      {
+        id: 'home',
+        text: 'Still C:\\Users\\kyle: the cd failed',
+        truth: { kind: 'currentDirectory', path: HOME },
+        feedback: 'Read the prompt: it names the folder the terminal stands in.',
+      },
+    ],
+  },
+  guards: [{ kind: 'driveFile', path: `${API}/package.json`, label: 'The API is intact' }],
+  looks: [{ id: 'where', label: 'Where is Otto?', line: 'Get-Location' }],
+} satisfies AgentTaskInput;
+
+/**
+ * A small laptop: one terminal open at home, and the API project with its package.json.
+ * The terminal opens first, so a setup can cd it somewhere else.
+ */
+const laptop = () => windows({ mount: API }).session().write(`${API}/package.json`, '{}\n');
+
+/**
+ * Judgment drills modelled on Mission 1.1's: one of each kind, and a second approve drill
+ * whose right answer is Deny. No option says it's the right one; the engine works it out,
+ * and sampleDrills.test.ts proves each drill has the answer described here.
+ */
+export const sampleJudgmentDrillsInput = [
+  {
+    kind: 'predict',
+    id: 'sample-predict-typo',
+    prompt: 'Otto is about to run this. What happens?',
+    concept: 'paths',
+    setup: laptop().toSpec(),
+    action: { do: 'run', line: 'cd quilwork\\api' },
+    options: [
+      {
+        id: 'lands',
+        text: 'Otto lands in the API folder',
+        outcome: { state: { kind: 'currentDirectory', path: API } },
+      },
+      {
+        id: 'error',
+        text: 'An error, and Otto stays at home',
+        outcome: { result: 'error', state: { kind: 'currentDirectory', path: HOME } },
+      },
+      {
+        id: 'creates',
+        text: 'PowerShell makes the missing folder',
+        outcome: { state: { kind: 'driveFolder', path: `${HOME}/quilwork/api` } },
+      },
+    ],
+    explain: 'quilwork is misspelled, so cd finds no such folder. The terminal stays where it was.',
+  },
+  {
+    kind: 'diagnose',
+    id: 'sample-diagnose-home',
+    prompt: 'Why did Get-ChildItem fail?',
+    concept: 'paths',
+    setup: laptop().toSpec(),
+    history: [{ do: 'run', line: 'Get-ChildItem package.json', fails: true }],
+    options: [
+      {
+        id: 'home',
+        text: 'The terminal stands at home, not in the API',
+        truth: {
+          kind: 'all',
+          of: [
+            { kind: 'currentDirectory', path: HOME },
+            { kind: 'driveFile', path: `${API}/package.json` },
+          ],
+        },
+      },
+      {
+        id: 'deleted',
+        text: 'package.json was deleted',
+        truth: { kind: 'driveFile', path: `${API}/package.json`, exists: false },
+      },
+      { id: 'typo', text: 'Get-ChildItem is spelled wrong' },
+    ],
+    explain:
+      'A fresh terminal stands at home. package.json is in the API folder, so a bare name misses it.',
+  },
+  {
+    kind: 'fix',
+    id: 'sample-fix-cd',
+    prompt: "Otto's cd failed. Which direction gets him into the API folder?",
+    concept: 'paths',
+    setup: laptop().toSpec(),
+    history: [{ do: 'run', line: 'cd api', fails: true }],
+    claim: "Done: I'm in the API folder.",
+    goal: { kind: 'currentDirectory', path: API },
+    options: [
+      {
+        id: 'full-path',
+        text: 'Go to C:\\Users\\kyle\\quillwork\\api.',
+        script: [{ do: 'run', line: 'cd C:\\Users\\kyle\\quillwork\\api' }],
+      },
+      {
+        id: 'again',
+        text: 'Try cd api again.',
+        script: [{ do: 'run', line: 'cd api', fails: true }],
+      },
+      {
+        id: 'step-by-step',
+        text: 'Go into quillwork, then into api.',
+        script: [
+          { do: 'run', line: 'cd quillwork' },
+          { do: 'run', line: 'cd api' },
+        ],
+      },
+    ],
+    explain:
+      'Otto stands at home. A full path works from anywhere; quillwork then api works from home.',
+  },
+  {
+    kind: 'approve',
+    id: 'sample-approve-stray',
+    prompt: 'Otto wants to tidy up. Allow?',
+    concept: 'approvals',
+    setup: laptop().mkdir(`${HOME}/notes`).toSpec(),
+    action: {
+      do: 'run',
+      line: 'Remove-Item C:\\Users\\kyle\\notes',
+      say: 'Removing a stray folder.',
+    },
+    guards: [{ kind: 'driveFile', path: `${API}/package.json`, label: 'The API is intact' }],
+    explain: 'The notes folder at home is empty and stray. Deleting it leaves the API alone.',
+  },
+  {
+    kind: 'approve',
+    id: 'sample-approve-notes',
+    prompt: 'Otto wants to tidy up. Allow?',
+    concept: 'approvals',
+    setup: laptop().write(`${API}/notes/onboarding.md`, '# Week 1\n').cd(API).toSpec(),
+    action: { do: 'run', line: 'Remove-Item notes -Recurse', say: 'Tidying the old notes folder.' },
+    guards: [
+      { kind: 'driveFile', path: `${API}/notes/onboarding.md`, label: 'Onboarding notes survive' },
+    ],
+    explain:
+      'Otto stands in the API, so notes is your real notes folder. -Recurse takes onboarding.md too.',
+  },
+] satisfies JudgmentDrillInput[];
+
+/** A directed mission on a laptop: one step where Kyle directs Otto, and judgment drills. */
+export const directedMissionInput: MissionInput = {
+  ...copyOfSample('sample-where-things-live', 'Where Things Live (sample)', 'directed'),
+  act: 1,
+  briefing: {
+    sceneId: 'machine-island',
+    captions: ['Every terminal stands in one folder.', 'Otto types. You direct and check.'],
+  },
+  initialRepoState: laptop().toSpec(),
+  drills: sampleJudgmentDrillsInput,
+  approvals: 'destructive',
+  steps: [
+    {
+      id: 'stand-in-the-api',
+      instruction: "Get Otto's terminal standing in the API folder, under your home folder.",
+      success: { kind: 'currentDirectory', path: API },
+      hints: [
+        'When a terminal opens fresh, which folder does it stand in?',
+        'A bare name starts where the terminal stands. A full path works from anywhere.',
+        'Pick the card with the full path C:\\Users\\kyle\\quillwork\\api.',
+      ],
+      agent: sampleAgentTaskInput,
+    },
+  ],
+};
+
+export const directedMission = MissionSchema.parse(directedMissionInput);
