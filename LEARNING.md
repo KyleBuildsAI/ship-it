@@ -1999,3 +1999,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/143
 3. The layout is pure, so it's unit-tested without a browser. The drawing needs three.js and a GPU, so it's checked by playing and by the end-to-end test.
 
 </details>
+
+---
+
+## #144 feat: the agent step state machine
+
+https://github.com/KyleBuildsAI/ship-it/pull/144
+
+1. Kyle picks the option "Still C:\Users\kyle: the cd failed", and it's true. What verdict does he get, and what happens next?
+2. Why can't a directed mission use `runner.checkStep` to finish a step?
+3. Why does `answerCheck` check the guards as well as the step's success?
+
+<details><summary>Answers</summary>
+
+1. Good catch (`caught`). The option is true but the step didn't pass, so Kyle spotted Otto's mistake. A fix round opens (part 2 adds it).
+2. `checkStep` keeps going through every following step that is already true. If step 3's goal happened to be true early, Kyle would never get to direct it. `completeAgentStep` advances exactly one step.
+3. A step can reach its goal while doing damage, like making the folder but deleting the API. The guards are what must stay true, so a step only passes when they all still hold.
+
+</details>
