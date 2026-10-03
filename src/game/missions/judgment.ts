@@ -231,3 +231,42 @@ function atLeastOne(drill: JudgmentDrill, ids: readonly string[]): readonly stri
   if (ids.length === 0) throw new JudgmentError(`"${drill.id}" has no fix that works.`);
   return ids;
 }
+
+/**
+ * The order to show a drill's options in on one attempt. The same drill and attempt always
+ * give the same order, so a reload shows what Kyle saw; the next attempt (one more
+ * drillHistory entry) gives a new one, so a review can't be passed by remembering where
+ * the right answer sat.
+ */
+export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[] {
+  return <T>(items: readonly T[]): T[] => {
+    const random = seededRandom(hashText(`${drillId}#${String(attempt)}`));
+    const shuffled = [...items];
+    // Fisher-Yates: walk down from the end, swapping each item with one at or before it.
+    for (let last = shuffled.length - 1; last > 0; last--) {
+      const pick = Math.floor(random() * (last + 1));
+      [shuffled[last], shuffled[pick]] = [shuffled[pick] as T, shuffled[last] as T];
+    }
+    return shuffled;
+  };
+}
+
+/** FNV-1a: turns text into a 32-bit number, so a drill id can seed the shuffle. */
+function hashText(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** Mulberry32: a small generator that gives the same numbers for the same seed. */
+function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
 import { testDeps } from '../../engine/git/testDeps';
-import { answerKey, gradeJudgment, JudgmentError } from './judgment';
+import { answerKey, gradeJudgment, JudgmentError, shuffleFor } from './judgment';
 import { sampleJudgmentDrillsInput } from './sample.test-mission';
 import { JudgmentDrillSchema, type JudgmentDrill, type JudgmentDrillInput } from './schema';
 
@@ -264,5 +264,37 @@ describe('answerKey', () => {
       explain: 'Yes to All answered the Confirm question, so notes and its file are gone.',
     });
     expect(answerKey(drill, testDeps())).toEqual(['deleted']);
+  });
+});
+
+describe('shuffleFor', () => {
+  const items = ['a', 'b', 'c', 'd'] as const;
+
+  it('gives the same order for the same drill and attempt', () => {
+    expect(shuffleFor('drill', 2)(items)).toEqual(shuffleFor('drill', 2)(items));
+  });
+
+  it('keeps every item exactly once and leaves the list it was given alone', () => {
+    const given = [...items];
+    expect([...shuffleFor('drill', 0)(given)].sort()).toEqual([...items]);
+    expect(given).toEqual([...items]);
+  });
+
+  it('moves the options around between attempts', () => {
+    const orders = new Set(
+      Array.from({ length: 8 }, (_, attempt) => shuffleFor('drill', attempt)(items).join('')),
+    );
+    expect(orders.size).toBeGreaterThan(3);
+  });
+
+  it('gives different drills different orders on the same attempt', () => {
+    const orders = new Set(
+      ['one', 'two', 'three', 'four', 'five'].map((id) => shuffleFor(id, 0)(items).join('')),
+    );
+    expect(orders.size).toBeGreaterThan(1);
+  });
+
+  it('handles an empty list', () => {
+    expect(shuffleFor('drill', 0)([])).toEqual([]);
   });
 });
