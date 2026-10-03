@@ -5,7 +5,8 @@ import { shortId } from '../../engine/git/hash';
 import { isTypingTarget, isWorldTarget } from '../../ui/focus';
 import { closeActMenu, suggest } from '../hud';
 import { sandbox } from '../sandbox';
-import { worldState, type ZoneId } from '../worldState';
+import { worldState, type ActIslandZone, type ZoneId } from '../worldState';
+import { createActIsland } from './actIsland';
 import { createAvatar } from './avatar';
 import { createCampus, PORTAL_RING_HEIGHT } from './campus';
 import { describeCrates } from './crateLayout';
@@ -19,7 +20,15 @@ import { describeHistory } from './historyLayout';
 import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
 import { installTestHooks } from './testHooks';
-import { CAMERA_RIGS, doorwayAt, openActs, zoneForAct, type Doorway, type Zone } from './zones';
+import {
+  CAMERA_RIGS,
+  perActIsland,
+  doorwayAt,
+  openActs,
+  zoneForAct,
+  type Doorway,
+  type Zone,
+} from './zones';
 import {
   clampToDisc,
   GROUNDED,
@@ -58,7 +67,8 @@ const CLICK_MAX_PIXELS = 6;
 const CLICK_MAX_MS = 400;
 
 /**
- * Builds the explorable world: Campus and the Git World as two floating islands, the
+ * Builds the explorable world: Campus, the Git World, the machine island and the themed
+ * islands of Acts 3 to 8, each floating on its own, plus the
  * player's avatar, a third-person camera with damped orbit, WASD and click-to-walk.
  * `fadeTarget` fades out and back in while the player travels between islands.
  */
@@ -75,10 +85,12 @@ export function createWorld(
   const campus = createCampus(openActs());
   const gitWorld = createGitWorld();
   const machine = createMachineIsland();
+  const actIslands = perActIsland(createActIsland);
   const avatar = createAvatar(motion);
   // The stars follow the camera (see update), so the sky surrounds whichever island you're on.
   const stars = createStars(1400);
   scene.add(campus.island.group, gitWorld.island.group, machine.island.group, avatar.group, stars);
+  for (const built of Object.values(actIslands)) scene.add(built.island.group);
 
   // Key + rim + low ambient (DESIGN.md section 14); the lights follow the player between islands.
   const lights = new THREE.Group();
@@ -115,12 +127,27 @@ export function createWorld(
     group: machine.exit.group,
     doorway: { at: machine.exit.at, to: 'campus' },
   };
+  /** An Act island's portal home, which a click can hit like any other portal. */
+  const actExit = (zone: ActIslandZone) => ({
+    group: actIslands[zone].exit.group,
+    doorway: { at: actIslands[zone].exit.at, to: 'campus' } satisfies Doorway,
+  });
   const portalsIn: Record<ZoneId, readonly { group: THREE.Object3D; doorway: Doorway }[]> = {
     campus: campusPortals,
     gitworld: [gitWorldExit],
     machine: [machineExit],
+    ...perActIsland(({ zone }) => [actExit(zone)]),
   };
   const zones: Record<ZoneId, Zone & { ground: THREE.Object3D }> = {
+    ...perActIsland(({ zone, center }) => ({
+      id: zone,
+      center,
+      radius: actIslands[zone].island.radius - 1,
+      spawn: actIslands[zone].spawn,
+      rig: CAMERA_RIGS[zone],
+      doorways: [actExit(zone).doorway],
+      ground: actIslands[zone].island.ground,
+    })),
     campus: {
       id: 'campus',
       center: { x: 0, z: 0 },
@@ -355,6 +382,7 @@ export function createWorld(
       campus.update(elapsed);
       gitWorld.update(elapsed);
       machine.update(elapsed);
+      for (const built of Object.values(actIslands)) built.update(elapsed);
       if (cratesDirty && watched) {
         yard.sync(describeCrates(watched), committedSinceSync);
         path.sync(watched.repo ? describeHistory(watched.repo) : null);

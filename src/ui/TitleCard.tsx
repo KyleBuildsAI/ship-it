@@ -1,15 +1,23 @@
 import { tutorial } from '../game/tutorial';
-import { worldState } from '../game/worldState';
+import { perActIsland } from '../game/world/zones';
+import { worldState, type ZoneId } from '../game/worldState';
 import { useStore } from './useStore';
 
-const HINTS = {
+const HINTS: Record<ZoneId, string> = {
   campus:
     'WASD or click to walk · Space to jump · drag to look around · step through a glowing portal',
   gitworld: 'Workbench · Loading Dock · Vault. Try git status in the terminal.',
   machine: 'Folders are terraces, terminals are lanterns. Try cd and mkdir in the terminal.',
-} as const;
+  // Each Act island's line lives with its other data in zones.ts.
+  ...perActIsland((island) => island.hint),
+};
 
-const ZONE_NAMES = { campus: 'Campus', gitworld: 'Git World', machine: 'The Machine' } as const;
+const ZONE_NAMES: Record<ZoneId, string> = {
+  campus: 'Campus',
+  gitworld: 'Git World',
+  machine: 'The Machine',
+  ...perActIsland((island) => island.title),
+};
 
 export function TitleCard() {
   const { zone, hasMoved } = useStore(worldState);

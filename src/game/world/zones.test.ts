@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { ROADMAP } from '../../content/roadmap';
+import { ACTS as CAMPUS_ACTS } from './campus';
 import {
+  ACT_ISLANDS,
   actForZone,
+  actIsland,
   CAMERA_RIGS,
+  perActIsland,
   doorwayAt,
   openActs,
   STEP_THROUGH_DISTANCE,
@@ -18,18 +23,70 @@ describe('zoneForAct', () => {
     expect(zoneForAct(2)).toBe('gitworld');
   });
 
-  it('has no island for an Act that is not built yet', () => {
-    expect(zoneForAct(8)).toBeNull();
+  it('gives Acts 3 to 8 each a themed island of its own', () => {
+    expect([3, 4, 5, 6, 7, 8].map(zoneForAct)).toEqual([
+      'act3',
+      'act4',
+      'act5',
+      'act6',
+      'act7',
+      'act8',
+    ]);
+  });
+
+  it('has no island for an Act outside the course', () => {
+    expect(zoneForAct(0)).toBeNull();
+    expect(zoneForAct(9)).toBeNull();
   });
 
   it('finds the Act an island belongs to, and none for Campus', () => {
     expect(actForZone('machine')).toBe(1);
     expect(actForZone('gitworld')).toBe(2);
+    expect(actForZone('act5')).toBe(5);
     expect(actForZone('campus')).toBeNull();
   });
 
-  it('opens exactly the Acts that have an island', () => {
-    expect([...openActs()]).toEqual([1, 2]);
+  it('opens every Campus portal: each Act 1 to 8 has an island', () => {
+    expect([...openActs()].sort()).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    for (const { act } of CAMPUS_ACTS) expect(openActs().has(act)).toBe(true);
+  });
+});
+
+describe('the Act islands', () => {
+  it('match the roadmap: same Act, same title', () => {
+    for (const island of ACT_ISLANDS) {
+      expect(island.title).toBe(ROADMAP.find((entry) => entry.act === island.act)?.title);
+    }
+  });
+
+  it('each have their own accent, theme and place, far apart from every other island', () => {
+    const unique = (values: readonly unknown[]) => new Set(values).size === values.length;
+    expect(unique(ACT_ISLANDS.map((island) => island.accent))).toBe(true);
+    expect(unique(ACT_ISLANDS.map((island) => island.theme))).toBe(true);
+    // Campus, the Git World and the machine island float here too.
+    const centers = [
+      { x: 0, z: 0 },
+      { x: 140, z: 0 },
+      { x: -140, z: 0 },
+      ...ACT_ISLANDS.map((island) => island.center),
+    ];
+    centers.forEach((a, index) => {
+      for (const b of centers.slice(index + 1)) {
+        expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeGreaterThanOrEqual(100);
+      }
+    });
+  });
+
+  it('builds one value per island, keyed by zone', () => {
+    expect(perActIsland((island) => island.act)).toEqual({
+      act3: 3,
+      act4: 4,
+      act5: 5,
+      act6: 6,
+      act7: 7,
+      act8: 8,
+    });
+    expect(actIsland('act4').title).toBe('GitHub Team Flow');
   });
 });
 
@@ -53,5 +110,9 @@ describe('doorwayAt', () => {
 describe('CAMERA_RIGS', () => {
   it('frames the Git World from further back than Campus', () => {
     expect(CAMERA_RIGS.gitworld.back).toBeGreaterThan(CAMERA_RIGS.campus.back);
+  });
+
+  it('has a rig for every island', () => {
+    for (const island of ACT_ISLANDS) expect(CAMERA_RIGS[island.zone].height).toBeGreaterThan(0);
   });
 });
