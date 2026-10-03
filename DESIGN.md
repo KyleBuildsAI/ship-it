@@ -50,7 +50,7 @@ Intern -> Junior -> Mid -> Senior -> Staff.
 A night-time floating island HQ. Contains:
 - Portals to each Act (locked until prerequisites are met, except placement tests). An open portal leads to its own Act's island: walk into its ring, or click it and the avatar walks there. Every Act has an island, so every portal is open (`ZONE_FOR_ACT` in `src/game/world/zones.ts`): Act 1's machine island, Act 2's Git World, and a themed island for each of Acts 3 to 8. Arriving on an island opens that Act's menu, so whatever is built there can be tried at once.
 - **The machine island** (Act 1, `src/game/world/machineIsland.ts`): the laptop's folders as terraces rising away from the player, C:\ at the front. Files lie on their folder as cards, and each terminal is a "PS n" lantern on the folder it stands in, so a cd moves a lantern and a mkdir raises a tile. A signpost spells out the active terminal's path. With no laptop loaded, a sign says to open Mission 1.1 or the Laptop sandbox.
-- **The Act islands** (Acts 3 to 8, `src/game/world/actIsland.ts`, data in `ACT_ISLANDS` in `zones.ts`): one kit builds each from plain shapes: the Act's title in its own accent colour, a portal home to Campus, and a few props that say what the Act is about. Act 3 has branching paths of commits, Act 4 a town square with a notice board of issues, Act 5 a road through quality gates with watchtowers, Act 6 server racks, pipes and a database, Act 7 a robot workshop, and Act 8 an interview hall. Their lessons are played from the Act menu (section 5, Lessons).
+- **The Act islands** (Acts 3 to 8, `src/game/world/actIsland.ts`, data in `ACT_ISLANDS` in `zones.ts`): one kit builds each from plain shapes: the Act's title in its own accent colour, a portal home to Campus, and a few props that say what the Act is about. Act 3 has branching paths of commits, Act 4 a town square with a notice board of issues, Act 5 a road through quality gates with watchtowers, Act 6 server racks, pipes and a database, Act 7 a robot workshop, and Act 8 an interview hall. Their lessons are played from the Act menu (section 5, Lessons), and each island's title card names its Act's first lesson (a test holds the hint to the catalog).
 - **Standup Board**: the daily review queue.
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
@@ -202,7 +202,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 ## 10. Content format
 
-- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes.
+- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes. A lesson Act's lessons live in `src/content/actN/lessons.ts`, in play order with the final last, and `lessonAct` (`src/content/lessonAct.ts`) parses them and builds the Act, naming the final as its `finalLessonId`.
 - A schema (zod or equivalent) validates every mission in tests.
 - **Mission object**: `id`, `act`, `title`, `briefing` (scene id + captions), `initialRepoState` (fixture), `steps` (instruction, success predicate, hint ladder), `drills` (scenario text, setup fixture, success predicate), `questionRound` (ticket, candidates with quality tag + rationale, rubric for free text), `xp`.
 - **Directed steps** (`agentSchema.ts`): a step's `agent` task holds 2-3 start `plans` and 1-3 `fixes` (a card, Otto's script, his claim, a lesson), one `check` whose options are graded by `truth` predicates, `guards` that must stay true, and read-only `looks`. A mission's steps are all directed or all typed. A directed mission starts with `windows()` and sets `approvals` (`changes` or `destructive`). `validateAct` gives directed text tighter budgets: goal and hints 20 words, cards and Otto's lines 12, lessons and feedback 25, checklist labels 8. It also adds up the texts that share a screen (the Direct screen, a fix round, each Check screen, each predict).
@@ -233,29 +233,47 @@ Three areas, status, add, commit, log, diff, .gitignore, commit hygiene, undo.
 
 Boss: **"The Dirty Tree"**: Dex deploys from a clean checkout in 3:00. The Workbench has ~40 modified and untracked files. Commit the right things in sensible commits, without committing `.env` or build output, before the timer hits zero. Twist at 1:00: Dex reports a missing file that was never tracked: a too-broad `.gitignore` rule (`log*`) has been hiding `src/logger.ts`, and the player must commit it before the clock runs out.
 
-### Act 3: Branching
+### Act 3: Branching (lessons)
 Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.
-Boss: **"Conflict Storm"**.
+- 3.1 **Branches Are Pointers**: what a branch is, briefing an agent to branch, fast-forward versus three-way merges, switching safely, deleting merged branches
+- 3.2 **Conflicts Without Panic**: reading markers, resolving by intent, directing an agent through conflicts, `merge --abort`, short-lived branches
 
-### Act 4: GitHub Team Flow
+Final (the boss): **"Conflict Storm"**, 5:00: rebase versus merge, never rewriting shared history, cherry-pick, bisect, stash, tags.
+
+### Act 4: GitHub Team Flow (lessons)
 Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.
-Boss: **"Rejected Push"** at 5pm on release day.
+- 4.1 **Remotes and Pull Requests**: fetch versus pull, a rejected push, a PR's life, briefing an agent's PR description, issues first, forks
+- 4.2 **Reviews and Releases**: review comments, protected branches, CODEOWNERS, semantic versioning, an agent-written changelog, the release steps
 
-### Act 5: Quality Gates
+Final (the boss): **"Rejected Push"** at 5pm on release day, 5:00.
+
+### Act 5: Quality Gates (lessons)
 Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.
-Boss: **"Red CI"**: main is broken. Find the commit, then fix forward or revert.
+- 5.1 **Tests Are Guardrails**: kinds of test, test-first briefs, an agent weakening a test, type errors, lint, the local gates in order
+- 5.2 **CI and Deploys**: reading a workflow, laptop versus CI, secrets in Actions, self-hosted runners, dependency PRs, a safe deploy
 
-### Act 6: How Systems Work
+Final (the boss): **"Red CI"**, 5:00: main is broken. Find the commit, then fix forward or revert.
+
+### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.
-Boss: **"The 3am Page"**: incident triage from logs and metrics.
+- 6.1 **Requests and Responses**: reading a request, status codes, JSON and null, OAuth versus API keys, specifying an endpoint for an agent, a request's journey
+- 6.2 **Data, Speed and Scale**: reading SQL, indexes, SQL injection in an agent's code, caching, queues, containers
 
-### Act 7: AI-Native Engineering
+Final (the boss): **"The 3am Page"**, 5:00: incident triage from logs and metrics.
+
+### Act 7: AI-Native Engineering (lessons)
 Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.
-Boss: **"The Agent Went Rogue"**: an agent's PR passes CI but is subtly wrong.
+- 7.1 **Brief the Agent**: specs, lasting context in the repo, reviewing an AI diff, scope drift, the agent loop, asking for evidence
+- 7.2 **Guardrails for Agents**: prompt injection, least-privilege tokens, evals, approving destructive tools, context and cost, secrets
 
-### Act 8: The Loop
+Final (the boss): **"The Agent Went Rogue"**, 6:00: an agent's PR passes CI but is subtly wrong.
+
+### Act 8: The Loop (lessons)
 Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.
-Boss: a full mock interview loop.
+- 8.1 **Think Out Loud**: clarifying, complexity, tracebacks, a debugging method, getting unstuck, edge cases, AI as a practice partner
+- 8.2 **Design and Customers**: starting a design, trade-offs, listening to a customer, fixing their real workflow, the deep-dive, values
+
+Final (the boss): **"The Mock Interview Loop"**, 7:00: one card per round. Live coding with Pyodide (the Python Arena, M5) comes later.
 
 ### Cross-Act features
 - **Code Review mini-game (M2)**: diffs in a review panel. Click lines with bugs, pick the issue type, write a comment. Includes AI-written diffs with plausible-looking mistakes.
