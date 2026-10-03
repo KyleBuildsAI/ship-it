@@ -1,15 +1,17 @@
-import { openActMenu } from '../../game/hud';
+import { roadmapAct } from '../../content/roadmap';
 import type { Act, Boss, FieldMission, PlacementTest } from '../../game/missions/schema';
 import { startBossFight } from '../../game/play/bossPlay';
-import { getAct, getCatalog, hasWorkLeft } from '../../game/play/catalog';
+import { findAct, hasWorkLeft } from '../../game/play/catalog';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startMission } from '../../game/play/missionPlay';
-import { missionDone } from '../../game/play/saveRules';
 import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
+import { bossAccess, isUnlocked, type BossAccess } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { completedActNumbers, rankFor } from '../../game/progression/xp';
 import type { ActProgress, MissionStatus, SaveData } from '../../game/save/schema';
 import { useStore } from '../useStore';
+import { ActTabs } from './ActTabs';
+import { PreviewActMenu } from './PreviewActMenu';
 
 const STATUS: Record<MissionStatus, string> = {
   available: '',
@@ -17,30 +19,6 @@ const STATUS: Record<MissionStatus, string> = {
   completed: 'Done',
   'tested-out': 'Tested out',
 };
-
-/** Tabs across the top of the menu, one per Act, once there's more than one. */
-function ActTabs({ current }: { current: number }) {
-  const { acts } = getCatalog();
-  if (acts.length < 2) return null;
-  return (
-    <div className="act-tabs" role="tablist" aria-label="Acts">
-      {acts.map(({ act }) => (
-        <button
-          key={act.act}
-          type="button"
-          role="tab"
-          aria-selected={act.act === current}
-          className="act-tabs__tab"
-          onClick={() => {
-            openActMenu(act.act);
-          }}
-        >
-          Act {act.act}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /** What each part's row needs: which Act it starts, and that Act's saved progress. */
 interface PartRowProps {
@@ -74,29 +52,38 @@ function PlacementRow({ actNumber, actProgress, test }: PartRowProps & { test: P
   );
 }
 
+/** What the boss row says under its title, for each way the boss can be open or not. */
+function bossHint(access: BossAccess, hasPlacement: boolean): string {
+  switch (access) {
+    case 'earned':
+      return 'Dex is waiting';
+    case 'preview':
+      return 'Unlocked for preview';
+    case 'locked':
+      // An early-access Act has no placement test, so testing out can't open its boss.
+      return hasPlacement
+        ? 'Opens after every mission (or the placement test)'
+        : 'Opens after every mission';
+  }
+}
+
 function BossRow({
   actNumber,
   actProgress,
   boss,
-  unlocked,
+  access,
   hasPlacement,
-}: PartRowProps & { boss: Boss; unlocked: boolean; hasPlacement: boolean }) {
-  // An early-access Act has no placement test, so testing out can't open its boss.
-  const locked = hasPlacement
-    ? 'Opens after every mission (or the placement test)'
-    : 'Opens after every mission';
+}: PartRowProps & { boss: Boss; access: BossAccess; hasPlacement: boolean }) {
   return (
     <li>
       <span>
         Boss: {boss.title}
-        <small>
-          {actProgress?.bossCompletedAt ? 'Beaten' : unlocked ? 'Dex is waiting' : locked}
-        </small>
+        <small>{actProgress?.bossCompletedAt ? 'Beaten' : bossHint(access, hasPlacement)}</small>
       </span>
       <button
         type="button"
         className="play-button"
-        disabled={!unlocked}
+        disabled={access === 'locked'}
         onClick={() => {
           startBossFight(actNumber);
         }}
@@ -161,15 +148,22 @@ function EarlyAccessNote({ act, save }: { act: Act; save: SaveData }) {
 
 /**
  * An Act's menu: placement test, the missions, the boss, the Field Mission, and reviews.
- * An early-access Act shows only the parts built so far, then its upcoming missions.
+ * An early-access Act shows only the parts built so far, then its upcoming missions. In
+ * preview mode, an Act the game doesn't ship yet shows its roadmap entry instead.
  */
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   if (save === null) return null;
-  const { act, missions } = getAct(number);
+  const content = findAct(number);
+  if (content === undefined) {
+    // Only preview mode has tabs for these Acts. Without it there's nothing to show, and
+    // nothing to crash on either.
+    const planned = isUnlocked(save) ? roadmapAct(number) : undefined;
+    return planned ? <PreviewActMenu entry={planned} /> : null;
+  }
+  const { act, missions } = content;
   const { placementTest, boss, fieldMission } = act;
   const actProgress = save.acts[String(act.act)];
-  const bossUnlocked = act.missionIds.every((id) => missionDone(save, id));
   const reviews = reviewItemsToday();
   const rank = rankFor(completedActNumbers(save.acts));
 
@@ -219,7 +213,7 @@ export function ActMenu({ act: number }: { act: number }) {
             actNumber={act.act}
             actProgress={actProgress}
             boss={boss}
-            unlocked={bossUnlocked}
+            access={bossAccess(save, act)}
             hasPlacement={placementTest !== undefined}
           />
         ) : null}

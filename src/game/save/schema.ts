@@ -116,6 +116,11 @@ export const settingsSchema = z.object({
   // 'system' follows the operating system's reduced-motion preference.
   reducedMotion: z.enum(['system', 'on', 'off']),
   textSize: z.enum(['normal', 'large', 'x-large']),
+  // "Unlock everything": every Act's tab shows, bosses open early, and unbuilt parts say
+  // so. On by default while the course is being built, so everything made so far can be
+  // seen; Settings turns it off for normal progression. A default, not a new
+  // schemaVersion, so a save written before the setting existed loads, and reads as on.
+  unlockAll: z.boolean().default(true),
 });
 
 /** The first-run tutorial (version 2). Null until the player finishes or skips it. */
@@ -158,6 +163,8 @@ export function createDefaultSettings(): Settings {
     mentorModels: { hint: null, grade_question: null },
     reducedMotion: 'system',
     textSize: 'normal',
+    // On while the course is being built: every Act shows, built or not.
+    unlockAll: true,
   };
 }
 

@@ -5,6 +5,7 @@ import { devStatus } from './game/devStatus';
 import { ACTS } from './content';
 import { setCatalog } from './game/play/catalog';
 import { startPlay } from './game/play/play';
+import { browserAddress, unlockFromAddress } from './game/play/unlock';
 import { flushProgress, startProgress } from './game/progress';
 import { startTutorial } from './game/tutorial';
 import { getMentorStatus } from './mentor/client';
@@ -32,6 +33,9 @@ void startProgress();
 // Every shipped Act, in play order. Play grades the sandbox after every change.
 setCatalog({ acts: ACTS });
 startPlay();
+
+// `?unlock=all` turns preview mode on once the save loads; Settings turns it off again.
+unlockFromAddress(browserAddress);
 
 // A new save starts the first-run tutorial once it has loaded (DESIGN.md section 4).
 startTutorial();

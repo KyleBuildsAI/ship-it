@@ -14,6 +14,8 @@ async function run(page: Page, ...commands: string[]): Promise<void> {
 
 async function openAct2(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Acts', exact: true }).click();
+  // Every Act is unlocked by default, and the menu opens on Act 1.
+  await page.getByRole('tab', { name: 'Act 2' }).click();
   await expect(page.getByRole('heading', { name: 'Act 2 · Git Core' })).toBeVisible();
 }
 

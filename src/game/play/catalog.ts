@@ -25,9 +25,17 @@ export function getCatalog(): Catalog {
   return current;
 }
 
+/**
+ * The Act numbered `number`, or undefined when the game doesn't have it yet. Preview mode
+ * shows tabs for Acts that are only planned, so the menu asks before it reads one.
+ */
+export function findAct(number: number): ActContent | undefined {
+  return getCatalog().acts.find((entry) => entry.act.act === number);
+}
+
 /** The Act numbered `number`. */
 export function getAct(number: number): ActContent {
-  const content = getCatalog().acts.find((entry) => entry.act.act === number);
+  const content = findAct(number);
   if (content === undefined) throw new Error(`The game has no Act ${String(number)}.`);
   return content;
 }

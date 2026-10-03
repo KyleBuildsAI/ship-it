@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getMentorStatus, type MentorStatus } from '../../mentor/client';
 import { openMenu } from '../../game/hud';
 import { leavePlay } from '../../game/play/play';
+import { setUnlockAll } from '../../game/play/unlock';
 import {
   flushProgress,
   isSavingHere,
@@ -139,10 +140,22 @@ export function SettingsPanel() {
               <option value="low">Low</option>
             </select>
           </label>
+          <label>
+            <span>Unlock every Act</span>
+            <input
+              type="checkbox"
+              checked={settings.unlockAll}
+              onChange={(event) => {
+                setUnlockAll(event.target.checked);
+              }}
+            />
+          </label>
         </div>
       ) : null}
       <p className="play-panel__muted">
-        Reduced motion and graphics apply to the 3D world when the game next loads.
+        Reduced motion and graphics apply to the 3D world when the game next loads. Unlock every Act
+        shows all eight Acts and opens bosses early; parts not built yet say so. Turn it off for
+        normal progression.
       </p>
       <SageUsage />
 
