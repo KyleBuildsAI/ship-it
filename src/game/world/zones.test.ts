@@ -13,7 +13,8 @@ const toGitWorld: Doorway = { at: { x: 0, z: -11.5 }, to: 'gitworld' };
 const home: Doorway = { at: { x: -2, z: -11 }, to: 'campus' };
 
 describe('zoneForAct', () => {
-  it('sends Act 2 to the Git World', () => {
+  it('sends Act 1 to the machine island, and Act 2 to the Git World', () => {
+    expect(zoneForAct(1)).toBe('machine');
     expect(zoneForAct(2)).toBe('gitworld');
   });
 
@@ -22,12 +23,13 @@ describe('zoneForAct', () => {
   });
 
   it('finds the Act an island belongs to, and none for Campus', () => {
+    expect(actForZone('machine')).toBe(1);
     expect(actForZone('gitworld')).toBe(2);
     expect(actForZone('campus')).toBeNull();
   });
 
   it('opens exactly the Acts that have an island', () => {
-    expect([...openActs()]).toEqual([2]);
+    expect([...openActs()]).toEqual([1, 2]);
   });
 });
 

@@ -1,6 +1,6 @@
 import { createStore } from './store';
 
-export type ZoneId = 'campus' | 'gitworld';
+export type ZoneId = 'campus' | 'gitworld' | 'machine';
 
 /**
  * Where the player is and whether they have started exploring. It lives outside the

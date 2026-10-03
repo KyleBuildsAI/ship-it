@@ -48,7 +48,8 @@ Intern -> Junior -> Mid -> Senior -> Staff.
 
 ### Hub: Campus
 A night-time floating island HQ. Contains:
-- Portals to each Act (locked until prerequisites are met, except placement tests). An open portal leads to its own Act's island: walk into its ring, or click it and the avatar walks there. Acts with an island have an open portal (`ZONE_FOR_ACT` in `src/game/world/zones.ts`).
+- Portals to each Act (locked until prerequisites are met, except placement tests). An open portal leads to its own Act's island: walk into its ring, or click it and the avatar walks there. Acts with an island have an open portal (`ZONE_FOR_ACT` in `src/game/world/zones.ts`): Act 1's machine island and Act 2's Git World so far.
+- **The machine island** (Act 1, `src/game/world/machineIsland.ts`): the laptop's folders as terraces rising away from the player, C:\ at the front. Files lie on their folder as cards, and each terminal is a "PS n" lantern on the folder it stands in, so a cd moves a lantern and a mkdir raises a tile. A signpost spells out the active terminal's path. With no laptop loaded, a sign says to open Mission 1.1 or the Laptop sandbox.
 - **Standup Board**: the daily review queue.
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.

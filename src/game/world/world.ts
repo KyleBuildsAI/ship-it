@@ -11,7 +11,10 @@ import { createCampus, PORTAL_RING_HEIGHT } from './campus';
 import { describeCrates } from './crateLayout';
 import { CommitPath } from './commitPath';
 import { CrateYard } from './crateYard';
+import { machineQueries } from '../../engine/machine/queries';
 import { createGitWorld, GIT_WORLD_CENTER } from './gitWorld';
+import { describeTerraces } from './machine/terraceLayout';
+import { createMachineIsland, MACHINE_CENTER } from './machineIsland';
 import { describeHistory } from './historyLayout';
 import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
@@ -71,10 +74,11 @@ export function createWorld(
 
   const campus = createCampus(openActs());
   const gitWorld = createGitWorld();
+  const machine = createMachineIsland();
   const avatar = createAvatar(motion);
   // The stars follow the camera (see update), so the sky surrounds whichever island you're on.
   const stars = createStars(1400);
-  scene.add(campus.island.group, gitWorld.island.group, avatar.group, stars);
+  scene.add(campus.island.group, gitWorld.island.group, machine.island.group, avatar.group, stars);
 
   // Key + rim + low ambient (DESIGN.md section 14); the lights follow the player between islands.
   const lights = new THREE.Group();
@@ -107,9 +111,14 @@ export function createWorld(
     group: gitWorld.exit.group,
     doorway: { at: gitWorld.exit.at, to: 'campus' },
   };
+  const machineExit: { group: THREE.Object3D; doorway: Doorway } = {
+    group: machine.exit.group,
+    doorway: { at: machine.exit.at, to: 'campus' },
+  };
   const portalsIn: Record<ZoneId, readonly { group: THREE.Object3D; doorway: Doorway }[]> = {
     campus: campusPortals,
     gitworld: [gitWorldExit],
+    machine: [machineExit],
   };
   const zones: Record<ZoneId, Zone & { ground: THREE.Object3D }> = {
     campus: {
@@ -129,6 +138,15 @@ export function createWorld(
       rig: CAMERA_RIGS.gitworld,
       doorways: [gitWorldExit.doorway],
       ground: gitWorld.island.ground,
+    },
+    machine: {
+      id: 'machine',
+      center: MACHINE_CENTER,
+      radius: machine.island.radius - 1,
+      spawn: machine.spawn,
+      rig: CAMERA_RIGS.machine,
+      doorways: [machineExit.doorway],
+      ground: machine.island.ground,
     },
   };
 
@@ -336,9 +354,12 @@ export function createWorld(
     update: (dt, elapsed) => {
       campus.update(elapsed);
       gitWorld.update(elapsed);
+      machine.update(elapsed);
       if (cratesDirty && watched) {
         yard.sync(describeCrates(watched), committedSinceSync);
         path.sync(watched.repo ? describeHistory(watched.repo) : null);
+        // The laptop's terraces redraw from the same events: a cd, a mkdir, a new tab.
+        machine.sync(watched.machine ? describeTerraces(machineQueries(watched.machine)) : null);
         cratesDirty = false;
         committedSinceSync = false;
       }
