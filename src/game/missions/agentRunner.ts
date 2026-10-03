@@ -290,13 +290,17 @@ export function openFixRound(state: AgentStepState): AgentStepState {
 /**
  * Rewind to the start of the step. Play swaps the sandbox back to the log kept when the
  * step began, and the cards start over. It costs the Plan star: a real laptop has no rewind.
+ * Before any card was picked nothing has run, so a stray click undoes nothing and costs
+ * nothing.
  */
 export function rewindStep(state: AgentStepState): AgentStepState {
   const { stage } = state;
   if (stage.at === 'result' && stage.passed) {
     throw new MissionRunError('The step passed: there is nothing to rewind.');
   }
-  return { ...state, rewound: true, stage: { at: 'direct', round: 'start' } };
+  const start: AgentStage = { at: 'direct', round: 'start' };
+  if (state.tried.length === 0) return { ...state, stage: start };
+  return { ...state, rewound: true, stage: start };
 }
 
 /** Kyle saw hint rung 3, which names the card to pick. */

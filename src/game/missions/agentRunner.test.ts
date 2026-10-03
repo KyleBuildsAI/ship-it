@@ -236,6 +236,14 @@ describe('fix rounds and rewind', () => {
     expect(rewound.rewound).toBe(true);
     expect(ids(offeredPlans(rewound, step))).toEqual(['guess', 'full-path']);
   });
+
+  it('costs nothing to rewind before any card was picked, since nothing has run', () => {
+    const start = beginAgentStep(step);
+    expect(rewindStep(start)).toEqual(start);
+    expect(rewindStep(echoPlan(start, step, 'guess'))).toEqual(start);
+    const perfect = playCard(rewindStep(start), 'full-path', 'api', inTheApi);
+    expect(stars(perfect).plan).toBe(true);
+  });
 });
 
 /**
@@ -304,7 +312,7 @@ describe('stars', () => {
     const fixed = playCard(openFixRound(missed), 'fix-full-path', 'api', inTheApi);
     expect(stars(fixed)).toEqual({ plan: false, safety: true, check: true });
 
-    const afterRewind = playCard(rewindStep(start), 'full-path', 'api', inTheApi);
+    const afterRewind = playCard(rewindStep(missed), 'full-path', 'api', inTheApi);
     expect(stars(afterRewind).plan).toBe(false);
 
     const hinted = playCard(markHintRung3(start), 'full-path', 'api', inTheApi);
