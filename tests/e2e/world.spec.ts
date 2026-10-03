@@ -57,9 +57,16 @@ test('Space jumps, even right after clicking a HUD button', async ({ page }) => 
   expect(problems).toEqual([]);
 });
 
+// Every Act has an island, so every Campus portal opens. Each walk is checked on its own.
 const PORTALS = [
   { act: 1, zone: 'machine', heading: 'The Machine' },
   { act: 2, zone: 'gitworld', heading: 'Git World' },
+  { act: 3, zone: 'act3', heading: 'Branching' },
+  { act: 4, zone: 'act4', heading: 'GitHub Team Flow' },
+  { act: 5, zone: 'act5', heading: 'Quality Gates' },
+  { act: 6, zone: 'act6', heading: 'How Systems Work' },
+  { act: 7, zone: 'act7', heading: 'AI-Native Engineering' },
+  { act: 8, zone: 'act8', heading: 'The Loop' },
 ] as const;
 
 for (const { act, zone, heading } of PORTALS) {
