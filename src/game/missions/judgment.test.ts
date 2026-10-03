@@ -184,6 +184,70 @@ describe('answerKey', () => {
     expect(answerKey(approve('L'), testDeps())).toEqual(['allow']);
   });
 
+  /** The API with notes and docs each holding a file, so PowerShell asks about each. */
+  const twoFoldersLaptop = windows({ mount: API })
+    .session()
+    .write(`${API}/package.json`, '{}\n')
+    .write(`${API}/notes/onboarding.md`, '# Week 1\n')
+    .write(`${API}/docs/guide.md`, '# Guide\n')
+    .cd(API)
+    .toSpec();
+  const twoFolders = (action: object, guard: object) =>
+    JudgmentDrillSchema.parse({
+      kind: 'approve',
+      id: 'two-folders',
+      prompt: 'Allow?',
+      concept: 'approvals',
+      setup: twoFoldersLaptop,
+      action,
+      guards: [guard],
+      explain: 'Each folder holds a file, so PowerShell asks about each one.',
+    });
+  const guideSurvives = { kind: 'driveFile', path: `${API}/docs/guide.md` };
+  const packageSurvives = { kind: 'driveFile', path: `${API}/package.json` };
+
+  it('judges every answer when PowerShell asks again, as Otto answers each time', () => {
+    const line = { do: 'run', line: 'Remove-Item notes, docs', answer: 'Y' };
+    // The first Yes only deletes notes. The second, about docs, deletes the guide.
+    expect(answerKey(twoFolders(line, guideSurvives), testDeps())).toEqual(['deny']);
+    expect(answerKey(twoFolders(line, packageSurvives), testDeps())).toEqual(['allow']);
+  });
+
+  it('weighs the line with every question refused, as a mission gate does', () => {
+    // No to All spares notes, but package.json never needed a question, so it goes anyway.
+    const line = { do: 'run', line: 'Remove-Item notes, package.json', answer: 'L' };
+    expect(answerKey(twoFolders(line, packageSurvives), testDeps())).toEqual(['deny']);
+  });
+
+  it('refuses an approve whose line asks but has no answer ready, as the runner does', () => {
+    const line = { do: 'run', line: 'Remove-Item notes' };
+    expect(() => answerKey(twoFolders(line, packageSurvives), testDeps())).toThrow(
+      /no answer for it/,
+    );
+  });
+
+  it('turns a script that types over an open question into a JudgmentError', () => {
+    const drill = sample('sample-fix-cd', {
+      setup: twoFoldersLaptop,
+      history: [],
+      options: [
+        {
+          id: 'stuck',
+          text: 'Delete both, then look around.',
+          // The Yes deletes notes, then PowerShell asks about docs, so Get-Location can't run.
+          script: [
+            { do: 'run', line: 'Remove-Item notes, docs', answer: 'Y' },
+            { do: 'run', line: 'Get-Location' },
+          ],
+        },
+        { id: 'stay', text: 'Stay here.', script: [{ do: 'run', line: 'Get-Location' }] },
+        { id: 'look', text: 'List the folder.', script: [{ do: 'run', line: 'Get-ChildItem' }] },
+      ],
+    });
+    expect(() => answerKey(drill, testDeps())).toThrow(JudgmentError);
+    expect(() => answerKey(drill, testDeps())).toThrow(/option "stuck": Tab 1 is asking/);
+  });
+
   it('plays an answer in the history into the scene', () => {
     const drill = JudgmentDrillSchema.parse({
       kind: 'diagnose',

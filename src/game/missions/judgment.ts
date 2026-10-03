@@ -1,17 +1,19 @@
 import type { RepositoryDeps } from '../../engine/git/repository';
+import { DriverError, type ConfirmLetter } from '../../engine/shell/driver';
 import type { Shell } from '../../engine/shell/shell';
 import { transcriptQueries, type TranscriptEntry } from '../agent/transcript';
 import {
   driverAction,
   dryRun,
+  dryRunRefused,
   playContent,
   replay,
   sceneLog,
   withEntry,
   type SandboxLog,
 } from '../agent/replay';
-import { outcomeHolds } from './agentRunner';
-import { evaluate, type SandboxQueries } from './predicates';
+import { outcomeHolds, REFUSAL } from './agentRunner';
+import { evaluate, type Predicate, type SandboxQueries } from './predicates';
 import { sandboxQueries } from './sandbox';
 import type { JudgmentDrill } from './schema';
 
@@ -59,15 +61,31 @@ export class JudgmentError extends Error {
  * this to prove each drill has the key its author meant.
  */
 export function answerKey(drill: JudgmentDrill, deps: RepositoryDeps): readonly string[] {
-  switch (drill.kind) {
-    case 'predict':
-      return exactlyOne(drill, predictKey(drill, deps));
-    case 'diagnose':
-      return exactlyOne(drill, diagnoseKey(drill, deps));
-    case 'fix':
-      return atLeastOne(drill, fixKey(drill, deps));
-    case 'approve':
-      return [approveKey(drill, deps)];
+  return asJudgmentError(`"${drill.id}"`, () => {
+    switch (drill.kind) {
+      case 'predict':
+        return exactlyOne(drill, predictKey(drill, deps));
+      case 'diagnose':
+        return exactlyOne(drill, diagnoseKey(drill, deps));
+      case 'fix':
+        return atLeastOne(drill, fixKey(drill, deps));
+      case 'approve':
+        return [approveKey(drill, deps)];
+    }
+  });
+}
+
+/**
+ * Runs part of the grading, turning the driver's complaint (like a line typed while
+ * PowerShell is still asking) into a JudgmentError that names the drill. Either way it's a
+ * content bug, and callers catch JudgmentError to say so.
+ */
+function asJudgmentError<T>(where: string, grade: () => T): T {
+  try {
+    return grade();
+  } catch (error) {
+    if (error instanceof DriverError) throw new JudgmentError(`${where}: ${error.message}`);
+    throw error;
   }
 }
 
@@ -139,18 +157,28 @@ function diagnoseKey(drill: Extract<JudgmentDrill, { kind: 'diagnose' }>, deps: 
 function fixKey(drill: Extract<JudgmentDrill, { kind: 'fix' }>, deps: RepositoryDeps) {
   const scene = sceneOf(drill, deps);
   return drill.options
-    .filter((option) => {
-      const { shell, transcript, queries } = scratch(scene, deps);
-      for (const action of option.script) playContent(shell, transcript, action);
-      return evaluate(drill.goal, queries) && !drill.failIf.some((bad) => evaluate(bad, queries));
-    })
+    .filter((option) =>
+      asJudgmentError(`"${drill.id}" option "${option.id}"`, () => {
+        const { shell, transcript, queries } = scratch(scene, deps);
+        for (const action of option.script) playContent(shell, transcript, action);
+        return evaluate(drill.goal, queries) && !drill.failIf.some((bad) => evaluate(bad, queries));
+      }),
+    )
     .map((option) => option.id);
 }
 
+/** An answer that kept PowerShell asking this often is an engine bug, not a long line. */
+const MAX_ANSWERS = 100;
+
 /**
- * Approve: a dry run, exactly like a gate in a mission. Denying is right when allowing
- * breaks a guard. If the line asks PowerShell's Confirm question and Otto has an answer
- * ready, allowing lets him type it, so that answer is dry run as well.
+ * Approve: judged the way a mission judges the same line, gate by gate, so a drill and a
+ * mission never disagree. Denying is right when allowing breaks a guard.
+ * - The line is weighed with every Confirm question refused (dryRunRefused), as a line
+ *   gate does: refusing can't undo the paths that never asked, like a plain file beside
+ *   a folder in `Remove-Item notes, package.json`.
+ * - Allowing lets Otto type his answer. When PowerShell asks again about the next item,
+ *   he gives the same answer again (agentRunner.confirmAsked), so each answer is dry run
+ *   in turn until PowerShell stops asking. Any one that breaks a guard makes it a deny.
  */
 function approveKey(
   drill: Extract<JudgmentDrill, { kind: 'approve' }>,
@@ -159,12 +187,35 @@ function approveKey(
   const scene = sceneOf(drill, deps);
   const judge = { guards: drill.guards };
   const line = driverAction(drill.action);
-  const lineRun = dryRun(scene, line, judge, deps);
+  const lineRun = dryRunRefused(scene, line, judge, deps, REFUSAL);
   if (lineRun.harmful) return 'deny';
-  const answer = drill.action.do === 'run' ? drill.action.answer : undefined;
-  if (answer === undefined || !lineRun.step.asking) return 'allow';
-  const asked = withEntry(scene, { kind: 'action', action: line });
-  return dryRun(asked, { do: 'answer', choice: answer }, judge, deps).harmful ? 'deny' : 'allow';
+  if (!lineRun.step.asking) return 'allow';
+  const choice = drill.action.do === 'run' ? drill.action.answer : undefined;
+  if (choice === undefined) {
+    // The runner refuses this too (agentRunner.authoredAnswer): Otto would have no answer.
+    throw new JudgmentError(`"${drill.id}" asks a Confirm question but has no answer for it.`);
+  }
+  return answersHarm(withEntry(scene, { kind: 'action', action: line }), choice, judge, deps)
+    ? 'deny'
+    : 'allow';
+}
+
+/** Whether Otto's answer, given each time PowerShell asks, breaks a guard on any of them. */
+function answersHarm(
+  asked: SandboxLog,
+  choice: ConfirmLetter,
+  judge: { readonly guards: readonly Predicate[] },
+  deps: RepositoryDeps,
+): boolean {
+  const answer = { do: 'answer', choice } as const;
+  let log = asked;
+  for (let answered = 0; answered < MAX_ANSWERS; answered++) {
+    const run = dryRun(log, answer, judge, deps);
+    if (run.harmful) return true;
+    if (!run.step.asking) return false;
+    log = withEntry(log, { kind: 'action', action: answer });
+  }
+  throw new JudgmentError(`PowerShell kept asking after "${choice}".`);
 }
 
 function exactlyOne(drill: JudgmentDrill, ids: readonly string[]): readonly string[] {

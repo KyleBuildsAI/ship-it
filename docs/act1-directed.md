@@ -1165,8 +1165,10 @@ export type JudgmentAnswer =
   | { readonly kind: 'approve'; readonly allow: boolean };
   // B11 adds { kind: 'order'; cardIds } and { kind: 'spot'; lineId } with their drill kinds
 // Every right answer: predict and diagnose exactly one, fix one or more, approve ['allow'] or ['deny'].
-// A drill that breaks those counts throws JudgmentError (a content bug). Predict judges the line
-// as it stands when PowerShell asks; approve also dry runs Otto's `answer` when the line asks.
+// A drill that breaks those counts throws JudgmentError (a content bug), as does one whose lines
+// type over an open Confirm question. Predict judges the line as it stands when PowerShell asks.
+// Approve is judged as play gates it: the line with every question refused (dryRunRefused), then
+// Otto's `answer` each time PowerShell asks. A line that asks with no `answer` throws.
 export function answerKey(drill: JudgmentDrill, deps: RepositoryDeps): readonly string[];
 // keyId: Kyle's answer when it passed, else the first right one. A pick of a missing option throws.
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
