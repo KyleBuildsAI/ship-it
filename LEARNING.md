@@ -1963,3 +1963,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/141
 3. In `src/content/roadmap.ts`, the Act 5 entry. The menu just reads it.
 
 </details>
+
+---
+
+## #142 feat: mission 1.1 where things live is playable
+
+https://github.com/KyleBuildsAI/ship-it/pull/142
+
+1. Why does step 2 fail if you run `mkdir notes` while standing at home?
+2. Why does `mkdir web\notes` fail step 3 when you're in the API folder?
+3. Why can the same mission later be played by directing Otto instead of typing?
+
+<details><summary>Answers</summary>
+
+1. A bare name lands in the folder the terminal stands in, so notes lands in `C:\Users\kyle\notes`. The step requires no stray notes folder at home.
+2. It makes `api\web\notes`, inside the API. The web app is next door, at `..\web`.
+3. The steps are graded by what's on the drive, not by who typed the command. Otto's commands run through the same laptop engine.
+
+</details>
