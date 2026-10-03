@@ -266,7 +266,7 @@ These keep today's drill rules:
    - predict, fix, order and spot run on the live sandbox, so the world animates what really happens.
    - An allowed `approve` runs for real. A denied one shows the ghost it would have caused.
    - A Right or Missed banner, then the drill's `explain` (≤ 30 words).
-5. Options are shuffled by `shuffleFor(drillId, attempt)`, where `attempt` is the number of `drillHistory` entries for that id. Reviews can't be passed by remembering positions.
+5. Options are shuffled by `shuffleFor(drillId, attempt)`, where `attempt` is the number of `drillHistory` entries for that id. Each attempt gets a fresh random order (which can match the last one by chance), so over a few reviews remembering positions stops working.
 
 ### 2.3 Review queue and placement
 

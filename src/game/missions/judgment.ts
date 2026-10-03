@@ -234,9 +234,10 @@ function atLeastOne(drill: JudgmentDrill, ids: readonly string[]): readonly stri
 
 /**
  * The order to show a drill's options in on one attempt. The same drill and attempt always
- * give the same order, so a reload shows what Kyle saw; the next attempt (one more
- * drillHistory entry) gives a new one, so a review can't be passed by remembering where
- * the right answer sat.
+ * give the same order, so a reload shows what Kyle saw. The next attempt (one more
+ * drillHistory entry) gets a fresh random order. It can match the last one by chance
+ * (1 in 6 with three options), but over a few reviews remembering where the right answer
+ * sat stops working.
  */
 export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[] {
   return <T>(items: readonly T[]): T[] => {
