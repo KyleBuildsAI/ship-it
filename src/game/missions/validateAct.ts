@@ -336,6 +336,13 @@ export function validateAct(
     if (act.missionIds.at(-1) !== final.id) {
       report(`lesson ${final.id}`, 'A final lesson comes last in missionIds.');
     }
+    // The final completes the Act in place of a boss only when the Act names it.
+    if (act.finalLessonId !== final.id) {
+      report(`lesson ${final.id}`, "A final lesson is named as the Act's finalLessonId.");
+    }
+  }
+  if (act.finalLessonId !== undefined && !finals.some((final) => final.id === act.finalLessonId)) {
+    report('act > finalLessonId', `No final lesson has the id "${act.finalLessonId}".`);
   }
 
   // Shipping a mission means taking it off the "Coming soon" list, or it shows twice.

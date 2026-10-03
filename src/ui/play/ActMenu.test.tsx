@@ -9,7 +9,12 @@ import {
   secondMission,
   thirdMission,
 } from '../../game/missions/sample.test-mission';
-import { sampleFinal, sampleLesson, sampleLessonAct } from '../../game/missions/sample.test-lesson';
+import {
+  sampleFinal,
+  sampleLesson,
+  sampleLessonAct,
+  sampleSecondLesson,
+} from '../../game/missions/sample.test-lesson';
 import { ActSchema } from '../../game/missions/schema';
 import { setCatalog, type ActContent } from '../../game/play/catalog';
 import { startLesson } from '../../game/play/lessonPlay';
@@ -276,7 +281,8 @@ describe('an Act made of lessons', () => {
   it('lists each lesson with Play, its card count, and the final as timed', () => {
     expect(rows(menuFor(lessonAct))).toEqual([
       `4.1 ${sampleLesson.title} · 6 cards [Play]`,
-      `4.2 Final: ${sampleFinal.title} · Timed final challenge [Play]`,
+      `4.2 ${sampleSecondLesson.title} · 6 cards [Play]`,
+      `4.3 Final: ${sampleFinal.title} · Timed final challenge [Play]`,
     ]);
   });
 

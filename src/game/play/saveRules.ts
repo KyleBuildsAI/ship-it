@@ -170,7 +170,14 @@ export function completeLesson(
     bestDrillScore: Math.max(current.bestDrillScore ?? 0, firstTryPercent),
     xpEarned: current.xpEarned + xp,
   };
-  return refreshAct(addXp(withMission(save, finished.id, updated), xp), target, now);
+  let next = addXp(withMission(save, finished.id, updated), xp);
+  // The Act's final stands in for its boss, so beating it is recorded as beating the
+  // boss. Its own XP is the reward; the boss award isn't paid on top.
+  const progress = act(next, target.act);
+  if (target.finalLessonId === finished.id && progress.bossCompletedAt === null) {
+    next = withAct(next, target.act, { ...progress, bossCompletedAt: now.toISOString() });
+  }
+  return refreshAct(next, target, now);
 }
 
 /** Records a placement test. Testing out completes the Act's missions at half XP, once. */
@@ -244,15 +251,18 @@ export function missionDone(save: SaveData, missionId: string): boolean {
  * Stamps the Act complete once every mission is done (or tested out), the boss is beaten,
  * and the Field Mission is verified. A placement pass alone also completes it (section 5).
  * An early-access Act never completes: finishing what's built so far isn't the whole Act.
+ *
+ * A lesson Act's final is listed in missionIds and stands in for the boss, so finishing
+ * every lesson beats it. Its Field Mission is optional, and only counts when it exists.
  */
 function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   if (target.earlyAccess) return save;
   const current = act(save, target.act);
   if (current.completedAt !== null) return save;
+  const bossBeaten = target.finalLessonId !== undefined || current.bossCompletedAt !== null;
+  const fieldDone = target.fieldMission === undefined || current.fieldMissionCompletedAt !== null;
   const everything =
-    target.missionIds.every((id) => missionDone(save, id)) &&
-    current.bossCompletedAt !== null &&
-    current.fieldMissionCompletedAt !== null;
+    target.missionIds.every((id) => missionDone(save, id)) && bossBeaten && fieldDone;
   if (!everything && !current.placement.testedOut) return save;
   return withAct(save, target.act, { ...current, completedAt: now.toISOString() });
 }

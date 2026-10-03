@@ -217,18 +217,30 @@ export const sampleFinalInput = {
 
 export const sampleFinal: Lesson = LessonSchema.parse(sampleFinalInput);
 
-/** An early-access Act made of lessons only, ending in its final. */
+/** A second lesson, so the sample Act has the three a finished Act needs. */
+export const sampleSecondLessonInput = {
+  ...sampleLessonInput,
+  id: 'sample-second-review',
+  title: 'Review Another PR (sample)',
+} satisfies LessonInput;
+
+export const sampleSecondLesson: Lesson = LessonSchema.parse(sampleSecondLessonInput);
+
+/**
+ * A finished Act made of lessons only. Its final stands in for the boss, so it needs no
+ * boss, placement test or Field Mission, and completes when every lesson is done.
+ */
 export const lessonActInput = {
   act: 4,
   title: 'GitHub Team Flow (sample)',
-  earlyAccess: true,
-  missionIds: [sampleLesson.id, sampleFinal.id],
+  missionIds: [sampleLesson.id, sampleSecondLesson.id, sampleFinal.id],
+  finalLessonId: sampleFinal.id,
 } satisfies ActInput;
 
 export function sampleLessonAct(): { act: Act; missions: []; lessons: Lesson[] } {
   return {
     act: ActSchema.parse(lessonActInput),
     missions: [],
-    lessons: [sampleLesson, sampleFinal],
+    lessons: [sampleLesson, sampleSecondLesson, sampleFinal],
   };
 }

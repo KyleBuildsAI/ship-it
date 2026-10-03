@@ -12,7 +12,13 @@ import {
   thirdMission,
 } from './sample.test-mission';
 import type { Predicate } from './predicates';
-import { lessonActInput, sampleFinal, sampleLesson, sampleLessonAct } from './sample.test-lesson';
+import {
+  lessonActInput,
+  sampleFinal,
+  sampleLesson,
+  sampleLessonAct,
+  sampleSecondLesson,
+} from './sample.test-lesson';
 import { ActSchema, type Act, type CompleteAct, type Mission, type MissionStep } from './schema';
 import { validateAct, validateCatalog } from './validateAct';
 
@@ -499,7 +505,7 @@ describe('an Act made of lessons', () => {
   });
 
   it('catches a lesson that is missing, unlisted, or in the wrong Act', () => {
-    expect(validateAct(act, [], [sampleFinal])).toEqual([
+    expect(validateAct(act, [], [sampleSecondLesson, sampleFinal])).toEqual([
       { where: 'act > missionIds', problem: `No mission has the id "${sampleLesson.id}".` },
     ]);
     const stray = { ...sampleLesson, id: 'sample-stray', act: 5 };
@@ -510,7 +516,10 @@ describe('an Act made of lessons', () => {
   });
 
   it('keeps one final, played last', () => {
-    const finalFirst = { ...act, missionIds: [sampleFinal.id, sampleLesson.id] };
+    const finalFirst = {
+      ...act,
+      missionIds: [sampleFinal.id, sampleLesson.id, sampleSecondLesson.id],
+    };
     expect(validateAct(finalFirst, [], lessons)).toEqual([
       { where: `lesson ${sampleFinal.id}`, problem: 'A final lesson comes last in missionIds.' },
     ]);
@@ -520,6 +529,27 @@ describe('an Act made of lessons', () => {
       where: 'act',
       problem: 'An Act has at most one final lesson.',
     });
+  });
+
+  it("names its final as the Act's finalLessonId, and that id is a final", () => {
+    const unnamed = { ...act, finalLessonId: undefined };
+    expect(validateAct(unnamed, [], lessons)).toEqual([
+      {
+        where: `lesson ${sampleFinal.id}`,
+        problem: "A final lesson is named as the Act's finalLessonId.",
+      },
+    ]);
+    const plain = { ...act, finalLessonId: sampleSecondLesson.id };
+    expect(validateAct(plain, [], lessons)).toEqual([
+      {
+        where: `lesson ${sampleFinal.id}`,
+        problem: "A final lesson is named as the Act's finalLessonId.",
+      },
+      {
+        where: 'act > finalLessonId',
+        problem: `No final lesson has the id "${sampleSecondLesson.id}".`,
+      },
+    ]);
   });
 
   it('catches a lesson that shares an id with a mission, here or in another Act', () => {
@@ -538,7 +568,11 @@ describe('an Act made of lessons', () => {
   });
 
   it('takes a shipped lesson off the upcoming list', () => {
-    const stale = ActSchema.parse({ ...lessonActInput, upcoming: [sampleLesson.title] });
+    const stale = ActSchema.parse({
+      ...lessonActInput,
+      earlyAccess: true,
+      upcoming: [sampleLesson.title],
+    });
     expect(validateAct(stale, [], lessons)).toEqual([
       {
         where: 'act > upcoming',

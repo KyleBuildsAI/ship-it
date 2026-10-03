@@ -6,11 +6,18 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
+import {
+  sampleFinal,
+  sampleLesson,
+  sampleLessonAct,
+  sampleSecondLesson,
+} from '../missions/sample.test-lesson';
 import type { Act } from '../missions/schema';
 import { XP_AWARDS } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
 import {
   completeBoss,
+  completeLesson,
   completeMission,
   missionDone,
   questionXp,
@@ -205,5 +212,50 @@ describe('an early-access act', () => {
     // The same progress completes the Act once it leaves early access.
     const finished = finishEverything({ ...earlyAct, earlyAccess: false });
     expect(finished.acts[String(earlyAct.act)]?.completedAt).toBe(NOW.toISOString());
+  });
+});
+
+describe('an act made of lessons', () => {
+  const { act: lessonAct } = sampleLessonAct();
+  const progressOf = (save: SaveData) => save.acts[String(lessonAct.act)];
+
+  it('completes when its final is done, with the final counted as the boss', () => {
+    let save = fresh();
+    save = completeLesson(save, lessonAct, sampleLesson, 100, NOW);
+    save = completeLesson(save, lessonAct, sampleSecondLesson, 80, NOW);
+    expect(progressOf(save)?.completedAt ?? null).toBeNull();
+    save = completeLesson(save, lessonAct, sampleFinal, 50, LATER);
+    expect(progressOf(save)).toMatchObject({
+      bossCompletedAt: LATER.toISOString(),
+      completedAt: LATER.toISOString(),
+    });
+    // The final pays its own XP; the boss award isn't paid on top.
+    expect(save.profile.xp).toBe(sampleLesson.xp + sampleSecondLesson.xp + sampleFinal.xp);
+  });
+
+  it('is not complete from the final alone, and a replay changes nothing', () => {
+    let save = completeLesson(fresh(), lessonAct, sampleFinal, 100, NOW);
+    expect(progressOf(save)).toMatchObject({
+      bossCompletedAt: NOW.toISOString(),
+      completedAt: null,
+    });
+    save = completeLesson(save, lessonAct, sampleLesson, 100, NOW);
+    save = completeLesson(save, lessonAct, sampleSecondLesson, 100, NOW);
+    expect(progressOf(save)?.completedAt).toBe(NOW.toISOString());
+    const replay = completeLesson(save, lessonAct, sampleFinal, 100, LATER);
+    expect(progressOf(replay)).toEqual(progressOf(save));
+    expect(replay.profile.xp).toBe(save.profile.xp);
+  });
+
+  it('waits for its Field Mission when it has one', () => {
+    const withField: Act = { ...lessonAct, fieldMission: sampleAct.fieldMission };
+    let save = fresh();
+    for (const lesson of [sampleLesson, sampleSecondLesson, sampleFinal]) {
+      save = completeLesson(save, withField, lesson, 100, NOW);
+    }
+    expect(progressOf(save)?.completedAt).toBeNull();
+    const ids = sampleAct.fieldMission.verifications.map((check) => check.id);
+    save = recordFieldMission(save, withField, ids, LATER);
+    expect(progressOf(save)?.completedAt).toBe(LATER.toISOString());
   });
 });
