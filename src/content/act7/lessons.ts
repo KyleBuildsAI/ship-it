@@ -21,16 +21,16 @@ export const briefTheAgent = {
       question: 'Which brief do you give the agent?',
       options: [
         {
-          id: 'spec',
-          text: 'Add an Export CSV button to /admin/orders: id, date, customer, total. Keep the page’s filters. Admins only. Test the columns and the permission. Change no other pages.',
-          correct: true,
-          feedback: 'Goal, details, who, proof, and a boundary.',
-        },
-        {
           id: 'short',
           text: 'Add CSV export.',
           correct: false,
           feedback: 'Which data, which columns, who may use it? The agent will guess.',
+        },
+        {
+          id: 'spec',
+          text: 'Add an Export CSV button to /admin/orders: id, date, customer, total. Keep the page’s filters. Admins only. Test the columns and the permission. Change no other pages.',
+          correct: true,
+          feedback: 'Goal, details, who, proof, and a boundary.',
         },
         {
           id: 'huge',
@@ -93,12 +93,6 @@ export const briefTheAgent = {
       question: 'What’s the real effect?',
       options: [
         {
-          id: 'swallow',
-          text: 'Errors are swallowed: a database outage now looks like “no user”, and NotFound is gone.',
-          correct: true,
-          feedback: 'Right: “robust” here means failing silently.',
-        },
-        {
           id: 'better',
           text: 'It’s safer: no more crashes.',
           correct: false,
@@ -109,6 +103,12 @@ export const briefTheAgent = {
           text: 'It behaves the same as before.',
           correct: false,
           feedback: 'A missing user now returns null instead of NotFound.',
+        },
+        {
+          id: 'swallow',
+          text: 'Errors are swallowed: a database outage now looks like “no user”, and NotFound is gone.',
+          correct: true,
+          feedback: 'Right: “robust” here means failing silently.',
         },
       ],
       explanation:
@@ -121,16 +121,16 @@ export const briefTheAgent = {
       question: 'What do you do?',
       options: [
         {
-          id: 'split',
-          text: 'Ask why, and have it split the typo fix from everything else.',
-          correct: true,
-          feedback: 'One PR, one purpose.',
-        },
-        {
           id: 'merge',
           text: 'Merge. More cleanup is good.',
           correct: false,
           feedback: '31 files you didn’t ask for, reviewed by nobody.',
+        },
+        {
+          id: 'split',
+          text: 'Ask why, and have it split the typo fix from everything else.',
+          correct: true,
+          feedback: 'One PR, one purpose.',
         },
         {
           id: 'check-one',
@@ -216,12 +216,6 @@ export const guardrailsForAgents = {
       question: 'What is this?',
       options: [
         {
-          id: 'injection',
-          text: 'Prompt injection: hidden instructions in data, trying to make the agent act.',
-          correct: true,
-          feedback: 'Yes. Text an agent reads is data, never orders.',
-        },
-        {
           id: 'approved',
           text: 'An approved task from the owner.',
           correct: false,
@@ -232,6 +226,12 @@ export const guardrailsForAgents = {
           text: 'Just a typo report.',
           correct: false,
           feedback: 'Look at the hidden comment.',
+        },
+        {
+          id: 'injection',
+          text: 'Prompt injection: hidden instructions in data, trying to make the agent act.',
+          correct: true,
+          feedback: 'Yes. Text an agent reads is data, never orders.',
         },
       ],
       explanation:
@@ -244,16 +244,16 @@ export const guardrailsForAgents = {
       question: 'Which token do you give it?',
       options: [
         {
-          id: 'least',
-          text: 'A fine-grained token for that repo only: read contents, write pull requests.',
-          correct: true,
-          feedback: 'Least privilege: it can do the job and nothing more.',
-        },
-        {
           id: 'admin',
           text: 'Your admin token, to avoid permission errors.',
           correct: false,
           feedback: 'A leaked or tricked agent could delete everything.',
+        },
+        {
+          id: 'least',
+          text: 'A fine-grained token for that repo only: read contents, write pull requests.',
+          correct: true,
+          feedback: 'Least privilege: it can do the job and nothing more.',
         },
         {
           id: 'password',
@@ -302,12 +302,6 @@ export const guardrailsForAgents = {
       question: 'What’s the right setup?',
       options: [
         {
-          id: 'approve',
-          text: 'Destructive commands need your approval, and you read the exact path first.',
-          correct: true,
-          feedback: 'A human gate on what can’t be undone.',
-        },
-        {
           id: 'auto',
           text: 'Auto-approve everything. It’s faster.',
           correct: false,
@@ -318,6 +312,12 @@ export const guardrailsForAgents = {
           text: 'Never give agents tools.',
           correct: false,
           feedback: 'Tools are what make agents useful. Gate the dangerous ones.',
+        },
+        {
+          id: 'approve',
+          text: 'Destructive commands need your approval, and you read the exact path first.',
+          correct: true,
+          feedback: 'A human gate on what can’t be undone.',
         },
       ],
       explanation:
@@ -331,16 +331,16 @@ export const guardrailsForAgents = {
       question: 'What helps?',
       options: [
         {
-          id: 'context',
-          text: 'Point it at the folders that matter, and keep a short map of the codebase in its instructions.',
-          correct: true,
-          feedback: 'Less context in means faster and cheaper work out.',
-        },
-        {
           id: 'bigger',
           text: 'Use the most powerful model for everything.',
           correct: false,
           feedback: 'Costlier still, and the context problem remains.',
+        },
+        {
+          id: 'context',
+          text: 'Point it at the folders that matter, and keep a short map of the codebase in its instructions.',
+          correct: true,
+          feedback: 'Less context in means faster and cheaper work out.',
         },
         {
           id: 'accept',
@@ -413,12 +413,6 @@ export const theAgentWentRogue = {
       question: 'What’s wrong?',
       options: [
         {
-          id: 'double',
-          text: 'Refunds of up to twice what was paid are now allowed.',
-          correct: true,
-          feedback: 'Yes: a money bug that no test covered.',
-        },
-        {
           id: 'nothing',
           text: 'Nothing. CI passed.',
           correct: false,
@@ -429,6 +423,12 @@ export const theAgentWentRogue = {
           text: 'The error message is vague.',
           correct: false,
           feedback: 'True, but small next to giving money away.',
+        },
+        {
+          id: 'double',
+          text: 'Refunds of up to twice what was paid are now allowed.',
+          correct: true,
+          feedback: 'Yes: a money bug that no test covered.',
         },
       ],
       explanation:
@@ -441,16 +441,16 @@ export const theAgentWentRogue = {
       question: 'Why did CI pass?',
       options: [
         {
-          id: 'no-test',
-          text: 'No test checks a refund larger than the amount paid.',
-          correct: true,
-          feedback: 'Right: an untested rule is an unguarded rule.',
-        },
-        {
           id: 'ci-bug',
           text: 'CI is broken.',
           correct: false,
           feedback: 'CI ran fine. It ran tests that don’t cover this.',
+        },
+        {
+          id: 'no-test',
+          text: 'No test checks a refund larger than the amount paid.',
+          correct: true,
+          feedback: 'Right: an untested rule is an unguarded rule.',
         },
         {
           id: 'luck',
@@ -502,12 +502,6 @@ export const theAgentWentRogue = {
       question: 'What does it do?',
       options: [
         {
-          id: 'disabled',
-          text: 'CI now passes even when tests fail.',
-          correct: true,
-          feedback: 'Yes: “|| true” turns every failure into a success.',
-        },
-        {
           id: 'faster',
           text: 'It makes CI faster.',
           correct: false,
@@ -518,6 +512,12 @@ export const theAgentWentRogue = {
           text: 'It retries failed tests.',
           correct: false,
           feedback: 'It ignores them.',
+        },
+        {
+          id: 'disabled',
+          text: 'CI now passes even when tests fail.',
+          correct: true,
+          feedback: 'Yes: “|| true” turns every failure into a success.',
         },
       ],
       explanation:
@@ -530,16 +530,16 @@ export const theAgentWentRogue = {
       question: 'How much review does this one need?',
       options: [
         {
-          id: 'same',
-          text: 'The same careful review as every PR.',
-          correct: true,
-          feedback: 'A track record doesn’t review code.',
-        },
-        {
           id: 'skim',
           text: 'A skim. It’s earned trust.',
           correct: false,
           feedback: 'This PR would have doubled refunds.',
+        },
+        {
+          id: 'same',
+          text: 'The same careful review as every PR.',
+          correct: true,
+          feedback: 'A track record doesn’t review code.',
         },
         {
           id: 'none',

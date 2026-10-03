@@ -22,17 +22,17 @@ export const branchesArePointers = {
       question: 'Is the agent right?',
       options: [
         {
+          id: 'pointer',
+          text: 'No. A branch is a name pointing at one commit, so making one is nearly free.',
+          correct: true,
+          feedback: 'Right. That’s why teams make a branch for every change.',
+        },
+        {
           id: 'copy',
           text: 'Yes. Each branch is a full copy, so keep them few.',
           correct: false,
           feedback:
             'Git copies no files for a branch. It writes one tiny file holding a commit id.',
-        },
-        {
-          id: 'pointer',
-          text: 'No. A branch is a name pointing at one commit, so making one is nearly free.',
-          correct: true,
-          feedback: 'Right. That’s why teams make a branch for every change.',
         },
         {
           id: 'folder',
@@ -57,17 +57,17 @@ export const branchesArePointers = {
           feedback: 'It may commit straight onto main, where everyone’s work lands.',
         },
         {
-          id: 'branch',
-          text: 'Create a branch called feat/login from an up-to-date main, build the page there, and commit in small steps. Don’t touch main.',
-          correct: true,
-          feedback: 'It names the branch, where it starts, and the boundary: main stays untouched.',
-        },
-        {
           id: 'copy-folder',
           text: 'Copy the project into a new folder and build it there.',
           correct: false,
           feedback:
             'That loses history and makes merging back a manual mess. Branches exist for this.',
+        },
+        {
+          id: 'branch',
+          text: 'Create a branch called feat/login from an up-to-date main, build the page there, and commit in small steps. Don’t touch main.',
+          correct: true,
+          feedback: 'It names the branch, where it starts, and the boundary: main stays untouched.',
         },
       ],
       explanation:
@@ -89,16 +89,16 @@ export const branchesArePointers = {
       question: 'What does git do?',
       options: [
         {
-          id: 'ff',
-          text: 'Slides main forward to c3. No new commit is needed.',
-          correct: true,
-          feedback: 'Yes: a fast-forward. Main’s history already leads to c3.',
-        },
-        {
           id: 'merge-commit',
           text: 'Always makes a merge commit joining the two.',
           correct: false,
           feedback: 'Only when both sides have new commits. Here only one side moved.',
+        },
+        {
+          id: 'ff',
+          text: 'Slides main forward to c3. No new commit is needed.',
+          correct: true,
+          feedback: 'Yes: a fast-forward. Main’s history already leads to c3.',
         },
         {
           id: 'conflict',
@@ -163,12 +163,6 @@ export const branchesArePointers = {
       question: 'What do you say?',
       options: [
         {
-          id: 'delete',
-          text: 'Delete it. Its commits are safe in main’s history.',
-          correct: true,
-          feedback: 'Yes: deleting a merged branch removes only the label.',
-        },
-        {
           id: 'keep',
           text: 'Keep it forever as a backup.',
           correct: false,
@@ -179,6 +173,12 @@ export const branchesArePointers = {
           text: 'Never delete branches: it deletes their commits.',
           correct: false,
           feedback: 'Deleting a label doesn’t delete commits that main can still reach.',
+        },
+        {
+          id: 'delete',
+          text: 'Delete it. Its commits are safe in main’s history.',
+          correct: true,
+          feedback: 'Yes: deleting a merged branch removes only the label.',
         },
       ],
       explanation:
@@ -216,16 +216,16 @@ export const conflictsWithoutPanic = {
       question: 'What do the markers mean?',
       options: [
         {
-          id: 'sides',
-          text: 'Above ======= is the branch you’re on (HEAD). Below is the branch being merged in.',
-          correct: true,
-          feedback: 'Right. HEAD is where you are; the other side is named at the bottom.',
-        },
-        {
           id: 'old-new',
           text: 'Above is the old code, below is the new code.',
           correct: false,
           feedback: 'Both sides are new. Each branch changed the same line differently.',
+        },
+        {
+          id: 'sides',
+          text: 'Above ======= is the branch you’re on (HEAD). Below is the branch being merged in.',
+          correct: true,
+          feedback: 'Right. HEAD is where you are; the other side is named at the bottom.',
         },
         {
           id: 'broken',
@@ -245,17 +245,17 @@ export const conflictsWithoutPanic = {
       question: 'How should this conflict be resolved?',
       options: [
         {
-          id: 'theirs',
-          text: 'Always take the incoming side. It’s newer.',
-          correct: false,
-          feedback: 'Newer isn’t the same as right. Both changes had a reason.',
-        },
-        {
           id: 'understand',
           text: 'Find out why each side changed, then choose or combine, and run the tests.',
           correct: true,
           feedback:
             'Yes. A resolution is a decision about behaviour, so check the reasons and prove it.',
+        },
+        {
+          id: 'theirs',
+          text: 'Always take the incoming side. It’s newer.',
+          correct: false,
+          feedback: 'Newer isn’t the same as right. Both changes had a reason.',
         },
         {
           id: 'both',
@@ -280,16 +280,16 @@ export const conflictsWithoutPanic = {
           feedback: 'That silently throws away 14 changes your teammates made.',
         },
         {
-          id: 'explain',
-          text: 'For each conflict, show both sides and what each was for. Resolve only the clear ones, list the rest for me, then run the tests.',
-          correct: true,
-          feedback: 'It keeps you in charge of the hard calls and asks for proof.',
-        },
-        {
           id: 'restart',
           text: 'Delete your branch and start over from main.',
           correct: false,
           feedback: 'Losing all that work costs far more than reading the conflicts.',
+        },
+        {
+          id: 'explain',
+          text: 'For each conflict, show both sides and what each was for. Resolve only the clear ones, list the rest for me, then run the tests.',
+          correct: true,
+          feedback: 'It keeps you in charge of the hard calls and asks for proof.',
         },
       ],
       explanation:
@@ -317,16 +317,16 @@ export const conflictsWithoutPanic = {
       question: 'What’s the clean way out?',
       options: [
         {
-          id: 'abort',
-          text: 'git merge --abort, which puts everything back as it was before the merge.',
-          correct: true,
-          feedback: 'Yes: it’s the undo button for a merge in progress.',
-        },
-        {
           id: 'delete-files',
           text: 'Delete the conflicted files.',
           correct: false,
           feedback: 'That deletes files from the project, and the merge is still in progress.',
+        },
+        {
+          id: 'abort',
+          text: 'git merge --abort, which puts everything back as it was before the merge.',
+          correct: true,
+          feedback: 'Yes: it’s the undo button for a merge in progress.',
         },
         {
           id: 'commit-anyway',
@@ -389,13 +389,6 @@ export const conflictStorm = {
       question: 'What fits?',
       options: [
         {
-          id: 'rebase',
-          text: 'Rebase the branch onto main, then push with --force-with-lease.',
-          correct: true,
-          feedback:
-            'Yes. Rebase replays your commits on top, and it’s safe because the branch is yours.',
-        },
-        {
           id: 'rebase-main',
           text: 'Rebase main onto your branch.',
           correct: false,
@@ -406,6 +399,13 @@ export const conflictStorm = {
           text: 'Reset the branch to main and redo the work.',
           correct: false,
           feedback: 'That throws the work away.',
+        },
+        {
+          id: 'rebase',
+          text: 'Rebase the branch onto main, then push with --force-with-lease.',
+          correct: true,
+          feedback:
+            'Yes. Rebase replays your commits on top, and it’s safe because the branch is yours.',
         },
       ],
       explanation:
@@ -419,16 +419,16 @@ export const conflictStorm = {
       question: 'Which rule was broken?',
       options: [
         {
-          id: 'rewrite',
-          text: 'Don’t rewrite history that others have already pulled.',
-          correct: true,
-          feedback: 'Right. Rebasing a shared branch changes commit ids under everyone.',
-        },
-        {
           id: 'pull',
           text: 'Others should never pull.',
           correct: false,
           feedback: 'Pulling is normal. Rewriting shared history is the problem.',
+        },
+        {
+          id: 'rewrite',
+          text: 'Don’t rewrite history that others have already pulled.',
+          correct: true,
+          feedback: 'Right. Rebasing a shared branch changes commit ids under everyone.',
         },
         {
           id: 'never-rebase',
@@ -486,12 +486,6 @@ export const conflictStorm = {
       question: 'What’s the fastest way to find it?',
       options: [
         {
-          id: 'bisect',
-          text: 'git bisect: mark one good and one bad commit, and test the middle until it’s found.',
-          correct: true,
-          feedback: 'About 8 tests for 200 commits: it halves the range every time.',
-        },
-        {
           id: 'read-all',
           text: 'Read all 200 diffs.',
           correct: false,
@@ -502,6 +496,12 @@ export const conflictStorm = {
           text: 'Revert the last 200 commits.',
           correct: false,
           feedback: 'That undoes weeks of good work to remove one bad change.',
+        },
+        {
+          id: 'bisect',
+          text: 'git bisect: mark one good and one bad commit, and test the middle until it’s found.',
+          correct: true,
+          feedback: 'About 8 tests for 200 commits: it halves the range every time.',
         },
       ],
       explanation:
@@ -514,16 +514,16 @@ export const conflictStorm = {
       question: 'Which instruction keeps both pieces of work safe?',
       options: [
         {
-          id: 'stash',
-          text: 'Stash your changes with a message, switch to main, branch hotfix/crash, fix and commit it, then come back and pop the stash.',
-          correct: true,
-          feedback: 'Nothing is lost, and the hotfix starts clean from main.',
-        },
-        {
           id: 'drop',
           text: 'Throw away what you’re doing and fix main.',
           correct: false,
           feedback: 'It wastes the work in progress for no reason.',
+        },
+        {
+          id: 'stash',
+          text: 'Stash your changes with a message, switch to main, branch hotfix/crash, fix and commit it, then come back and pop the stash.',
+          correct: true,
+          feedback: 'Nothing is lost, and the hotfix starts clean from main.',
         },
         {
           id: 'same-branch',

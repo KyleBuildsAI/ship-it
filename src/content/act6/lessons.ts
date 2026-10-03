@@ -70,12 +70,6 @@ export const requestsAndResponses = {
       question: 'What does this response mean?',
       options: [
         {
-          id: 'auth',
-          text: 'The server doesn’t know who you are: the login token expired.',
-          correct: true,
-          feedback: '401 means not authenticated. Log in again or refresh the token.',
-        },
-        {
           id: 'crash',
           text: 'The server crashed.',
           correct: false,
@@ -86,6 +80,12 @@ export const requestsAndResponses = {
           text: 'The page doesn’t exist.',
           correct: false,
           feedback: 'That’s 404.',
+        },
+        {
+          id: 'auth',
+          text: 'The server doesn’t know who you are: the login token expired.',
+          correct: true,
+          feedback: '401 means not authenticated. Log in again or refresh the token.',
         },
       ],
       explanation:
@@ -110,16 +110,16 @@ export const requestsAndResponses = {
       question: 'What’s true about this JSON?',
       options: [
         {
-          id: 'right',
-          text: 'roles is a list, so includes works. manager is null, so code must handle “no manager”.',
-          correct: true,
-          feedback: 'Yes: read the types, especially null.',
-        },
-        {
           id: 'string',
           text: 'roles is one string.',
           correct: false,
           feedback: 'Square brackets mean a list.',
+        },
+        {
+          id: 'right',
+          text: 'roles is a list, so includes works. manager is null, so code must handle “no manager”.',
+          correct: true,
+          feedback: 'Yes: read the types, especially null.',
         },
         {
           id: 'missing',
@@ -168,12 +168,6 @@ export const requestsAndResponses = {
       question: 'Which instruction gets a well-behaved API?',
       options: [
         {
-          id: 'good',
-          text: 'Add DELETE /api/comments/:id. Only the author or an admin may delete: 403 otherwise, 404 if it doesn’t exist, 204 on success. Test each case.',
-          correct: true,
-          feedback: 'Method, path, who’s allowed, every status code, and tests.',
-        },
-        {
           id: 'vague',
           text: 'Add a way to delete comments.',
           correct: false,
@@ -184,6 +178,12 @@ export const requestsAndResponses = {
           text: 'Add GET /deleteComment?id=5.',
           correct: false,
           feedback: 'GET must never change data: browsers and crawlers follow GET links freely.',
+        },
+        {
+          id: 'good',
+          text: 'Add DELETE /api/comments/:id. Only the author or an admin may delete: 403 otherwise, 404 if it doesn’t exist, 204 on success. Test each case.',
+          correct: true,
+          feedback: 'Method, path, who’s allowed, every status code, and tests.',
         },
       ],
       explanation:
@@ -235,16 +235,16 @@ export const dataSpeedAndScale = {
       question: 'What does it return?',
       options: [
         {
-          id: 'right',
-          text: 'The names and emails of up to 20 New Zealand users, in alphabetical order.',
-          correct: true,
-          feedback: 'Yes.',
-        },
-        {
           id: 'all',
           text: 'Every column of every user.',
           correct: false,
           feedback: 'SELECT names two columns, and WHERE filters the rows.',
+        },
+        {
+          id: 'right',
+          text: 'The names and emails of up to 20 New Zealand users, in alphabetical order.',
+          correct: true,
+          feedback: 'Yes.',
         },
         {
           id: 'delete',
@@ -300,12 +300,6 @@ export const dataSpeedAndScale = {
       question: 'What’s the problem?',
       options: [
         {
-          id: 'injection',
-          text: "SQL injection: an email like ' OR '1'='1 changes the query. Use query parameters.",
-          correct: true,
-          feedback: 'Right: never glue user input into SQL.',
-        },
-        {
           id: 'star',
           text: 'SELECT * is slow.',
           correct: false,
@@ -316,6 +310,12 @@ export const dataSpeedAndScale = {
           text: 'Nothing. It works.',
           correct: false,
           feedback: 'It works for honest users. Attackers aren’t honest.',
+        },
+        {
+          id: 'injection',
+          text: "SQL injection: an email like ' OR '1'='1 changes the query. Use query parameters.",
+          correct: true,
+          feedback: 'Right: never glue user input into SQL.',
         },
       ],
       explanation:
@@ -329,16 +329,16 @@ export const dataSpeedAndScale = {
       question: 'What helps most?',
       options: [
         {
-          id: 'cache',
-          text: 'Cache prices for a few minutes, and clear the cache when a price changes.',
-          correct: true,
-          feedback: 'Fast reads, and changes still show up.',
-        },
-        {
           id: 'forever',
           text: 'Cache them forever.',
           correct: false,
           feedback: 'Price changes would never appear.',
+        },
+        {
+          id: 'cache',
+          text: 'Cache prices for a few minutes, and clear the cache when a price changes.',
+          correct: true,
+          feedback: 'Fast reads, and changes still show up.',
         },
         {
           id: 'nothing',
@@ -385,12 +385,6 @@ export const dataSpeedAndScale = {
       question: 'Why is that mostly true?',
       options: [
         {
-          id: 'image',
-          text: 'The image packs the app with its exact runtime and dependencies, so it runs the same anywhere Docker runs.',
-          correct: true,
-          feedback: 'Yes: same image, same environment.',
-        },
-        {
           id: 'vm',
           text: 'Docker copies your whole laptop.',
           correct: false,
@@ -401,6 +395,12 @@ export const dataSpeedAndScale = {
           text: 'Docker fixes bugs automatically.',
           correct: false,
           feedback: 'It fixes “works on my machine”, not logic bugs.',
+        },
+        {
+          id: 'image',
+          text: 'The image packs the app with its exact runtime and dependencies, so it runs the same anywhere Docker runs.',
+          correct: true,
+          feedback: 'Yes: same image, same environment.',
         },
       ],
       explanation:
@@ -428,16 +428,16 @@ export const theThreeAmPage = {
       question: 'What do you check first?',
       options: [
         {
-          id: 'changes',
-          text: 'What changed around 02:40: deploys, settings, traffic.',
-          correct: true,
-          feedback: 'Most incidents follow a change.',
-        },
-        {
           id: 'rewrite',
           text: 'Start rewriting the checkout code.',
           correct: false,
           feedback: 'You don’t know what’s wrong yet.',
+        },
+        {
+          id: 'changes',
+          text: 'What changed around 02:40: deploys, settings, traffic.',
+          correct: true,
+          feedback: 'Most incidents follow a change.',
         },
         {
           id: 'restart',
@@ -496,12 +496,6 @@ export const theThreeAmPage = {
       question: 'What do you do now, at 3am?',
       options: [
         {
-          id: 'rollback',
-          text: 'Roll back to v4.11.0, confirm the errors drop, then investigate.',
-          correct: true,
-          feedback: 'Stop the damage first, then diagnose with users unaffected.',
-        },
-        {
           id: 'debug-live',
           text: 'Experiment with the new settings in production.',
           correct: false,
@@ -512,6 +506,12 @@ export const theThreeAmPage = {
           text: 'Wait for the morning team.',
           correct: false,
           feedback: 'A third of checkouts fail every minute you wait.',
+        },
+        {
+          id: 'rollback',
+          text: 'Roll back to v4.11.0, confirm the errors drop, then investigate.',
+          correct: true,
+          feedback: 'Stop the damage first, then diagnose with users unaffected.',
         },
       ],
       explanation:
@@ -534,16 +534,16 @@ export const theThreeAmPage = {
       question: 'Is it resolved?',
       options: [
         {
-          id: 'mitigated',
-          text: 'Mitigated: errors are back to normal, but v4.12.0 still needs fixing before it’s deployed again.',
-          correct: true,
-          feedback: 'Right: service is back, but the bug isn’t gone.',
-        },
-        {
           id: 'done',
           text: 'Fully fixed. Redeploy v4.12.0 tomorrow.',
           correct: false,
           feedback: 'It would break again.',
+        },
+        {
+          id: 'mitigated',
+          text: 'Mitigated: errors are back to normal, but v4.12.0 still needs fixing before it’s deployed again.',
+          correct: true,
+          feedback: 'Right: service is back, but the bug isn’t gone.',
         },
         {
           id: 'unclear',

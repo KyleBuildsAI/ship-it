@@ -22,12 +22,6 @@ export const testsAreGuardrails = {
       question: 'Which tests match, in that order?',
       options: [
         {
-          id: 'right',
-          text: 'Unit, integration, end-to-end.',
-          correct: true,
-          feedback: 'Yes: one function, parts together, then the whole app like a user.',
-        },
-        {
           id: 'all-e2e',
           text: 'End-to-end for all three.',
           correct: false,
@@ -38,6 +32,12 @@ export const testsAreGuardrails = {
           text: 'Unit tests for all three.',
           correct: false,
           feedback: 'A unit test can’t prove the database or the browser work.',
+        },
+        {
+          id: 'right',
+          text: 'Unit, integration, end-to-end.',
+          correct: true,
+          feedback: 'Yes: one function, parts together, then the whole app like a user.',
         },
       ],
       explanation:
@@ -50,16 +50,16 @@ export const testsAreGuardrails = {
       question: 'Which instruction?',
       options: [
         {
-          id: 'tdd',
-          text: 'First write a failing test: a 150% discount gives a price of 0. Show it failing. Then fix the code and show the test passing.',
-          correct: true,
-          feedback: 'The failing test proves the bug exists, and that the fix fixes it.',
-        },
-        {
           id: 'fix',
           text: 'Fix the discount bug.',
           correct: false,
           feedback: 'You’ll get a change, but no proof it works or stays fixed.',
+        },
+        {
+          id: 'tdd',
+          text: 'First write a failing test: a 150% discount gives a price of 0. Show it failing. Then fix the code and show the test passing.',
+          correct: true,
+          feedback: 'The failing test proves the bug exists, and that the fix fixes it.',
         },
         {
           id: 'many',
@@ -123,12 +123,6 @@ export const testsAreGuardrails = {
       question: 'What does it tell you?',
       options: [
         {
-          id: 'string',
-          text: 'form.price is text, like "9.99", but addTax needs a number. Convert and validate it.',
-          correct: true,
-          feedback: 'Yes: the type checker found a bug before any user did.',
-        },
-        {
           id: 'silence',
           text: 'Add “as any” to make it pass.',
           correct: false,
@@ -139,6 +133,12 @@ export const testsAreGuardrails = {
           text: 'Types are optional. Ignore it.',
           correct: false,
           feedback: 'It’s a gate for a reason: this is a real bug.',
+        },
+        {
+          id: 'string',
+          text: 'form.price is text, like "9.99", but addTax needs a number. Convert and validate it.',
+          correct: true,
+          feedback: 'Yes: the type checker found a bug before any user did.',
         },
       ],
       explanation:
@@ -151,16 +151,16 @@ export const testsAreGuardrails = {
       question: 'Why does lint block the merge?',
       options: [
         {
-          id: 'clean',
-          text: 'It catches leftovers and likely mistakes the same way every time, so reviewers can focus on logic.',
-          correct: true,
-          feedback: 'Right: robots check leftovers, humans check meaning.',
-        },
-        {
           id: 'looks',
           text: 'It’s only about how code looks.',
           correct: false,
           feedback: 'A debugger statement freezes the app for anyone with dev tools open.',
+        },
+        {
+          id: 'clean',
+          text: 'It catches leftovers and likely mistakes the same way every time, so reviewers can focus on logic.',
+          correct: true,
+          feedback: 'Right: robots check leftovers, humans check meaning.',
         },
         {
           id: 'skip',
@@ -252,12 +252,6 @@ export const ciAndDeploys = {
       question: 'What’s the likely cause?',
       options: [
         {
-          id: 'case',
-          text: 'Windows ignores filename case and Linux doesn’t. The import must match the real name.',
-          correct: true,
-          feedback: 'Yes: a classic laptop-versus-CI difference.',
-        },
-        {
           id: 'ci-broken',
           text: 'CI is broken. Re-run until it’s green.',
           correct: false,
@@ -268,6 +262,12 @@ export const ciAndDeploys = {
           text: 'Skip that test in CI.',
           correct: false,
           feedback: 'The app would fail on Linux servers too.',
+        },
+        {
+          id: 'case',
+          text: 'Windows ignores filename case and Linux doesn’t. The import must match the real name.',
+          correct: true,
+          feedback: 'Yes: a classic laptop-versus-CI difference.',
         },
       ],
       explanation:
@@ -280,16 +280,16 @@ export const ciAndDeploys = {
       question: 'Which instruction?',
       options: [
         {
-          id: 'secrets',
-          text: 'Put the key in no file. I’ll add a GitHub Actions secret named DEPLOY_TOKEN. Read it in the workflow as secrets.DEPLOY_TOKEN, and never print it.',
-          correct: true,
-          feedback: 'The key stays out of git and out of logs, and you add it yourself.',
-        },
-        {
           id: 'commit',
           text: 'Put the key in deploy.yml so CI can read it.',
           correct: false,
           feedback: 'Everyone with access to the repo, and every fork, can read it forever.',
+        },
+        {
+          id: 'secrets',
+          text: 'Put the key in no file. I’ll add a GitHub Actions secret named DEPLOY_TOKEN. Read it in the workflow as secrets.DEPLOY_TOKEN, and never print it.',
+          correct: true,
+          feedback: 'The key stays out of git and out of logs, and you add it yourself.',
         },
         {
           id: 'paste',
@@ -345,12 +345,6 @@ export const ciAndDeploys = {
       question: 'What do you do?',
       options: [
         {
-          id: 'read',
-          text: 'Read the breaking changes, fix what fails, and merge once it’s green.',
-          correct: true,
-          feedback: 'Major versions need reading. CI tells you what broke.',
-        },
-        {
           id: 'auto',
           text: 'Auto-merge every dependency PR.',
           correct: false,
@@ -361,6 +355,12 @@ export const ciAndDeploys = {
           text: 'Close it. Updates are risky.',
           correct: false,
           feedback: 'Skipped updates pile up security fixes and bigger jumps later.',
+        },
+        {
+          id: 'read',
+          text: 'Read the breaking changes, fix what fails, and merge once it’s green.',
+          correct: true,
+          feedback: 'Major versions need reading. CI tells you what broke.',
         },
       ],
       explanation:
@@ -413,16 +413,16 @@ export const redCi = {
       question: 'Which change most likely broke main?',
       options: [
         {
-          id: 'pr-414',
-          text: '#414, the first red run.',
-          correct: true,
-          feedback: 'Yes: everything after it inherits the break.',
-        },
-        {
           id: 'pr-415',
           text: '#415, the latest.',
           correct: false,
           feedback: 'It’s red because main was already red.',
+        },
+        {
+          id: 'pr-414',
+          text: '#414, the first red run.',
+          correct: true,
+          feedback: 'Yes: everything after it inherits the break.',
         },
         {
           id: 'pr-413',
@@ -480,12 +480,6 @@ export const redCi = {
       question: 'Where do you look first?',
       options: [
         {
-          id: 'tax',
-          text: 'tax.ts line 7: something passed to applyTax is undefined.',
-          correct: true,
-          feedback: 'The top frame is where it blew up.',
-        },
-        {
           id: 'test',
           text: 'The test file. It’s probably wrong.',
           correct: false,
@@ -496,6 +490,12 @@ export const redCi = {
           text: 'Node itself has a bug.',
           correct: false,
           feedback: 'Almost never. Start with your own code.',
+        },
+        {
+          id: 'tax',
+          text: 'tax.ts line 7: something passed to applyTax is undefined.',
+          correct: true,
+          feedback: 'The top frame is where it blew up.',
         },
       ],
       explanation:
@@ -508,16 +508,16 @@ export const redCi = {
       question: 'Which instruction?',
       options: [
         {
-          id: 'good',
-          text: 'Branch from main. Redo the cart split in small commits, running the full test suite after each. If a test fails, stop and show me. Don’t edit tests to pass.',
-          correct: true,
-          feedback: 'Small steps, proof at each one, and a rule about tests.',
-        },
-        {
           id: 'again',
           text: 'Redo the refactor and push.',
           correct: false,
           feedback: 'Same instruction, same risk of the same break.',
+        },
+        {
+          id: 'good',
+          text: 'Branch from main. Redo the cart split in small commits, running the full test suite after each. If a test fails, stop and show me. Don’t edit tests to pass.',
+          correct: true,
+          feedback: 'Small steps, proof at each one, and a rule about tests.',
         },
         {
           id: 'skip',
@@ -564,12 +564,6 @@ export const redCi = {
       question: 'What stops that happening again?',
       options: [
         {
-          id: 'required',
-          text: 'Make CI a required check in branch protection, with no bypass for admins.',
-          correct: true,
-          feedback: 'The gate holds for everyone.',
-        },
-        {
           id: 'ask',
           text: 'Ask people nicely not to.',
           correct: false,
@@ -580,6 +574,12 @@ export const redCi = {
           text: 'Remove CI so nobody sees red.',
           correct: false,
           feedback: 'Then bugs ship silently.',
+        },
+        {
+          id: 'required',
+          text: 'Make CI a required check in branch protection, with no bypass for admins.',
+          correct: true,
+          feedback: 'The gate holds for everyone.',
         },
       ],
       explanation:

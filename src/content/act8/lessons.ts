@@ -22,12 +22,6 @@ export const thinkOutLoud = {
       question: 'What do you do first?',
       options: [
         {
-          id: 'ask',
-          text: 'Ask: keep the original order? What types? How big can the list get?',
-          correct: true,
-          feedback: 'Clarifying turns a vague task into a spec.',
-        },
-        {
           id: 'type',
           text: 'Start typing straight away.',
           correct: false,
@@ -38,6 +32,12 @@ export const thinkOutLoud = {
           text: 'Think silently for five minutes.',
           correct: false,
           feedback: 'They can’t follow silent thinking. Talk.',
+        },
+        {
+          id: 'ask',
+          text: 'Ask: keep the original order? What types? How big can the list get?',
+          correct: true,
+          feedback: 'Clarifying turns a vague task into a spec.',
         },
       ],
       explanation:
@@ -64,16 +64,16 @@ export const thinkOutLoud = {
       question: 'How does it perform on a million items?',
       options: [
         {
-          id: 'linear',
-          text: 'Roughly linear: each set lookup is fast on average.',
-          correct: true,
-          feedback: 'Yes, about O(n).',
-        },
-        {
           id: 'quadratic',
           text: 'Quadratic: it compares every pair.',
           correct: false,
           feedback: 'Searching a list would. A set lookup takes constant time on average.',
+        },
+        {
+          id: 'linear',
+          text: 'Roughly linear: each set lookup is fast on average.',
+          correct: true,
+          feedback: 'Yes, about O(n).',
         },
         {
           id: 'too-big',
@@ -147,12 +147,6 @@ export const thinkOutLoud = {
       question: 'Best move?',
       options: [
         {
-          id: 'say',
-          text: 'Say where you’re stuck and what you’ve tried, then try a simpler version first.',
-          correct: true,
-          feedback: 'Interviewers can help when they can see your thinking.',
-        },
-        {
           id: 'quiet',
           text: 'Stay quiet and hope it comes to you.',
           correct: false,
@@ -163,6 +157,12 @@ export const thinkOutLoud = {
           text: 'Write code you know is wrong, to look busy.',
           correct: false,
           feedback: 'It wastes time and trust.',
+        },
+        {
+          id: 'say',
+          text: 'Say where you’re stuck and what you’ve tried, then try a simpler version first.',
+          correct: true,
+          feedback: 'Interviewers can help when they can see your thinking.',
         },
       ],
       explanation:
@@ -175,16 +175,16 @@ export const thinkOutLoud = {
       question: 'What do you do before saying it’s done?',
       options: [
         {
-          id: 'edges',
-          text: 'Test edge cases out loud: an empty list, one item, all duplicates.',
-          correct: true,
-          feedback: 'You catch your own bugs before they do.',
-        },
-        {
           id: 'done',
           text: 'Say it’s done.',
           correct: false,
           feedback: 'One example rarely covers the edge cases.',
+        },
+        {
+          id: 'edges',
+          text: 'Test edge cases out loud: an empty list, one item, all duplicates.',
+          correct: true,
+          feedback: 'You catch your own bugs before they do.',
         },
         {
           id: 'their-job',
@@ -244,12 +244,6 @@ export const designAndCustomers = {
       question: 'How do you start?',
       options: [
         {
-          id: 'requirements',
-          text: 'Agree the requirements and scale: reads per second, custom links, expiry, analytics?',
-          correct: true,
-          feedback: 'Scale and features decide the design.',
-        },
-        {
           id: 'database',
           text: 'Pick a database first.',
           correct: false,
@@ -260,6 +254,12 @@ export const designAndCustomers = {
           text: 'Draw twenty boxes straight away.',
           correct: false,
           feedback: 'Boxes without requirements are guesses.',
+        },
+        {
+          id: 'requirements',
+          text: 'Agree the requirements and scale: reads per second, custom links, expiry, analytics?',
+          correct: true,
+          feedback: 'Scale and features decide the design.',
         },
       ],
       explanation:
@@ -272,16 +272,16 @@ export const designAndCustomers = {
       question: 'What do you add?',
       options: [
         {
-          id: 'cache',
-          text: 'A cache in front of the database for link lookups.',
-          correct: true,
-          feedback: 'It serves the busy path from memory.',
-        },
-        {
           id: 'writes',
           text: 'More servers for making links.',
           correct: false,
           feedback: 'Making links isn’t the bottleneck.',
+        },
+        {
+          id: 'cache',
+          text: 'A cache in front of the database for link lookups.',
+          correct: true,
+          feedback: 'It serves the busy path from memory.',
         },
         {
           id: 'nothing',
@@ -328,12 +328,6 @@ export const designAndCustomers = {
       question: 'Best recommendation?',
       options: [
         {
-          id: 'batch',
-          text: 'Offer a batch endpoint or a filtered list call, and show them how to use it.',
-          correct: true,
-          feedback: 'It solves the real need in one call.',
-        },
-        {
           id: 'limit',
           text: 'Rate-limit them harder.',
           correct: false,
@@ -344,6 +338,12 @@ export const designAndCustomers = {
           text: 'Add servers to keep up with the loop.',
           correct: false,
           feedback: 'Costly, and the loop is still slow.',
+        },
+        {
+          id: 'batch',
+          text: 'Offer a batch endpoint or a filtered list call, and show them how to use it.',
+          correct: true,
+          feedback: 'It solves the real need in one call.',
         },
       ],
       explanation:
@@ -356,16 +356,16 @@ export const designAndCustomers = {
       question: 'What makes a strong answer?',
       options: [
         {
-          id: 'decisions',
-          text: 'The problem, your decisions and why, what went wrong, and what you’d change.',
-          correct: true,
-          feedback: 'Decisions and lessons show seniority.',
-        },
-        {
           id: 'tech-list',
           text: 'A list of every technology it uses.',
           correct: false,
           feedback: 'A list shows no judgment.',
+        },
+        {
+          id: 'decisions',
+          text: 'The problem, your decisions and why, what went wrong, and what you’d change.',
+          correct: true,
+          feedback: 'Decisions and lessons show seniority.',
         },
         {
           id: 'perfect',
@@ -438,12 +438,6 @@ export const theMockLoop = {
       question: 'What happens?',
       options: [
         {
-          id: 'key-error',
-          text: 'A KeyError: counts[word] doesn’t exist the first time. Use counts.get(word, 0) + 1.',
-          correct: true,
-          feedback: 'Yes: += reads the key before writing it, so it must exist.',
-        },
-        {
           id: 'works',
           text: 'It returns {"a": 2, "b": 1}.',
           correct: false,
@@ -454,6 +448,12 @@ export const theMockLoop = {
           text: 'A TypeError on split.',
           correct: false,
           feedback: 'split works fine on text.',
+        },
+        {
+          id: 'key-error',
+          text: 'A KeyError: counts[word] doesn’t exist the first time. Use counts.get(word, 0) + 1.',
+          correct: true,
+          feedback: 'Yes: += reads the key before writing it, so it must exist.',
         },
       ],
       explanation:
@@ -476,16 +476,16 @@ export const theMockLoop = {
       question: 'What do you ask first?',
       options: [
         {
-          id: 'what-changed',
-          text: 'What changed, and is the data growing? Then look at the report’s query.',
-          correct: true,
-          feedback: 'Change and growth explain most slowdowns.',
-        },
-        {
           id: 'restart',
           text: 'Can we restart the server?',
           correct: false,
           feedback: 'It treats the symptom and loses the evidence.',
+        },
+        {
+          id: 'what-changed',
+          text: 'What changed, and is the data growing? Then look at the report’s query.',
+          correct: true,
+          feedback: 'Change and growth explain most slowdowns.',
         },
         {
           id: 'frontend',
@@ -532,12 +532,6 @@ export const theMockLoop = {
       question: 'Your first response?',
       options: [
         {
-          id: 'acknowledge',
-          text: 'Acknowledge the impact, ask for the order ids and times, and say when they’ll hear from you next.',
-          correct: true,
-          feedback: 'Calm, specific and accountable.',
-        },
-        {
           id: 'deny',
           text: 'Our system doesn’t miss webhooks.',
           correct: false,
@@ -548,6 +542,12 @@ export const theMockLoop = {
           text: 'Your server must have been down.',
           correct: false,
           feedback: 'Maybe. Check first, then explain with evidence.',
+        },
+        {
+          id: 'acknowledge',
+          text: 'Acknowledge the impact, ask for the order ids and times, and say when they’ll hear from you next.',
+          correct: true,
+          feedback: 'Calm, specific and accountable.',
         },
       ],
       explanation:
@@ -560,16 +560,16 @@ export const theMockLoop = {
       question: 'Which answer is strongest?',
       options: [
         {
-          id: 'specific',
-          text: 'One specific bug: the symptoms, how you found the cause, the fix, and the test you added.',
-          correct: true,
-          feedback: 'Concrete and methodical, and it ends with prevention.',
-        },
-        {
           id: 'vague',
           text: 'There were lots of hard bugs.',
           correct: false,
           feedback: 'A vague answer sounds like no answer.',
+        },
+        {
+          id: 'specific',
+          text: 'One specific bug: the symptoms, how you found the cause, the fix, and the test you added.',
+          correct: true,
+          feedback: 'Concrete and methodical, and it ends with prevention.',
         },
         {
           id: 'ai',
@@ -616,12 +616,6 @@ export const theMockLoop = {
       question: 'What makes the answer good?',
       options: [
         {
-          id: 'own',
-          text: 'Own it plainly: the impact, what you did to fix it, and what you changed afterwards.',
-          correct: true,
-          feedback: 'Ownership and learning are what they’re listening for.',
-        },
-        {
           id: 'none',
           text: 'Say you don’t make mistakes.',
           correct: false,
@@ -632,6 +626,12 @@ export const theMockLoop = {
           text: 'Explain why it was someone else’s fault.',
           correct: false,
           feedback: 'Deflecting is the opposite of what they want to hear.',
+        },
+        {
+          id: 'own',
+          text: 'Own it plainly: the impact, what you did to fix it, and what you changed afterwards.',
+          correct: true,
+          feedback: 'Ownership and learning are what they’re listening for.',
         },
       ],
       explanation:

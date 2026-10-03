@@ -50,6 +50,20 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
       expect(prompts.length).toBeGreaterThanOrEqual(2);
     });
 
+    it('moves the right answer around, so its place gives nothing away', () => {
+      // Options show in the order content lists them. If the right one were usually
+      // first, Kyle could learn the position instead of the idea.
+      const places = lessons
+        .flatMap((lesson) => lesson.cards)
+        .flatMap((card) => (card.kind === 'order' ? [] : [card]))
+        .map((card) => card.options.findIndex((option) => option.correct));
+      for (const place of new Set(places)) {
+        const share = places.filter((entry) => entry === place).length / places.length;
+        expect(share).toBeLessThanOrEqual(0.5);
+      }
+      expect(new Set(places).size).toBeGreaterThanOrEqual(3);
+    });
+
     it('is complete, final and all, once every lesson is played', () => {
       const save = finishAct(createDefaultSave(NOW), content);
       expect(save.acts[String(number)]).toMatchObject({

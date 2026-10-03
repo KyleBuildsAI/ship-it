@@ -23,16 +23,16 @@ export const remotesAndPullRequests = {
       question: 'Which command?',
       options: [
         {
-          id: 'fetch',
-          text: 'git fetch, then look at origin/main.',
-          correct: true,
-          feedback: 'Fetch downloads their commits without changing your branch.',
-        },
-        {
           id: 'pull',
           text: 'git pull.',
           correct: false,
           feedback: 'Pull fetches and then merges into your branch, so it changes your files.',
+        },
+        {
+          id: 'fetch',
+          text: 'git fetch, then look at origin/main.',
+          correct: true,
+          feedback: 'Fetch downloads their commits without changing your branch.',
         },
         {
           id: 'clone',
@@ -110,16 +110,16 @@ export const remotesAndPullRequests = {
           feedback: 'You’ll get a title and nothing else for the reviewer to go on.',
         },
         {
-          id: 'good',
-          text: 'Open a PR with a Conventional Commit title. Say what changed and why, give step-by-step test instructions, and link the issue with “Closes #12”.',
-          correct: true,
-          feedback: 'The reviewer gets the purpose, the proof, and the issue it closes.',
-        },
-        {
           id: 'everything',
           text: 'Open a PR and paste every changed file into the description.',
           correct: false,
           feedback: 'The diff already shows the code. The description should explain it.',
+        },
+        {
+          id: 'good',
+          text: 'Open a PR with a Conventional Commit title. Say what changed and why, give step-by-step test instructions, and link the issue with “Closes #12”.',
+          correct: true,
+          feedback: 'The reviewer gets the purpose, the proof, and the issue it closes.',
         },
       ],
       explanation:
@@ -133,16 +133,16 @@ export const remotesAndPullRequests = {
       question: 'What comes first?',
       options: [
         {
-          id: 'issue',
-          text: 'Create an issue with the goal and what “done” looks like.',
-          correct: true,
-          feedback: 'Yes: the issue is the record of why the work exists.',
-        },
-        {
           id: 'code',
           text: 'Start coding. The chat message is enough.',
           correct: false,
           feedback: 'Chat scrolls away, and no PR can link to it.',
+        },
+        {
+          id: 'issue',
+          text: 'Create an issue with the goal and what “done” looks like.',
+          correct: true,
+          feedback: 'Yes: the issue is the record of why the work exists.',
         },
         {
           id: 'branch-name',
@@ -213,12 +213,6 @@ export const reviewsAndReleases = {
       question: 'Which review comment is best?',
       options: [
         {
-          id: 'specific',
-          text: 'This drops item.qty, so three shirts cost the price of one. Intended? A test with qty 3 would catch it.',
-          correct: true,
-          feedback: 'Specific and kind: it names the impact and suggests the proof.',
-        },
-        {
           id: 'harsh',
           text: 'This is wrong. Did you even test it?',
           correct: false,
@@ -229,6 +223,12 @@ export const reviewsAndReleases = {
           text: 'LGTM.',
           correct: false,
           feedback: 'Approving without reading lets a pricing bug into main.',
+        },
+        {
+          id: 'specific',
+          text: 'This drops item.qty, so three shirts cost the price of one. Intended? A test with qty 3 would catch it.',
+          correct: true,
+          feedback: 'Specific and kind: it names the impact and suggests the proof.',
         },
       ],
       explanation:
@@ -241,16 +241,16 @@ export const reviewsAndReleases = {
       question: 'What’s the reason?',
       options: [
         {
-          id: 'protect',
-          text: 'Main is protected: changes need a PR, green checks and an approval.',
-          correct: true,
-          feedback: 'Yes, set in the repo’s branch protection rules.',
-        },
-        {
           id: 'bug',
           text: 'It’s a GitHub bug.',
           correct: false,
           feedback: 'It’s deliberate, and it protects everyone.',
+        },
+        {
+          id: 'protect',
+          text: 'Main is protected: changes need a PR, green checks and an approval.',
+          correct: true,
+          feedback: 'Yes, set in the repo’s branch protection rules.',
         },
         {
           id: 'admin',
@@ -303,12 +303,6 @@ export const reviewsAndReleases = {
       question: 'What’s the next version?',
       options: [
         {
-          id: 'major',
-          text: '3.0.0',
-          correct: true,
-          feedback: 'Removing something people use is a breaking change: major.',
-        },
-        {
           id: 'minor',
           text: '2.8.0',
           correct: false,
@@ -319,6 +313,12 @@ export const reviewsAndReleases = {
           text: '2.7.4',
           correct: false,
           feedback: 'Patch is for bug fixes only.',
+        },
+        {
+          id: 'major',
+          text: '3.0.0',
+          correct: true,
+          feedback: 'Removing something people use is a breaking change: major.',
         },
       ],
       explanation:
@@ -427,12 +427,6 @@ export const rejectedPush = {
       question: 'What do you do?',
       options: [
         {
-          id: 'check',
-          text: 'Read the log. If it really is flaky, re-run once and file an issue for the test.',
-          correct: true,
-          feedback: 'Evidence first. Flaky tests get tracked, not ignored.',
-        },
-        {
           id: 'override',
           text: 'Merge with an admin override.',
           correct: false,
@@ -443,6 +437,12 @@ export const rejectedPush = {
           text: 'Delete the failing test.',
           correct: false,
           feedback: 'That hides the signal forever.',
+        },
+        {
+          id: 'check',
+          text: 'Read the log. If it really is flaky, re-run once and file an issue for the test.',
+          correct: true,
+          feedback: 'Evidence first. Flaky tests get tracked, not ignored.',
         },
       ],
       explanation:
@@ -456,16 +456,16 @@ export const rejectedPush = {
       question: 'Which instruction?',
       options: [
         {
-          id: 'tight',
-          text: 'On this PR’s branch, make refunds round to the nearest cent. Add a test for 10.005. Change nothing else. Tell me when CI is green.',
-          correct: true,
-          feedback: 'One fix, one test, and a clear finish line.',
-        },
-        {
           id: 'broad',
           text: 'Fix all the rounding in the whole app while you’re there.',
           correct: false,
           feedback: 'On release day, a big diff is a big risk.',
+        },
+        {
+          id: 'tight',
+          text: 'On this PR’s branch, make refunds round to the nearest cent. Add a test for 10.005. Change nothing else. Tell me when CI is green.',
+          correct: true,
+          feedback: 'One fix, one test, and a clear finish line.',
         },
         {
           id: 'main',
@@ -512,12 +512,6 @@ export const rejectedPush = {
       question: 'Which version ships the fix?',
       options: [
         {
-          id: 'patch',
-          text: '3.0.1',
-          correct: true,
-          feedback: 'A bug fix with nothing new: patch.',
-        },
-        {
           id: 'minor',
           text: '3.1.0',
           correct: false,
@@ -528,6 +522,12 @@ export const rejectedPush = {
           text: '4.0.0',
           correct: false,
           feedback: 'Nothing breaks for users.',
+        },
+        {
+          id: 'patch',
+          text: '3.0.1',
+          correct: true,
+          feedback: 'A bug fix with nothing new: patch.',
         },
       ],
       explanation:
