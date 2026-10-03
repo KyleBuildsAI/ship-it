@@ -1,3 +1,4 @@
+import type { FixtureStep } from '../../engine/fixtures';
 import type { Act, Drill, Mission } from '../missions/schema';
 import type { SaveData } from '../save/schema';
 import { missionDone } from './saveRules';
@@ -6,6 +7,8 @@ import { missionDone } from './saveRules';
 export interface ActContent {
   readonly act: Act;
   readonly missions: readonly Mission[];
+  /** A sandbox to try things in with nothing graded, and what the terminal says when it opens. */
+  readonly freePlay?: { readonly steps: readonly FixtureStep[]; readonly notice: string };
 }
 
 /** The content the game plays: every shipped Act, in the order they're played. */

@@ -16,8 +16,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'The Machine',
     topics:
       'What every engineer who directs AI agents needs to know about the machine they run on, learned with Otto on a laptop.',
-    stage: 'preview',
-    status: 'Preview · No missions yet. The laptop engine runs in a free-play sandbox.',
+    stage: 'playable',
+    status: 'Early access: Mission 1.1 is playable, and the laptop sandbox is open.',
     missions: [
       { title: 'Where Things Live' },
       { title: 'Deletes Are Forever' },
@@ -28,7 +28,6 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     ],
     boss: { title: 'Works on My Machine' },
     fieldMission: { title: 'Brief Your Real Agent' },
-    tryouts: ['laptop-sandbox'],
   },
   {
     act: 2,

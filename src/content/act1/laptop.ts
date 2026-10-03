@@ -1,24 +1,11 @@
-import { windows, type FixtureStep } from '../../engine/fixtures';
+import type { FixtureStep } from '../../engine/fixtures';
+import { laptop } from './shared';
 
 /**
- * Act 1's free-play laptop, opened from the Act 1 menu: a stock Windows laptop with one
- * PowerShell terminal open at home, and the Quillwork API project to look around in.
- * Nothing grades it. It's the laptop engine Act 1's missions will run on, to try today.
+ * Act 1's free-play laptop, opened from the Act 1 menu: the same laptop the missions use,
+ * with nothing to grade. It's there to try the PowerShell the laptop engine runs.
  */
-
-const HOME = 'Users/kyle';
-const API = `${HOME}/quillwork/api`;
-
-export const LAPTOP_SANDBOX: readonly FixtureStep[] = windows()
-  .files({
-    [`${API}/package.json`]: '{\n  "name": "quillwork-api",\n  "version": "1.0.0"\n}\n',
-    [`${API}/server.js`]: "require('dotenv').config();\nconsole.log('Quillwork API');\n",
-    [`${API}/.env.example`]: 'PORT=\nLOG_LEVEL=\n',
-    [`${API}/README.md`]: '# Quillwork API\n\nCopy .env.example to .env, then fill it in.\n',
-    [`${HOME}/Documents/todo.txt`]: 'Get the Quillwork API running.\n',
-  })
-  .session()
-  .toSpec();
+export const LAPTOP_SANDBOX: readonly FixtureStep[] = laptop().toSpec();
 
 /** What the terminal says when the laptop opens: what it is, and what to try. */
 export const LAPTOP_NOTICE =
