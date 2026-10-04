@@ -1,4 +1,4 @@
-import type { AgentStepState } from '../missions/agentRunner';
+import type { AgentStepState, Stars } from '../missions/agentRunner';
 import type { CheckRow } from '../missions/predicates';
 import type { PlacementResult, QuestionRoundScore } from '../missions/grading';
 import type { BossOutcome, BossRun, MissionRun } from '../missions/runner';
@@ -47,6 +47,8 @@ export interface MissionActivity {
   readonly xpEarned: number;
   /** The directed step on screen (agentPlay.ts), or null: a typed step, or past the sim. */
   readonly agent: AgentStepState | null;
+  /** The stars each directed step earned, by step id. Act 2's typed missions keep it empty. */
+  readonly stars: Readonly<Record<string, Stars>>;
 }
 
 /** A row of timed drills: the placement test, or today's Standup Board reviews. */

@@ -1,6 +1,7 @@
 import { runGit } from '../../engine/git/cli/runGit';
 import { askHint, gradeQuestion } from '../../mentor/client';
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
+import { markHintRung3, starXp } from '../missions/agentRunner';
 import { explain, evaluate } from '../missions/predicates';
 import {
   checkStep,
@@ -85,6 +86,7 @@ export function startMission(missionId: string): void {
     freeTextGrade: null,
     xpEarned: 0,
     agent: null,
+    stars: {},
   });
 }
 
@@ -217,13 +219,16 @@ export async function askForHint(): Promise<void> {
   const { run, hint } = requestHint(current.run, current.mission);
   if (hint === null) return;
   const step = current.mission.steps[current.run.stepIndex];
+  // The third rung names the card to pick, which costs a directed step its Plan star.
+  const agent =
+    hint.level === 3 && current.agent !== null ? markHintRung3(current.agent) : current.agent;
   const ladderHint = { level: hint.level, text: hint.text, fromSage: false } as const;
   const mentorEnabled = progress.get().save?.settings.mentorEnabled ?? true;
   if (!mentorEnabled || step === undefined) {
-    setActivity({ ...current, run, hint: ladderHint });
+    setActivity({ ...current, run, agent, hint: ladderHint });
     return;
   }
-  setActivity({ ...current, run, hintLoading: true });
+  setActivity({ ...current, run, agent, hintLoading: true });
   const reply = await askHint({
     missionTitle: current.mission.title,
     stepInstruction: step.instruction,
@@ -274,12 +279,17 @@ export function submitQuestionRound(
       ? 0
       : Math.round((drills.filter((result) => result.passed).length / drills.length) * 100);
   const xpFromQuestions = questionXp(score.perPick);
+  // Stars pay for directing Otto. A typed mission has none, so it pays nothing here.
+  const directingXp = Object.values(current.stars).reduce(
+    (total, earned) => total + starXp(earned),
+    0,
+  );
   saveProgressNow((save) =>
     completeMission(
       save,
       getAct(current.mission.act).act,
       current.mission,
-      { drillPercent, questionXp: xpFromQuestions },
+      { drillPercent, questionXp: xpFromQuestions, directingXp },
       new Date(nowMs),
     ),
   );
@@ -289,7 +299,7 @@ export function submitQuestionRound(
     run,
     questionScore: score,
     freeTextGrade: question === null ? null : { state: 'grading' },
-    xpEarned: current.xpEarned + current.mission.xp + xpFromQuestions,
+    xpEarned: current.xpEarned + current.mission.xp + xpFromQuestions + directingXp,
   });
   if (question !== null) void gradeFreeText(question);
 }

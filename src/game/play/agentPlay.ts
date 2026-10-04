@@ -10,13 +10,16 @@ import { advance, START, type Pace, type Playhead } from '../agent/pace';
 import { showInTerminal } from '../agent/terminalFeed';
 import {
   answerCheck,
+  backToCards,
   beginAgentStep,
   choosePlan,
   completeAgentStep,
   confirmAsked,
+  echoPlan,
   finishScript,
   nextAction,
   openFixRound,
+  stars,
   toDriverAction,
   type AgentStepState,
   type QueuedAction,
@@ -134,9 +137,21 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
   return { ...current, agent: beginAgentStep(step) };
 }
 
+/** "Say it back": Otto repeats a card as "Plan: <card>. Go?" before running it. */
+export function repeatCard(planId: string): void {
+  const now = live();
+  if (now !== null) saveAgent(echoPlan(now.agent, now.step, planId));
+}
+
+/** "Pick instead": back to the cards from Otto's repeat. */
+export function pickInstead(): void {
+  const now = live();
+  if (now !== null) saveAgent(backToCards(now.agent));
+}
+
 /**
- * Kyle picks a card. Otto starts on the next frame. A second click, landing after Otto has
- * started, is ignored: a button never throws at Kyle.
+ * Kyle picks a card (or says "Go" on a repeat). Otto starts on the next frame. A second
+ * click, landing after Otto has started, is ignored: a button never throws at Kyle.
  */
 export function pickCard(planId: string): void {
   const now = live();
@@ -225,11 +240,31 @@ function driveAction(action: QueuedAction): void {
   if (step.asking && agent !== null && agent !== undefined) saveAgent(confirmAsked(agent, action));
 }
 
-/** Kyle's answer to "is Otto right?". The verdict comes from the live sandbox. */
+/**
+ * A look chip: one of Kyle's read-only lines, run at once and printed without Otto's
+ * marker. It goes in the log too, so a replay rebuilds the same terminal.
+ */
+export function runLook(lookId: string): void {
+  const now = live();
+  if (now?.agent.stage.at !== 'check') return;
+  const look = now.task.looks.find((candidate) => candidate.id === lookId);
+  if (look === undefined) throw new MissionRunError(`There is no look "${lookId}".`);
+  const step = recordAction({ do: 'run', line: look.line });
+  const fed = feedAction(now.playback.feed, step, 'kyle');
+  appendBeats(fed.beats, fed.state);
+}
+
+/**
+ * Kyle's answer to "is Otto right?". The verdict comes from the live sandbox. A step that
+ * passed keeps its stars, which pay XP when the mission is completed.
+ */
 export function checkClaim(optionId: string): void {
   const now = live();
   if (now?.agent.stage.at !== 'check') return;
-  saveAgent(answerCheck(now.agent, now.step, optionId, currentQueries()));
+  const agent = answerCheck(now.agent, now.step, optionId, currentQueries());
+  const passed = agent.stage.at === 'result' && agent.stage.passed;
+  const earned = passed ? { ...now.current.stars, [now.step.id]: stars(agent) } : now.current.stars;
+  setMission({ ...now.current, agent, stars: earned });
 }
 
 /** "Direct a fix": after a result that didn't pass, back to the cards for a fix round. */
