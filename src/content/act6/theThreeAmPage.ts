@@ -15,7 +15,7 @@ export const theThreeAmPage = {
   timeLimitSeconds: 360,
   xp: 150,
   briefing: [
-    '3:07am. Your phone buzzes: Quillwork’s checkout errors are at 30%, and you’re on call.',
+    '2:46am. Your phone buzzes: Quillwork’s checkout errors are at 30%, and you’re on call.',
     'Read the evidence, stop the damage, then find the cause. Six minutes on one clock. Sage is asleep, so this one is yours.',
   ],
   cards: [
@@ -50,7 +50,7 @@ export const theThreeAmPage = {
     {
       id: 'read-metrics',
       kind: 'choose',
-      situation: 'The checkout dashboard, for the last half hour.',
+      situation: 'The checkout dashboard, from 02:30 until now.',
       artifact: {
         kind: 'log',
         label: 'checkout dashboard',
@@ -60,7 +60,6 @@ export const theThreeAmPage = {
           '02:35  405      0.4%    175ms        24/100',
           '02:40  398      29.8%   5,020ms      100/100',
           '02:45  402      31.2%   5,010ms      100/100',
-          '02:50  395      30.5%   5,030ms      100/100',
         ].join('\n'),
       },
       question: 'What do the numbers say?',
@@ -79,7 +78,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'connections',
-          text: 'At 02:40 every database connection got used up. With normal traffic, requests wait about 5 seconds and fail.',
+          text: 'At 02:40 the database connections all got used up. At normal traffic, many requests wait 5 seconds for one, and about a third fail.',
           correct: true,
           feedback: 'Yes. Same load, but the connections are full, so requests time out waiting.',
         },
@@ -180,7 +179,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'status',
-          text: 'Checkout failing for ~30% since 02:40, likely the v4.12.0 deploy. Rolling back now. Next update by 03:30.',
+          text: 'Checkout failing for ~30% since 02:40, likely the v4.12.0 deploy. Rolling back now. Next update by 03:15.',
           correct: true,
           feedback: 'Impact, what you think, what you’re doing, and when they’ll hear more.',
         },
@@ -253,7 +252,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'evidence',
-          text: 'Compare how v4.11.0 and v4.12.0 open and release database connections. Using these logs and metrics, explain what leaks connections, add a test that fails on it, and propose a fix. Deploy nothing.',
+          text: 'Compare how v4.11.0 and v4.12.0 open and release database connections. Using these logs and metrics, explain why connections run out, add a test that fails on it, and propose a fix. Deploy nothing.',
           correct: true,
           feedback: 'Evidence, a failing test and a fix, with a clear boundary.',
         },
