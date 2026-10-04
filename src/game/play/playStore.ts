@@ -1,3 +1,4 @@
+import type { AgentStepState } from '../missions/agentRunner';
 import type { CheckRow } from '../missions/predicates';
 import type { PlacementResult, QuestionRoundScore } from '../missions/grading';
 import type { BossOutcome, BossRun, MissionRun } from '../missions/runner';
@@ -44,6 +45,8 @@ export interface MissionActivity {
   readonly questionScore: QuestionRoundScore | null;
   readonly freeTextGrade: FreeTextGrade | null;
   readonly xpEarned: number;
+  /** The directed step on screen (agentPlay.ts), or null: a typed step, or past the sim. */
+  readonly agent: AgentStepState | null;
 }
 
 /** A row of timed drills: the placement test, or today's Standup Board reviews. */

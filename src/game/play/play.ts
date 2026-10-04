@@ -1,4 +1,6 @@
 import { endDrill } from '../../mentor/drillGuard';
+import type { Pace } from '../agent/pace';
+import { frameAgent } from './agentPlay';
 import { bossSandboxChanged, bossTick } from './bossPlay';
 import { lessonTick } from './lessonPlay';
 import { missionSandboxChanged, missionTick } from './missionPlay';
@@ -21,6 +23,15 @@ export function tickPlay(nowMs: number = Date.now()): void {
   else if (kind === 'placement' || kind === 'review') seriesTick(nowMs);
   else if (kind === 'boss') bossTick(nowMs);
   else if (kind === 'lesson') lessonTick(nowMs);
+}
+
+/**
+ * Moves Otto on by one drawn frame. The UI calls it from its frame loop with the time since
+ * the last frame, never from tickPlay: at 4 ticks a second his typing would come in bursts.
+ * The UI also chooses the pace (pace.ts choosePace), since it knows the browser's settings.
+ */
+export function framePlay(elapsedMs: number, pace: Pace): void {
+  if (play.get().activity?.kind === 'mission') frameAgent(elapsedMs, pace);
 }
 
 /** Leaves whatever is being played. The sandbox stays as it is, for free play. */

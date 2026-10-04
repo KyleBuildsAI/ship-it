@@ -16,6 +16,7 @@ import {
 import { isJudgmentDrill } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
+import { beginDirectedStep, directedChecklist } from './agentPlay';
 import { findMission, getAct } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
 import { currentQueries, currentWorkspace, loadSandbox } from './sandboxControl';
@@ -51,7 +52,8 @@ function refreshChecklist(): void {
   const queries = currentQueries();
   if (run.phase === 'sim') {
     const step = mission.steps[run.stepIndex];
-    play.update({ checklist: step === undefined ? [] : explain(step.success, queries) });
+    if (step?.agent !== undefined) play.update({ checklist: directedChecklist(current) });
+    else play.update({ checklist: step === undefined ? [] : explain(step.success, queries) });
   } else if (run.phase === 'drills' && run.activeDrill !== null) {
     const drill = mission.drills[run.activeDrill.drillIndex];
     // A judgment drill's checklist would give its answer away, so it shows none.
@@ -82,6 +84,7 @@ export function startMission(missionId: string): void {
     questionScore: null,
     freeTextGrade: null,
     xpEarned: 0,
+    agent: null,
   });
 }
 
@@ -89,7 +92,8 @@ export function startMission(missionId: string): void {
 export function endBriefing(): void {
   const current = activity();
   if (current?.run.phase !== 'briefing') return;
-  setActivity({ ...current, run: finishBriefing(current.run) });
+  // A directed first step starts here: its `before` applies, and Otto waits for a card.
+  setActivity(beginDirectedStep({ ...current, run: finishBriefing(current.run) }));
 }
 
 function stepXp(current: MissionActivity, completedIds: readonly string[]): number {
@@ -149,6 +153,12 @@ export function missionSandboxChanged(nowMs: number = Date.now()): void {
   if (current === null) return;
   const { run, mission } = current;
   if (run.phase === 'sim') {
+    // Otto's lines change the sandbox as he goes, and none of them may finish a directed
+    // step: it is checked when Kyle answers the check, then advanced by agentPlay.nextStep.
+    if (mission.steps[run.stepIndex]?.agent !== undefined) {
+      refreshChecklist();
+      return;
+    }
     const next = checkStep(run, mission, currentQueries());
     const completed = next.steps.filter((step) => step.completed).map((step) => step.stepId);
     const before = run.steps.filter((step) => step.completed).length;
