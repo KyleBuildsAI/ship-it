@@ -202,7 +202,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 ## 10. Content format
 
-- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes. A lesson Act's lessons live in `src/content/actN/lessons.ts`, in play order with the final last, and `lessonAct` (`src/content/lessonAct.ts`) parses them and builds the Act, naming the final as its `finalLessonId`.
+- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes. A lesson Act's lessons are listed in `src/content/actN/lessons.ts` (the lessons themselves may live in a file each, as Act 6's do), in play order with the final last, and `lessonAct` (`src/content/lessonAct.ts`) parses them and builds the Act, naming the final as its `finalLessonId`.
 - A schema (zod or equivalent) validates every mission in tests.
 - **Mission object**: `id`, `act`, `title`, `briefing` (scene id + captions), `initialRepoState` (fixture), `steps` (instruction, success predicate, hint ladder), `drills` (scenario text, setup fixture, success predicate), `questionRound` (ticket, candidates with quality tag + rationale, rubric for free text), `xp`.
 - **Directed steps** (`agentSchema.ts`): a step's `agent` task holds 2-3 start `plans` and 1-3 `fixes` (a card, Otto's script, his claim, a lesson), one `check` whose options are graded by `truth` predicates, `guards` that must stay true, and read-only `looks`. A mission's steps are all directed or all typed. A directed mission starts with `windows()` and sets `approvals` (`changes` or `destructive`). `validateAct` gives directed text tighter budgets: goal and hints 20 words, cards and Otto's lines 12, lessons and feedback 25, checklist labels 8. It also adds up the texts that share a screen (the Direct screen, a fix round, each Check screen, each predict).
@@ -256,10 +256,13 @@ Final (the boss): **"Red CI"**, 5:00: main is broken. Find the commit, then fix 
 
 ### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.
-- 6.1 **Requests and Responses**: reading a request, status codes, JSON and null, OAuth versus API keys, specifying an endpoint for an agent, a request's journey
-- 6.2 **Data, Speed and Scale**: reading SQL, indexes, SQL injection in an agent's code, caching, queues, containers
+Every card is a day at Quillwork, a small startup that makes a writing app, with Sage, Dex, Marco, Priya and the coding agent Otto. Each lesson has 7 to 9 cards, at least two of them about what to tell Otto, and one order card.
+- 6.1 **Requests and Responses**: reading a request, status codes, picking the right code, specifying an endpoint for an agent, briefing an agent on a failing request, safe retries and idempotency, CORS, a request's journey
+- 6.2 **APIs and Auth**: REST design, JSON and null, keeping an API's contract, OAuth versus API keys, sessions and cookies, a secret key in browser code, least-scope OAuth for an agent's integration, the OAuth sign-in flow
+- 6.3 **Data, Speed and Scale**: reading SQL, indexes, asking an agent to measure with EXPLAIN, SQL injection in an agent's code, a SELECT before any DELETE, caching, a cached read in order, queues, containers
+- 6.4 **Logs and Stack Traces**: where to look in a stack trace, what was undefined, briefing a fix for the cause not the symptom, a swallowed error, following one request id, briefing safe logging, log levels, the debugging steps in order
 
-Final (the boss): **"The 3am Page"**, 5:00: incident triage from logs and metrics.
+Final (the boss): **"The 3am Page"**, 6:00 for nine cards: incident triage from metrics and logs, rolling back, telling the team, confirming recovery, then briefing Otto on the root cause and a blameless postmortem. Content lives one lesson per file in `src/content/act6/`, collected in play order by `lessons.ts`.
 
 ### Act 7: AI-Native Engineering (lessons)
 Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.
