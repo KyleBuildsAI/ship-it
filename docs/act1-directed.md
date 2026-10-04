@@ -1218,6 +1218,18 @@ export function onTerminalFeed(listener: (reveals: readonly Reveal[]) => void): 
 // judgment drill. When he takes it, and after any notice, the shell's prompt waits on its last
 // line: start with startFeed(tab, shell.prompt()). A prompt beat equal to the one waiting prints
 // nothing, so startFeed(tab) works too.
+
+// src/game/play/agentPlay.ts (A16, A17): agentRunner's hands. The step's state is
+// MissionActivity.agent; Otto's playback (beats, the action typed or held) stays in the module.
+export function beginDirectedStep(current: MissionActivity): MissionActivity; // `before`, rewind point
+export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePlay, once per drawn frame
+// Kyle's buttons, each a no-op when the stage doesn't allow it:
+// pickCard(planId), repeatCard(planId), pickInstead(), predict(optionId), decide(allow),
+// stopOtto() (applied at the next gap between lines), runLook(lookId) (at check only),
+// checkClaim(optionId) (stars kept when it passed), directFix(), rewind(), nextStep().
+// A line is typed, then driven once its typing has shown. Each action is dry-run first
+// (dryRunNow, with REFUSAL for a line) to decide its gate; an answer is typed only once allowed.
+export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
 ```
 
 Store changes:
