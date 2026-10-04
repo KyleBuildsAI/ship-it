@@ -36,7 +36,8 @@ export const lintAndTypes = {
           id: 'as-any',
           text: 'Add “as any” after form.seats so it compiles.',
           correct: false,
-          feedback: 'That hides a real bug: "3" times a price makes text, not a total.',
+          feedback:
+            'That hides a real bug. If priceFor adds seats anywhere, "3" + 1 makes "31", not 4. And "abc" seats makes NaN.',
         },
         {
           id: 'strict-off',
@@ -263,17 +264,16 @@ export const lintAndTypes = {
       id: 'local-gates',
       kind: 'order',
       situation: 'Before opening a PR, you have Otto run every gate locally.',
-      question: 'Put them in order, fastest feedback first.',
+      question: 'Put them in the order this repo runs them, fastest feedback first.',
       steps: [
-        { id: 'format', text: 'Format check' },
-        { id: 'lint', text: 'Lint' },
+        { id: 'format-lint', text: 'Format and lint' },
         { id: 'typecheck', text: 'Typecheck' },
         { id: 'unit', text: 'Unit tests' },
         { id: 'build', text: 'Build' },
         { id: 'e2e', text: 'End-to-end smoke test' },
       ],
       explanation:
-        'Cheap checks go first, so a stray quote fails in one second, not after a five-minute build. Slow, broad checks run last, once the small stuff is known to be clean.',
+        'This is the order in the repo’s CLAUDE.md. Cheap checks go first, so a stray quote fails in seconds, not after a five-minute build. The last two are forced: the end-to-end test runs against the build, so the build must come first.',
     },
   ],
 } satisfies LessonInput;

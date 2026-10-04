@@ -52,7 +52,7 @@ export const secretsAndUpdates = {
       id: 'leaked-key',
       kind: 'choose',
       situation:
-        'Dex spots this in a PR Otto pushed an hour ago. The branch is on GitHub, and the repo has 12 collaborators.',
+        'Dex spots this in a PR Otto pushed an hour ago. The repo is public, and has 12 collaborators.',
       artifact: {
         kind: 'diff',
         label: '.env',
@@ -97,13 +97,13 @@ export const secretsAndUpdates = {
       question: 'Put the steps in order.',
       steps: [
         { id: 'revoke', text: 'Revoke the leaked keys at the provider' },
+        { id: 'create', text: 'Create new keys at the provider' },
         { id: 'store', text: 'Store the new keys as GitHub Actions secrets' },
-        { id: 'remove', text: 'Remove .env from the branch and add it to .gitignore' },
-        { id: 'audit', text: 'Check the provider’s logs for use of the old keys' },
+        { id: 'redeploy', text: 'Re-run the deploy to confirm it works with the new keys' },
         { id: 'scanner', text: 'Add a secret scanner like gitleaks to CI' },
       ],
       explanation:
-        'Stop the damage, restore service with new keys, clean up the repo, check what was done with the old keys, then add a gate so the next leak is caught before it’s pushed.',
+        'Each step needs the one before. Along the way, remove .env and gitignore it, and check the provider’s logs for use of the old keys. Last, add a gate so the next leak is caught before it’s merged.',
     },
     {
       id: 'fork-secrets',
@@ -119,20 +119,20 @@ export const secretsAndUpdates = {
           feedback: 'Right. This PR is trying exactly that.',
         },
         {
-          id: 'bug',
-          text: 'It’s a GitHub bug. Turn on secrets for fork PRs.',
+          id: 'main-only',
+          text: 'Secrets only work on the main branch.',
           correct: false,
-          feedback: 'Then this stranger gets your payments key in one click.',
+          feedback: 'They work on any branch in your own repo. What matters is who opened the PR.',
         },
         {
-          id: 'curl',
-          text: 'Because curl is blocked in CI.',
+          id: 'edited-workflow',
+          text: 'Because the PR edited the workflow file. Fork PRs that leave it alone get secrets.',
           correct: false,
-          feedback: 'curl works fine in CI. The secret just isn’t there to send.',
+          feedback: 'Fork PRs never get secrets by default, edited workflow or not.',
         },
       ],
       explanation:
-        'A workflow runs whatever its file says, so a PR that edits the workflow can do anything. Never give untrusted PRs secrets, and review changes to .github/workflows closely.',
+        'A workflow runs whatever its file says, so a PR that edits the workflow can do anything. Review changes to .github/workflows closely. One trap: pull_request_target does run with secrets, so it must never run a fork’s code.',
     },
     {
       id: 'major-bump',
