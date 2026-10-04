@@ -57,7 +57,9 @@ describe('the roadmap', () => {
     for (const number of [3, 4, 5, 6, 7, 8]) {
       const entry = roadmapAct(number);
       expect(entry?.status).toContain('answered by clicking');
-      expect(entry?.missions).toHaveLength(2);
+      // DESIGN.md section 5: 3 to 6 lessons, final included, so 2 to 5 before the boss.
+      expect(entry?.missions.length).toBeGreaterThanOrEqual(2);
+      expect(entry?.missions.length).toBeLessThanOrEqual(5);
       expect(entry?.status).not.toContain('Not built yet');
     }
   });

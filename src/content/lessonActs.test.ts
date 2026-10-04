@@ -33,8 +33,14 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
       expect(validateAct(act, [], lessons)).toEqual([]);
     });
 
-    it('has two lessons, then a timed final that stands in for its boss', () => {
-      expect(lessons.map((lesson) => lesson.kind)).toEqual(['lesson', 'lesson', 'final']);
+    it('has its lessons, then a timed final that stands in for its boss', () => {
+      // DESIGN.md section 5: a lesson Act has 3 to 6 lessons, and only the last is a final.
+      expect(lessons.length).toBeGreaterThanOrEqual(3);
+      expect(lessons.length).toBeLessThanOrEqual(6);
+      expect(lessons.map((lesson) => lesson.kind)).toEqual([
+        ...lessons.slice(0, -1).map(() => 'lesson'),
+        'final',
+      ]);
       expect(act.finalLessonId).toBe(final?.id);
       expect(act.boss).toBeUndefined();
       // The clock is a challenge, not a sprint: at least 40 seconds for every card.
