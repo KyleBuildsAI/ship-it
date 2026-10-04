@@ -202,7 +202,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 ## 10. Content format
 
-- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes. A lesson Act's lessons live in `src/content/actN/lessons.ts`, in play order with the final last, and `lessonAct` (`src/content/lessonAct.ts`) parses them and builds the Act, naming the final as its `finalLessonId`.
+- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes. A lesson Act's lessons are listed in `src/content/actN/lessons.ts`, in play order with the final last (a long Act, like Act 4, keeps each lesson in its own file and lists them there), and `lessonAct` (`src/content/lessonAct.ts`) parses them and builds the Act, naming the final as its `finalLessonId`.
 - A schema (zod or equivalent) validates every mission in tests.
 - **Mission object**: `id`, `act`, `title`, `briefing` (scene id + captions), `initialRepoState` (fixture), `steps` (instruction, success predicate, hint ladder), `drills` (scenario text, setup fixture, success predicate), `questionRound` (ticket, candidates with quality tag + rationale, rubric for free text), `xp`.
 - **Directed steps** (`agentSchema.ts`): a step's `agent` task holds 2-3 start `plans` and 1-3 `fixes` (a card, Otto's script, his claim, a lesson), one `check` whose options are graded by `truth` predicates, `guards` that must stay true, and read-only `looks`. A mission's steps are all directed or all typed. A directed mission starts with `windows()` and sets `approvals` (`changes` or `destructive`). `validateAct` gives directed text tighter budgets: goal and hints 20 words, cards and Otto's lines 12, lessons and feedback 25, checklist labels 8. It also adds up the texts that share a screen (the Direct screen, a fix round, each Check screen, each predict).
@@ -242,10 +242,13 @@ Final (the boss): **"Conflict Storm"**, 5:00: rebase versus merge, never rewriti
 
 ### Act 4: GitHub Team Flow (lessons)
 Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.
-- 4.1 **Remotes and Pull Requests**: fetch versus pull, a rejected push, a PR's life, briefing an agent's PR description, issues first, forks
-- 4.2 **Reviews and Releases**: review comments, protected branches, CODEOWNERS, semantic versioning, an agent-written changelog, the release steps
+Set at Quillwork, a small startup, with Sage, Dex, Marco, Priya and Otto, the team's AI agent. Each lesson has its own file in `src/content/act4/`.
+- 4.1 **Remotes and Pushing**: what origin is, committed versus pushed, fetch before pull, briefing Otto to sync, a rejected push, Otto asking to force-push, forks, the start-of-task routine
+- 4.2 **Issues and Pull Requests**: issues first, briefing Otto to draft an issue, a useless bug report, a PR's life, draft PRs, an agent's PR that bundles unrelated changes, briefing a PR description, splitting a PR that's too big, "Closes #57"
+- 4.3 **Reviewing Pull Requests**: an agent's PR that skips a failing test, redirecting Otto to the root cause, review comments, nits, protected branches, CODEOWNERS, asking Otto to review itself sceptically, the review routine
+- 4.4 **Releases and Versions**: MINOR, MAJOR, big is not breaking, briefing a changelog, what a tag is, briefing release prep, never moving a published tag, the release steps
 
-Final (the boss): **"Rejected Push"** at 5pm on release day, 5:00.
+Final (the boss): **"Rejected Push"** at 5pm on release day, 6:00 for 8 cards: a protected-branch rejection, briefing a tight hotfix, a fetch-first rejection, an agent's diff that drops a CODEOWNERS line, a red check called flaky, briefing a conflict resolution, the hotfix version, shipping it.
 
 ### Act 5: Quality Gates (lessons)
 Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.
