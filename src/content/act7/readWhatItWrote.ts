@@ -46,7 +46,7 @@ export const readWhatItWrote = {
           id: 'same',
           text: 'It behaves the same as before.',
           correct: false,
-          feedback: 'A missing user now returns null instead of NotFound.',
+          feedback: 'A missing user is no longer a NotFound error; it quietly comes back empty.',
         },
         {
           id: 'swallow',
@@ -226,7 +226,7 @@ export const readWhatItWrote = {
         text: [
           '   "dependencies": {',
           '     "date-fns": "^4.1.0",',
-          '+    "phone-fmt-ultra": "^0.0.3",',
+          '+    "phone-fmt-ultra": "^0.3.1",',
           '     "zod": "^4.1.5"',
         ].join('\n'),
       },
@@ -236,11 +236,11 @@ export const readWhatItWrote = {
           id: 'fine',
           text: 'Fine. Packages save time.',
           correct: false,
-          feedback: 'A 0.0.3 package from nobody is code you now trust with your users’ data.',
+          feedback: 'A 0.x package from nobody is code you now trust with your users’ data.',
         },
         {
           id: 'pin',
-          text: 'Pin it to exactly 0.0.3 and merge.',
+          text: 'Pin it to exactly 0.3.1 and merge.',
           correct: false,
           feedback: 'Pinning stops surprise updates. It doesn’t answer whether you need it at all.',
         },
@@ -263,8 +263,7 @@ export const readWhatItWrote = {
         { id: 'issue', text: 'Read the linked issue: what was asked' },
         { id: 'scope', text: 'Check the files changed match the request' },
         { id: 'risky', text: 'Read risky lines slowly: auth, money, data' },
-        { id: 'tests', text: 'Check tests cover the new behaviour' },
-        { id: 'decide', text: 'Approve, or request specific changes' },
+        { id: 'decide', text: 'Check tests cover it, then approve or request specific changes' },
       ],
       explanation:
         'Start from what was asked, so you can see drift. Spend your attention where mistakes hurt most. Then check the tests guard it before you decide.',
@@ -288,10 +287,10 @@ export const readWhatItWrote = {
           feedback: 'Where, what breaks, what right is, and how to prove it.',
         },
         {
-          id: 'do-it',
-          text: 'Never mind, I’ll rewrite this file myself.',
+          id: 'spread',
+          text: 'Line 2 reads much better now. Apply the same Boolean(doc.ownerId) simplification to canDelete and canShare in this file, and add a test for each.',
           correct: false,
-          feedback: 'Sometimes fine, but Otto learns nothing and the test gap stays open.',
+          feedback: 'Specific, and wrong: it copies the bug into two more permission checks.',
         },
       ],
       explanation:
