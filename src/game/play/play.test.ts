@@ -5,6 +5,7 @@ import { evaluate, type Predicate } from '../missions/predicates';
 import {
   directedMission,
   earlySampleAct,
+  notesMission,
   otherSampleAct,
   sampleAct,
   sampleMission,
@@ -30,12 +31,16 @@ import {
 } from './missionPlay';
 import {
   checkClaim,
+  decide,
   directFix,
   nextStep,
   pickCard,
   pickInstead,
+  predict,
   repeatCard,
+  rewind,
   runLook,
+  stopOtto,
 } from './agentPlay';
 import { framePlay, leavePlay } from './play';
 import { currentQueries } from './sandboxControl';
@@ -363,6 +368,9 @@ describe('an early-access Act', () => {
 const holds = (predicate: Predicate) => evaluate(predicate, currentQueries());
 const API = 'Users/kyle/quillwork/api';
 const inTheApi: Predicate = { kind: 'currentDirectory', path: API };
+const apiIntact: Predicate = { kind: 'driveFile', path: `${API}/package.json` };
+const homeNotes: Predicate = { kind: 'driveFolder', path: 'Users/kyle/notes' };
+const apiNotes: Predicate = { kind: 'driveFolder', path: `${API}/notes` };
 
 /** Where Otto is in the step: the stage name, as the panels will read it. */
 const stage = () => mission().agent?.stage.at;
@@ -517,5 +525,119 @@ describe('directing Otto through a step', () => {
     expect(mission().agent?.hintRung3).toBe(true);
     directTheSampleStep();
     expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
+  });
+
+  it('stops between lines, and Otto waits for new directions', () => {
+    pickCard('full-path');
+    framePlay(16, NORMAL_PACE);
+    stopOtto();
+    ottoWaits();
+    expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
+    // The cd was already on its way, so it finished; Get-Location never ran.
+    expect(holds(inTheApi)).toBe(true);
+    expect(currentQueries().transcript?.printed('Get-Location')).toBe(false);
+  });
+
+  it('rewinds the laptop to the start of the step, at the cost of the Plan star', () => {
+    pickCard('full-path');
+    ottoWaits();
+    expect(holds(inTheApi)).toBe(true);
+    rewind();
+    expect(holds(inTheApi)).toBe(false);
+    expect(mission().agent).toMatchObject({ stage: { at: 'direct', round: 'start' } });
+    directTheSampleStep();
+    expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
+  });
+});
+
+describe('gates and predictions in play', () => {
+  beforeEach(() => {
+    directedCatalog(notesMission);
+    startMission(notesMission.id);
+    endBriefing();
+  });
+
+  /** The weak card, its prediction, Kyle's catch, and a fix round. */
+  function weakCardCaught(): void {
+    pickCard('bare-name');
+    ottoWaits();
+    expect(stage()).toBe('predict');
+    // The line waits at the prompt: nothing has run yet.
+    expect(holds(homeNotes)).toBe(false);
+    predict('home');
+    ottoWaits();
+    expect(holds(homeNotes)).toBe(true);
+    checkClaim('home');
+    directFix();
+  }
+
+  it('grades a prediction on what the line does', () => {
+    weakCardCaught();
+    expect(mission().agent?.predicts).toEqual([true]);
+  });
+
+  it("denies Otto's Yes to All on the whole API: he refuses, then runs plan B", () => {
+    weakCardCaught();
+    pickCard('start-over');
+    ottoWaits();
+    expect(mission().agent?.stage).toMatchObject({
+      at: 'gate',
+      gate: { kind: 'confirm', harmful: true },
+    });
+    decide(false);
+    ottoWaits();
+    // Plan B deletes the stray notes at home: a delete, so it pauses too, but it's safe.
+    expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
+    decide(true);
+    ottoWaits();
+    expect(stage()).toBe('check');
+    expect([holds(apiIntact), holds(apiNotes), holds(homeNotes)]).toEqual([true, true, false]);
+    checkClaim('api');
+    expect(mission().agent?.gates).toEqual([true, true]);
+    expect(mission().agent?.stage).toMatchObject({ verdict: 'confirmed', passed: true });
+  });
+
+  it('asks again when Kyle denies a safe line, and runs it once allowed', () => {
+    weakCardCaught();
+    pickCard('tidy-and-redo');
+    ottoWaits();
+    expect(mission().agent?.stage).toMatchObject({ at: 'gate', again: false });
+    decide(false);
+    expect(mission().agent?.stage).toMatchObject({ at: 'gate', again: true });
+    decide(true);
+    ottoWaits();
+    expect(stage()).toBe('check');
+    expect(holds(homeNotes)).toBe(false);
+    expect(mission().agent?.gates).toEqual([false, true]);
+  });
+
+  it('lets Kyle allow the harm, then rewind to the step as it began', () => {
+    weakCardCaught();
+    pickCard('start-over');
+    ottoWaits();
+    decide(true);
+    ottoWaits();
+    expect(holds(apiIntact)).toBe(false);
+    checkClaim('api');
+    expect(mission().agent?.stage).toMatchObject({ passed: false, guardBroken: true });
+
+    rewind();
+    // The step began after its `before`, with the API whole and no notes anywhere.
+    expect([holds(apiIntact), holds(homeNotes), holds(apiNotes)]).toEqual([true, false, false]);
+    expect(stage()).toBe('direct');
+  });
+
+  it('ends a denied line unrun, and waits for directions when there is no plan B', () => {
+    weakCardCaught();
+    pickCard('tidy-and-redo');
+    ottoWaits();
+    const shown = terminalText(() => {
+      decide(false);
+      decide(false);
+      ottoWaits();
+    });
+    expect(shown).toBe('\n');
+    expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(holds(homeNotes)).toBe(true);
   });
 });
