@@ -174,7 +174,7 @@ export const sampleLessonInput = {
       artifact: {
         kind: 'file',
         label: '.env',
-        text: 'SESSION_SECRET=sk_live_51Hx9',
+        text: 'SESSION_SECRET=change-me',
       },
       question: 'What is the problem?',
       options: [
