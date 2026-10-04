@@ -34,7 +34,7 @@ describe('Act 6: How Systems Work', () => {
     ]);
   });
 
-  it('has four lessons of 7 to 9 cards, then the final', () => {
+  it('has four lessons of 7 to 10 cards, then the final', () => {
     expect(lessons.map((lesson) => lesson.kind)).toEqual([
       'lesson',
       'lesson',
@@ -44,7 +44,7 @@ describe('Act 6: How Systems Work', () => {
     ]);
     for (const lesson of regular) {
       expect(lesson.cards.length, lesson.id).toBeGreaterThanOrEqual(7);
-      expect(lesson.cards.length, lesson.id).toBeLessThanOrEqual(9);
+      expect(lesson.cards.length, lesson.id).toBeLessThanOrEqual(10);
     }
   });
 
@@ -114,6 +114,7 @@ describe('Act 6: How Systems Work', () => {
       'cache',
       'queue',
       'container',
+      'cloud',
       'log',
       'stack trace',
     ]) {

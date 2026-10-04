@@ -256,10 +256,10 @@ Final (the boss): **"Red CI"**, 5:00: main is broken. Find the commit, then fix 
 
 ### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.
-Every card is a day at Quillwork, a small startup that makes a writing app, with Sage, Dex, Marco, Priya and the coding agent Otto. Each lesson has 7 to 9 cards, at least two of them about what to tell Otto, and one order card.
+Every card is a day at Quillwork, a small startup that makes a writing app, with Sage, Dex, Marco, Priya and the coding agent Otto. Each lesson has 7 to 10 cards, at least two of them about what to tell Otto, and one order card.
 - 6.1 **Requests and Responses**: reading a request, status codes, picking the right code, specifying an endpoint for an agent, briefing an agent on a failing request, safe retries and idempotency, CORS, a request's journey
-- 6.2 **APIs and Auth**: REST design, JSON and null, keeping an API's contract, OAuth versus API keys, sessions and cookies, a secret key in browser code, least-scope OAuth for an agent's integration, the OAuth sign-in flow
-- 6.3 **Data, Speed and Scale**: reading SQL, indexes, asking an agent to measure with EXPLAIN, SQL injection in an agent's code, a SELECT before any DELETE, caching, a cached read in order, queues, containers
+- 6.2 **APIs and Auth**: REST design, JSON and null, keeping an API's contract, OAuth versus API keys, sessions and cookies, a secret key in browser code, least-scope access (a GitHub App on one repo) for an agent's integration, the OAuth sign-in flow
+- 6.3 **Data, Speed and Scale**: reading SQL, indexes, asking an agent to measure with EXPLAIN, SQL injection in an agent's code, a SELECT before any DELETE, caching, a cached read in order, queues, containers, a managed cloud database (regions, zones, cost)
 - 6.4 **Logs and Stack Traces**: where to look in a stack trace, what was undefined, briefing a fix for the cause not the symptom, a swallowed error, following one request id, briefing safe logging, log levels, the debugging steps in order
 
 Final (the boss): **"The 3am Page"**, 6:00 for nine cards: incident triage from metrics and logs, rolling back, telling the team, confirming recovery, then briefing Otto on the root cause and a blameless postmortem. Content lives one lesson per file in `src/content/act6/`, collected in play order by `lessons.ts`.

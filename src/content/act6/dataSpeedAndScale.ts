@@ -11,7 +11,7 @@ export const dataSpeedAndScale = {
   title: 'Data, Speed and Scale',
   briefing: [
     'Behind most requests is a database, and behind most slow pages is a slow query.',
-    'Indexes, caches, queues and containers keep Quillwork fast and steady as more writers join. Otto writes the queries; you judge them.',
+    'Indexes, caches, queues, containers and the cloud they run on keep Quillwork fast and steady as more writers join. Otto writes the queries; you judge them.',
   ],
   cards: [
     {
@@ -142,8 +142,9 @@ export const dataSpeedAndScale = {
         label: 'src/api/search.ts',
         text: [
           'const sql =',
-          '  "SELECT id, title FROM docs WHERE title LIKE \'%" + req.query.q + "%\'";',
-          'const rows = await db.query(sql);',
+          '  "SELECT id, title FROM docs WHERE workspace_id = $1" +',
+          '  " AND title LIKE \'%" + req.query.q + "%\'";',
+          'const rows = await db.query(sql, [req.user.workspaceId]);',
         ].join('\n'),
       },
       question: 'What’s the problem?',
@@ -158,7 +159,15 @@ export const dataSpeedAndScale = {
           id: 'injection',
           text: "SQL injection: a search like '; DROP TABLE docs; -- becomes part of the query. Use query parameters.",
           correct: true,
-          feedback: 'Right. Never glue user input into SQL.',
+          feedback:
+            'Right. Otto passed the workspace as a parameter but glued the search text in. Never glue user input into SQL.',
+        },
+        {
+          id: 'leak',
+          text: 'It returns other companies’ documents.',
+          correct: false,
+          feedback:
+            'Look again: workspace_id = $1 keeps it to the writer’s own workspace. The flaw is the other value.',
         },
         {
           id: 'fine',
@@ -204,7 +213,7 @@ export const dataSpeedAndScale = {
       id: 'cache',
       kind: 'choose',
       situation:
-        'Every page loads the writer’s plan and limits from the database, 5,000 times a minute. Plans change about once a month.',
+        'Every page loads the writer’s plan and usage limits, a query joining four tables that takes 120 ms, 5,000 times a minute. Database CPU is at 85%. Plans change about once a month.',
       question: 'What helps most?',
       options: [
         {
@@ -223,7 +232,8 @@ export const dataSpeedAndScale = {
           id: 'nothing',
           text: 'Nothing. Databases are fast.',
           correct: false,
-          feedback: '5,000 identical queries a minute is wasted work, and it grows with Quillwork.',
+          feedback:
+            'The database is already at 85% CPU on answers that almost never change, and it grows with Quillwork.',
         },
         {
           id: 'local-storage',
@@ -314,6 +324,45 @@ export const dataSpeedAndScale = {
       ],
       explanation:
         'Containers package an app with its environment, which solves Act 1’s “works on my machine”. Config comes in through environment variables, so one image runs in staging and production.',
+    },
+    {
+      id: 'managed-or-not',
+      kind: 'prompt',
+      situation:
+        'Quillwork is moving its database to the cloud. Otto proposes running Postgres ourselves on a cloud VM to save money.',
+      question: 'What do you tell Otto?',
+      options: [
+        {
+          id: 'one-vm',
+          text: 'Fine. Run it on one VM. We can sort out backups later.',
+          correct: false,
+          feedback:
+            'One disk failure and every writer’s work is gone. “Later” is usually after the outage.',
+        },
+        {
+          id: 'managed',
+          text: 'Use the cloud provider’s managed database, with automatic backups and a replica in another zone. Spell out the monthly cost and which region it runs in.',
+          correct: true,
+          feedback:
+            'The provider handles patching and failover, and you still know what it costs and where the data lives.',
+        },
+        {
+          id: 'same-container',
+          text: 'Put the database in the same container as the app, so there’s one thing to deploy.',
+          correct: false,
+          feedback:
+            'Containers get replaced on every deploy, and the data would go with them. You also couldn’t add app servers without copying the database.',
+        },
+        {
+          id: 'biggest',
+          text: 'Pick the biggest instance available, to be safe.',
+          correct: false,
+          feedback:
+            'In the cloud you pay for what you reserve. Size it to real load and grow when the numbers say so.',
+        },
+      ],
+      explanation:
+        'In the cloud you rent servers and managed services, paying for what you use. A region is where they run; zones are separate buildings in it, so a replica in another zone survives one failing. Someone still owns backups and cost.',
     },
   ],
 } satisfies LessonInput;
