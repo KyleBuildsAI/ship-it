@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { INSTANT_PACE, NORMAL_PACE, type Reveal } from '../agent/pace';
+import { onTerminalFeed } from '../agent/terminalFeed';
+import { evaluate, type Predicate } from '../missions/predicates';
 import {
   directedMission,
   earlySampleAct,
@@ -8,7 +11,7 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
-import { ActSchema, ContentError } from '../missions/schema';
+import { ActSchema, ContentError, type Mission } from '../missions/schema';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
 import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
@@ -25,7 +28,9 @@ import {
   startNextDrill,
   submitQuestionRound,
 } from './missionPlay';
-import { leavePlay } from './play';
+import { checkClaim, directFix, nextStep, pickCard } from './agentPlay';
+import { framePlay, leavePlay } from './play';
+import { currentQueries } from './sandboxControl';
 import { play, type BossActivity, type MissionActivity, type SeriesActivity } from './playStore';
 import {
   seriesSandboxChanged,
@@ -246,23 +251,40 @@ describe('two Acts in one catalog', () => {
   });
 });
 
+/** A catalog with one early Act 1 holding these directed missions. */
+function directedCatalog(...missions: Mission[]): void {
+  const act = ActSchema.parse({
+    act: 1,
+    title: 'Directed Sample',
+    earlyAccess: true,
+    missionIds: missions.map((entry) => entry.id),
+  });
+  setCatalog({ acts: [{ act, missions }] });
+}
+
+/** Moves Otto on until he waits for Kyle, one instant frame at a time. */
+function ottoWaits(): void {
+  framePlay(16, INSTANT_PACE);
+}
+
+/** The sample's directed step, played the strong way: pick, run, confirm, next. */
+function directTheSampleStep(): void {
+  pickCard('full-path');
+  ottoWaits();
+  checkClaim('api');
+  nextStep();
+}
+
 describe('judgment drills', () => {
   beforeEach(() => {
-    const act = ActSchema.parse({
-      act: 1,
-      title: 'Directed Sample',
-      earlyAccess: true,
-      missionIds: [directedMission.id],
-    });
-    setCatalog({ acts: [{ act, missions: [directedMission] }] });
+    directedCatalog(directedMission);
   });
 
   it('wait for an answer: no checklist, no pass by the sandbox, and a timeout is a miss', () => {
     const first = directedMission.drills[0];
     startMission(directedMission.id);
     endBriefing();
-    run('cd C:\\Users\\kyle\\quillwork\\api');
-    missionSandboxChanged(T0);
+    directTheSampleStep();
     expect(mission().run.phase).toBe('drills');
 
     startNextDrill(T0);
@@ -325,5 +347,105 @@ describe('an early-access Act', () => {
       expect(progress.get().save?.missions[entry.id]?.status).toBe('completed');
     }
     expect(progress.get().save?.acts['1']?.completedAt ?? null).toBeNull();
+  });
+});
+
+/** Whether a predicate holds on the live sandbox right now. */
+const holds = (predicate: Predicate) => evaluate(predicate, currentQueries());
+const API = 'Users/kyle/quillwork/api';
+const inTheApi: Predicate = { kind: 'currentDirectory', path: API };
+
+/** Where Otto is in the step: the stage name, as the panels will read it. */
+const stage = () => mission().agent?.stage.at;
+
+/** Everything the terminal is sent while `body` runs, as plain text. */
+function terminalText(body: () => void): string {
+  const shown: string[] = [];
+  const stop = onTerminalFeed((reveals) => shown.push(...reveals.map(revealText)));
+  try {
+    body();
+  } finally {
+    stop();
+  }
+  return shown.join('');
+}
+
+function revealText(reveal: Reveal): string {
+  if (reveal.kind === 'keys') return reveal.text;
+  const { beat } = reveal;
+  if (beat.kind === 'prompt') return beat.text;
+  if (beat.kind === 'output') return beat.lines.map((entry) => entry.text).join('\n');
+  return beat.kind === 'enter' || beat.kind === 'cancel' ? '\n' : '';
+}
+
+describe('directing Otto through a step', () => {
+  beforeEach(() => {
+    directedCatalog(directedMission);
+    startMission(directedMission.id);
+    endBriefing();
+  });
+
+  it('runs the strong card, checks the claim by state, and moves on to the drills', () => {
+    expect(stage()).toBe('direct');
+    expect(play.get().checklist).toEqual([]);
+
+    pickCard('full-path');
+    const typed = terminalText(ottoWaits);
+    expect(typed).toContain('cd C:\\Users\\kyle\\quillwork\\api');
+    expect(typed).toContain('Get-Location');
+    expect(stage()).toBe('check');
+    expect(holds(inTheApi)).toBe(true);
+    // The checklist would answer the check, so it waits for the result.
+    expect(play.get().checklist).toEqual([]);
+
+    checkClaim('api');
+    expect(mission().agent?.stage).toMatchObject({ at: 'result', verdict: 'confirmed' });
+    expect(play.get().checklist.map((row) => row.passed)).toEqual([true, true]);
+
+    nextStep();
+    expect(mission().run.phase).toBe('drills');
+    expect(mission().agent).toBeNull();
+    const stepXp = directedMission.steps.reduce((total, step) => total + step.xp, 0);
+    expect(progress.get().save?.profile.xp).toBe(stepXp);
+  });
+
+  it("catches Otto's slip, directs a fix, and never advances on typed lines", () => {
+    // Typing into the sandbox doesn't finish a directed step: only the check does.
+    run('cd C:\\Users\\kyle\\quillwork\\api', 'cd ~');
+    missionSandboxChanged(T0);
+    expect(mission().run.stepIndex).toBe(0);
+
+    pickCard('guess');
+    ottoWaits();
+    checkClaim('home');
+    expect(mission().agent?.stage).toMatchObject({ verdict: 'caught', passed: false });
+    // A step that didn't pass shows its red rows.
+    expect(play.get().checklist.map((row) => row.passed)).toEqual([false, true]);
+    nextStep();
+    expect(mission().run.stepIndex).toBe(0);
+
+    directFix();
+    pickCard('fix-full-path');
+    ottoWaits();
+    checkClaim('api');
+    expect(mission().agent?.stage).toMatchObject({ verdict: 'confirmed', passed: true });
+    expect(mission().agent?.tried).toEqual(['guess', 'fix-full-path']);
+  });
+
+  it('types at a readable pace, and runs a line only once it has been typed', () => {
+    pickCard('full-path');
+    framePlay(16, NORMAL_PACE);
+    framePlay(300, NORMAL_PACE);
+    // Otto is still thinking and typing the cd, so the terminal stands at home.
+    expect(holds(inTheApi)).toBe(false);
+    let frames = 2;
+    while (stage() === 'running' && frames < 1000) {
+      framePlay(16, NORMAL_PACE);
+      frames++;
+    }
+    expect(stage()).toBe('check');
+    expect(holds(inTheApi)).toBe(true);
+    // About two seconds of typing, thinking and settling, at 60 frames a second.
+    expect(frames).toBeGreaterThan(60);
   });
 });
