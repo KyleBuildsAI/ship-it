@@ -122,7 +122,7 @@ export const logsAndStackTraces = {
           text: 'Change it to invite.user?.email so it can’t crash.',
           correct: false,
           feedback:
-            'No crash, but now it emails “undefined”. That hides the bug instead of fixing it.',
+            'No crash on this line, but the address (to) is now undefined, so the send fails somewhere further away, or quietly. The bug is hidden, not fixed.',
         },
         {
           id: 'vague',
@@ -194,25 +194,28 @@ export const logsAndStackTraces = {
           '14:02:11.204 INFO  req=a91f PATCH /api/docs/77 user=31 start',
           '14:02:11.209 INFO  req=c3d0 GET /api/docs/12 user=8 start',
           '14:02:11.233 INFO  req=c3d0 200 24ms',
-          '14:02:11.250 INFO  req=e72b PATCH /api/docs/77 user=31 start',
+          '14:02:11.300 INFO  req=b55c PATCH /api/docs/77 user=19 200 41ms',
           '14:02:11.411 WARN  req=a91f version conflict: doc 77 changed since load',
           '14:02:11.412 INFO  req=a91f 409 208ms',
-          '14:02:11.430 INFO  req=e72b 200 180ms',
+          '14:02:13.050 INFO  req=e72b PATCH /api/docs/77 user=31 start',
+          '14:02:13.230 INFO  req=e72b 200 180ms',
         ].join('\n'),
       },
       question: 'Priya is user 31. What happened to her first save?',
       options: [
         {
           id: 'nearest-line',
-          text: 'It returned 200 at 14:02:11.430.',
+          text: 'It returned 200 at 14:02:13.230.',
           correct: false,
-          feedback: 'That’s e72b, her second save. Follow one request id, not the nearest line.',
+          feedback:
+            'That’s e72b, her retry two seconds later. Follow one request id, not the nearest line.',
         },
         {
           id: 'conflict',
-          text: 'Request a91f got a 409: the document changed after she loaded it, so the save was refused.',
+          text: 'Request a91f got a 409: user 19 saved doc 77 after she loaded it, so her save was refused.',
           correct: true,
-          feedback: 'Yes. Following req=a91f joins its start, its warning and its result.',
+          feedback:
+            'Yes. Following req=a91f joins its start, its warning and its result, and b55c shows who changed the document first.',
         },
         {
           id: 'crash',
@@ -224,7 +227,7 @@ export const logsAndStackTraces = {
           id: 'nothing',
           text: 'Nothing was logged for her.',
           correct: false,
-          feedback: 'Look for user=31 and both of her saves appear.',
+          feedback: 'Look for user=31 and both her save and her retry appear.',
         },
       ],
       explanation:
