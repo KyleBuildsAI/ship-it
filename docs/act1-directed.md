@@ -1232,6 +1232,16 @@ export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePl
 // (dryRunNow, with REFUSAL for a line) to decide its gate; an answer is typed only once allowed.
 export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
 export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
+
+// src/game/play/scenePlay.ts (A18): a judgment drill's scene, played live at SCENE_SPEED (3×).
+export function beginScene(drill: JudgmentDrill): boolean;    // false: no history, start the clock now
+export function frameScene(drillId, elapsedMs, pace): { index: number; done: boolean } | null;
+// missionPlay.ts / seriesPlay.ts (A18): startNextDrill and startNextSeriesDrill set `scene`
+// and leave the clock off; play.framePlay(elapsedMs, pace, nowMs) plays it and starts the
+// clock at nowMs once it ends. submitJudgment(answer, nowMs) and submitSeriesJudgment grade
+// with gradeJudgment on scratchDeps() (sandboxControl), then submitAnsweredDrill or
+// recordReview; a miss reaches the review queue through recordDrill's addMiss.
+// DrillResult gains an optional keyId (the right answer) for the reveal.
 ```
 
 Store changes:
