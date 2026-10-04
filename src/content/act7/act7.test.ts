@@ -100,6 +100,19 @@ describe('Act 7: AI-Native Engineering', () => {
     }
   });
 
+  it('makes the longest option wrong on at least one card a lesson', () => {
+    // If the right answer were always the longest, Kyle could pick by length without reading.
+    for (const lesson of lessons) {
+      const longestIsWrong = lesson.cards.filter(isPickCard).some((card) => {
+        const longest = card.options.reduce((best, option) =>
+          option.text.length > best.text.length ? option : best,
+        );
+        return !longest.correct;
+      });
+      expect(longestIsWrong, lesson.id).toBe(true);
+    }
+  });
+
   it('shows real artifacts to read, not just questions', () => {
     const kinds = new Set(
       lessons.flatMap((lesson) => lesson.cards.flatMap((card) => card.artifact?.kind ?? [])),
