@@ -112,20 +112,20 @@ export const guardrailsForAgents = {
           feedback: 'He can’t open PRs with it, and he can read repos he has no business in.',
         },
         {
-          id: 'password',
-          text: 'Your GitHub password, so he can do what you can.',
+          id: 'every-repo',
+          text: 'A fine-grained token for every repo in the organisation: contents and pull requests write, with no expiry, so it never needs rotating.',
           correct: false,
-          feedback: 'Never. Tokens can be limited and revoked; your password can’t.',
+          feedback: 'Fine-grained in name only: every repo, forever. One leak reaches all of them.',
         },
         {
           id: 'least',
-          text: 'A fine-grained token for quillwork-web only: read contents, write pull requests, expiring in 30 days.',
+          text: 'A fine-grained token for quillwork-web only: contents read and write (to push his branch), pull requests write, expiring in 30 days.',
           correct: true,
           feedback: 'Least privilege: enough for the job and nothing more.',
         },
       ],
       explanation:
-        'Give agents the least access that does the job: one repo, only the actions needed, an expiry date. When something goes wrong, the damage is small and you can revoke it.',
+        'Give agents the least access that does the job: one repo, only the actions needed, an expiry date. Branch protection on main stops him pushing there directly. If something goes wrong, the damage is small.',
     },
     {
       id: 'secret-env',
@@ -159,17 +159,16 @@ export const guardrailsForAgents = {
       id: 'leaked-key',
       kind: 'order',
       situation:
-        'Otto’s debug output printed the live Stripe key into a CI log that the whole team can read.',
+        'Otto’s debug line printed the live Stripe key from .env into the app’s shared staging logs.',
       question: 'Put your response in order.',
       steps: [
-        { id: 'revoke', text: 'Revoke the leaked key in Stripe right now' },
-        { id: 'new-key', text: 'Create a new key and store it as a secret' },
+        { id: 'roll', text: 'Roll the key in Stripe: revoke it and issue a new one' },
         { id: 'audit', text: 'Check Stripe’s logs for use of the old key' },
         { id: 'cause', text: 'Remove the line that printed it' },
         { id: 'rule', text: 'Add a no-printing-secrets rule to CLAUDE.md' },
       ],
       explanation:
-        'A leaked secret is compromised the moment it’s seen. Kill it first; deleting the log doesn’t un-leak it. Then replace it, look for misuse, fix the cause, and prevent the next one.',
+        'A leaked secret is compromised the moment it’s seen. Kill it first; deleting the log doesn’t un-leak it. Then look for misuse, fix the cause, and prevent the next one.',
     },
     {
       id: 'destructive-tools',
@@ -213,16 +212,18 @@ export const guardrailsForAgents = {
       question: 'What helps most?',
       options: [
         {
-          id: 'right-size',
-          text: 'Use a smaller, faster model for mechanical edits, and point it at only the files that matter.',
+          id: 'right-tool',
+          text: 'Have Otto use the editor’s rename tool or a codemod instead of editing file by file; save the big model for hard reasoning.',
           correct: true,
-          feedback: 'Match the model to the job, and send less context in.',
+          feedback:
+            'A rename is mechanical. A deterministic tool does it exactly, in seconds, for free.',
         },
         {
-          id: 'accept',
-          text: 'Nothing. That’s what AI costs.',
+          id: 'small-model',
+          text: 'Switch Otto to a smaller, faster model for the edits, and feed it only the files that call the function, twenty at a time.',
           correct: false,
-          feedback: 'Model choice and context size are your decisions. Make them.',
+          feedback:
+            'Cheaper, but any model can miss or mangle one of 200 edits. A rename tool can’t.',
         },
         {
           id: 'parallel',
@@ -232,7 +233,7 @@ export const guardrailsForAgents = {
         },
       ],
       explanation:
-        'Every token costs time and money. Big models for hard reasoning, small ones for simple, repetitive work, and only the context the step needs. Sometimes a plain find-and-replace beats any model.',
+        'Every token costs time and money. If a deterministic tool can do the job, like a rename, a codemod or a formatter, have the agent run it. Save models for work that needs judgement.',
     },
     {
       id: 'when-to-stop',
@@ -299,10 +300,10 @@ export const guardrailsForAgents = {
           feedback: 'A clear limit, and a useful report when it’s hit.',
         },
         {
-          id: 'try-harder',
-          text: 'Think harder before each attempt.',
+          id: 'edit-after-three',
+          text: 'If the same check fails 3 times, you may update that test to match your output. Note the change in the PR and keep going.',
           correct: false,
-          feedback: 'Nothing to check, and no point where he stops.',
+          feedback: 'A clear limit, then permission to bend the test. Stopping means stopping.',
         },
       ],
       explanation:
