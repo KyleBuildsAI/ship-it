@@ -240,7 +240,7 @@ export const requestsAndResponses = {
       options: [
         {
           id: 'idempotent',
-          text: 'Retry the GET freely. Retry the charge only with an idempotency key, so the provider treats a repeat as the same charge.',
+          text: 'Retry the GET a few times, waiting longer each time. Retry the charge only with an idempotency key, so repeats count as one charge.',
           correct: true,
           feedback:
             'Yes. Reading twice is harmless; charging twice is not, unless the provider can spot the repeat.',
@@ -263,11 +263,11 @@ export const requestsAndResponses = {
           text: 'Retry only the requests that got a 4xx code.',
           correct: false,
           feedback:
-            'A 4xx says the request itself was wrong. Sending the same wrong request again gets the same answer.',
+            'Most 4xx codes say the request itself was wrong, so the same request gets the same answer. (429, too many requests, is the exception: wait, then retry.)',
         },
       ],
       explanation:
-        'A request that is safe to repeat is called idempotent. GET is; a POST that charges money is not, unless it carries an idempotency key. Ask about this before any agent adds retries.',
+        'A request that is safe to repeat is called idempotent. GET is; a charge is not, unless it carries an idempotency key. Cap retries and wait longer each time, or repeats bury a struggling server. Ask about this before any agent adds retries.',
     },
     {
       id: 'cors',
