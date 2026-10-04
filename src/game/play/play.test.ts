@@ -432,6 +432,19 @@ describe('directing Otto through a step', () => {
     expect(mission().agent?.tried).toEqual(['guess', 'fix-full-path']);
   });
 
+  it('ignores a button pressed when the stage does not allow it', () => {
+    // A double click on a card, then "Direct a fix" on a step that passed.
+    pickCard('full-path');
+    expect(() => {
+      pickCard('full-path');
+    }).not.toThrow();
+    ottoWaits();
+    checkClaim('api');
+    expect(directFix).not.toThrow();
+    expect(mission().agent?.stage).toMatchObject({ at: 'result', passed: true });
+    expect(mission().agent?.tried).toEqual(['full-path']);
+  });
+
   it('types at a readable pace, and runs a line only once it has been typed', () => {
     pickCard('full-path');
     framePlay(16, NORMAL_PACE);

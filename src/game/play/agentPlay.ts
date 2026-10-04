@@ -134,10 +134,15 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
   return { ...current, agent: beginAgentStep(step) };
 }
 
-/** Kyle picks a card. Otto starts on the next frame. */
+/**
+ * Kyle picks a card. Otto starts on the next frame. A second click, landing after Otto has
+ * started, is ignored: a button never throws at Kyle.
+ */
 export function pickCard(planId: string): void {
   const now = live();
-  if (now !== null) saveAgent(choosePlan(now.agent, now.step, planId));
+  const stage = now?.agent.stage;
+  const picking = stage?.at === 'direct' || (stage?.at === 'echo' && stage.planId === planId);
+  if (now !== null && picking) saveAgent(choosePlan(now.agent, now.step, planId));
 }
 
 /**
@@ -230,7 +235,9 @@ export function checkClaim(optionId: string): void {
 /** "Direct a fix": after a result that didn't pass, back to the cards for a fix round. */
 export function directFix(): void {
   const now = live();
-  if (now?.agent.stage.at === 'result') saveAgent(openFixRound(now.agent));
+  if (now?.agent.stage.at === 'result' && !now.agent.stage.passed) {
+    saveAgent(openFixRound(now.agent));
+  }
 }
 
 /**
