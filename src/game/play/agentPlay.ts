@@ -140,13 +140,13 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
 /** "Say it back": Otto repeats a card as "Plan: <card>. Go?" before running it. */
 export function repeatCard(planId: string): void {
   const now = live();
-  if (now !== null) saveAgent(echoPlan(now.agent, now.step, planId));
+  if (now?.agent.stage.at === 'direct') saveAgent(echoPlan(now.agent, now.step, planId));
 }
 
 /** "Pick instead": back to the cards from Otto's repeat. */
 export function pickInstead(): void {
   const now = live();
-  if (now !== null) saveAgent(backToCards(now.agent));
+  if (now?.agent.stage.at === 'echo') saveAgent(backToCards(now.agent));
 }
 
 /**

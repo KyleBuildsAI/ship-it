@@ -1457,7 +1457,7 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/missions/validateAct.ts` | Optional parts, new texts and budgets, the `windows()` rule | Act 2 still returns `[]` |
 | `src/game/missions/runner.ts` | Boss functions use `requireBoss`; `submitAnsweredDrill`; narrowing in `submitDrill` | `runner.test.ts` unchanged |
 | `src/game/play/catalog.ts` | `recommendedAct`: the first Act with `!completedAt && hasWorkLeft(save, entry)` (a mission not done, or a boss or field present and not done), else the first Act. `ActContent.freePlay`. | Act 2 is one tab away |
-| `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` takes an optional `directingXp` | Act 2 passes nothing |
+| `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` requires `directingXp` (2 XP per star, paid on the first completion) | Act 2's missions have no stars, so they pass 0 |
 | `src/game/play/{bossPlay,fieldPlay,seriesPlay}.ts` | `require*` helpers; judgment drills in series | Same flow for Act 2 |
 | `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` (A27) | Act 2 route identical, no travel |
 | `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`, all-or-nothing), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`); `loadSandbox` takes a deps factory | `gitQueries` still the base |

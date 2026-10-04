@@ -456,9 +456,13 @@ describe('directing Otto through a step', () => {
     missionSandboxChanged(T0);
     expect(mission().run.stepIndex).toBe(0);
 
+    // Double clicks on "Say it back" and "Pick instead" are ignored, not thrown.
+    repeatCard('guess');
     repeatCard('guess');
     expect(stage()).toBe('echo');
     pickInstead();
+    pickInstead();
+    expect(stage()).toBe('direct');
     pickCard('guess');
     ottoWaits();
     checkClaim('home');
