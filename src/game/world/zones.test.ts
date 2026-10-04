@@ -11,6 +11,7 @@ import {
   doorwayAt,
   openActs,
   STEP_THROUGH_DISTANCE,
+  usesTerminal,
   zoneForAct,
   type Doorway,
 } from './zones';
@@ -106,6 +107,15 @@ describe('the Act islands', () => {
       act8: 8,
     });
     expect(actIsland('act4').title).toBe('GitHub Team Flow');
+  });
+});
+
+describe('usesTerminal', () => {
+  it('keeps the terminal on Campus, the machine island and the Git World, not on lesson islands', () => {
+    expect(usesTerminal('campus')).toBe(true);
+    expect(usesTerminal('machine')).toBe(true);
+    expect(usesTerminal('gitworld')).toBe(true);
+    for (const island of ACT_ISLANDS) expect(usesTerminal(island.zone)).toBe(false);
   });
 });
 

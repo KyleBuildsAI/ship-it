@@ -3,7 +3,7 @@ import * as THREE from 'three/webgpu';
 import type { Workspace } from '../../engine/workspace';
 import { shortId } from '../../engine/git/hash';
 import { isTypingTarget, isWorldTarget } from '../../ui/focus';
-import { closeActMenu, suggest } from '../hud';
+import { closeActMenu, closeTerminal, suggest } from '../hud';
 import { sandbox } from '../sandbox';
 import { worldState, type ActIslandZone, type ZoneId } from '../worldState';
 import { createActIsland } from './actIsland';
@@ -25,6 +25,7 @@ import {
   perActIsland,
   doorwayAt,
   openActs,
+  usesTerminal,
   zoneForAct,
   type Doorway,
   type Zone,
@@ -202,6 +203,7 @@ export function createWorld(
       placeCamera(position);
       worldState.update({ zone });
       closeActMenu();
+      if (!usesTerminal(to)) closeTerminal();
       fadeTarget.style.opacity = '1';
       travelling = false;
     };

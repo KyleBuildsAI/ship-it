@@ -110,6 +110,14 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
   },
 ];
 
+/**
+ * Whether an island is played in the terminal. The lesson islands (Acts 3 to 8) are played
+ * by clicking cards, so arriving there puts the terminal away instead of covering the view.
+ */
+export function usesTerminal(zone: ZoneId): boolean {
+  return !ACT_ISLANDS.some((island) => island.zone === zone);
+}
+
 /** The island data of one Act island zone. */
 export function actIsland(zone: ActIslandZone): ActIsland {
   const island = ACT_ISLANDS.find((entry) => entry.zone === zone);

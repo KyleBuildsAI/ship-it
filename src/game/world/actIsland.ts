@@ -342,11 +342,6 @@ function createExit(accent: number): THREE.Group {
   return exit;
 }
 
-/** Converts 0xRRGGBB to a CSS colour for the canvas-drawn title label. */
-function cssColor(hex: number): string {
-  return `#${hex.toString(16).padStart(6, '0')}`;
-}
-
 /** Builds the themed island of one Act from its data in zones.ts. */
 export function createActIsland(data: ActIslandData): ActIsland {
   const island = createIsland(ISLAND_RADIUS, 0x161f2c);
@@ -358,12 +353,8 @@ export function createActIsland(data: ActIslandData): ActIsland {
 
   // No light of its own: every light in three.js shades every island, so six more would
   // slow Campus too. The props' glowing parts carry the accent instead, and bloom does the rest.
-  const title = new Label(`Act ${String(data.act)} · ${data.title}`, {
-    color: cssColor(data.accent),
-    height: 0.9,
-  });
-  title.sprite.position.set(0, 6.2, -9);
-  group.add(title.sprite);
+  // No floating title either: the HUD names the island at the top of the screen, and a
+  // second title in the world landed behind the HUD's hint line.
 
   const exit = createExit(data.accent);
   group.add(exit);
