@@ -184,6 +184,36 @@ export function dryRun(
   judge: { readonly guards: readonly Predicate[] },
   deps: RepositoryDeps,
 ): DryRun {
+  return tryInScratch(log, action, judge, deps, null);
+}
+
+/**
+ * A dry run of a line followed by `refusal` for every Confirm question it asks: what the
+ * line does even if each question is refused. A line gate shows this, because refusing
+ * doesn't undo a whole line. `Remove-Item a, b` asks about a folder `a` with children,
+ * but still removes a plain file `b` when the answer is No to All. The terminal `step` is
+ * the line's own, as it shows before anyone answers.
+ */
+export function dryRunRefused(
+  log: SandboxLog,
+  action: LoggedAction,
+  judge: { readonly guards: readonly Predicate[] },
+  deps: RepositoryDeps,
+  refusal: ConfirmLetter,
+): DryRun {
+  return tryInScratch(log, action, judge, deps, refusal);
+}
+
+/** A No that kept PowerShell asking this often is an engine bug, not a long line. */
+const MAX_REFUSALS = 100;
+
+function tryInScratch(
+  log: SandboxLog,
+  action: LoggedAction,
+  judge: { readonly guards: readonly Predicate[] },
+  deps: RepositoryDeps,
+  refusal: ConfirmLetter | null,
+): DryRun {
   const { shell, transcript } = replay(log, deps);
   const queries = sandboxQueries(shell.ws, transcriptQueries(transcript));
   const watched = judge.guards.map((guard) => ({
@@ -192,12 +222,19 @@ export function dryRun(
   }));
   const changesSince = watchChanges(shell.ws);
   const step = playAction(shell, transcript, action);
+  const events = [...step.events];
+  for (let asking = step.asking, refused = 0; refusal !== null && asking; refused++) {
+    if (refused >= MAX_REFUSALS) throw new Error(`PowerShell kept asking after "${refusal}".`);
+    const answered = playAction(shell, transcript, { do: 'answer', choice: refusal });
+    events.push(...answered.events);
+    asking = answered.asking;
+  }
   const broken = watched
     .filter(({ holding }) => holding.some((part) => !evaluate(part, queries)))
     .map(({ guard }) => describe(guard, queries.machine?.display));
   return {
     step,
-    changes: changesSince(step.events),
+    changes: changesSince(events),
     queries,
     broken,
     harmful: broken.length > 0,

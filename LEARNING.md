@@ -1999,3 +1999,93 @@ https://github.com/KyleBuildsAI/ship-it/pull/143
 3. The layout is pure, so it's unit-tested without a browser. The drawing needs three.js and a GPU, so it's checked by playing and by the end-to-end test.
 
 </details>
+
+---
+
+## #144 feat: the agent step state machine
+
+https://github.com/KyleBuildsAI/ship-it/pull/144
+
+1. Kyle picks the option "Still C:\Users\kyle: the cd failed", and it's true. What verdict does he get, and what happens next?
+2. Why can't a directed mission use `runner.checkStep` to finish a step?
+3. Why does `answerCheck` check the guards as well as the step's success?
+
+<details><summary>Answers</summary>
+
+1. Good catch (`caught`). The option is true but the step didn't pass, so Kyle spotted Otto's mistake. A fix round opens (part 2 adds it).
+2. `checkStep` keeps going through every following step that is already true. If step 3's goal happened to be true early, Kyle would never get to direct it. `completeAgentStep` advances exactly one step.
+3. A step can reach its goal while doing damage, like making the folder but deleting the API. The guards are what must stay true, so a step only passes when they all still hold.
+
+</details>
+
+---
+
+## #145 feat: fix rounds, stop, rewind, predictions, and stars for a directed step
+
+https://github.com/KyleBuildsAI/ship-it/pull/145
+
+1. Otto's terminal stands at home and he runs `mkdir notes`. Which predict option holds: "In the API folder" or "In C:\Users\kyle"?
+2. Kyle's first card passes, but he read the hint that names the card. Which stars does he get?
+3. Why does `stopScript` count the stopped plan as tried?
+
+<details><summary>Answers</summary>
+
+1. "In C:\Users\kyle". A bare name lands where the terminal stands, and the test proves it by running the line.
+2. Safety and Check, but not Plan. The hint that names the card costs the Plan star.
+3. A stopped plan did run part of its script, so it counts as an attempt: it costs the Plan star, and a stopped start card isn't offered again in the fix round. Only start cards are filtered this way. Fixes always stay on offer, because the same cleanup may be needed again, so a stopped fix can be picked again.
+
+</details>
+
+---
+
+## #146 feat: approval gates for a directed step
+
+https://github.com/KyleBuildsAI/ship-it/pull/146
+
+1. Otto wants to run `Remove-Item C:\Users\kyle\notes` on an empty stray folder, and Kyle denies it twice. What is recorded, and where does Otto go?
+2. Kyle denies a harmful line that has a plan B. What runs next?
+3. Why doesn't the content say which lines are harmful?
+
+<details><summary>Answers</summary>
+
+1. Two wrong decisions (`gates: [false, false]`), because the line was safe. The line has no plan B, so Otto stops and a fix round opens.
+2. The plan B lines, then the rest of the original script. The denied line itself never runs.
+3. A hand-written flag can go stale when the laptop setup changes, and it could give the answer away. A dry run against the guards always matches what would really happen.
+
+</details>
+
+---
+
+## #147 feat: confirm answers for a directed step
+
+https://github.com/KyleBuildsAI/ship-it/pull/147
+
+1. Otto runs `Remove-Item C:\Users\kyle\quillwork\api` and plans to answer A. Kyle denies. What does Otto type next, and why that letter?
+2. `answerGoesAhead` returns false for N. Why is that not safe with `Remove-Item a, b`?
+3. What would go wrong if plan B ran before the refusal?
+
+<details><summary>Answers</summary>
+
+1. `L` (No to All), then his plan B line. L is the refusal that matches Yes to All.
+2. No only skips the item PowerShell asked about. If `a` is a folder with children and `b` is a plain file, N skips `a` and still removes `b`, so a No can change the laptop. Part 5 decides from the dry run instead of the letter.
+3. PowerShell is still waiting for an answer. The driver would refuse the plan B line (a `DriverError`), and the step could never continue.
+
+</details>
+
+---
+
+## #148 fix: refuse with no to all, and gate a line on what refusing leaves
+
+https://github.com/KyleBuildsAI/ship-it/pull/148
+
+1. Otto wants to run `Remove-Item C:\Users\kyle\quillwork\api, C:\Users\kyle\quillwork\api\package.json`. Where does Otto pause now, and why there?
+2. Why is `L` a better refusal than `N` when Otto's answer was `Y`?
+3. Why does a refusal never open a gate of its own?
+
+<details><summary>Answers</summary>
+
+1. Before the line runs, at a line gate. The API folder has children, so PowerShell asks about it, but `package.json` never asks. Even if every question is refused, the file is removed and the "API is intact" guard breaks. Denying the line is the only way to keep it.
+2. `N` skips only the folder it asked about, so PowerShell may ask again about the next one and block every later line. `L` closes every question the line had left.
+3. Kyle already decided. Gating his own "No" would ask him the same thing twice, and denying it would have no safer letter to fall back on.
+
+</details>

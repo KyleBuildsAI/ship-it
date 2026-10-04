@@ -1106,37 +1106,57 @@ export interface DryRun {
 } // broken: guards with a part (an `all`'s check, one path of many) that held before and fails after
 export function dryRun(log: SandboxLog, action: LoggedAction,
   judge: { guards: readonly Predicate[] }, deps: RepositoryDeps): DryRun;
+export function dryRunRefused(log, action, judge, deps, refusal: ConfirmLetter): DryRun;
+  // the line, then `refusal` for every question it asks: a line gate weighs this, since
+  // refusing can't undo the paths that never ask (`Remove-Item a, b` still removes a file b)
 
-// src/game/missions/agentRunner.ts (A12)
+// src/game/missions/agentRunner.ts (A12). Pure: play drives every action and reports back.
 export type Verdict = 'confirmed' | 'caught' | 'missed' | 'false-alarm';
 export interface Gate { readonly kind: 'line' | 'confirm'; readonly line: string;
   readonly changes: readonly MachineChange[]; readonly harmful: boolean }
+export interface AnswerAction { do: 'answer'; choice: ConfirmLetter; line; onDeny: BaseAction[]; denyLine?;
+  refusal: boolean }  // refusal: Otto typing Kyle's own "No" after a deny or a stop, never gated
+export const REFUSAL: ConfirmLetter = 'L';  // No to All closes every question the line had left
+export type QueuedAction = AgentAction | BaseAction | AnswerAction; // plan B lines and answers join the queue
+export type AfterQueue = 'check' | 'direct';                     // 'direct': a stop or a deny left only a refusal to type
 export type AgentStage =
-  | { readonly at: 'direct'; readonly round: 'start' | 'fix' }
-  | { readonly at: 'echo'; readonly planId: string }
-  | { readonly at: 'running'; readonly planId: string; readonly queue: readonly AgentAction[] }
-  | { readonly at: 'predict'; readonly planId: string; readonly queue: readonly AgentAction[] }
-  | { readonly at: 'gate'; readonly planId: string; readonly queue: readonly AgentAction[]; readonly gate: Gate }
-  | { readonly at: 'check'; readonly planId: string }
-  | { readonly at: 'result'; readonly planId: string; readonly verdict: Verdict;
-      readonly passed: boolean; readonly guardBroken: boolean };
+  | { at: 'direct'; round: 'start' | 'fix' }
+  | { at: 'echo'; round; planId }
+  | { at: 'running'; planId; queue: readonly QueuedAction[]; then: AfterQueue }
+  | { at: 'predict'; planId; action: PredictedAction; queue; then }  // the line waits at the prompt
+  | { at: 'gate'; planId; action: QueuedAction; queue; then; gate: Gate; again: boolean } // again: a safe line re-asked
+  | { at: 'check'; planId }
+  | { at: 'result'; planId; optionId; verdict: Verdict; passed: boolean; guardBroken: boolean };
 export interface AgentStepState {
   readonly stepId: string; readonly stage: AgentStage; readonly tried: readonly string[];
   readonly gates: readonly boolean[]; readonly predicts: readonly boolean[];
   readonly verdicts: readonly Verdict[]; readonly rewound: boolean; readonly hintRung3: boolean;
 }
 export function beginAgentStep(step: MissionStep): AgentStepState;
-export function choosePlan(state, step, planId): AgentStepState;
-export function echoPlan(state, planId): AgentStepState;
-export function nextAction(state): { action: AgentAction; state: AgentStepState } | null;
-export function answerPredict(state, correct: boolean): AgentStepState;
-export function openGate(state, gate: Gate): AgentStepState;
-export function decideGate(state, step, allow: boolean): AgentStepState; // deny → onDeny, or a fix round
-export function finishScript(state): AgentStepState;                     // → check
+export function offeredPlans(state, step): readonly Plan[];       // a fix round: fixes, then untried start plans
+export function echoPlan(state, step, planId): AgentStepState;     // direct → echo; backToCards(state) goes back
+export function choosePlan(state, step, planId): AgentStepState;   // from direct, or "Go" on the echo
+export function nextAction(state): { action: QueuedAction; state } | null; // a predicted line → predict
+export function answerPredict(state, correct: boolean): AgentStepState;    // graded by outcomeHolds on a dry run
+export function outcomeHolds(outcome, result: { lines; exitCode }, q: SandboxQueries): boolean;
+export function openGate(state, action: QueuedAction, gate: Gate): AgentStepState; // the action play holds
+export function decideGate(state, allow: boolean): AgentStepState;
+  // allow → running; deny a safe line → asked again once; deny → REFUSAL if a Confirm is
+  // open, then onDeny and the rest of the script; no onDeny → a fix round
+export function confirmAsked(state, action): AgentStepState;
+  // the driven line asked: its `answer` goes next; an answer that asked again: the same answer again
+export function pausesBefore(action: QueuedAction, changes, mode: ApprovalMode): boolean;
+  // isConsequential on the dry run, for any letter (a No can let the rest of a line go on); refusals never
+export function toDriverAction(action: QueuedAction): DriverAction;
+export function stopScript(state): AgentStepState;                 // types REFUSAL first if a question is open
+export function finishScript(state): AgentStepState;               // → check, or → direct after a stop
+export function stepPasses(step, q): boolean;                      // success and every guard
 export function answerCheck(state, step, optionId: string, q: SandboxQueries): AgentStepState;
-export function stopScript(state): AgentStepState;
-export function rewindStep(state): AgentStepState;
-export function stars(state): { plan: boolean; safety: boolean; check: boolean };
+export function openFixRound(state): AgentStepState;               // a result that didn't pass
+export function rewindStep(state): AgentStepState;                 // play swaps in the log kept at step start;
+  // free before any card was picked, since nothing has run
+export function markHintRung3(state): AgentStepState;
+export function stars(state): Stars;  starXp(stars): number;       // STAR_XP = 2 each
 export function completeAgentStep(run: MissionRun, mission: Mission, q: SandboxQueries): MissionRun; // exactly one step
 
 // src/game/missions/judgment.ts (A13)
