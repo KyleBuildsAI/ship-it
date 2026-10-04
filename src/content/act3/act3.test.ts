@@ -106,6 +106,25 @@ describe('Act 3: Branching', () => {
     }
   });
 
+  it('gives a commit id one meaning across every card', () => {
+    // Lesson 3.2 teaches that an id is a fixed fingerprint, so the Act's own logs must
+    // never show one id on two different commits. (One message under two ids is fine:
+    // that's exactly what a rebase does.)
+    const commitLine = /^[*|/\s]*([0-9a-f]{7}) (?:\([^)]*\) )?(.+)$/;
+    const meaning = new Map<string, string>();
+    for (const card of lessons.flatMap((lesson) => lesson.cards)) {
+      for (const line of card.artifact?.text.split('\n') ?? []) {
+        const match = commitLine.exec(line);
+        const id = match?.[1];
+        const message = match?.[2];
+        if (id === undefined || message === undefined) continue;
+        expect(meaning.get(id) ?? message, `${card.id}: ${id}`).toBe(message);
+        meaning.set(id, message);
+      }
+    }
+    expect(meaning.size).toBeGreaterThan(10);
+  });
+
   it('happens at Quillwork, with Otto and the team', () => {
     const text = JSON.stringify(act3Lessons);
     for (const name of ['Quillwork', 'Otto', 'Sage', 'Priya', 'Marco', 'Dex']) {
