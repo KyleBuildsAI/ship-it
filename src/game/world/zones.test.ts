@@ -51,6 +51,15 @@ describe('zoneForAct', () => {
     expect([...openActs()].sort()).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     for (const { act } of CAMPUS_ACTS) expect(openActs().has(act)).toBe(true);
   });
+
+  it("sends every catalog Act's portal to an island that opens that same Act's menu", () => {
+    // The Acts menu and the portals must agree: arriving shows the Act you walked into.
+    for (const { act } of ACTS) {
+      const island = zoneForAct(act.act);
+      expect(island).not.toBeNull();
+      if (island !== null) expect(actForZone(island)).toBe(act.act);
+    }
+  });
 });
 
 describe('the Act islands', () => {
