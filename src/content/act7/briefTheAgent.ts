@@ -30,13 +30,14 @@ export const briefTheAgent = {
         },
         {
           id: 'huge',
-          text: 'Build a full reporting system with exports in every format, so we never need this again.',
+          text: 'On /billing, add a Download CSV button: number, date, amount, status, for the signed-in customer only, with tests. And refactor the billing module while you’re there.',
           correct: false,
-          feedback: 'Scope creep: a huge diff nobody asked for, for a small need.',
+          feedback:
+            'A good brief until the last line. “While you’re there” turns a small change into a huge diff nobody asked for.',
         },
         {
           id: 'spec',
-          text: 'On /billing, add a Download CSV button: number, date, amount, status. Only the signed-in customer’s invoices. Add tests for the columns and that others’ invoices never appear. Change no other pages.',
+          text: 'On /billing, add a Download CSV button: number, date, amount, status. Signed-in customer’s invoices only. Test that others’ never appear. Change nothing else.',
           correct: true,
           feedback: 'Goal, place, details, who, proof, and a boundary. Nothing left to guess.',
         },
@@ -115,9 +116,10 @@ export const briefTheAgent = {
         },
         {
           id: 'one-shot',
-          text: 'Do it all in one commit so it’s easy to revert.',
+          text: 'Change the API, the web app and the tests in one go, run the whole suite, fix whatever breaks along the way, and open one PR when it all passes.',
           correct: false,
-          feedback: 'One giant commit is easy to revert and impossible to review.',
+          feedback:
+            'Sounds thorough, but you meet every assumption after it’s built, and “fix whatever breaks” invites bent tests.',
         },
       ],
       explanation:
@@ -176,8 +178,7 @@ export const briefTheAgent = {
         { id: 'plan', text: 'Ask Otto for a plan before any code' },
         { id: 'approve', text: 'Correct the plan, then approve it' },
         { id: 'build', text: 'Let Otto build in small commits' },
-        { id: 'evidence', text: 'Check the test output and evidence yourself' },
-        { id: 'review', text: 'Review the diff, then merge' },
+        { id: 'review', text: 'Check the evidence and review the diff, then merge' },
       ],
       explanation:
         'Brief, plan, build, prove, review. Every step before the code is cheap to change, and every step after it is where you catch what the brief missed.',
