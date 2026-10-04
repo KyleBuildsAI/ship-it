@@ -2035,3 +2035,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/145
 3. A stopped plan did run part of its script, so it counts as an attempt: it costs the Plan star, and a stopped start card isn't offered again in the fix round. Only start cards are filtered this way. Fixes always stay on offer, because the same cleanup may be needed again, so a stopped fix can be picked again.
 
 </details>
+
+---
+
+## #146 feat: approval gates for a directed step
+
+https://github.com/KyleBuildsAI/ship-it/pull/146
+
+1. Otto wants to run `Remove-Item C:\Users\kyle\notes` on an empty stray folder, and Kyle denies it twice. What is recorded, and where does Otto go?
+2. Kyle denies a harmful line that has a plan B. What runs next?
+3. Why doesn't the content say which lines are harmful?
+
+<details><summary>Answers</summary>
+
+1. Two wrong decisions (`gates: [false, false]`), because the line was safe. The line has no plan B, so Otto stops and a fix round opens.
+2. The plan B lines, then the rest of the original script. The denied line itself never runs.
+3. A hand-written flag can go stale when the laptop setup changes, and it could give the answer away. A dry run against the guards always matches what would really happen.
+
+</details>
