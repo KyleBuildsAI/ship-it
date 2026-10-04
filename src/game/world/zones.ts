@@ -70,7 +70,7 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     theme: 'town',
     accent: 0xffb347,
     center: { x: 0, z: -140 },
-    hint: 'The town square: issues on the board, PRs to review. Start with 4.1 Remotes and Pull Requests.',
+    hint: 'The town square: issues on the board, PRs to review. Start with 4.1 Remotes and Pushing.',
   },
   {
     act: 5,

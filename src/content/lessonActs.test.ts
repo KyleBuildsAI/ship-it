@@ -33,9 +33,11 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
       expect(validateAct(act, [], lessons)).toEqual([]);
     });
 
-    it('has lessons, then one timed final that stands in for its boss', () => {
+    it('has its lessons, then one timed final that stands in for its boss', () => {
+      // DESIGN.md section 5: a lesson Act has 3 to 6 lessons, and only the last is a final.
       const kinds = lessons.map((lesson) => lesson.kind);
       expect(kinds.length).toBeGreaterThanOrEqual(3);
+      expect(kinds.length).toBeLessThanOrEqual(6);
       expect(kinds).toEqual([...kinds.slice(0, -1).map(() => 'lesson'), 'final']);
       expect(act.finalLessonId).toBe(final?.id);
       expect(act.boss).toBeUndefined();
