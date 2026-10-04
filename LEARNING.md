@@ -2017,3 +2017,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/144
 3. A step can reach its goal while doing damage, like making the folder but deleting the API. The guards are what must stay true, so a step only passes when they all still hold.
 
 </details>
+
+---
+
+## #145 feat: fix rounds, stop, rewind, predictions, and stars for a directed step
+
+https://github.com/KyleBuildsAI/ship-it/pull/145
+
+1. Otto's terminal stands at home and he runs `mkdir notes`. Which predict option holds: "In the API folder" or "In C:\Users\kyle"?
+2. Kyle's first card passes, but he read the hint that names the card. Which stars does he get?
+3. Why does `stopScript` count the stopped plan as tried?
+
+<details><summary>Answers</summary>
+
+1. "In C:\Users\kyle". A bare name lands where the terminal stands, and the test proves it by running the line.
+2. Safety and Check, but not Plan. The hint that names the card costs the Plan star.
+3. A stopped plan did run part of its script, so it counts as an attempt: it costs the Plan star, and a stopped start card isn't offered again in the fix round. Only start cards are filtered this way. Fixes always stay on offer, because the same cleanup may be needed again, so a stopped fix can be picked again.
+
+</details>

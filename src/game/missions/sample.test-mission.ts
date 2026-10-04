@@ -576,3 +576,135 @@ export const directedMissionInput: MissionInput = {
 };
 
 export const directedMission = MissionSchema.parse(directedMissionInput);
+
+const NOTES_LINE = 'mkdir C:\\Users\\kyle\\quillwork\\api\\notes';
+const apiNotes = { kind: 'driveFolder', path: `${API}/notes` } as const;
+const homeNotes = { kind: 'driveFolder', path: `${HOME}/notes` } as const;
+
+/**
+ * A directed step modelled on Mission 1.1's second step, with every way Otto can pause:
+ * a prediction on the weak card, a safe delete in one fix, and in another a Confirm
+ * question whose Yes to All would delete the whole API, with a plan B for a deny.
+ */
+export const notesAgentTaskInput = {
+  before: [{ op: 'restartTerminals' }],
+  plans: [
+    {
+      id: 'bare-name',
+      text: 'Make a notes folder for the API.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['make a notes folder', 'notes for the api'],
+      script: [
+        {
+          do: 'run',
+          line: 'mkdir notes',
+          predict: {
+            question: 'Before Otto runs it: where will notes land?',
+            options: [
+              { id: 'api', text: 'In the API folder', outcome: { state: apiNotes } },
+              { id: 'home', text: 'In C:\\Users\\kyle', outcome: { state: homeNotes } },
+              { id: 'fails', text: 'Nowhere: it fails', outcome: { result: 'error' } },
+            ],
+          },
+        },
+      ],
+      claim: 'Done: notes is in the API project.',
+      lesson: 'A fresh terminal stands at home, so notes landed in C:\\Users\\kyle.',
+      slip: 'wrong-place',
+    },
+    {
+      id: 'full-path',
+      text: 'Make C:\\Users\\kyle\\quillwork\\api\\notes.',
+      quality: 'strong',
+      covers: ['goal', 'place'],
+      intents: ['full path', 'api notes'],
+      script: [{ do: 'run', line: NOTES_LINE }],
+      claim: 'Done: notes is in the API.',
+      lesson: 'A full path lands in one place, wherever the terminal stands.',
+    },
+  ],
+  fixes: [
+    {
+      id: 'tidy-and-redo',
+      text: 'Delete the empty notes at home, then make it in the API.',
+      quality: 'strong',
+      covers: ['goal', 'place', 'limits'],
+      intents: ['delete the stray', 'remove home notes'],
+      script: [
+        { do: 'run', line: 'Remove-Item C:\\Users\\kyle\\notes' },
+        { do: 'run', line: NOTES_LINE },
+      ],
+      claim: 'Fixed: notes is in the API, and home is tidy.',
+      lesson: 'Direct the cleanup too: full paths make a fix land where you mean.',
+    },
+    {
+      id: 'start-over',
+      text: 'Clear out the API folder, then make notes there.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['clear out the api', 'start over'],
+      script: [
+        {
+          do: 'run',
+          line: 'Remove-Item C:\\Users\\kyle\\quillwork\\api',
+          answer: 'A',
+          onDeny: [{ do: 'run', line: 'Remove-Item C:\\Users\\kyle\\notes' }],
+          denyLine: 'Good stop. That was the whole project.',
+        },
+        { do: 'run', line: NOTES_LINE },
+      ],
+      claim: 'Fixed: a clean API with notes.',
+      lesson: 'Yes to All on a folder delete takes everything inside. Read the question first.',
+      slip: 'too-broad',
+    },
+  ],
+  hintPlan: 'full-path',
+  check: {
+    question: 'Where did notes land?',
+    options: [
+      {
+        id: 'api',
+        text: 'Only in the API folder',
+        truth: { kind: 'all', of: [apiNotes, { ...homeNotes, exists: false }] },
+        feedback: 'Right: the Directory line shows the API folder.',
+      },
+      {
+        id: 'home',
+        text: 'In C:\\Users\\kyle, where fresh terminals start',
+        truth: { kind: 'all', of: [homeNotes, { ...apiNotes, exists: false }] },
+        feedback: 'Read the Directory line above the table: it says where mkdir put it.',
+      },
+      {
+        id: 'both',
+        text: 'In both places',
+        truth: { kind: 'all', of: [apiNotes, homeNotes] },
+        feedback: 'Two Directory lines, two folders. List home to see the stray one.',
+      },
+    ],
+  },
+  guards: [
+    { ...homeNotes, exists: false, label: 'No stray notes folder at home' },
+    { kind: 'driveFile', path: `${API}/package.json`, label: 'The API is intact' },
+  ],
+  looks: [{ id: 'home', label: 'List home', line: 'Get-ChildItem C:\\Users\\kyle' }],
+} satisfies AgentTaskInput;
+
+/** A directed mission whose one step is the notes step above. */
+export const notesMission = MissionSchema.parse({
+  ...directedMissionInput,
+  id: 'sample-notes',
+  steps: [
+    {
+      id: 'notes-in-the-api',
+      instruction: 'Have Otto make a notes folder inside the API project.',
+      success: { ...apiNotes, label: 'The API has a notes folder' },
+      hints: [
+        'When a terminal opens fresh, which folder does it stand in?',
+        'Fresh terminals start at home. A bare name lands wherever the terminal stands.',
+        'Pick the card with the full path C:\\Users\\kyle\\quillwork\\api\\notes.',
+      ],
+      agent: notesAgentTaskInput,
+    },
+  ],
+});
