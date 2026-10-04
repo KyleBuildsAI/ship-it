@@ -131,10 +131,11 @@ export const testsAndEvals = {
           feedback: 'Careful how? It’s too vague to follow or check.',
         },
         {
-          id: 'never-run',
-          text: 'Never run the tests; I’ll run them myself.',
+          id: 'three-tries',
+          text: 'If a test still fails after three honest attempts, update its expected values to match the current output, add a comment explaining why, and carry on.',
           correct: false,
-          feedback: 'Then Otto can’t check his own work. You want more checking, not less.',
+          feedback:
+            'Specific, and still wrong: it gives Otto a sanctioned way to bend any test he can’t pass.',
         },
         {
           id: 'ask-first',
@@ -155,7 +156,8 @@ export const testsAndEvals = {
     {
       id: 'coverage-gap',
       kind: 'choose',
-      situation: 'CI is green on Otto’s refund change. You open the coverage report.',
+      situation:
+        'CI is green on Otto’s refund change, which added lines 22-31 of refund.ts. You open the coverage report.',
       artifact: {
         kind: 'log',
         label: 'coverage · src/billing',
@@ -231,8 +233,7 @@ export const testsAndEvals = {
       situation: 'You’re setting up that eval for the summarizer.',
       question: 'Put the steps in order.',
       steps: [
-        { id: 'collect', text: 'Collect real documents, including hard ones' },
-        { id: 'criteria', text: 'Write how each summary is graded' },
+        { id: 'collect', text: 'Collect real documents and write how each summary is graded' },
         { id: 'baseline', text: 'Score the current prompt as a baseline' },
         { id: 'change', text: 'Change the prompt' },
         { id: 'compare', text: 'Score again, compare, and read the failures' },
@@ -256,10 +257,11 @@ export const testsAndEvals = {
       question: 'What does this mean?',
       options: [
         {
-          id: 'broken',
-          text: 'The eval is broken. Throw it out.',
+          id: 'one-run',
+          text: 'Average the three to get an 81% baseline, then count any new prompt that scores above 81% on a single run as an improvement.',
           correct: false,
-          feedback: 'It works. It’s showing you how much the model varies.',
+          feedback:
+            'The baseline is fair, but one run of the new prompt is just as noisy. Compare averages.',
         },
         {
           id: 'best',
