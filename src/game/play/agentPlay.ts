@@ -7,7 +7,8 @@ import {
   type FeedBeat,
   type FeedState,
 } from '../agent/feed';
-import { advance, START, type Pace, type Playhead } from '../agent/pace';
+import type { MachineChange } from '../../engine/machine/snapshot';
+import { advance, NORMAL_PACE, START, type Pace, type Playhead } from '../agent/pace';
 import type { SandboxLog } from '../agent/replay';
 import { showInTerminal } from '../agent/terminalFeed';
 import {
@@ -79,12 +80,29 @@ interface Playback {
   held: QueuedAction | null;
   /** Kyle pressed Stop. Otto stops at the next gap between lines, never halfway through one. */
   stopAsked: boolean;
+  /**
+   * After Kyle predicts, what the line will change, shown as a ghost before it runs. The
+   * line waits until `heldMs` reaches the ghost's time at Otto's pace (ghostMs).
+   */
+  ghost: { readonly changes: readonly MachineChange[]; heldMs: number } | null;
 }
 
 let playback: Playback | null = null;
 
 /** More turns than any script can take in one frame: past it, something loops. */
 const MAX_TURNS = 1000;
+
+/** How long the ghost shows after a prediction, at the normal pace (spec 1.3, Predict). */
+const GHOST_MS = 1500;
+
+/**
+ * The ghost's time at `pace`: shorter at 2×, and none at the instant pace, since reduced
+ * motion and test robots want no waiting. It scales with the settle time, which is the
+ * pause after a result that the ghost stands in for.
+ */
+function ghostMs(pace: Pace): number {
+  return Math.round((GHOST_MS * pace.settleMs) / NORMAL_PACE.settleMs);
+}
 
 const REWIND_NOTICE = 'Rewound to the start of the step. A real laptop has no rewind.';
 
@@ -167,6 +185,7 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
     driveNext: null,
     held: null,
     stopAsked: false,
+    ghost: null,
   };
   return { ...current, agent: beginAgentStep(step) };
 }
@@ -216,6 +235,13 @@ export function frameAgent(elapsedMs: number, pace: Pace): void {
       }
       shown.beats = [];
       shown.head = START;
+    }
+    const { ghost } = shown;
+    if (ghost !== null) {
+      ghost.heldMs += elapsed;
+      elapsed = 0;
+      if (ghost.heldMs < ghostMs(pace)) return;
+      shown.ghost = null;
     }
     if (!takeTurn(now)) return;
   }
@@ -338,6 +364,14 @@ export function predict(optionId: string): void {
   const dry = dryRunNow(toDriverAction(action), { guards: now.task.guards });
   saveAgent(answerPredict(now.agent, outcomeHolds(option.outcome, dry.step, dry.queries)));
   consider(action, true);
+  // A line that runs straight on waits while its ghost shows. One that pauses at a gate
+  // needs no wait: the gate holds it, and lists the same changes.
+  if (now.playback.driveNext === action) now.playback.ghost = { changes: dry.changes, heldMs: 0 };
+}
+
+/** The ghost of the predicted line, while it shows: for the world's ghost tiles (A26). */
+export function predictionGhost(): readonly MachineChange[] {
+  return live()?.playback.ghost?.changes ?? [];
 }
 
 /**
@@ -408,7 +442,8 @@ export function directFix(): void {
  */
 export function rewind(): void {
   const now = live();
-  if (now === null) return;
+  // A step that passed has nothing to rewind, and the button does nothing.
+  if (now === null || (now.agent.stage.at === 'result' && now.agent.stage.passed)) return;
   const agent = rewindStep(now.agent);
   const { playback: shown } = now;
   shown.beats = [];
@@ -416,8 +451,12 @@ export function rewind(): void {
   shown.driveNext = null;
   shown.held = null;
   shown.stopAsked = false;
-  rewindTo(shown.checkpoint, REWIND_NOTICE);
-  shown.feed = startFeed(activeTab());
+  shown.ghost = null;
+  // Before any card was picked nothing has run, so the laptop stays as it is, with no notice.
+  if (now.agent.tried.length > 0) {
+    rewindTo(shown.checkpoint, REWIND_NOTICE);
+    shown.feed = startFeed(activeTab());
+  }
   saveAgent(agent);
 }
 

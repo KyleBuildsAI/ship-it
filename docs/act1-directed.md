@@ -1224,12 +1224,14 @@ export function onTerminalFeed(listener: (reveals: readonly Reveal[]) => void): 
 export function beginDirectedStep(current: MissionActivity): MissionActivity; // `before`, rewind point
 export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePlay, once per drawn frame
 // Kyle's buttons, each a no-op when the stage doesn't allow it:
-// pickCard(planId), repeatCard(planId), pickInstead(), predict(optionId), decide(allow),
+// pickCard(planId), repeatCard(planId), pickInstead(), decide(allow),
+// predict(optionId) (a line that doesn't pause then waits 1.5 s at the normal pace, none at instant, for its ghost),
 // stopOtto() (applied at the next gap between lines), runLook(lookId) (at check only),
 // checkClaim(optionId) (stars kept when it passed), directFix(), rewind(), nextStep().
 // A line is typed, then driven once its typing has shown. Each action is dry-run first
 // (dryRunNow, with REFUSAL for a line) to decide its gate; an answer is typed only once allowed.
 export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
+export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
 ```
 
 Store changes:

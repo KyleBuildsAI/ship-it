@@ -37,6 +37,7 @@ import {
   pickCard,
   pickInstead,
   predict,
+  predictionGhost,
   repeatCard,
   rewind,
   runLook,
@@ -548,6 +549,21 @@ describe('directing Otto through a step', () => {
     directTheSampleStep();
     expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
   });
+
+  it('ignores Rewind on a step that passed, and before a card is picked', () => {
+    // Before a card nothing has run: the laptop is not swapped, and the Plan star is safe.
+    const laptop = sandbox.get();
+    rewind();
+    expect(sandbox.get()).toBe(laptop);
+    expect(mission().agent?.rewound).toBe(false);
+
+    pickCard('full-path');
+    ottoWaits();
+    checkClaim('api');
+    expect(rewind).not.toThrow();
+    expect(mission().agent?.stage).toMatchObject({ at: 'result', passed: true });
+    expect(holds(inTheApi)).toBe(true);
+  });
 });
 
 describe('gates and predictions in play', () => {
@@ -570,6 +586,21 @@ describe('gates and predictions in play', () => {
     checkClaim('home');
     directFix();
   }
+
+  it('shows the ghost of a predicted line for 1.5 s before it runs', () => {
+    pickCard('bare-name');
+    ottoWaits();
+    predict('home');
+    framePlay(16, NORMAL_PACE);
+    // The ghost is up and the line hasn't run: Kyle sees what will happen first.
+    expect(holds(homeNotes)).toBe(false);
+    expect(predictionGhost()).not.toEqual([]);
+    framePlay(1400, NORMAL_PACE);
+    expect(holds(homeNotes)).toBe(false);
+    framePlay(100, NORMAL_PACE);
+    expect(holds(homeNotes)).toBe(true);
+    expect(predictionGhost()).toEqual([]);
+  });
 
   it('grades a prediction on what the line does', () => {
     weakCardCaught();
