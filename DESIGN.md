@@ -286,10 +286,13 @@ Final (the boss): **"The Agent Went Rogue"**, 6:00, nine cards: Otto's PR passes
 
 ### Act 8: The Loop (lessons)
 Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.
-- 8.1 **Think Out Loud**: clarifying, complexity, tracebacks, a debugging method, getting unstuck, edge cases, AI as a practice partner
-- 8.2 **Design and Customers**: starting a design, trade-offs, listening to a customer, fixing their real workflow, the deep-dive, values
+Every card is set at Quillwork, with Sage running a mock loop and Otto, Marco, Priya and Dex in the stories, and every lesson asks at least twice what Kyle would tell Otto. Content: `src/content/act8/`, one file per lesson.
+- 8.1 **Think Out Loud**: the coding round, no AI: clarifying a vague ticket, reading Otto's code for bugs (off-by-one, a shared default list, a slow list search), a reading method, asking for proof of a fix, getting unstuck, AI as a practice partner
+- 8.2 **Debug From Symptoms**: reading a traceback, a try/except that hides a bug, "what changed?", a debugging method, evidence before fixes when briefing Otto, works-locally-fails-in-CI, bisect, a flaky test with a cause
+- 8.3 **Design Trade-offs**: requirements first, the read-heavy path, queues for slow work, a design method, defending a choice, asking Otto for options with costs, right-sizing for a small team, the risk that can't be undone
+- 8.4 **Customers and Your Story**: listening to a customer, fixing their real workflow, briefing Otto's reply, handling missed webhooks, the SandCastles deep-dive, honest credit for AI's part, disagreement and mistakes
 
-Final (the boss): **"The Mock Interview Loop"**, 7:00: one card per round. Live coding with Pyodide (the Python Arena, M5) comes later.
+Final (the boss): **"The Mock Interview Loop"**, 6:00: one card per round, eight cards. Live coding with Pyodide (the Python Arena, M5) comes later.
 
 ### Cross-Act features
 - **Code Review mini-game (M2)**: diffs in a review panel. Click lines with bugs, pick the issue type, write a comment. Includes AI-written diffs with plausible-looking mistakes.
