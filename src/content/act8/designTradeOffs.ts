@@ -186,11 +186,11 @@ export const designTradeOffs = {
           id: 'best',
           text: 'Design the best rate limiter possible, ready for millions of users.',
           correct: false,
-          feedback: 'Quillwork has three servers. “Millions” invites a design you can’t run.',
+          feedback: 'Quillwork has two servers. “Millions” invites a design you can’t run.',
         },
         {
           id: 'options',
-          text: 'Propose two rate-limit designs for our API: about 50 requests a second per customer, 3 servers. For each, say how it works, what happens if Redis goes down, and the cost. No code yet.',
+          text: 'Propose two rate-limit designs for our API: a limit of about 50 requests a second per customer, 2 servers. For each, say how it works, what happens if Redis goes down, and the cost. No code yet.',
           correct: true,
           feedback: 'Real numbers, a failure question, and a choice for you to make.',
         },

@@ -230,12 +230,12 @@ export const theMockLoop = {
       id: 'loop-ai',
       kind: 'prompt',
       situation:
-        'AI round: Sage gives you Otto and a ticket, “Add CSV export to the invoices page.” You have one message.',
+        'AI round: Sage gives you Otto and a ticket, “Add CSV export to the invoices page.”',
       question: 'Which first instruction?',
       options: [
         {
           id: 'brief',
-          text: 'Add CSV export to the invoices page. Only touch src/export/. Show me a plan and wait for my OK. Then show the diff and tests for no invoices and 10,000 invoices.',
+          text: 'Add CSV export to the invoices page. Only touch the invoices page and src/export/. Show me a plan and wait for my OK. Then show the diff and tests for no invoices and 10,000 invoices.',
           correct: true,
           feedback: 'Scope, a checkpoint, and proof. That’s a brief, not a wish.',
         },
@@ -263,7 +263,7 @@ export const theMockLoop = {
       steps: [
         { id: 'situation', text: 'The situation: what you were working on' },
         { id: 'mistake', text: 'The mistake, said plainly' },
-        { id: 'impact', text: 'The impact on users and the team' },
+        { id: 'impact', text: 'The impact the moment you noticed it' },
         { id: 'fix', text: 'What you did to fix it' },
         { id: 'change', text: 'The habit you changed so it won’t repeat' },
       ],

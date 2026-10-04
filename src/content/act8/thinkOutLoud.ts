@@ -148,7 +148,7 @@ export const thinkOutLoud = {
       id: 'slow-dedupe',
       kind: 'choose',
       situation:
-        'Otto’s dedupe script for the 48,000 signups took 40 minutes. Dex timed out waiting for it.',
+        'Otto’s dedupe script for the 48,000 signups took several minutes, and each time the list doubles it takes four times as long.',
       artifact: {
         kind: 'code',
         label: 'dedupe.py',
@@ -203,10 +203,10 @@ export const thinkOutLoud = {
         },
         {
           id: 'edge-tests',
-          text: 'Add tests for page 0, a last page with only 3 people, an empty list, and a page past the end. Show me they fail without your fix and pass with it.',
+          text: 'Add tests: 45 customers, size 20; pages 0 and 1 must each return 20 with nobody skipped, page 2 returns 5, an empty list returns nothing. Show me the full-page tests fail without your fix and all pass with it.',
           correct: true,
           feedback:
-            'Named cases plus fail-then-pass proves the test catches the bug, and keeps it caught.',
+            'Named cases plus fail-then-pass on the full pages, where people went missing, proves the tests catch the bug and keep it caught.',
         },
         {
           id: 'try-except',
