@@ -28,9 +28,18 @@ import {
   startNextDrill,
   submitQuestionRound,
 } from './missionPlay';
-import { checkClaim, directFix, nextStep, pickCard } from './agentPlay';
+import {
+  checkClaim,
+  directFix,
+  nextStep,
+  pickCard,
+  pickInstead,
+  repeatCard,
+  runLook,
+} from './agentPlay';
 import { framePlay, leavePlay } from './play';
 import { currentQueries } from './sandboxControl';
+import { questionXp } from './saveRules';
 import { play, type BossActivity, type MissionActivity, type SeriesActivity } from './playStore';
 import {
   seriesSandboxChanged,
@@ -378,6 +387,15 @@ function revealText(reveal: Reveal): string {
   return beat.kind === 'enter' || beat.kind === 'cancel' ? '\n' : '';
 }
 
+/** Finishes the mission after its sim: every drill times out, then the Question Round. */
+function finishAfterTheSim(entry: Mission): void {
+  for (let index = 0; index < entry.drills.length; index++) {
+    startNextDrill(T0 + index * 200_000);
+    missionTick(T0 + index * 200_000 + 999_000);
+  }
+  submitQuestionRound(['when-lost'], '', T0 + 2_000_000);
+}
+
 describe('directing Otto through a step', () => {
   beforeEach(() => {
     directedCatalog(directedMission);
@@ -385,7 +403,7 @@ describe('directing Otto through a step', () => {
     endBriefing();
   });
 
-  it('runs the strong card, checks the claim by state, and moves on to the drills', () => {
+  it('runs the strong card, checks the claim by state, and pays the stars once', () => {
     expect(stage()).toBe('direct');
     expect(play.get().checklist).toEqual([]);
 
@@ -398,15 +416,38 @@ describe('directing Otto through a step', () => {
     // The checklist would answer the check, so it waits for the result.
     expect(play.get().checklist).toEqual([]);
 
+    const look = terminalText(() => {
+      runLook('where');
+      ottoWaits();
+    });
+    expect(look).toContain('Get-Location');
+    expect(stage()).toBe('check');
+
     checkClaim('api');
     expect(mission().agent?.stage).toMatchObject({ at: 'result', verdict: 'confirmed' });
     expect(play.get().checklist.map((row) => row.passed)).toEqual([true, true]);
+    expect(mission().stars).toEqual({
+      'stand-in-the-api': { plan: true, safety: true, check: true },
+    });
 
     nextStep();
     expect(mission().run.phase).toBe('drills');
     expect(mission().agent).toBeNull();
     const stepXp = directedMission.steps.reduce((total, step) => total + step.xp, 0);
     expect(progress.get().save?.profile.xp).toBe(stepXp);
+
+    finishAfterTheSim(directedMission);
+    const firstFinish = progress.get().save?.profile.xp ?? 0;
+    const fromQuestions = questionXp(mission().questionScore?.perPick ?? []);
+    // 3 stars at 2 XP each, on top of the mission's own XP.
+    expect(firstFinish).toBe(stepXp + directedMission.xp + fromQuestions + 6);
+    expect(mission().xpEarned).toBe(firstFinish);
+
+    startMission(directedMission.id);
+    endBriefing();
+    directTheSampleStep();
+    finishAfterTheSim(directedMission);
+    expect(progress.get().save?.profile.xp).toBe(firstFinish);
   });
 
   it("catches Otto's slip, directs a fix, and never advances on typed lines", () => {
@@ -415,12 +456,16 @@ describe('directing Otto through a step', () => {
     missionSandboxChanged(T0);
     expect(mission().run.stepIndex).toBe(0);
 
+    repeatCard('guess');
+    expect(stage()).toBe('echo');
+    pickInstead();
     pickCard('guess');
     ottoWaits();
     checkClaim('home');
     expect(mission().agent?.stage).toMatchObject({ verdict: 'caught', passed: false });
-    // A step that didn't pass shows its red rows.
+    // A step that didn't pass shows its red rows, and earns no stars yet.
     expect(play.get().checklist.map((row) => row.passed)).toEqual([false, true]);
+    expect(mission().stars).toEqual({});
     nextStep();
     expect(mission().run.stepIndex).toBe(0);
 
@@ -428,8 +473,7 @@ describe('directing Otto through a step', () => {
     pickCard('fix-full-path');
     ottoWaits();
     checkClaim('api');
-    expect(mission().agent?.stage).toMatchObject({ verdict: 'confirmed', passed: true });
-    expect(mission().agent?.tried).toEqual(['guess', 'fix-full-path']);
+    expect(mission().stars['stand-in-the-api']).toEqual({ plan: false, safety: true, check: true });
   });
 
   it('ignores a button pressed when the stage does not allow it', () => {
@@ -460,5 +504,14 @@ describe('directing Otto through a step', () => {
     expect(holds(inTheApi)).toBe(true);
     // About two seconds of typing, thinking and settling, at 60 frames a second.
     expect(frames).toBeGreaterThan(60);
+  });
+
+  it('marks the Plan star lost when the hint names the card', async () => {
+    await askForHint();
+    await askForHint();
+    await askForHint();
+    expect(mission().agent?.hintRung3).toBe(true);
+    directTheSampleStep();
+    expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
   });
 });
