@@ -19,7 +19,18 @@ export interface DrillResult {
   readonly passed: boolean;
   readonly seconds: number;
   readonly overtime: boolean;
+  /**
+   * A judgment drill's right answer, for the reveal: an option id, 'allow' or 'deny'.
+   * Missing for a drill graded by state, and for one that ended without an answer.
+   */
+  readonly keyId?: string;
 }
+
+/**
+ * A judgment drill's scene playing before its clock starts (docs/act1-directed.md 2.2):
+ * how many of Otto's history lines have run. Null when no scene is playing.
+ */
+export type ScenePlaying = { readonly index: number } | null;
 
 /** Sage's grade for the optional free-text question, or why there isn't one. */
 export type FreeTextGrade =
@@ -49,6 +60,8 @@ export interface MissionActivity {
   readonly agent: AgentStepState | null;
   /** The stars each directed step earned, by step id. Act 2's typed missions keep it empty. */
   readonly stars: Readonly<Record<string, Stars>>;
+  /** The next drill's scene, while it plays. Act 2's typed drills have none. */
+  readonly scene: ScenePlaying;
 }
 
 /** A row of timed drills: the placement test, or today's Standup Board reviews. */
@@ -61,6 +74,8 @@ export interface SeriesActivity {
   readonly active: { readonly index: number; readonly startedAtMs: number } | null;
   readonly results: readonly DrillResult[];
   readonly placement: PlacementResult | null;
+  /** The next drill's scene, while it plays. Act 2's typed drills have none. */
+  readonly scene: ScenePlaying;
 }
 
 export interface BossActivity {

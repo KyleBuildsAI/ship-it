@@ -3,10 +3,11 @@ import type { Pace } from '../agent/pace';
 import { frameAgent } from './agentPlay';
 import { bossSandboxChanged, bossTick } from './bossPlay';
 import { lessonTick } from './lessonPlay';
-import { missionSandboxChanged, missionTick } from './missionPlay';
+import { frameMissionScene, missionSandboxChanged, missionTick } from './missionPlay';
 import { play } from './playStore';
+import { endScene } from './scenePlay';
 import { watchSandbox } from './sandboxControl';
-import { seriesSandboxChanged, seriesTick } from './seriesPlay';
+import { frameSeriesScene, seriesSandboxChanged, seriesTick } from './seriesPlay';
 
 /** Routes a sandbox change to whatever is being played. */
 function sandboxChanged(): void {
@@ -26,17 +27,26 @@ export function tickPlay(nowMs: number = Date.now()): void {
 }
 
 /**
- * Moves Otto on by one drawn frame. The UI calls it from its frame loop with the time since
- * the last frame, never from tickPlay: at 4 ticks a second his typing would come in bursts.
- * The UI also chooses the pace (pace.ts choosePace), since it knows the browser's settings.
+ * Moves Otto on by one drawn frame: a directed step, or a judgment drill's scene. The UI
+ * calls it from its frame loop with the time since the last frame, never from tickPlay:
+ * at 4 ticks a second his typing would come in bursts. The UI also chooses the pace
+ * (pace.ts choosePace), since it knows the browser's settings. `nowMs` is when a scene
+ * that ends in this frame starts its drill's clock.
  */
-export function framePlay(elapsedMs: number, pace: Pace): void {
-  if (play.get().activity?.kind === 'mission') frameAgent(elapsedMs, pace);
+export function framePlay(elapsedMs: number, pace: Pace, nowMs: number = Date.now()): void {
+  const kind = play.get().activity?.kind;
+  if (kind === 'mission') {
+    frameAgent(elapsedMs, pace);
+    frameMissionScene(elapsedMs, pace, nowMs);
+  } else if (kind === 'placement' || kind === 'review') {
+    frameSeriesScene(elapsedMs, pace, nowMs);
+  }
 }
 
 /** Leaves whatever is being played. The sandbox stays as it is, for free play. */
 export function leavePlay(): void {
   endDrill();
+  endScene();
   play.update({ activity: null, checklist: [] });
 }
 

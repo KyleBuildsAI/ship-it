@@ -27,6 +27,7 @@ import {
   missionTick,
   startMission,
   startNextDrill,
+  submitJudgment,
   submitQuestionRound,
 } from './missionPlay';
 import {
@@ -53,6 +54,7 @@ import {
   startNextSeriesDrill,
   startPlacement,
   startReview,
+  submitSeriesJudgment,
 } from './seriesPlay';
 
 const NOW = new Date('2026-09-27T12:00:00.000Z');
@@ -400,6 +402,8 @@ function revealText(reveal: Reveal): string {
 function finishAfterTheSim(entry: Mission): void {
   for (let index = 0; index < entry.drills.length; index++) {
     startNextDrill(T0 + index * 200_000);
+    // A judgment drill's scene plays before its clock starts.
+    framePlay(16, INSTANT_PACE, T0 + index * 200_000);
     missionTick(T0 + index * 200_000 + 999_000);
   }
   submitQuestionRound(['when-lost'], '', T0 + 2_000_000);
@@ -670,5 +674,128 @@ describe('gates and predictions in play', () => {
     expect(shown).toBe('\n');
     expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
     expect(holds(homeNotes)).toBe(true);
+  });
+});
+
+describe('judgment drills with a scene', () => {
+  beforeEach(() => {
+    directedCatalog(directedMission);
+    startMission(directedMission.id);
+    endBriefing();
+    directTheSampleStep();
+  });
+
+  const queued = () => progress.get().save?.reviewQueue.map((item) => item.drillId) ?? [];
+
+  it('grades each answer by running the drill, and only misses join the review queue', () => {
+    // Predict has no history, so its clock starts at once.
+    startNextDrill(T0);
+    expect(mission().scene).toBeNull();
+    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 5_000);
+    expect(mission().lastDrill).toEqual({
+      drillId: 'sample-predict-typo',
+      passed: true,
+      seconds: 5,
+      overtime: false,
+      keyId: 'error',
+    });
+
+    startNextDrill(T0 + 10_000);
+    framePlay(16, INSTANT_PACE, T0 + 10_000);
+    submitJudgment({ kind: 'pick', optionId: 'deleted' }, T0 + 12_000);
+    // The reveal names the right answer, worked out from the scene's end state.
+    expect(mission().lastDrill).toMatchObject({ passed: false, keyId: 'home' });
+
+    startNextDrill(T0 + 20_000);
+    framePlay(16, INSTANT_PACE, T0 + 20_000);
+    submitJudgment({ kind: 'pick', optionId: 'step-by-step' }, T0 + 22_000);
+    expect(mission().lastDrill).toMatchObject({ passed: true, keyId: 'step-by-step' });
+
+    startNextDrill(T0 + 30_000);
+    submitJudgment({ kind: 'approve', allow: false }, T0 + 32_000);
+    expect(mission().lastDrill).toMatchObject({ passed: false, keyId: 'allow' });
+
+    startNextDrill(T0 + 40_000);
+    submitJudgment({ kind: 'approve', allow: false }, T0 + 42_000);
+    expect(mission().lastDrill).toMatchObject({ passed: true, keyId: 'deny' });
+
+    expect(mission().run.phase).toBe('question');
+    expect(queued().sort()).toEqual(['sample-approve-stray', 'sample-diagnose-home']);
+  });
+
+  it("plays Otto's history into the terminal first, and the clock starts after it", () => {
+    startNextDrill(T0);
+    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 1_000);
+
+    startNextDrill(T0 + 10_000);
+    expect(mission().scene).toEqual({ index: 0 });
+    expect(mission().run.activeDrill).toBeNull();
+    // Nothing is on the clock yet, so no tick can time the drill out while Otto plays.
+    missionTick(T0 + 500_000);
+    expect(mission().run.drillResults).toHaveLength(1);
+    // An answer during the scene, or a second start, does nothing.
+    submitJudgment({ kind: 'pick', optionId: 'home' }, T0 + 10_000);
+    startNextDrill(T0 + 10_000);
+    expect(mission().scene).toEqual({ index: 0 });
+
+    // At 3× Otto's pace the line is typed, run and shown before the question appears.
+    const typed = terminalText(() => {
+      framePlay(16, NORMAL_PACE, T0 + 10_016);
+    });
+    expect(mission().scene).toEqual({ index: 1 });
+    expect(mission().run.activeDrill).toBeNull();
+    const shown = terminalText(() => {
+      framePlay(10_000, NORMAL_PACE, T0 + 20_016);
+    });
+    expect(typed + shown).toContain('Get-ChildItem package.json');
+    expect(mission().scene).toBeNull();
+    expect(mission().run.activeDrill?.startedAtMs).toBe(T0 + 20_016);
+
+    // The drill gets its full limit from the moment the question showed.
+    missionTick(T0 + 20_016 + 39_000);
+    expect(mission().run.activeDrill).not.toBeNull();
+    submitJudgment({ kind: 'pick', optionId: 'home' }, T0 + 20_016 + 39_000);
+    expect(mission().lastDrill).toMatchObject({ passed: true, seconds: 39 });
+  });
+
+  it('plays the scene at a review too, and grades the answer there', () => {
+    startNextDrill(T0);
+    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 1_000);
+    startNextDrill(T0 + 10_000);
+    framePlay(16, INSTANT_PACE, T0 + 10_000);
+    missionTick(T0 + 60_000);
+    expect(queued()).toEqual(['sample-diagnose-home']);
+
+    startReview(NOW);
+    startNextSeriesDrill(T0 + 100_000);
+    expect(series().scene).toEqual({ index: 0 });
+    expect(series().active).toBeNull();
+    seriesTick(T0 + 900_000);
+    expect(series().results).toEqual([]);
+    framePlay(16, INSTANT_PACE, T0 + 101_000);
+    expect(series().scene).toBeNull();
+    expect(series().active).toEqual({ index: 0, startedAtMs: T0 + 101_000 });
+
+    submitSeriesJudgment({ kind: 'pick', optionId: 'home' }, T0 + 104_000);
+    expect(series().results).toEqual([
+      { drillId: 'sample-diagnose-home', passed: true, seconds: 3, overtime: false, keyId: 'home' },
+    ]);
+    // A review passed moves the item on rather than leaving it due today.
+    const item = progress
+      .get()
+      .save?.reviewQueue.find((entry) => entry.drillId === 'sample-diagnose-home');
+    expect(item).toBeDefined();
+    expect((item?.dueOn ?? '') > '2026-09-27').toBe(true);
+  });
+
+  it('drops a scene when Kyle leaves partway through', () => {
+    startNextDrill(T0);
+    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 1_000);
+    startNextDrill(T0 + 10_000);
+    leavePlay();
+    expect(() => {
+      framePlay(16, INSTANT_PACE, T0 + 10_000);
+    }).not.toThrow();
+    expect(play.get().activity).toBeNull();
   });
 });

@@ -140,6 +140,15 @@ export function dryRunNow(
 }
 
 /**
+ * Fresh dependencies of the kind the live sandbox was built with, for work done in a
+ * scratch copy, like grading a judgment drill. Tests pass testDeps, so grading sees the
+ * same commit ids a replay would.
+ */
+export function scratchDeps(): RepositoryDeps {
+  return liveRecording().makeDeps();
+}
+
+/**
  * Rewind: swaps the live sandbox for a replay of an earlier log, like the one kept when a
  * step began. Otto's transcript goes back with it. The world redraws from the new sandbox,
  * as it does for loadSandbox. On the real clock its commits get new times, so new ids.
