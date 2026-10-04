@@ -70,7 +70,7 @@ export const rejectedPush = {
         },
         {
           id: 'tight',
-          text: 'On branch fix/refund-rounding, make refunds round to the nearest cent. Add a test for 10.005. Change nothing else. Open a PR closing #88 and tell me when CI is green.',
+          text: 'On branch fix/refund-rounding, make refunds round to the nearest cent. Add a test that a 10.005 refund comes out as 10.01. Change nothing else. Open a PR closing #88 and tell me when CI is green.',
           correct: true,
           feedback: 'One fix, one test, one branch, and a clear finish line.',
         },
@@ -82,12 +82,12 @@ export const rejectedPush = {
         },
       ],
       explanation:
-        'Under time pressure, narrow the scope: one fix, one test, one branch. Saying what not to touch matters as much as saying what to do.',
+        'Under time pressure, narrow the scope: one fix, one test, one branch. A good brief states the expected result, not just the input. Saying what not to touch matters as much as saying what to do.',
     },
     {
       id: 'otto-push-rejected',
       kind: 'choose',
-      situation: 'Dex pushed a test to Otto’s fix branch to help. Now Otto’s next push fails.',
+      situation: 'Otto’s next push to fix/refund-rounding fails.',
       artifact: {
         kind: 'terminal',
         text: [
@@ -112,13 +112,14 @@ export const rejectedPush = {
         },
         {
           id: 'behind',
-          text: 'GitHub has Dex’s commit and Otto doesn’t. Otto must bring it in, then push.',
+          text: 'GitHub has a commit Otto doesn’t. Otto must bring it in, then push.',
           correct: true,
-          feedback: 'Yes. Two people on one branch means syncing before each push.',
+          feedback:
+            'Yes. Dex pushed a test there to help. Two people on one branch means syncing before each push.',
         },
       ],
       explanation:
-        'A “fetch first” rejection means the remote moved. Integrate the new commits, check everything still passes, then push. Never force over a teammate’s help.',
+        'A “fetch first” rejection means the remote moved, here because Dex pushed a test to help. Integrate the new commits, check everything still passes, then push. Never force over a teammate’s help.',
     },
     {
       id: 'scope-creep',
@@ -129,9 +130,9 @@ export const rejectedPush = {
         label: 'PR #89 · .github/CODEOWNERS',
         text: [
           '@@ -1,3 +1,2 @@',
+          ' *               @dex',
           '-/src/billing/   @priya',
           ' /docs/          @marco',
-          ' *               @dex',
         ].join('\n'),
       },
       question: 'What do you do?',
@@ -260,10 +261,10 @@ export const rejectedPush = {
         { id: 'ci', text: 'Wait for CI on main to go green' },
         { id: 'tag', text: 'Tag the merged commit v3.0.1' },
         { id: 'notes', text: 'Publish 3.0.1 release notes' },
-        { id: 'cleanup', text: 'Delete the fix branch' },
+        { id: 'announce', text: 'Tell Marco 3.0.1 is out and close issue #88' },
       ],
       explanation:
-        'Merge, prove main is green, tag that exact commit, tell users, clean up. Doing it in the same order every time is what keeps 5pm calm.',
+        'Merge, prove main is green, tag that exact commit, publish the notes, then tell Marco and close the issue. Doing it in the same order every time is what keeps 5pm calm.',
     },
   ],
 } satisfies LessonInput;
