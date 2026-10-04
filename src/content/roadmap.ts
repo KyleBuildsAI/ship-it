@@ -51,8 +51,13 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.',
     stage: 'playable',
-    status: 'Playable: two lessons and the timed final, all answered by clicking.',
-    missions: [{ title: 'Branches Are Pointers' }, { title: 'Conflicts Without Panic' }],
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Branches Are Pointers' },
+      { title: 'Two Ways to Merge' },
+      { title: 'Conflicts Without Panic' },
+      { title: 'Tools for Bad Days' },
+    ],
     boss: { title: 'Conflict Storm' },
   },
   {

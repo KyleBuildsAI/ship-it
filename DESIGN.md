@@ -95,6 +95,7 @@ For Acts whose systems the game doesn't simulate (GitHub's team flow, CI, HTTP, 
 - A lesson is a **briefing** (2-3 captions, read at Kyle's pace), then **6-10 cards**, then a Done screen with stars and XP.
 - **Choose** card: a situation, an optional **artifact** to read (a diff, a CI log, a terminal transcript, a PR description, an agent's message, an HTTP request or response; monospace, scrollable, labelled by kind), a question, and 3-5 options each with feedback. One or more are right.
 - **Prompt** card: the same shape, asking which instruction to give the AI agent. Its options are prompts, and the feedback says why one gets better results.
+- Options show in the order content lists them, so content moves the right answer around. Length mustn't give it away either: each prompt card has a detailed but flawed instruction nearly as long as the right one (say, a good brief that ends with the agent merging into main itself), and distractors are tempting real-world mistakes, not strawmen. Act 3's tests hold both.
 - **Order** card: 3-6 steps to put in order with up and down buttons, then "Check order".
 - Every card shows an explanation (why, in plain words) once solved. A wrong answer shows its feedback and the card stays open; only the first try counts. Stars come from the share right on the first try: 3 from 90%, 2 from 60%, otherwise 1. XP is paid once; replays practise for free.
 - A **final** lesson is an Act's timed final challenge: all its cards share one clock that starts when the briefing ends. If it runs out before the last card is answered, the run ends without completing, and Kyle tries again. Once the last card is answered the clock stops, so reading the last explanation is never a race.
@@ -235,10 +236,13 @@ Boss: **"The Dirty Tree"**: Dex deploys from a clean checkout in 3:00. The Workb
 
 ### Act 3: Branching (lessons)
 Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.
-- 3.1 **Branches Are Pointers**: what a branch is, briefing an agent to branch, fast-forward versus three-way merges, switching safely, deleting merged branches
-- 3.2 **Conflicts Without Panic**: reading markers, resolving by intent, directing an agent through conflicts, `merge --abort`, short-lived branches
+Every card happens at Quillwork with Otto and the team, and each lesson has at least two cards asking what to tell Otto and one order card. Content lives in `src/content/act3/`, one file per lesson.
+- 3.1 **Branches Are Pointers**: why main stays deployable, a branch as a tiny file holding a commit id, HEAD, briefing Otto to branch, a switch git refuses, switching safely, cleaning up merged branches, committed versus merged
+- 3.2 **Two Ways to Merge**: fast-forward versus three-way, briefing `--ff-only`, why a rebase changes commit ids, which branches are safe to rebase, `--force-with-lease`, update-then-merge, merge versus rebase
+- 3.3 **Conflicts Without Panic**: why git stops, reading markers, resolving by intent, directing Otto through 14 conflicts, catching markers he left in, the resolve steps, `merge --abort`, short-lived branches
+- 3.4 **Tools for Bad Days**: cherry-picking one fix (and briefing it), what stash does, stashing for a hotfix, tags for releases, bisect by hand and driven by Otto with a test
 
-Final (the boss): **"Conflict Storm"**, 5:00: rebase versus merge, never rewriting shared history, cherry-pick, bisect, stash, tags.
+Final (the boss): **"Conflict Storm"**, 6:00, 8 cards on release day: a fast-forward, a real conflict, Otto's conflicts under time pressure, a shared rebase gone wrong, a cherry-picked fix, bisect's arithmetic, the release steps with a tag, and a hotfix with stash.
 
 ### Act 4: GitHub Team Flow (lessons)
 Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.
