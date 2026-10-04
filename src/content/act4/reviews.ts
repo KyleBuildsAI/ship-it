@@ -22,7 +22,7 @@ export const reviewingPullRequests = {
         kind: 'diff',
         label: 'PR #70 · src/editor/autosave.test.ts',
         text: [
-          '@@ -22,7 +22,7 @@ describe("autosave", () => {',
+          '@@ -22,4 +22,4 @@ describe("autosave", () => {',
           '-  it("saves within 2 seconds of the last keystroke", async () => {',
           '+  it.skip("saves within 2 seconds of the last keystroke", async () => {',
           '     typeInto(editor, "Dear Marco,");',
@@ -96,7 +96,7 @@ export const reviewingPullRequests = {
         kind: 'diff',
         label: 'PR #72 · src/billing/invoice.ts',
         text: [
-          '@@ -8,5 +8,5 @@',
+          '@@ -8,3 +8,3 @@',
           ' export function monthlyTotal(plan: Plan, seats: number) {',
           '-  return plan.pricePerSeat * seats;',
           '+  return plan.pricePerSeat;',
@@ -124,10 +124,10 @@ export const reviewingPullRequests = {
           feedback: 'Specific and kind: it names the effect and suggests the proof.',
         },
         {
-          id: 'rewrite',
-          text: 'Push your own fix onto Dex’s branch without saying anything.',
+          id: 'vague',
+          text: 'Can we keep the multiplication here?',
           correct: false,
-          feedback: 'Dex never learns why, and may undo it. Comment first.',
+          feedback: 'Polite, but it doesn’t say why it matters or how to test it.',
         },
       ],
       explanation:
@@ -181,7 +181,8 @@ export const reviewingPullRequests = {
           id: 'admin',
           text: 'Priya needs admin rights to push code.',
           correct: false,
-          feedback: 'Admins go through PRs too. The rule is about process, not rank.',
+          feedback:
+            'Rank isn’t the issue: the error says changes must come through a pull request.',
         },
         {
           id: 'size',
@@ -191,13 +192,13 @@ export const reviewingPullRequests = {
         },
         {
           id: 'protected',
-          text: 'Main is protected: every change needs a pull request, passing checks and an approval.',
+          text: 'Main is protected: changes must come through a pull request.',
           correct: true,
           feedback: 'Yes, set in the repo’s branch protection rules.',
         },
       ],
       explanation:
-        'Branch protection makes the pull request the only door into main. Even a typo fix gets checks and a second pair of eyes, so main stays ready to ship.',
+        'Branch protection makes the pull request the only door into main. Teams usually also require passing checks and an approval, so even a typo fix gets a second pair of eyes and main stays ready to ship.',
     },
     {
       id: 'codeowners',
@@ -207,7 +208,7 @@ export const reviewingPullRequests = {
       artifact: {
         kind: 'file',
         label: '.github/CODEOWNERS',
-        text: ['/src/billing/   @priya', '/docs/          @marco', '*               @dex'].join(
+        text: ['*               @dex', '/src/billing/   @priya', '/docs/          @marco'].join(
           '\n',
         ),
       },
@@ -217,7 +218,7 @@ export const reviewingPullRequests = {
           id: 'ci',
           text: 'CI must be failing.',
           correct: false,
-          feedback: 'Maybe, but this file says something more specific about billing.',
+          feedback: 'Maybe, but this file says who must approve billing changes.',
         },
         {
           id: 'otto',
@@ -235,11 +236,11 @@ export const reviewingPullRequests = {
           id: 'dex-blocked',
           text: 'Dex isn’t allowed to approve anything.',
           correct: false,
-          feedback: 'Dex owns everything else (*). The billing line is more specific.',
+          feedback: 'Dex owns everything else (*), but a later line overrides it for billing.',
         },
       ],
       explanation:
-        'CODEOWNERS maps paths to the people who know them. With branch protection, a change to those paths can’t merge until an owner approves, however many others did.',
+        'CODEOWNERS maps paths to the people who know them. In CODEOWNERS the last matching line wins, so put broad rules first. With branch protection, a change to those paths can’t merge until an owner approves, however many others did.',
     },
     {
       id: 'self-review',
@@ -275,15 +276,14 @@ export const reviewingPullRequests = {
       situation: 'Sage shows you how the team reviews any PR, from a person or from Otto.',
       question: 'Put the review in order.',
       steps: [
-        { id: 'why', text: 'Read the description and the linked issue' },
-        { id: 'ci', text: 'Check that CI passed' },
+        { id: 'why', text: 'Read the description and linked issue, and check CI' },
         { id: 'tests', text: 'Read the test changes' },
         { id: 'code', text: 'Read the code changes' },
         { id: 'run', text: 'Try the change if behaviour changed' },
         { id: 'verdict', text: 'Comment, then approve or request changes' },
       ],
       explanation:
-        'Know the goal before the code. Reading tests first shows what the author claims to prove, so you can judge whether the code really does it.',
+        'Know the goal, and whether CI passed, before the code. Reading tests first shows what the author claims to prove, so you can judge whether the code really does it.',
     },
   ],
 } satisfies LessonInput;
