@@ -267,21 +267,21 @@ export const apisAndAuth = {
         },
         {
           id: 'every-scope',
-          text: 'Use OAuth, and request every scope GitHub offers in case we need them later.',
+          text: 'Ask for access to all of the writer’s repos and every permission, in case we need them later.',
           correct: false,
           feedback:
             'Writers see a scary permission screen, and a leaked token could do anything. Ask for the least you need.',
         },
         {
           id: 'least',
-          text: 'Use GitHub OAuth. Request only the scope needed to write to the repo the writer picks. Store tokens encrypted on our server, never in the browser, and ask them to reconnect if a token is revoked.',
+          text: 'Use a GitHub App the writer installs on just the repo they pick, asking only for Contents: write. Keep its tokens encrypted on our server, never in the browser, and handle the writer removing the app.',
           correct: true,
           feedback:
-            'Each writer grants only what publishing needs, can revoke it any time, and you planned for that.',
+            'Each writer grants only what publishing needs, on one repo, can remove it any time, and you planned for that.',
         },
       ],
       explanation:
-        'Least privilege: ask for the smallest access that does the job. Agents tend to grab broad permissions because it makes things work, so name the scope in your brief.',
+        'Least privilege: ask for the smallest access that does the job. GitHub Apps can be limited to chosen repos; classic OAuth scopes can’t. Agents tend to grab broad permissions because it makes things work, so name the scope in your brief.',
     },
     {
       id: 'oauth-flow',
