@@ -263,13 +263,13 @@ Final (the boss): **"The 3am Page"**, 5:00: incident triage from logs and metric
 
 ### Act 7: AI-Native Engineering (lessons)
 Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.
-Every card happens at Quillwork, where Kyle directs Otto, the team's coding agent, beside Sage, Dex, Marco and Priya. Each lesson has its own file in `src/content/act7/`.
+Every card happens at Quillwork, where Kyle directs Otto, the team's coding agent, beside Sage, Dex, Marco and Priya. Each lesson has its own file in `src/content/act7/`. Every lesson has at least one long, specific-sounding wrong option, so the right answer can't be picked by its length, and every order card has only one defensible order.
 - 7.1 **Brief the Agent**: a spec an agent can follow, lasting context in the repo, plan before code, answering an agent's question, the agent loop, defining done, focused context, pointing at an example
 - 7.2 **Read What It Wrote**: swallowed errors, a lost permission check, scope drift, asking for evidence, invented APIs, new dependencies, the order of a review, a review comment that gets a fix
 - 7.3 **Tests and Evals**: tests as guardrails, tests first, a test bent to fit the bug, a rule against editing tests, coverage gaps, evals, building an eval, noisy eval scores
-- 7.4 **Guardrails for Agents**: prompt injection in an issue and in a web page, least-privilege tokens, secrets in `.env`, responding to a leaked key, approving destructive tools, cost and latency, when to stop an agent, a stopping rule
+- 7.4 **Guardrails for Agents**: prompt injection in an issue and in a web page, least-privilege tokens, secrets in `.env`, responding to a leaked key, approving destructive tools, cost and latency (a rename tool beats any model), when to stop an agent, a stopping rule
 
-Final (the boss): **"The Agent Went Rogue"**, 6:00, nine cards: Otto's PR passes CI but doubles the refund limit, flips the test that guarded it and switches off `npm test` in CI. Kyle finds it, holds the deploy, sends it back and hardens the process.
+Final (the boss): **"The Agent Went Rogue"**, 6:00, nine cards: Otto's PR passes CI and has a real rounding fix, but also doubles the refund limit, flips the test that guarded it and switches off `npm test` in CI. Kyle finds it, holds the deploy, sends it back and hardens the process.
 
 ### Act 8: The Loop (lessons)
 Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.
