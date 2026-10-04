@@ -189,7 +189,7 @@ export const redCi = {
       id: 'fix-forward',
       kind: 'choose',
       situation:
-        'Main is green again. Then Dex’s footer change lands and main goes red: “Cannot find module ./Footer”. The file is footer.tsx. The fix is one import line.',
+        'Main is green again. Then Marco’s new footer component (#417) lands and main goes red: “Cannot find module ./Footer”. The file is footer.tsx. The fix is one import line.',
       question: 'Revert or fix forward?',
       options: [
         {
@@ -308,13 +308,13 @@ export const redCi = {
         },
         {
           id: 'required',
-          text: 'Make CI a required check in branch protection, with no bypass for admins.',
+          text: 'Keep CI required, and turn on “Do not allow bypassing the above settings” so admins can’t skip it either.',
           correct: true,
           feedback: 'The gate now holds for everyone, including on release day.',
         },
       ],
       explanation:
-        'Required checks turn “please wait for green” into a rule GitHub enforces. Include admins, or the rule disappears at exactly the moment it matters.',
+        'CI was already required here; the admin bypass let #413 through anyway. Branch protection lets admins skip required checks unless you turn that off. Include admins, or the rule disappears at exactly the moment it matters.',
     },
   ],
 } satisfies LessonInput;

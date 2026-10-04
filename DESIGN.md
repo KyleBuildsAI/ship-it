@@ -255,7 +255,7 @@ Every card happens at Quillwork with Sage, Dex, Marco, Priya and Otto. The lesso
 - 5.3 **Reading CI**: reading a workflow, reading a GitHub Actions log to its first failure, laptop versus CI, why CI must pass before merge, flaky tests, briefing an agent from a log, asking an agent for evidence
 - 5.4 **Secrets and Updates**: secrets in Actions, a leaked key (revoke first) and the cleanup in order, fork PRs and secrets, major dependency bumps, the lockfile, briefing an upgrade, judging a new dependency
 
-Final (the boss): **"Red CI"**, 6:00 for 9 cards: main is broken on release day. Find the first red build, read the trace, choose revert or fix forward, brief Otto's revert, catch his skipped test, and make CI a required check.
+Final (the boss): **"Red CI"**, 6:00 for 9 cards: main is broken on release day. Find the first red build, read the trace, choose revert or fix forward, brief Otto's revert, catch his skipped test, and stop admins bypassing the required CI check.
 
 ### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.

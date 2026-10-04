@@ -64,7 +64,7 @@ export const readingCi = {
     {
       id: 'actions-log',
       kind: 'choose',
-      situation: 'CI is red on Marco’s PR. This is the job log.',
+      situation: 'CI is red on Otto’s PR #57. This is the job log.',
       artifact: {
         kind: 'log',
         label: 'CI / gates (pull_request)',
