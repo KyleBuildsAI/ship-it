@@ -168,7 +168,7 @@ export const releasesAndVersions = {
         },
         {
           id: 'pin',
-          text: 'A permanent name for the exact commit that shipped.',
+          text: 'A fixed name for the exact commit that shipped.',
           correct: true,
           feedback: 'Yes. Anyone can check out v3.0.0 later and get exactly what users got.',
         },
@@ -181,7 +181,7 @@ export const releasesAndVersions = {
         },
       ],
       explanation:
-        'A tag names one commit forever. When a user reports a bug in 3.0.0, the tag lets you see exactly the code they’re running, even after main has moved on.',
+        'A tag names one commit and, by team rule, never moves. When a user reports a bug in 3.0.0, the tag lets you see exactly the code they’re running, even after main has moved on.',
     },
     {
       id: 'brief-the-release',
