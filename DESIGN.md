@@ -235,10 +235,13 @@ Boss: **"The Dirty Tree"**: Dex deploys from a clean checkout in 3:00. The Workb
 
 ### Act 3: Branching (lessons)
 Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.
-- 3.1 **Branches Are Pointers**: what a branch is, briefing an agent to branch, fast-forward versus three-way merges, switching safely, deleting merged branches
-- 3.2 **Conflicts Without Panic**: reading markers, resolving by intent, directing an agent through conflicts, `merge --abort`, short-lived branches
+Every card happens at Quillwork with Otto and the team, and each lesson has at least two cards asking what to tell Otto and one order card. Content lives in `src/content/act3/`, one file per lesson.
+- 3.1 **Branches Are Pointers**: why main stays deployable, a branch as a tiny file holding a commit id, HEAD, briefing Otto to branch, a switch git refuses, switching safely, cleaning up merged branches, committed versus merged
+- 3.2 **Two Ways to Merge**: fast-forward versus three-way, briefing `--ff-only`, why a rebase changes commit ids, which branches are safe to rebase, `--force-with-lease`, update-then-merge, merge versus rebase
+- 3.3 **Conflicts Without Panic**: why git stops, reading markers, resolving by intent, directing Otto through 14 conflicts, catching markers he left in, the resolve steps, `merge --abort`, short-lived branches
+- 3.4 **Tools for Bad Days**: cherry-picking one fix (and briefing it), what stash does, stashing for a hotfix, tags for releases, bisect by hand and driven by Otto with a test
 
-Final (the boss): **"Conflict Storm"**, 5:00: rebase versus merge, never rewriting shared history, cherry-pick, bisect, stash, tags.
+Final (the boss): **"Conflict Storm"**, 6:00, 8 cards on release day: a fast-forward, a real conflict, Otto's conflicts under time pressure, a shared rebase gone wrong, a cherry-picked fix, bisect's arithmetic, the release steps with a tag, and a hotfix with stash.
 
 ### Act 4: GitHub Team Flow (lessons)
 Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.
