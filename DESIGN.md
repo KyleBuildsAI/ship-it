@@ -249,10 +249,13 @@ Final (the boss): **"Rejected Push"** at 5pm on release day, 5:00.
 
 ### Act 5: Quality Gates (lessons)
 Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.
-- 5.1 **Tests Are Guardrails**: kinds of test, test-first briefs, an agent weakening a test, type errors, lint, the local gates in order
-- 5.2 **CI and Deploys**: reading a workflow, laptop versus CI, secrets in Actions, self-hosted runners, dependency PRs, a safe deploy
+Every card happens at Quillwork with Sage, Dex, Marco, Priya and Otto. The lessons live one per file in `src/content/act5/`.
+- 5.1 **Tests Are Guardrails**: unit versus integration versus end-to-end, testing at the lowest level that proves it, reading a failing test, test-first briefs, an agent weakening a test, the bug-fix loop
+- 5.2 **Lint and Types**: type errors as bug reports, refusing `@ts-ignore` and `any`, why lint blocks a merge, blanket `eslint-disable`, a formatter in CI, scoping a lint fix for an agent, what green does and doesn't prove, the local gates in order
+- 5.3 **Reading CI**: reading a workflow, reading a GitHub Actions log to its first failure, laptop versus CI, why CI must pass before merge, flaky tests, briefing an agent from a log, asking an agent for evidence
+- 5.4 **Secrets and Updates**: secrets in Actions, a leaked key (revoke first) and the cleanup in order, fork PRs and secrets, major dependency bumps, the lockfile, briefing an upgrade, judging a new dependency
 
-Final (the boss): **"Red CI"**, 5:00: main is broken. Find the commit, then fix forward or revert.
+Final (the boss): **"Red CI"**, 6:00 for 9 cards: main is broken on release day. Find the first red build, read the trace, choose revert or fix forward, brief Otto's revert, catch his skipped test, and make CI a required check.
 
 ### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.
