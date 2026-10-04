@@ -47,7 +47,7 @@ describe('mission progress', () => {
       started,
       sampleAct,
       sampleMission,
-      { drillPercent: 80, questionXp: 0 },
+      { drillPercent: 80, questionXp: 0, directingXp: 0 },
       NOW,
     );
     expect(startMissionProgress(done, sampleMission.id)).toBe(done);
@@ -63,15 +63,15 @@ describe('mission progress', () => {
     expect(again).toBe(once);
   });
 
-  it('pays mission and question XP on the first finish only, and keeps the best drill score', () => {
-    const result = { drillPercent: 60, questionXp: 15 };
+  it('pays mission, question and directing XP on the first finish only, and keeps the best drill score', () => {
+    const result = { drillPercent: 60, questionXp: 15, directingXp: 4 };
     const first = completeMission(fresh(), sampleAct, sampleMission, result, NOW);
-    expect(first.profile.xp).toBe(sampleMission.xp + 15);
+    expect(first.profile.xp).toBe(sampleMission.xp + 15 + 4);
     const replay = completeMission(
       first,
       sampleAct,
       sampleMission,
-      { drillPercent: 90, questionXp: 15 },
+      { drillPercent: 90, questionXp: 15, directingXp: 6 },
       LATER,
     );
     expect(replay.profile.xp).toBe(first.profile.xp);
@@ -149,7 +149,13 @@ describe('act milestones', () => {
   it('completes the act after every mission, the boss, and the field mission', () => {
     let save = fresh();
     for (const entry of missions) {
-      save = completeMission(save, sampleAct, entry, { drillPercent: 100, questionXp: 0 }, NOW);
+      save = completeMission(
+        save,
+        sampleAct,
+        entry,
+        { drillPercent: 100, questionXp: 0, directingXp: 0 },
+        NOW,
+      );
     }
     save = completeBoss(save, sampleAct, NOW);
     expect(save.acts[String(sampleAct.act)]?.completedAt).toBeNull();
@@ -195,7 +201,13 @@ describe('an early-access act', () => {
   function finishEverything(target: Act): SaveData {
     let save = fresh();
     for (const entry of early.missions) {
-      save = completeMission(save, target, entry, { drillPercent: 100, questionXp: 0 }, NOW);
+      save = completeMission(
+        save,
+        target,
+        entry,
+        { drillPercent: 100, questionXp: 0, directingXp: 0 },
+        NOW,
+      );
     }
     save = completeBoss(save, target, NOW);
     const ids = sampleAct.fieldMission.verifications.map((check) => check.id);
