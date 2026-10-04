@@ -1,5 +1,7 @@
 import type { OutputLine } from '../../engine/git/cli/output';
 import type { MachineChange } from '../../engine/machine/snapshot';
+import type { ConfirmLetter, DriverAction } from '../../engine/shell/driver';
+import { driverAction } from '../agent/replay';
 import type { AgentAction, AgentTask, BaseAction, Outcome, Plan } from './agentSchema';
 import { evaluate, type SandboxQueries } from './predicates';
 import { MissionRunError, type MissionRun } from './runner';
@@ -36,13 +38,31 @@ export interface Gate {
   readonly harmful: boolean;
 }
 
-/** Anything waiting in Otto's queue: a script action, or a plan B action after a deny. */
-export type QueuedAction = AgentAction | BaseAction;
+/**
+ * Otto's answer to PowerShell's Confirm question. It carries the line that asked, so a
+ * confirm gate can show that line and a deny can still run the line's plan B.
+ */
+export interface AnswerAction {
+  readonly do: 'answer';
+  readonly choice: ConfirmLetter;
+  readonly line: string;
+  readonly onDeny: readonly BaseAction[];
+  readonly denyLine?: string | undefined;
+}
+
+/** Anything waiting in Otto's queue: a script action, a plan B action, or an answer. */
+export type QueuedAction = AgentAction | BaseAction | AnswerAction;
 
 /** A run line with a prediction to make before it runs. */
 export type PredictedAction = Extract<AgentAction, { do: 'run' }> & {
   readonly predict: NonNullable<Extract<AgentAction, { do: 'run' }>['predict']>;
 };
+
+/**
+ * Where Otto goes when his queue runs out: on to the check, or back to Kyle for new
+ * directions, after a stop or a deny left him with nothing else to do.
+ */
+export type AfterQueue = 'check' | 'direct';
 
 export type AgentStage =
   /** Kyle picks a card. A fix round offers the fixes and the start cards not tried yet. */
@@ -54,6 +74,7 @@ export type AgentStage =
       readonly at: 'running';
       readonly planId: string;
       readonly queue: readonly QueuedAction[];
+      readonly then: AfterQueue;
     }
   /** A line waits at the prompt while Kyle predicts what it will do. */
   | {
@@ -61,6 +82,7 @@ export type AgentStage =
       readonly planId: string;
       readonly action: PredictedAction;
       readonly queue: readonly QueuedAction[];
+      readonly then: AfterQueue;
     }
   /** Otto waits for Allow or Deny. `again`: Kyle denied a safe line, and Otto asked again. */
   | {
@@ -68,6 +90,7 @@ export type AgentStage =
       readonly planId: string;
       readonly action: QueuedAction;
       readonly queue: readonly QueuedAction[];
+      readonly then: AfterQueue;
       readonly gate: Gate;
       readonly again: boolean;
     }
@@ -199,7 +222,7 @@ export function choosePlan(
   return {
     ...state,
     tried: [...state.tried, plan.id],
-    stage: { at: 'running', planId: plan.id, queue: plan.script },
+    stage: { at: 'running', planId: plan.id, queue: plan.script, then: 'check' },
   };
 }
 
@@ -215,8 +238,8 @@ export function nextAction(
   const [action, ...queue] = stage.queue;
   if (action === undefined) return null;
   if (isPredicted(action)) {
-    const { planId } = stage;
-    return { action, state: { ...state, stage: { at: 'predict', planId, action, queue } } };
+    const { planId, then } = stage;
+    return { action, state: { ...state, stage: { at: 'predict', planId, action, queue, then } } };
   }
   return { action, state: { ...state, stage: { ...stage, queue } } };
 }
@@ -231,11 +254,11 @@ function isPredicted(action: QueuedAction): action is PredictedAction {
  * still in play's hands: gate it if it pauses, then drive it.
  */
 export function answerPredict(state: AgentStepState, correct: boolean): AgentStepState {
-  const { planId, queue } = expectStage(state, 'predict', 'answer a prediction');
+  const { planId, queue, then } = expectStage(state, 'predict', 'answer a prediction');
   return {
     ...state,
     predicts: [...state.predicts, correct],
-    stage: { at: 'running', planId, queue },
+    stage: { at: 'running', planId, queue, then },
   };
 }
 
@@ -258,39 +281,99 @@ export function outcomeHolds(
 
 /** Otto pauses before the action he was just handed, for Kyle to allow or deny. */
 export function openGate(state: AgentStepState, action: QueuedAction, gate: Gate): AgentStepState {
-  const { planId, queue } = expectStage(state, 'running', 'open a gate');
-  return { ...state, stage: { at: 'gate', planId, action, queue, gate, again: false } };
+  const { planId, queue, then } = expectStage(state, 'running', 'open a gate');
+  if ((gate.kind === 'confirm') !== (action.do === 'answer')) {
+    throw new MissionRunError(
+      'A confirm gate is for an answer, and a line gate for anything else.',
+    );
+  }
+  return { ...state, stage: { at: 'gate', planId, action, queue, then, gate, again: false } };
 }
 
 /**
  * Kyle allows or denies. Deny is right exactly when the dry run was harmful (D4).
  * - Allow: Otto carries on, and play drives the action it is holding.
  * - Deny a safe line the first time: Otto asks again, "I need this to finish".
- * - Deny otherwise: Otto runs the line's plan B and carries on with his script, or with
- *   no plan B he stops and asks Kyle for new directions.
+ * - Deny otherwise: a confirm question is answered No first, because PowerShell refuses
+ *   any other line while it waits. Then Otto runs the line's plan B and carries on with
+ *   his script, or with no plan B he stops and asks Kyle for new directions.
  */
 export function decideGate(state: AgentStepState, allow: boolean): AgentStepState {
   const stage = expectStage(state, 'gate', 'decide a gate');
-  const { planId, action, queue, gate } = stage;
+  const { planId, action, queue, then, gate } = stage;
   const gates = [...state.gates, allow !== gate.harmful];
-  if (allow) return { ...state, gates, stage: { at: 'running', planId, queue } };
+  if (allow) return { ...state, gates, stage: { at: 'running', planId, queue, then } };
   if (!gate.harmful && !stage.again) return { ...state, gates, stage: { ...stage, again: true } };
 
+  const refusal = action.do === 'answer' ? [refuse(action)] : [];
   const planB = 'onDeny' in action ? action.onDeny : [];
-  if (planB.length === 0) return { ...state, gates, stage: { at: 'direct', round: 'fix' } };
-  return { ...state, gates, stage: { at: 'running', planId, queue: [...planB, ...queue] } };
+  if (planB.length > 0) {
+    const resumed = [...refusal, ...planB, ...queue];
+    return { ...state, gates, stage: { at: 'running', planId, queue: resumed, then } };
+  }
+  return { ...state, gates, stage: stopAfter(planId, refusal) };
 }
 
-/** Stop, between lines: back to the cards, with the plan marked as tried. */
+/** The No that matches Otto's Yes: No for Yes, No to All for Yes to All. */
+const REFUSALS: Readonly<Record<ConfirmLetter, ConfirmLetter>> = { Y: 'N', A: 'L', N: 'N', L: 'L' };
+
+function refuse(answer: AnswerAction): AnswerAction {
+  return { ...answer, choice: REFUSALS[answer.choice], onDeny: [] };
+}
+
+/** Whether Otto's answer would go ahead with the change, so it gates. A No changes nothing. */
+export function answerGoesAhead(answer: AnswerAction): boolean {
+  return REFUSALS[answer.choice] !== answer.choice;
+}
+
+/** Back to Kyle for directions, once any open question has been answered No. */
+function stopAfter(planId: string, refusal: readonly AnswerAction[]): AgentStage {
+  if (refusal.length === 0) return { at: 'direct', round: 'fix' };
+  return { at: 'running', planId, queue: refusal, then: 'direct' };
+}
+
+/**
+ * The line play just drove left PowerShell asking its Confirm question. Otto's answer is
+ * the line's authored `answer`, and it goes next, ahead of the rest of the script.
+ */
+export function confirmAsked(state: AgentStepState, action: QueuedAction): AgentStepState {
+  const stage = expectStage(state, 'running', 'answer a Confirm question');
+  if (action.do !== 'run' || action.answer === undefined) {
+    throw new MissionRunError(
+      'Only a run line with an authored answer can meet a Confirm question.',
+    );
+  }
+  const answer: AnswerAction = {
+    do: 'answer',
+    choice: action.answer,
+    line: action.line,
+    onDeny: 'onDeny' in action ? action.onDeny : [],
+    denyLine: 'denyLine' in action ? action.denyLine : undefined,
+  };
+  return { ...state, stage: { ...stage, queue: [answer, ...stage.queue] } };
+}
+
+/** What play passes to drive() for a queued action: only what the machine needs. */
+export function toDriverAction(action: QueuedAction): DriverAction {
+  return action.do === 'answer' ? { do: 'answer', choice: action.choice } : driverAction(action);
+}
+
+/**
+ * Stop, between lines: back to the cards, with the plan marked as tried. If PowerShell is
+ * still asking, Otto first answers No, so the next plan's lines can run.
+ */
 export function stopScript(state: AgentStepState): AgentStepState {
-  expectStage(state, 'running', 'stop Otto');
-  return { ...state, stage: { at: 'direct', round: 'fix' } };
+  const { planId, queue } = expectStage(state, 'running', 'stop Otto');
+  const [next] = queue;
+  const refusal = next?.do === 'answer' ? [refuse(next)] : [];
+  return { ...state, stage: stopAfter(planId, refusal) };
 }
 
-/** Otto's queue is empty, so he claims he's done and Kyle checks. */
+/** Otto's queue is empty: he claims he's done, or waits for new directions. */
 export function finishScript(state: AgentStepState): AgentStepState {
-  const { planId, queue } = expectStage(state, 'running', 'finish the script');
+  const { planId, queue, then } = expectStage(state, 'running', 'finish the script');
   if (queue.length > 0) throw new MissionRunError('Otto still has actions queued.');
+  if (then === 'direct') return { ...state, stage: { at: 'direct', round: 'fix' } };
   return { ...state, stage: { at: 'check', planId } };
 }
 

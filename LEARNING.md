@@ -2053,3 +2053,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/146
 3. A hand-written flag can go stale when the laptop setup changes, and it could give the answer away. A dry run against the guards always matches what would really happen.
 
 </details>
+
+---
+
+## #147 feat: confirm answers for a directed step
+
+https://github.com/KyleBuildsAI/ship-it/pull/147
+
+1. Otto runs `Remove-Item C:\Users\kyle\quillwork\api` and plans to answer A. Kyle denies. What does Otto type next, and why that letter?
+2. `answerGoesAhead` returns false for N. Why is that not safe with `Remove-Item a, b`?
+3. What would go wrong if plan B ran before the refusal?
+
+<details><summary>Answers</summary>
+
+1. `L` (No to All), then his plan B line. L is the refusal that matches Yes to All.
+2. No only skips the item PowerShell asked about. If `a` is a folder with children and `b` is a plain file, N skips `a` and still removes `b`, so a No can change the laptop. Part 5 decides from the dry run instead of the letter.
+3. PowerShell is still waiting for an answer. The driver would refuse the plan B line (a `DriverError`), and the step could never continue.
+
+</details>
