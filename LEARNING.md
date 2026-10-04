@@ -2071,3 +2071,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/147
 3. PowerShell is still waiting for an answer. The driver would refuse the plan B line (a `DriverError`), and the step could never continue.
 
 </details>
+
+---
+
+## #148 fix: refuse with no to all, and gate a line on what refusing leaves
+
+https://github.com/KyleBuildsAI/ship-it/pull/148
+
+1. Otto wants to run `Remove-Item C:\Users\kyle\quillwork\api, C:\Users\kyle\quillwork\api\package.json`. Where does Otto pause now, and why there?
+2. Why is `L` a better refusal than `N` when Otto's answer was `Y`?
+3. Why does a refusal never open a gate of its own?
+
+<details><summary>Answers</summary>
+
+1. Before the line runs, at a line gate. The API folder has children, so PowerShell asks about it, but `package.json` never asks. Even if every question is refused, the file is removed and the "API is intact" guard breaks. Denying the line is the only way to keep it.
+2. `N` skips only the folder it asked about, so PowerShell may ask again about the next one and block every later line. `L` closes every question the line had left.
+3. Kyle already decided. Gating his own "No" would ask him the same thing twice, and denying it would have no safer letter to fall back on.
+
+</details>

@@ -1,8 +1,16 @@
 import type { OutputLine } from '../../engine/git/cli/output';
 import type { MachineChange } from '../../engine/machine/snapshot';
 import type { ConfirmLetter, DriverAction } from '../../engine/shell/driver';
+import { isConsequential } from '../agent/effects';
 import { driverAction } from '../agent/replay';
-import type { AgentAction, AgentTask, BaseAction, Outcome, Plan } from './agentSchema';
+import type {
+  AgentAction,
+  AgentTask,
+  ApprovalMode,
+  BaseAction,
+  Outcome,
+  Plan,
+} from './agentSchema';
 import { evaluate, type SandboxQueries } from './predicates';
 import { MissionRunError, type MissionRun } from './runner';
 import type { Mission, MissionStep } from './schema';
@@ -48,6 +56,8 @@ export interface AnswerAction {
   readonly line: string;
   readonly onDeny: readonly BaseAction[];
   readonly denyLine?: string | undefined;
+  /** Otto typing Kyle's own "No" after a deny or a stop: decided already, so never gated. */
+  readonly refusal: boolean;
 }
 
 /** Anything waiting in Otto's queue: a script action, a plan B action, or an answer. */
@@ -287,6 +297,9 @@ export function openGate(state: AgentStepState, action: QueuedAction, gate: Gate
       'A confirm gate is for an answer, and a line gate for anything else.',
     );
   }
+  if (action.do === 'answer' && action.refusal) {
+    throw new MissionRunError('A refusal carries out Kyle\'s own "No": it never pauses.');
+  }
   return { ...state, stage: { at: 'gate', planId, action, queue, then, gate, again: false } };
 }
 
@@ -294,9 +307,9 @@ export function openGate(state: AgentStepState, action: QueuedAction, gate: Gate
  * Kyle allows or denies. Deny is right exactly when the dry run was harmful (D4).
  * - Allow: Otto carries on, and play drives the action it is holding.
  * - Deny a safe line the first time: Otto asks again, "I need this to finish".
- * - Deny otherwise: a confirm question is answered No first, because PowerShell refuses
- *   any other line while it waits. Then Otto runs the line's plan B and carries on with
- *   his script, or with no plan B he stops and asks Kyle for new directions.
+ * - Deny otherwise: an open question gets REFUSAL first, because PowerShell refuses any
+ *   other line while it waits. Then Otto runs the line's plan B and carries on with his
+ *   script, or with no plan B he stops and asks Kyle for new directions.
  */
 export function decideGate(state: AgentStepState, allow: boolean): AgentStepState {
   const stage = expectStage(state, 'gate', 'decide a gate');
@@ -314,43 +327,69 @@ export function decideGate(state: AgentStepState, allow: boolean): AgentStepStat
   return { ...state, gates, stage: stopAfter(planId, refusal) };
 }
 
-/** The No that matches Otto's Yes: No for Yes, No to All for Yes to All. */
-const REFUSALS: Readonly<Record<ConfirmLetter, ConfirmLetter>> = { Y: 'N', A: 'L', N: 'N', L: 'L' };
+/**
+ * What Otto types when Kyle denies an answer or stops him mid-question: No to All. A plain
+ * No would only skip this one item, and PowerShell could ask again about the next one,
+ * leaving every later line stuck. No to All closes every question the line had left.
+ *
+ * It does not undo the whole line: paths that never needed a question are still removed,
+ * as in real PowerShell. That is the line's doing, not the answer's, so play gates the
+ * line on dryRunRefused (replay.ts): what it does even if every question is refused.
+ */
+export const REFUSAL: ConfirmLetter = 'L';
 
 function refuse(answer: AnswerAction): AnswerAction {
-  return { ...answer, choice: REFUSALS[answer.choice], onDeny: [] };
+  return { ...answer, choice: REFUSAL, onDeny: [], refusal: true };
 }
 
-/** Whether Otto's answer would go ahead with the change, so it gates. A No changes nothing. */
-export function answerGoesAhead(answer: AnswerAction): boolean {
-  return REFUSALS[answer.choice] !== answer.choice;
+/**
+ * Whether Otto pauses before an action, from a dry run's changes, never from its letter or
+ * words. A line or an answer Otto chose pauses when effects.isConsequential says so: even
+ * Otto's own No can let the rest of a line go on and change something. A refusal never
+ * pauses: Kyle already said no, and the line's gate showed what refusing leaves behind.
+ */
+export function pausesBefore(
+  action: QueuedAction,
+  changes: readonly MachineChange[],
+  mode: ApprovalMode,
+): boolean {
+  if (action.do === 'answer' && action.refusal) return false;
+  return isConsequential({ action, changes }, mode);
 }
 
-/** Back to Kyle for directions, once any open question has been answered No. */
+/** Back to Kyle for directions, once any open question has been refused. */
 function stopAfter(planId: string, refusal: readonly AnswerAction[]): AgentStage {
   if (refusal.length === 0) return { at: 'direct', round: 'fix' };
   return { at: 'running', planId, queue: refusal, then: 'direct' };
 }
 
 /**
- * The line play just drove left PowerShell asking its Confirm question. Otto's answer is
- * the line's authored `answer`, and it goes next, ahead of the rest of the script.
+ * What play just drove left PowerShell asking its Confirm question, and the answer goes
+ * next, ahead of the rest of the script. After a line, that is the line's authored
+ * `answer`. After an answer, PowerShell asked again: a Yes removes one folder, then
+ * Remove-Item asks about the next one. Otto gives the same answer again, and it is
+ * dry-run and gated afresh, because this time it is about a different folder.
  */
 export function confirmAsked(state: AgentStepState, action: QueuedAction): AgentStepState {
   const stage = expectStage(state, 'running', 'answer a Confirm question');
+  const answer = action.do === 'answer' ? action : authoredAnswer(action);
+  return { ...state, stage: { ...stage, queue: [answer, ...stage.queue] } };
+}
+
+function authoredAnswer(action: AgentAction | BaseAction): AnswerAction {
   if (action.do !== 'run' || action.answer === undefined) {
     throw new MissionRunError(
       'Only a run line with an authored answer can meet a Confirm question.',
     );
   }
-  const answer: AnswerAction = {
+  return {
     do: 'answer',
     choice: action.answer,
     line: action.line,
     onDeny: 'onDeny' in action ? action.onDeny : [],
     denyLine: 'denyLine' in action ? action.denyLine : undefined,
+    refusal: false,
   };
-  return { ...state, stage: { ...stage, queue: [answer, ...stage.queue] } };
 }
 
 /** What play passes to drive() for a queued action: only what the machine needs. */
@@ -360,7 +399,7 @@ export function toDriverAction(action: QueuedAction): DriverAction {
 
 /**
  * Stop, between lines: back to the cards, with the plan marked as tried. If PowerShell is
- * still asking, Otto first answers No, so the next plan's lines can run.
+ * still asking, Otto first answers REFUSAL, so the next plan's lines can run.
  */
 export function stopScript(state: AgentStepState): AgentStepState {
   const { planId, queue } = expectStage(state, 'running', 'stop Otto');

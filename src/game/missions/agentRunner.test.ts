@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
-import { isConsequential } from '../agent/effects';
-import { dryRun, playAction, replay, startLog, withEntry, type SandboxLog } from '../agent/replay';
+import {
+  dryRun,
+  dryRunRefused,
+  playAction,
+  replay,
+  startLog,
+  withEntry,
+  type SandboxLog,
+} from '../agent/replay';
 import { transcriptQueries, type TranscriptEntry } from '../agent/transcript';
 import {
   answerCheck,
-  answerGoesAhead,
+  pausesBefore,
+  REFUSAL,
   answerPredict,
   backToCards,
   beginAgentStep,
@@ -32,7 +40,8 @@ import {
   type Gate,
   type QueuedAction,
 } from './agentRunner';
-import type { SandboxQueries } from './predicates';
+import type { AgentAction } from './agentSchema';
+import { evaluate, type Predicate, type SandboxQueries } from './predicates';
 import { finishBriefing, MissionRunError, startRun } from './runner';
 import { sandboxQueries } from './sandbox';
 import {
@@ -389,6 +398,7 @@ describe('Confirm questions (D7)', () => {
       line: API_DELETE,
       onDeny: [{ do: 'run', line: HOME_NOTES_DELETE }],
       denyLine: 'Good stop. That was the whole project.',
+      refusal: false,
     });
     expect(answer.state.stage).toMatchObject({ queue: [{ line: NOTES_LINE }] });
     expect(toDriverAction(answer.action)).toEqual({ do: 'answer', choice: 'A' });
@@ -408,7 +418,7 @@ describe('Confirm questions (D7)', () => {
     ]);
   });
 
-  it('answers No, then waits for directions, when the line has no plan B', () => {
+  it('answers No to All, then waits for directions, when the line has no plan B', () => {
     const plain = { do: 'run', line: 'Remove-Item x', answer: 'Y' } as const;
     const withAnswer = take(confirmAsked(tidy(), plain));
     const denied = decideGate(
@@ -417,24 +427,36 @@ describe('Confirm questions (D7)', () => {
     );
     expect(denied.stage).toMatchObject({ at: 'running', then: 'direct' });
     const refusal = take(denied);
-    expect(toDriverAction(refusal.action)).toEqual({ do: 'answer', choice: 'N' });
+    // A plain No could leave Remove-Item asking about its next folder; No to All can't.
+    expect(toDriverAction(refusal.action)).toEqual({ do: 'answer', choice: 'L' });
+    expect(refusal.action).toMatchObject({ refusal: true, onDeny: [] });
+    expect(() => openGate(refusal.state, refusal.action, confirmGate(true))).toThrow(
+      /never pauses/,
+    );
     expect(finishScript(refusal.state).stage).toEqual({ at: 'direct', round: 'fix' });
   });
 
-  it('answers No first when Kyle stops Otto with a question open', () => {
+  it('answers No to All first when Kyle stops Otto with a question open', () => {
     const stopped = stopScript(answering);
     expect(stopped.stage).toMatchObject({ at: 'running', then: 'direct' });
     expect(toDriverAction(take(stopped).action)).toEqual({ do: 'answer', choice: 'L' });
   });
 
-  it('gates only answers that go ahead, and needs an authored answer', () => {
-    const letter = (choice: 'Y' | 'A' | 'N' | 'L') => answerGoesAhead({ ...answerOf(), choice });
-    expect([letter('Y'), letter('A'), letter('N'), letter('L')]).toEqual([
-      true,
-      true,
-      false,
-      false,
-    ]);
+  it('pauses an answer on what its dry run changes, never on its letter', () => {
+    const removes = notesDelete.changes;
+    expect(removes.length).toBeGreaterThan(0);
+    for (const choice of ['Y', 'A', 'N', 'L'] as const) {
+      expect(pausesBefore({ ...answerOf(), choice }, removes, 'destructive')).toBe(true);
+      expect(pausesBefore({ ...answerOf(), choice }, [], 'destructive')).toBe(false);
+    }
+    const refusal = { ...answerOf(), choice: 'L', refusal: true } as const;
+    expect(pausesBefore(refusal, removes, 'destructive')).toBe(false);
+    expect(pausesBefore(asking.action, removes, 'destructive')).toBe(true);
+  });
+
+  it('queues the same answer again when PowerShell asks again, and needs an authored one', () => {
+    const askedAgain = confirmAsked(answer.state, answer.action);
+    expect(take(askedAgain).action).toBe(answer.action);
     expect(() => confirmAsked(asking.state, { do: 'run', line: 'Remove-Item x' })).toThrow(
       /authored answer/,
     );
@@ -445,6 +467,17 @@ describe('Confirm questions (D7)', () => {
   function tidy(): AgentStepState {
     return take(choosePlan(notesFixRound, notesStep, 'tidy-and-redo')).state;
   }
+
+  /** A dry run that removes something: the stray notes folder at home. */
+  const notesDelete = dryRun(
+    withEntry(notesStart, {
+      kind: 'action',
+      action: { do: 'run', line: 'mkdir C:\\Users\\kyle\\notes' },
+    }),
+    { do: 'run', line: HOME_NOTES_DELETE },
+    notesTask,
+    testDeps(),
+  );
 
   function answerOf(): AnswerAction {
     if (answer.action.do !== 'answer') throw new Error('Otto should be answering.');
@@ -461,32 +494,38 @@ interface Kyle {
 /**
  * A headless play layer: picks a card, then plays Otto's queue through the real shell
  * the way agentPlay will. Each action is dry-run first, which grades a prediction and
- * decides whether it pauses. A denied action is never driven.
+ * decides whether it pauses. A line's gate weighs it with every question refused, since
+ * refusing can't undo the parts that never ask. A denied action is never driven.
  */
-function playThrough(game: { state: AgentStepState; log: SandboxLog }, planId: string, kyle: Kyle) {
+function playThrough(
+  game: { state: AgentStepState; log: SandboxLog },
+  planId: string,
+  kyle: Kyle,
+  onStep: MissionStep = notesStep,
+) {
   let { state, log } = game;
   const { shell, transcript } = replay(log, testDeps());
-  state = choosePlan(state, notesStep, planId);
+  state = choosePlan(state, onStep, planId);
   while (state.stage.at === 'running') {
     const next = nextAction(state);
-    if (next === null) return { state: finishScript(state), log, transcript };
+    if (next === null) return { state: finishScript(state), log, transcript, shell };
     const { action } = next;
     state = next.state;
     const driven = toDriverAction(action);
-    const dry = dryRun(log, driven, notesTask, testDeps());
     if (state.stage.at === 'predict') {
+      const lineAlone = dryRun(log, driven, notesTask, testDeps());
       const option = state.stage.action.predict.options.find(({ id }) => id === kyle.predict);
       state = answerPredict(
         state,
-        option !== undefined && outcomeHolds(option.outcome, dry.step, dry.queries),
+        option !== undefined && outcomeHolds(option.outcome, lineAlone.step, lineAlone.queries),
       );
     }
-    const pauses =
+    const dry =
       action.do === 'answer'
-        ? answerGoesAhead(action)
-        : isConsequential({ action, changes: dry.changes }, 'destructive');
+        ? dryRun(log, driven, notesTask, testDeps())
+        : dryRunRefused(log, driven, notesTask, testDeps(), REFUSAL);
     let allowed = true;
-    if (pauses) {
+    if (pausesBefore(action, dry.changes, 'destructive')) {
       const kind = action.do === 'answer' ? 'confirm' : 'line';
       state = openGate(state, action, {
         kind,
@@ -504,7 +543,7 @@ function playThrough(game: { state: AgentStepState; log: SandboxLog }, planId: s
     log = withEntry(log, { kind: 'action', action: driven });
     if (step.asking) state = confirmAsked(state, action);
   }
-  return { state, log, transcript };
+  return { state, log, transcript, shell };
 }
 
 /** The line a gate shows: the command, or for an answer, the line that asked. */
@@ -561,6 +600,83 @@ describe('a whole step through the real shell', () => {
     expect(result.stage).toMatchObject({ verdict: 'missed', passed: false, guardBroken: true });
     expect(stars(result)).toEqual({ plan: false, safety: false, check: false });
     expect(rewindStep(result).stage).toEqual({ at: 'direct', round: 'start' });
+  });
+});
+
+describe('a Remove-Item of several paths through the real shell', () => {
+  const API_PATH = 'C:\\Users\\kyle\\quillwork\\api';
+  const OLD = ['C:\\Users\\kyle\\old1', 'C:\\Users\\kyle\\old2'] as const;
+  const SWEEP_OLD = `Remove-Item ${OLD[0]}, ${OLD[1]}`;
+
+  /** The notes step with one more fix, "sweep": this one line, which Otto answers Yes. */
+  function withSweep(line: string): MissionStep {
+    const agent = notesStep.agent;
+    const [fix] = agent?.fixes ?? [];
+    if (agent === undefined || fix === undefined) throw new Error('The notes step has a fix.');
+    const answeredYes: AgentAction = { do: 'run', line, answer: 'Y', onDeny: [] };
+    const sweep = { ...fix, id: 'sweep', script: [answeredYes] };
+    return { ...notesStep, agent: { ...agent, fixes: [...agent.fixes, sweep] } };
+  }
+
+  const holds = (log: SandboxLog, predicate: Predicate) => evaluate(predicate, replayQueries(log));
+  const apiIntact = (log: SandboxLog) => notesTask.guards.every((guard) => holds(log, guard));
+  const folderLeft = (log: SandboxLog, name: string) =>
+    holds(log, { kind: 'driveFolder', path: `Users/kyle/${name}` });
+
+  it('gates a line on what it removes even when every question is refused', () => {
+    const line = `Remove-Item ${API_PATH}, ${API_PATH}\\package.json`;
+    const driven = { do: 'run', line } as const;
+    // Alone, the line stops at the question about the API folder, before package.json.
+    expect(dryRun(notesStart, driven, notesTask, testDeps()).changes).toEqual([]);
+    const refused = dryRunRefused(notesStart, driven, notesTask, testDeps(), REFUSAL);
+    expect(refused).toMatchObject({ harmful: true, step: { asking: true } });
+
+    const game = { state: notesFixRound, log: notesStart };
+    const denied = playThrough(game, 'sweep', { decisions: [false] }, withSweep(line));
+    expect(denied.state.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(denied.state.gates).toEqual([true]);
+    expect(typed(denied.transcript)).toEqual([]);
+    expect(apiIntact(denied.log)).toBe(true);
+  });
+
+  /** Two stray folders at home, each with a folder inside, so each one asks. */
+  const twoFolders = OLD.reduce(
+    (log, path) =>
+      withEntry(log, { kind: 'action', action: { do: 'run', line: `mkdir ${path}\\keep` } }),
+    notesStart,
+  );
+  const sweepOld = withSweep(SWEEP_OLD);
+  const sweepGame = { state: notesFixRound, log: twoFolders };
+
+  it('gates and answers each question in turn when PowerShell asks again', () => {
+    const allowed = playThrough(sweepGame, 'sweep', { decisions: [true, true] }, sweepOld);
+    expect(typed(allowed.transcript).slice(OLD.length)).toEqual([SWEEP_OLD, 'Y', 'Y']);
+    expect(allowed.state.gates).toEqual([true, true]);
+    expect(allowed.state.stage).toEqual({ at: 'check', planId: 'sweep' });
+    expect([folderLeft(allowed.log, 'old1'), folderLeft(allowed.log, 'old2')]).toEqual([
+      false,
+      false,
+    ]);
+  });
+
+  it('refuses with No to All, which closes every question, so the next card can run', () => {
+    const denied = playThrough(sweepGame, 'sweep', { decisions: [false, false] }, sweepOld);
+    expect(typed(denied.transcript).slice(OLD.length)).toEqual([SWEEP_OLD, 'L']);
+    expect(denied.shell.machineShell?.asking).toBe(false);
+    expect(denied.state.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect([folderLeft(denied.log, 'old1'), folderLeft(denied.log, 'old2')]).toEqual([true, true]);
+
+    const next = playThrough(denied, 'full-path', { decisions: [] }, sweepOld);
+    expect(next.state.stage).toEqual({ at: 'check', planId: 'full-path' });
+  });
+
+  it('refuses with No to All when Kyle stops Otto mid-question', () => {
+    const { shell, transcript } = replay(twoFolders, testDeps());
+    const line = take(choosePlan(notesFixRound, sweepOld, 'sweep'));
+    expect(playAction(shell, transcript, toDriverAction(line.action)).asking).toBe(true);
+    const refusal = take(stopScript(confirmAsked(line.state, line.action)));
+    expect(playAction(shell, transcript, toDriverAction(refusal.action)).asking).toBe(false);
+    expect(finishScript(refusal.state).stage).toEqual({ at: 'direct', round: 'fix' });
   });
 });
 
