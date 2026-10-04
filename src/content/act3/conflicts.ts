@@ -117,7 +117,8 @@ export const conflictsWithoutPanic = {
           id: 'both-lines',
           text: 'Keep both delayMs lines. The last one wins anyway.',
           correct: false,
-          feedback: 'A duplicate key silently hides one value and confuses the next reader.',
+          feedback:
+            'TypeScript rejects a duplicate key outright, and even in plain JavaScript one value silently disappears. Pick one value on purpose.',
         },
         {
           id: 'intent',
@@ -172,10 +173,10 @@ export const conflictsWithoutPanic = {
         kind: 'diff',
         label: 'src/editor/drafts.ts',
         text: [
-          '@@ -8,5 +8,9 @@ export async function saveDraft(doc: Doc) {',
+          '@@ -8,4 +8,8 @@ export async function saveDraft(doc: Doc) {',
           '   const body = serialize(doc);',
           '+<<<<<<< HEAD',
-          '+  await store.put(doc.id, body);',
+          '   await store.put(doc.id, body);',
           '+=======',
           '+  await store.put(doc.id, body, { retries: 3 });',
           '+>>>>>>> feat/slow-network',
@@ -193,7 +194,7 @@ export const conflictsWithoutPanic = {
         },
         {
           id: 'not-done',
-          text: 'Not resolved: the markers are still there. Keep the retries call, remove the markers, and run the tests.',
+          text: 'Not resolved: the markers are still there. Apply the version we agreed on, remove every marker, and run the tests.',
           correct: true,
           feedback: 'Yes. You read the diff instead of trusting the claim.',
         },
@@ -215,12 +216,12 @@ export const conflictsWithoutPanic = {
       steps: [
         { id: 'status', text: 'Run git status to list the conflicted files' },
         { id: 'edit', text: 'Edit each file to the right result, markers removed' },
-        { id: 'test', text: 'Run the tests' },
+        { id: 'check', text: 'Run git diff --check to catch any leftover markers' },
         { id: 'add', text: 'git add the resolved files' },
         { id: 'commit', text: 'Commit to finish the merge' },
       ],
       explanation:
-        'Status lists what’s conflicted. Edit, prove it works, then stage. The commit is what completes the merge.',
+        'Status lists what’s conflicted. After editing, git diff --check flags stray markers, but only before you stage. git add marks a file resolved, and the commit completes the merge.',
     },
     {
       id: 'wrong-branch',
@@ -239,7 +240,8 @@ export const conflictsWithoutPanic = {
           id: 'commit-revert',
           text: 'Commit what you have, then revert it later.',
           correct: false,
-          feedback: 'That records a wrong merge, markers and all, in history.',
+          feedback:
+            'Git won’t commit unresolved files without you staging the markers as-is, and reverting a merge later is messy. Abort is the clean undo.',
         },
         {
           id: 'abort',

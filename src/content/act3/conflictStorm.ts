@@ -231,11 +231,11 @@ export const conflictStorm = {
         { id: 'pull', text: 'Pull the merged main' },
         { id: 'test', text: 'Run the full test suite' },
         { id: 'tag', text: 'Tag the release commit v2.5.0' },
-        { id: 'push', text: 'Push main and the tag' },
+        { id: 'push', text: 'Push the tag (git push origin v2.5.0)' },
         { id: 'deploy', text: 'Let Dex deploy the tagged commit' },
       ],
       explanation:
-        'Test what you’ll ship, name it with a tag, publish both, then deploy exactly that commit. If something breaks, v2.5.0 tells everyone what was out.',
+        'Main already holds every merged PR, so only the tag is new. Git doesn’t push tags on its own, so push it on purpose, then deploy exactly that commit.',
     },
     {
       id: 'storm-hotfix',
@@ -252,7 +252,7 @@ export const conflictStorm = {
         },
         {
           id: 'stash-hotfix',
-          text: 'Stash your 2.6 work with a message. Branch hotfix/2.5.1 from main, fix and test it, and open a PR. Then pop the stash.',
+          text: 'Stash your 2.6 work with a message. Branch hotfix/2.5.1 from the v2.5.0 tag, fix and test it, and open a PR. Then switch back to your 2.6 branch and pop the stash.',
           correct: true,
           feedback: 'The fix ships alone, and the feature work waits safely on the shelf.',
         },
@@ -264,7 +264,7 @@ export const conflictStorm = {
         },
       ],
       explanation:
-        'Shelve, branch from what shipped, fix, prove, review, then pick your work back up. The storm passes, and nothing was lost.',
+        'Shelve, branch from the tag that shipped, fix, prove, review, then switch back and pick your work up. The storm passes, and nothing was lost.',
     },
   ],
 } satisfies LessonInput;

@@ -101,21 +101,28 @@ export const twoWaysToMerge = {
       id: 'ff-only',
       kind: 'prompt',
       situation:
-        'Quillwork keeps main’s history a straight line. You don’t want surprise merge commits from Otto.',
+        'Quillwork keeps main’s history a straight line: its PRs may only merge as a fast-forward. Otto’s PR is behind main.',
       question: 'Which instruction do you give Otto?',
       options: [
         {
           id: 'whatever',
-          text: 'Merge your branch however works.',
+          text: 'Get your branch into main however works.',
           correct: false,
           feedback:
             'Otto may make a merge commit or force something. You never said what you want.',
         },
         {
-          id: 'ff-only',
-          text: 'First update your branch on top of the latest main. Then merge with git merge --ff-only. If it refuses, stop and tell me why.',
+          id: 'local-ff',
+          text: 'Fetch, rebase your branch onto origin/main, and run the tests. Then merge it into main yourself with git merge --ff-only and push main.',
+          correct: false,
+          feedback:
+            'A straight line, but main changed outside the PR: no review, no checks. Let the PR do the merge.',
+        },
+        {
+          id: 'rebase-for-pr',
+          text: 'Rebase your branch onto origin/main so the PR can merge as a fast-forward. Don’t merge it yourself. If the rebase conflicts, stop and tell me why.',
           correct: true,
-          feedback: 'Clear goal, a command that can’t surprise you, and a stop rule.',
+          feedback: 'Otto gets the branch ready, the PR does the merge, and there’s a stop rule.',
         },
         {
           id: 'no-ff',
@@ -125,7 +132,7 @@ export const twoWaysToMerge = {
         },
       ],
       explanation:
-        '--ff-only merges only when it can fast-forward and fails loudly otherwise. Telling the agent to stop and report on failure keeps a surprise from becoming a mess.',
+        'A fast-forward needs the branch to sit on top of the latest main. Getting it there is Otto’s job; the merge happens on the PR, after review and checks. A stop rule keeps a surprise from becoming a mess.',
     },
     {
       id: 'rebase-new-ids',
@@ -244,7 +251,8 @@ export const twoWaysToMerge = {
           id: 'recreate',
           text: 'Delete the branch on GitHub and push it again.',
           correct: false,
-          feedback: 'That closes the open PR and loses its review comments.',
+          feedback:
+            'That closes the open PR, and the re-pushed branch doesn’t reopen it on its own. --force-with-lease updates the PR in place.',
         },
       ],
       explanation:
@@ -256,14 +264,14 @@ export const twoWaysToMerge = {
       situation: 'Otto’s branch is behind main. You want a clean, reviewed merge.',
       question: 'Put the steps in order.',
       steps: [
-        { id: 'fetch', text: 'Fetch the latest main' },
-        { id: 'rebase', text: 'Rebase the branch onto main' },
+        { id: 'fetch', text: 'Fetch from GitHub' },
+        { id: 'rebase', text: 'Rebase the branch onto origin/main' },
         { id: 'test', text: 'Run the tests on the rebased branch' },
         { id: 'push', text: 'Push with --force-with-lease' },
         { id: 'merge', text: 'Merge the PR once checks are green' },
       ],
       explanation:
-        'Update first, prove it still works, then publish. Tests matter after a rebase: each replayed commit now sits on code it never ran against.',
+        'Fetch updates origin/main, not your main, so rebase onto origin/main. Then prove it still works and publish: each replayed commit now sits on code it never ran against.',
     },
     {
       id: 'merge-or-rebase',

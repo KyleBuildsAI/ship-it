@@ -225,7 +225,7 @@ export const branchesArePointers = {
       id: 'clean-up-branches',
       kind: 'prompt',
       situation:
-        'Otto has 23 local branches. 21 were merged into main weeks ago. These two never were:',
+        'Otto has 23 local branches. 21 were merged into main with merge commits weeks ago. These two never were:',
       artifact: {
         kind: 'terminal',
         label: 'PowerShell',
@@ -261,7 +261,7 @@ export const branchesArePointers = {
         },
       ],
       explanation:
-        'A merged branch is a leftover label, safe to delete. git branch -d refuses unmerged branches; -D overrides that. Keep the agent on -d and decide the rest yourself.',
+        'A merged branch is a leftover label. git branch -d refuses unmerged ones; -D overrides that. Squash-merged branches look unmerged to git: check the PR shows Merged before force-deleting.',
     },
     {
       id: 'committed-not-merged',

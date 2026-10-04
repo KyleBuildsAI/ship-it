@@ -237,7 +237,7 @@ export const toolsForBadDays = {
       id: 'brief-the-bisect',
       kind: 'prompt',
       situation:
-        'Otto can drive bisect for you with npm run perf:export, a script that fails when export is slow.',
+        'Otto wrote npm run perf:export yesterday: a script that fails when export is slow. He can drive bisect with it.',
       question: 'Which instruction do you give Otto?',
       options: [
         {
@@ -247,10 +247,17 @@ export const toolsForBadDays = {
           feedback: 'Too open. Otto may guess at a cause and “fix” something that wasn’t broken.',
         },
         {
-          id: 'evidence',
+          id: 'missing-script',
           text: 'Run git bisect with v2.4.0 good and main bad, using git bisect run npm run perf:export. Report the first bad commit and its diff. Change no code yet.',
+          correct: false,
+          feedback:
+            'Older commits don’t have yesterday’s script, so each one fails, gets marked bad, and bisect names the wrong commit.',
+        },
+        {
+          id: 'evidence',
+          text: 'Copy the perf script outside the repo, since older commits lack it. Bisect with v2.4.0 good and main bad, running that copy at each step. Report the first bad commit and its diff. Change no code.',
           correct: true,
-          feedback: 'A clear search, a test it can run, and evidence before any fix.',
+          feedback: 'A test that exists at every commit, a clear search, and evidence before any fix.',
         },
         {
           id: 'one-by-one',
@@ -266,7 +273,7 @@ export const toolsForBadDays = {
         },
       ],
       explanation:
-        'Give the agent the good and bad points and a test it can run, and ask for evidence, not a fix. You decide what to do once you’ve seen the culprit.',
+        'Bisect checks out old commits, so the test must work at every one of them. Give the agent both ends and that test, and ask for evidence, not a fix.',
     },
   ],
 } satisfies LessonInput;
