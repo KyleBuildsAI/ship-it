@@ -259,7 +259,9 @@ describe('the Act menu in preview mode', () => {
     expect(text(markup)).toContain('Pointers, switch, merge');
     expect(rows(markup)).toEqual([
       '3.1 Branches Are Pointers · Not built yet',
-      '3.2 Conflicts Without Panic · Not built yet',
+      '3.2 Two Ways to Merge · Not built yet',
+      '3.3 Conflicts Without Panic · Not built yet',
+      '3.4 Tools for Bad Days · Not built yet',
       'Boss: Conflict Storm · Not built yet',
     ]);
     expect(markup.match(/<button/g)).toHaveLength(8);

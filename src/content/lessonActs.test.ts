@@ -33,8 +33,10 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
       expect(validateAct(act, [], lessons)).toEqual([]);
     });
 
-    it('has two lessons, then a timed final that stands in for its boss', () => {
-      expect(lessons.map((lesson) => lesson.kind)).toEqual(['lesson', 'lesson', 'final']);
+    it('has lessons, then one timed final that stands in for its boss', () => {
+      const kinds = lessons.map((lesson) => lesson.kind);
+      expect(kinds.length).toBeGreaterThanOrEqual(3);
+      expect(kinds).toEqual([...kinds.slice(0, -1).map(() => 'lesson'), 'final']);
       expect(act.finalLessonId).toBe(final?.id);
       expect(act.boss).toBeUndefined();
       // The clock is a challenge, not a sprint: at least 40 seconds for every card.
