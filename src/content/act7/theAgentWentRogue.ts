@@ -28,7 +28,8 @@ export const theAgentWentRogue = {
           ' export function refund(order: Order, amount: number) {',
           "-  if (amount > order.paid) throw new Error('too much');",
           "+  if (amount > order.paid * 2) throw new Error('too much');",
-          '   return payments.refund(order.id, roundCents(amount));',
+          '-  return payments.refund(order.id, amount);',
+          '+  return payments.refund(order.id, roundCents(amount));',
           ' }',
         ].join('\n'),
       },
@@ -54,7 +55,7 @@ export const theAgentWentRogue = {
         },
       ],
       explanation:
-        'Green CI means the existing tests pass, not that the change is right. Read the diff against what the PR says it does. A rounding fix has no reason to touch the limit.',
+        'Green CI means the existing tests pass, not that the change is right. The rounding line is the real fix. Read every other line against what the PR says it does: a rounding fix has no reason to touch the limit.',
     },
     {
       id: 'claims-vs-diff',
@@ -197,9 +198,10 @@ export const theAgentWentRogue = {
         },
         {
           id: 'monday',
-          text: 'Deploy, and we’ll look at it Monday.',
+          text: 'Deploy at five with #212 in, but watch the refunds dashboard all weekend and roll back if any refund tops what was paid.',
           correct: false,
-          feedback: 'A weekend of refunds at double the limit is a long weekend.',
+          feedback:
+            'Watching for a bug you already know about means shipping it on purpose. Hold the PR.',
         },
         {
           id: 'vague',
@@ -218,10 +220,11 @@ export const theAgentWentRogue = {
       question: 'Which instruction?',
       options: [
         {
-          id: 'angry',
-          text: 'This is wrong and sneaky. Do better.',
+          id: 'make-green',
+          text: 'Put the refund limit back to order.paid, then update the test and the CI step so they pass with your rounding change, and merge once it’s green.',
           correct: false,
-          feedback: 'It says nothing about what’s wrong or what right looks like.',
+          feedback:
+            'It still lets Otto bend the test and CI to fit his code, then merge with no review.',
         },
         {
           id: 'later',
@@ -231,7 +234,7 @@ export const theAgentWentRogue = {
         },
         {
           id: 'good',
-          text: 'Restore the limit to order.paid, the test to toThrow, and npm test in CI. Keep only the rounding fix, with a test for $10.005. Explain why you changed the others.',
+          text: 'Restore the limit, the test and the CI step. Keep only the rounding fix, add a test for $10.005, and explain why you changed the rest.',
           correct: true,
           feedback: 'Undo the damage, keep the real fix, prove it, and ask for the reasoning.',
         },
@@ -282,7 +285,7 @@ export const theAgentWentRogue = {
       options: [
         {
           id: 'rule',
-          text: 'Never edit .github/workflows or change a test’s expected result without asking first. Keep each PR to its issue, and list every behaviour change in the description.',
+          text: 'Never edit CI files or a test’s expected result without asking. List every behaviour change in the PR.',
           correct: true,
           feedback: 'Specific, checkable, and aimed at exactly what went wrong.',
         },
@@ -293,10 +296,11 @@ export const theAgentWentRogue = {
           feedback: 'Nothing to check, and Otto already believed he was.',
         },
         {
-          id: 'no-ci',
-          text: 'Don’t run CI on your PRs, so you can’t break it.',
+          id: 'make-green',
+          text: 'Before opening any PR, run the whole suite. If a test or a CI check fails, update it until the pipeline is green, and mention what you changed in the description.',
           correct: false,
-          feedback: 'Backwards: CI is the guard. Protect it, don’t remove it.',
+          feedback:
+            'That rule is how #212 happened: it tells Otto to bend the gates until they pass.',
         },
       ],
       explanation:
@@ -311,8 +315,10 @@ export const theAgentWentRogue = {
         { id: 'block', text: 'Request changes so #212 can’t merge' },
         { id: 'restore', text: 'Restore the limit, the test and the CI step' },
         { id: 'test', text: 'Add tests for the refund limit and rounding' },
-        { id: 'owners', text: 'Require a code owner’s approval on CI files' },
-        { id: 'instructions', text: 'Add the rule to Otto’s CLAUDE.md' },
+        {
+          id: 'harden',
+          text: 'Harden: code-owner approval on CI files and a new CLAUDE.md rule',
+        },
       ],
       explanation:
         'Stop the merge, repair the damage, close the test gap, then harden the process, so the next attempt is caught automatically, not by luck on a Friday.',
