@@ -1,5 +1,6 @@
 import {
   feedAction,
+  feedCancel,
   feedOutcome,
   feedTyping,
   startFeed,
@@ -7,31 +8,47 @@ import {
   type FeedState,
 } from '../agent/feed';
 import { advance, START, type Pace, type Playhead } from '../agent/pace';
+import type { SandboxLog } from '../agent/replay';
 import { showInTerminal } from '../agent/terminalFeed';
 import {
   answerCheck,
+  answerPredict,
   backToCards,
   beginAgentStep,
   choosePlan,
   completeAgentStep,
   confirmAsked,
+  decideGate,
   echoPlan,
   finishScript,
   nextAction,
   openFixRound,
+  openGate,
+  outcomeHolds,
+  pausesBefore,
+  REFUSAL,
+  rewindStep,
   stars,
+  stopScript,
   toDriverAction,
   type AgentStepState,
   type QueuedAction,
 } from '../missions/agentRunner';
-import type { AgentTask } from '../missions/agentSchema';
+import type { AgentTask, ApprovalMode } from '../missions/agentSchema';
 import { explain, type CheckRow } from '../missions/predicates';
 import { MissionRunError } from '../missions/runner';
-import type { MissionStep } from '../missions/schema';
+import type { Mission, MissionStep } from '../missions/schema';
 import { saveProgressNow } from '../progress';
 import { sandbox } from '../sandbox';
 import { play, type MissionActivity } from './playStore';
-import { applyChange, currentQueries, recordAction } from './sandboxControl';
+import {
+  applyChange,
+  currentLog,
+  currentQueries,
+  dryRunNow,
+  recordAction,
+  rewindTo,
+} from './sandboxControl';
 import { recordSteps } from './saveRules';
 
 /*
@@ -40,13 +57,10 @@ import { recordSteps } from './saveRules';
  *
  * agentRunner.ts decides what is legal and keeps the score; it never touches a sandbox.
  * This file is its hands: it drives each action through the live sandbox, logs it so a
- * replay can rebuild it, and feeds the terminal what Otto types. The step's
+ * dry run or a rewind can replay it, and feeds the terminal what Otto types. The step's
  * state lives in the play store (MissionActivity.agent), where the panels read it. Otto's
  * playback (the beats still to show, the action waiting on them) lives here, because it
  * changes every drawn frame and no panel draws it.
- *
- * So far Otto runs every action as it comes, answers included. Approval gates, predictions,
- * Stop and Rewind are the next layer on top of this one.
  */
 
 /** What Otto still has to show in the terminal, and the action waiting on it. */
@@ -54,17 +68,25 @@ interface Playback {
   /** The mission attempt and step it belongs to, so a replay never picks up an old one. */
   readonly attempt: number;
   readonly stepId: string;
+  /** The log as the step began, after its `before`: what Rewind goes back to. */
+  readonly checkpoint: SandboxLog;
   feed: FeedState;
   beats: readonly FeedBeat[];
   head: Playhead;
   /** Typed and waiting for its typing to show: driven once it has, so output follows input. */
   driveNext: QueuedAction | null;
+  /** The action waiting on Kyle at a gate. */
+  held: QueuedAction | null;
+  /** Kyle pressed Stop. Otto stops at the next gap between lines, never halfway through one. */
+  stopAsked: boolean;
 }
 
 let playback: Playback | null = null;
 
 /** More turns than any script can take in one frame: past it, something loops. */
 const MAX_TURNS = 1000;
+
+const REWIND_NOTICE = 'Rewound to the start of the step. A real laptop has no rewind.';
 
 function missionActivity(): MissionActivity | null {
   const current = play.get().activity;
@@ -89,6 +111,14 @@ function live(): Live | null {
   if (step === undefined || task === undefined || playback === null) return null;
   if (playback.attempt !== current.attempt || playback.stepId !== agent.stepId) return null;
   return { current, agent, step, task, playback };
+}
+
+/** A directed mission must say which changes pause Otto; the schema makes sure it does. */
+function approvalsOf(mission: Mission): ApprovalMode {
+  if (mission.approvals === undefined) {
+    throw new MissionRunError(`Mission "${mission.id}" is directed but sets no approvals.`);
+  }
+  return mission.approvals;
 }
 
 /**
@@ -116,7 +146,8 @@ function activeTab(): number {
 
 /**
  * Starts the step the run is on, if it is directed: its `before` changes go into the live
- * sandbox and its log, and Otto waits for a card. Anything else, a typed step or the end of the sim, leaves no agent on screen.
+ * sandbox (and its log), and the log at that moment becomes the step's rewind point.
+ * Anything else, a typed step or the end of the sim, leaves no agent on screen.
  */
 export function beginDirectedStep(current: MissionActivity): MissionActivity {
   const step = current.mission.steps[current.run.stepIndex];
@@ -128,11 +159,14 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
   playback = {
     attempt: current.attempt,
     stepId: step.id,
+    checkpoint: currentLog(),
     // No prompt yet: the terminal skips a prompt that matches the one already waiting.
     feed: startFeed(activeTab()),
     beats: [],
     head: START,
     driveNext: null,
+    held: null,
+    stopAsked: false,
   };
   return { ...current, agent: beginAgentStep(step) };
 }
@@ -197,15 +231,23 @@ function takeTurn({ agent, playback: shown }: Live): boolean {
     return true;
   }
   if (agent.stage.at !== 'running') return false;
+  if (shown.stopAsked) {
+    shown.stopAsked = false;
+    saveAgent(stopScript(agent));
+    return true;
+  }
   const next = nextAction(agent);
   if (next === null) {
     saveAgent(finishScript(agent));
     return false;
   }
   saveAgent(next.state);
-  // A line to predict waits at the prompt, typed but not run, until Kyle answers.
-  typeOut(next.action);
-  if (next.state.stage.at === 'running') shown.driveNext = next.action;
+  if (next.state.stage.at === 'predict') {
+    // The line waits at the prompt, typed but not run, while Kyle predicts.
+    typeOut(next.action);
+  } else {
+    consider(next.action, false);
+  }
   return true;
 }
 
@@ -227,6 +269,49 @@ function typeOut(action: QueuedAction): void {
   appendBeats(fed.beats, fed.state);
 }
 
+/**
+ * Decides what happens to an action before it runs. A dry run on a scratch copy says what
+ * it would change, and the mission's approval mode says whether that pauses Otto (D6). A
+ * line is weighed with every question refused, because refusing can't undo the parts of a
+ * line that never ask. Otherwise its typing plays, and then it is driven.
+ */
+function consider(action: QueuedAction, alreadyTyped: boolean): void {
+  const now = live();
+  if (now === null) return;
+  const driven = toDriverAction(action);
+  const judge = { guards: now.task.guards };
+  const dry = action.do === 'answer' ? dryRunNow(driven, judge) : dryRunNow(driven, judge, REFUSAL);
+  const pauses = pausesBefore(action, dry.changes, approvalsOf(now.current.mission));
+  // An answer is typed only once Kyle allows it: the gate says which letter Otto will type.
+  if (!alreadyTyped && !(pauses && action.do === 'answer')) typeOut(action);
+  if (!pauses) {
+    now.playback.driveNext = action;
+    return;
+  }
+  now.playback.held = action;
+  const gate = {
+    kind: action.do === 'answer' ? 'confirm' : 'line',
+    line: gateLine(action),
+    changes: dry.changes,
+    harmful: dry.harmful,
+  } as const;
+  saveAgent(openGate(now.agent, action, gate));
+}
+
+/** The line a gate shows: the command, the line that asked, or the file Otto writes. */
+function gateLine(action: QueuedAction): string {
+  switch (action.do) {
+    case 'run':
+    case 'answer':
+      return action.line;
+    case 'write':
+      return action.path;
+    case 'newTerminal':
+    case 'useTerminal':
+      return action.do;
+  }
+}
+
 /** Runs an action in the live sandbox, logs it, and feeds its output to the terminal. */
 function driveAction(action: QueuedAction): void {
   if (playback === null) return;
@@ -241,8 +326,50 @@ function driveAction(action: QueuedAction): void {
 }
 
 /**
+ * Kyle's prediction for the line waiting at the prompt. It is graded on a dry run of the
+ * line alone, before any gate, so a line Kyle then denies is judged on what it would do.
+ */
+export function predict(optionId: string): void {
+  const now = live();
+  if (now?.agent.stage.at !== 'predict') return;
+  const { action } = now.agent.stage;
+  const option = action.predict.options.find((candidate) => candidate.id === optionId);
+  if (option === undefined) throw new MissionRunError(`There is no prediction "${optionId}".`);
+  const dry = dryRunNow(toDriverAction(action), { guards: now.task.guards });
+  saveAgent(answerPredict(now.agent, outcomeHolds(option.outcome, dry.step, dry.queries)));
+  consider(action, true);
+}
+
+/**
+ * Allow or Deny at a gate. Allowed, the held action runs on the next frame. Denied, a typed
+ * line ends unrun, and agentRunner decides what Otto does instead: ask once more for a
+ * safe line, refuse an open question, run plan B, or wait for new directions.
+ */
+export function decide(allow: boolean): void {
+  const now = live();
+  if (now?.agent.stage.at !== 'gate') return;
+  const held = now.playback.held;
+  const next = decideGate(now.agent, allow);
+  if (next.stage.at !== 'gate') {
+    now.playback.held = null;
+    if (allow) now.playback.driveNext = held;
+    else {
+      const fed = feedCancel(now.playback.feed);
+      appendBeats(fed.beats, fed.state);
+    }
+  }
+  saveAgent(next);
+}
+
+/** Stop: Otto finishes the line he's on, then waits for new directions. */
+export function stopOtto(): void {
+  const now = live();
+  if (now?.agent.stage.at === 'running') now.playback.stopAsked = true;
+}
+
+/**
  * A look chip: one of Kyle's read-only lines, run at once and printed without Otto's
- * marker. It goes in the log too, so a replay rebuilds the same terminal.
+ * marker. It goes in the log too, so a dry run or rewind replays the same terminal.
  */
 export function runLook(lookId: string): void {
   const now = live();
@@ -273,6 +400,25 @@ export function directFix(): void {
   if (now?.agent.stage.at === 'result' && !now.agent.stage.passed) {
     saveAgent(openFixRound(now.agent));
   }
+}
+
+/**
+ * Rewind: the live sandbox goes back to how it was when the step began, and the cards
+ * start over. Whatever Otto was typing or waiting on is dropped with it.
+ */
+export function rewind(): void {
+  const now = live();
+  if (now === null) return;
+  const agent = rewindStep(now.agent);
+  const { playback: shown } = now;
+  shown.beats = [];
+  shown.head = START;
+  shown.driveNext = null;
+  shown.held = null;
+  shown.stopAsked = false;
+  rewindTo(shown.checkpoint, REWIND_NOTICE);
+  shown.feed = startFeed(activeTab());
+  saveAgent(agent);
 }
 
 /**
