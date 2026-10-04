@@ -57,7 +57,8 @@ describe('the roadmap', () => {
     for (const number of [3, 4, 5, 6, 7, 8]) {
       const entry = roadmapAct(number);
       expect(entry?.status).toContain('answered by clicking');
-      expect(entry?.missions).toHaveLength(2);
+      // Two lessons at least; an Act may teach more before its final.
+      expect(entry?.missions.length).toBeGreaterThanOrEqual(2);
       expect(entry?.status).not.toContain('Not built yet');
     }
   });
