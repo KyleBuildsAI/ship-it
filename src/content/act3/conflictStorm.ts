@@ -106,6 +106,13 @@ export const conflictStorm = {
           feedback: 'Fast where it’s safe, and you keep the judgment calls.',
         },
         {
+          id: 'push-then-tell',
+          text: 'Resolve all 9 as quickly as you can and run the tests. If they’re green, push straight away so Dex isn’t held up, and tell me which sides you picked afterwards.',
+          correct: false,
+          feedback:
+            'Green tests don’t prove the right side won, and you hear the choices only after they’ve shipped.',
+        },
+        {
           id: 'skip-tests',
           text: 'Resolve them all and skip the tests this once.',
           correct: false,
@@ -184,10 +191,11 @@ export const conflictStorm = {
           feedback: 'The exact commit, on its own branch, with proof and a review.',
         },
         {
-          id: 'retype',
-          text: 'Rewrite the fix from memory, straight on main.',
+          id: 'pick-to-main',
+          text: 'Check out main, cherry-pick 41b7a6c only, run the tests, and push main so the fix is in before Dex deploys at 5pm.',
           correct: false,
-          feedback: 'Slower, riskier, and it skips review. The exact change already exists.',
+          feedback:
+            'Right commit, but it skips the PR and CI on release day, the worst day to skip them.',
         },
       ],
       explanation:
@@ -257,10 +265,11 @@ export const conflictStorm = {
           feedback: 'The fix ships alone, and the feature work waits safely on the shelf.',
         },
         {
-          id: 'discard',
-          text: 'Discard your 2.6 work so you can focus.',
+          id: 'wip-main',
+          text: 'Commit your half-done 2.6 work to your branch as WIP so it’s safe. Then switch to main, pull, fix the bug there, and push main for Dex.',
           correct: false,
-          feedback: 'Throwing away work is never the price of a hotfix.',
+          feedback:
+            'The work is safe, but the fix skips its branch and PR, and main now holds 2.6-era changes too.',
         },
       ],
       explanation:

@@ -5,6 +5,7 @@ import {
   isPickCard,
   type Lesson,
 } from '../../game/missions/lessonSchema';
+import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
 import { act3, act3Lessons } from './index';
 
@@ -96,6 +97,29 @@ describe('Act 3: Branching', () => {
         card.id,
       ).toHaveLength(1);
     }
+  });
+
+  it('never lets the longest option give the answer away', () => {
+    // If the right option were always the most detailed, picking the longest would pass
+    // the Act without judging anything. So every prompt card has a detailed but flawed
+    // instruction nearly as long as the right one, and across all pick cards the right
+    // answer is the longest on at most half.
+    const pickCards = lessons.flatMap((lesson) => lesson.cards).filter(isPickCard);
+    let rightIsLongest = 0;
+    for (const card of pickCards) {
+      const right = card.options.find((option) => option.correct);
+      const rightWords = countWords(right?.text ?? '');
+      const longestWrong = Math.max(
+        ...card.options
+          .filter((option) => !option.correct)
+          .map((option) => countWords(option.text)),
+      );
+      if (rightWords > longestWrong) rightIsLongest++;
+      if (card.kind === 'prompt') {
+        expect(longestWrong / rightWords, card.id).toBeGreaterThanOrEqual(0.75);
+      }
+    }
+    expect(rightIsLongest / pickCards.length).toBeLessThanOrEqual(0.5);
   });
 
   it('keeps artifacts short and labelled', () => {

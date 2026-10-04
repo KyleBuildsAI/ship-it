@@ -45,9 +45,10 @@ export const toolsForBadDays = {
         },
         {
           id: 'copy-folder',
-          text: 'Copy the whole search folder onto main.',
+          text: 'Copy the fixed search files onto main by hand and commit them with a message about the crash.',
           correct: false,
-          feedback: 'That drags the unfinished page along and loses the commit’s message.',
+          feedback:
+            'Those files also carry the unfinished page’s changes, and the copy loses the original commit.',
         },
       ],
       explanation:
@@ -70,6 +71,13 @@ export const toolsForBadDays = {
           text: 'Cherry-pick every commit from feat/search except the restyle.',
           correct: false,
           feedback: 'That brings the unfinished search page too. You only want the fix.',
+        },
+        {
+          id: 'straight-to-main',
+          text: 'From the latest main, create fix/empty-search. Cherry-pick c7d9e13 only and run the tests. Since customers are crashing, push it straight to main.',
+          correct: false,
+          feedback:
+            'Right commit, wrong road. Urgent fixes still go through a PR and CI, or they cause the next incident.',
         },
         {
           id: 'exact',
@@ -139,10 +147,11 @@ export const toolsForBadDays = {
           feedback: 'Nothing is lost, and the fix starts clean from the latest main.',
         },
         {
-          id: 'drop',
-          text: 'Throw away what you’re doing and fix main.',
+          id: 'wip-main',
+          text: 'Commit your half-done work to your branch as WIP so it’s safe. Then switch to main, pull, fix the crash right there, and push main.',
           correct: false,
-          feedback: 'It wastes the work in progress for no reason.',
+          feedback:
+            'The work is safe, but the fix skips its own branch and PR: no review and no checks, on production.',
         },
         {
           id: 'same-branch',
@@ -163,9 +172,10 @@ export const toolsForBadDays = {
       options: [
         {
           id: 'branch',
-          text: 'A branch called release-2.4 that nobody commits to.',
+          text: 'A branch called release-2.4 that nobody commits to, protected on GitHub so it can’t change.',
           correct: false,
-          feedback: 'Branches are made to move. One stray commit and 2.4 means something else.',
+          feedback:
+            'Branches are made to move, and protection rules get changed. A tag is built to stay put.',
         },
         {
           id: 'readme',
@@ -198,9 +208,10 @@ export const toolsForBadDays = {
       options: [
         {
           id: 'read',
-          text: 'Read all 180 diffs.',
+          text: 'Read the diffs of all 180 commits, starting with the ones that touched files in the export folder.',
           correct: false,
-          feedback: 'Hours of reading, and slowness is hard to spot by eye.',
+          feedback:
+            'Hours of reading, and slowness often comes from code outside the export folder.',
         },
         {
           id: 'bisect',
@@ -257,7 +268,8 @@ export const toolsForBadDays = {
           id: 'evidence',
           text: 'Copy the perf script outside the repo, since older commits lack it. Bisect with v2.4.0 good and main bad, running that copy at each step. Report the first bad commit and its diff. Change no code.',
           correct: true,
-          feedback: 'A test that exists at every commit, a clear search, and evidence before any fix.',
+          feedback:
+            'A test that exists at every commit, a clear search, and evidence before any fix.',
         },
         {
           id: 'one-by-one',

@@ -38,7 +38,7 @@ export const conflictsWithoutPanic = {
         },
         {
           id: 'too-far',
-          text: 'The branches are too far apart to merge.',
+          text: 'The branches are too far apart: main moved on while feat/slow-network was open, so git can’t line them up.',
           correct: false,
           feedback: 'Distance doesn’t matter. Only overlapping edits to the same lines conflict.',
         },
@@ -109,7 +109,7 @@ export const conflictsWithoutPanic = {
       options: [
         {
           id: 'theirs',
-          text: 'Take the incoming side. It’s newer.',
+          text: 'Take the incoming side. It’s the newer change, and Otto already tested it on slow Wi-Fi.',
           correct: false,
           feedback: 'Newer isn’t right. Priya’s stutter fix would quietly disappear.',
         },
@@ -156,6 +156,13 @@ export const conflictsWithoutPanic = {
           feedback: 'That silently throws away every teammate change in those 14 spots.',
         },
         {
+          id: 'newer-side',
+          text: 'Resolve all 14 yourself, choosing whichever side changed most recently in each spot. Run the full test suite, and send me a summary once it’s green.',
+          correct: false,
+          feedback:
+            'Green tests prove it builds, not that the right side won. Newer isn’t intended, and you never see the calls.',
+        },
+        {
           id: 'restart',
           text: 'Delete your branch and start over from main.',
           correct: false,
@@ -188,9 +195,10 @@ export const conflictsWithoutPanic = {
       options: [
         {
           id: 'commit',
-          text: 'Commit it. He said it’s resolved.',
+          text: 'Commit it. He said it’s resolved, and the build and tests will catch anything that’s still wrong after that.',
           correct: false,
-          feedback: 'The markers are still in the file. It won’t even compile.',
+          feedback:
+            'The markers are still in the file. It won’t even compile, and you could see that by reading.',
         },
         {
           id: 'not-done',
@@ -250,6 +258,13 @@ export const conflictsWithoutPanic = {
           feedback: 'The undo button for a merge in progress, plus proof it worked.',
         },
         {
+          id: 'abort-delete',
+          text: 'Run git merge --abort, then delete feat/live-cursors so nobody merges it by mistake again. Confirm git status is clean, then merge the right branch.',
+          correct: false,
+          feedback:
+            'Abort is right, but feat/live-cursors is a teammate’s real work. The wrong merge wasn’t its fault.',
+        },
+        {
           id: 'reset',
           text: 'Run git reset --hard HEAD~5 to be safe.',
           correct: false,
@@ -279,10 +294,11 @@ export const conflictsWithoutPanic = {
           feedback: 'Yes: less time apart means fewer overlapping edits.',
         },
         {
-          id: 'big',
-          text: 'Bigger branches, merged once a month.',
+          id: 'daily-rebase',
+          text: 'Rebase every branch onto main daily, but keep each open until its whole feature is done.',
           correct: false,
-          feedback: 'The longer branches live apart, the more they collide.',
+          feedback:
+            'Daily rebases help, but a month of work still lands at once and collides at merge time.',
         },
       ],
       explanation:

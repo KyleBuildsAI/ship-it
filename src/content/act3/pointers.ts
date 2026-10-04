@@ -40,9 +40,10 @@ export const branchesArePointers = {
         },
         {
           id: 'dex-skips',
-          text: 'It isn’t. Dex skips commits that look unfinished.',
+          text: 'It isn’t, as long as the tests pass. Dex only deploys commits whose checks are green.',
           correct: false,
-          feedback: 'Dex ships exactly what’s on main. He can’t tell finished from unfinished.',
+          feedback:
+            'Half-built code can pass every test. Dex ships exactly what’s on main, finished or not.',
         },
       ],
       explanation:
@@ -150,6 +151,13 @@ export const branchesArePointers = {
             '“Be careful” can’t be checked. Which branch, starting where? Otto has to guess.',
         },
         {
+          id: 'merge-self',
+          text: 'Pull main, then create feat/csv-export from it. Build the button there in small commits. When the tests pass, merge it into main yourself and push, so it ships today.',
+          correct: false,
+          feedback:
+            'Right start, wrong finish. Main only changes through a reviewed PR, never an agent’s own merge.',
+        },
+        {
           id: 'copy-folder',
           text: 'Copy the repo to a folder called export-test and build it there.',
           correct: false,
@@ -191,9 +199,9 @@ export const branchesArePointers = {
         },
         {
           id: 'force',
-          text: 'Force it with git switch -f main.',
+          text: 'Force it with git switch -f main. Your edits will still be there when you switch back.',
           correct: false,
-          feedback: '-f discards your uncommitted changes. The warning was the safety net.',
+          feedback: '-f discards your uncommitted changes. They won’t be there when you come back.',
         },
         {
           id: 'stash',
@@ -248,6 +256,13 @@ export const branchesArePointers = {
           feedback: 'Safe by design: -d refuses to delete a branch that isn’t merged.',
         },
         {
+          id: 'closed-prs',
+          text: 'Force-delete every branch whose PR is closed on GitHub, with git branch -D, so nothing stale is left. Afterwards, list for me which ones you deleted.',
+          correct: false,
+          feedback:
+            'Closed isn’t merged: a PR closed without merging still holds the only copy of its work, and -D won’t stop you.',
+        },
+        {
           id: 'keep-all',
           text: 'Keep them all. Deleting a branch deletes its commits.',
           correct: false,
@@ -297,7 +312,7 @@ export const branchesArePointers = {
         },
         {
           id: 'diverged',
-          text: 'Main and the branch have diverged, so a conflict is certain.',
+          text: 'Main and the branch have diverged, so a three-way merge and probably a conflict are coming.',
           correct: false,
           feedback: 'Main hasn’t moved since the branch began, so nothing has diverged.',
         },

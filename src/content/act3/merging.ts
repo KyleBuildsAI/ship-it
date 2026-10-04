@@ -77,7 +77,7 @@ export const twoWaysToMerge = {
         },
         {
           id: 'overwrite',
-          text: 'The export branch overwrites Priya’s login fix.',
+          text: 'The export branch’s version of each file overwrites main’s, so Priya’s login fix disappears unless she redoes it.',
           correct: false,
           feedback: 'Merges combine work. Nothing is overwritten unless someone chooses it.',
         },
@@ -242,6 +242,12 @@ export const twoWaysToMerge = {
           feedback: 'It replaces the old commits only if nobody else pushed in the meantime.',
         },
         {
+          id: 'lease-all',
+          text: 'Push with git push --force-with-lease to every branch you rebased today, main included, so GitHub matches your machine.',
+          correct: false,
+          feedback: 'Right flag, wrong scope. Main is shared by everyone: never force-push it.',
+        },
+        {
           id: 'pull',
           text: 'Run git pull, then push.',
           correct: false,
@@ -282,7 +288,7 @@ export const twoWaysToMerge = {
       options: [
         {
           id: 'always-rebase',
-          text: 'She’s right: always rebase.',
+          text: 'She’s right: always rebase, shared branches included, because a straight history is easier to read.',
           correct: false,
           feedback: 'Rebasing shared branches breaks teammates’ copies. Merge has its place.',
         },
