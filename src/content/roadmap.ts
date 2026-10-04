@@ -96,8 +96,13 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.',
     stage: 'playable',
-    status: 'Playable: two lessons and the timed final, all answered by clicking.',
-    missions: [{ title: 'Requests and Responses' }, { title: 'Data, Speed and Scale' }],
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Requests and Responses' },
+      { title: 'APIs and Auth' },
+      { title: 'Data, Speed and Scale' },
+      { title: 'Logs and Stack Traces' },
+    ],
     boss: { title: 'The 3am Page' },
   },
   {
