@@ -58,15 +58,13 @@ test('Space jumps, even right after clicking a HUD button', async ({ page }) => 
 });
 
 // Every Act has an island, so every Campus portal opens. Each walk is checked on its own.
+// One walk per kind of island: the laptop, the Git World, and a lesson island. Each walk is
+// slow on CI, which renders in software, so the other lesson portals are covered by
+// zones.test.ts (every Act has an island and an open portal) instead of a walk each.
 const PORTALS = [
   { act: 1, zone: 'machine', heading: 'The Machine' },
   { act: 2, zone: 'gitworld', heading: 'Git World' },
-  { act: 3, zone: 'act3', heading: 'Branching' },
   { act: 4, zone: 'act4', heading: 'GitHub Team Flow' },
-  { act: 5, zone: 'act5', heading: 'Quality Gates' },
-  { act: 6, zone: 'act6', heading: 'How Systems Work' },
-  { act: 7, zone: 'act7', heading: 'AI-Native Engineering' },
-  { act: 8, zone: 'act8', heading: 'The Loop' },
 ] as const;
 
 for (const { act, zone, heading } of PORTALS) {
