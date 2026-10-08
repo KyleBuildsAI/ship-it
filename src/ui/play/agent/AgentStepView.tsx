@@ -4,9 +4,11 @@ import type { MissionStep } from '../../../game/missions/schema';
 import { ottoRun } from '../../../game/play/agentPlay';
 import type { MissionActivity } from '../../../game/play/playStore';
 import { useStore } from '../../useStore';
+import { GateCard } from './GateCard';
 import { OttoBubble, type OttoMood } from './OttoBubble';
 import { ottoLine } from './ottoLines';
 import { EchoChoice, PlanCards } from './PlanCards';
+import { PredictCard } from './PredictCard';
 import { RunLog } from './RunLog';
 
 /** Otto's face for the stage: busy while he works, waiting whenever Kyle has the move. */
@@ -46,6 +48,8 @@ export function AgentStepView({
         />
       ) : null}
       {stage.at === 'echo' ? <EchoChoice planId={stage.planId} /> : null}
+      {stage.at === 'predict' ? <PredictCard action={stage.action} /> : null}
+      {stage.at === 'gate' ? <GateCard gate={stage.gate} action={stage.action} /> : null}
       <RunLog rows={rows} running={stage.at === 'running'} />
     </div>
   );
