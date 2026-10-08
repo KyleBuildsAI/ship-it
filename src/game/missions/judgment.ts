@@ -101,6 +101,15 @@ export function gradeJudgment(
   return { passed, keyId: passed ? given : (key[0] ?? '') };
 }
 
+/**
+ * Whether `answer` is the kind of answer `drill` takes: allow or deny for approve, else one
+ * of its own options. Play checks this first, so a stray click is ignored, not thrown.
+ */
+export function answerFits(drill: JudgmentDrill, answer: JudgmentAnswer): boolean {
+  if (drill.kind === 'approve') return answer.kind === 'approve';
+  return answer.kind === 'pick' && drill.options.some((option) => option.id === answer.optionId);
+}
+
 /** Kyle's answer as an id that can sit in a key, after checking it fits the drill. */
 function answerId(drill: JudgmentDrill, answer: JudgmentAnswer): string {
   if (drill.kind === 'approve') {

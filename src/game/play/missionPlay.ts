@@ -3,7 +3,12 @@ import { askHint, gradeQuestion } from '../../mentor/client';
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import type { Pace } from '../agent/pace';
 import { markHintRung3, starXp } from '../missions/agentRunner';
-import { gradeJudgment, type JudgmentAnswer, type JudgmentGrade } from '../missions/judgment';
+import {
+  answerFits,
+  gradeJudgment,
+  type JudgmentAnswer,
+  type JudgmentGrade,
+} from '../missions/judgment';
 import { explain, evaluate } from '../missions/predicates';
 import {
   checkStep,
@@ -243,16 +248,23 @@ export function missionTick(nowMs: number = Date.now()): void {
 }
 
 /**
- * Kyle's answer to the judgment drill on the clock. The key is worked out by running the
- * drill in a scratch copy (judgment.ts), never read from the content. An answer that lands
- * after the limit, before the next tick, is overtime and so a miss (grading.scoreDrill).
+ * Kyle's answer to the judgment drill `drillId`, if it is the one on the clock. The key is
+ * worked out by running the drill in a scratch copy (judgment.ts), never read from the
+ * content. An answer that lands after the limit, before the next tick, is overtime and so
+ * a miss (grading.scoreDrill). A late or doubled click, meant for a drill that has ended or
+ * shaped for another kind of drill, does nothing: a button never throws at Kyle.
  */
-export function submitJudgment(answer: JudgmentAnswer, nowMs: number = Date.now()): void {
+export function submitJudgment(
+  drillId: string,
+  answer: JudgmentAnswer,
+  nowMs: number = Date.now(),
+): void {
   const current = activity();
   const active = current?.run.activeDrill;
   if (current === null || active === null || active === undefined) return;
   const drill = current.mission.drills[active.drillIndex];
-  if (drill === undefined || !isJudgmentDrill(drill)) return;
+  if (drill === undefined || !isJudgmentDrill(drill) || drill.id !== drillId) return;
+  if (!answerFits(drill, answer)) return;
   finishDrill(current, nowMs, gradeJudgment(drill, answer, scratchDeps()));
 }
 

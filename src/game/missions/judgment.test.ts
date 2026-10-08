@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
 import { testDeps } from '../../engine/git/testDeps';
-import { answerKey, gradeJudgment, JudgmentError, shuffleFor } from './judgment';
+import { answerFits, answerKey, gradeJudgment, JudgmentError, shuffleFor } from './judgment';
 import { sampleJudgmentDrillsInput } from './sample.test-mission';
 import { JudgmentDrillSchema, type JudgmentDrill, type JudgmentDrillInput } from './schema';
 
@@ -79,6 +79,14 @@ describe('gradeJudgment', () => {
     expect(() => gradeJudgment(sample('sample-predict-typo'), pick('nope'), deps)).toThrow(
       /no option "nope"/,
     );
+  });
+
+  it('tells play which answers fit a drill, so play can drop the rest before grading', () => {
+    expect(answerFits(sample('sample-approve-stray'), allow)).toBe(true);
+    expect(answerFits(sample('sample-approve-stray'), pick('allow'))).toBe(false);
+    expect(answerFits(sample('sample-predict-typo'), pick('error'))).toBe(true);
+    expect(answerFits(sample('sample-predict-typo'), pick('nope'))).toBe(false);
+    expect(answerFits(sample('sample-predict-typo'), allow)).toBe(false);
   });
 });
 

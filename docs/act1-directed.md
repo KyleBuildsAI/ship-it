@@ -1238,9 +1238,11 @@ export function beginScene(drill: JudgmentDrill): boolean;    // false: no histo
 export function frameScene(drillId, elapsedMs, pace): { index: number; done: boolean } | null;
 // missionPlay.ts / seriesPlay.ts (A18): startNextDrill and startNextSeriesDrill set `scene`
 // and leave the clock off; play.framePlay(elapsedMs, pace, nowMs) plays it and starts the
-// clock at nowMs once it ends. submitJudgment(answer, nowMs) and submitSeriesJudgment grade
-// with gradeJudgment on scratchDeps() (sandboxControl), then submitAnsweredDrill or
-// recordReview; a miss reaches the review queue through recordDrill's addMiss.
+// clock at nowMs once it ends. submitJudgment(drillId, answer, nowMs) and
+// submitSeriesJudgment(drillId, answer, nowMs) grade with gradeJudgment on scratchDeps()
+// (sandboxControl), then submitAnsweredDrill or recordReview; a miss reaches the review
+// queue through recordDrill's addMiss. An answer for a drill that isn't on the clock, or one
+// that doesn't fit it (judgment.answerFits), is ignored: a button never throws at Kyle.
 // DrillResult gains an optional keyId (the right answer) for the reveal.
 ```
 

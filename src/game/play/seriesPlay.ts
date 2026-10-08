@@ -1,6 +1,11 @@
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import type { Pace } from '../agent/pace';
-import { gradeJudgment, type JudgmentAnswer, type JudgmentGrade } from '../missions/judgment';
+import {
+  answerFits,
+  gradeJudgment,
+  type JudgmentAnswer,
+  type JudgmentGrade,
+} from '../missions/judgment';
 import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
 import { isJudgmentDrill, requirePlacement } from '../missions/schema';
@@ -170,14 +175,20 @@ export function seriesTick(nowMs: number = Date.now()): void {
 }
 
 /**
- * Kyle's answer to the judgment drill on the clock, graded by running the drill in a
- * scratch copy (judgment.ts). A review records it with SM-2; a miss stays in the queue.
+ * Kyle's answer to the judgment drill `drillId`, if it is the one on the clock, graded by
+ * running the drill in a scratch copy (judgment.ts). A review records it with SM-2; a miss
+ * stays in the queue. Like submitJudgment, a stale or misshapen answer does nothing.
  */
-export function submitSeriesJudgment(answer: JudgmentAnswer, nowMs: number = Date.now()): void {
+export function submitSeriesJudgment(
+  drillId: string,
+  answer: JudgmentAnswer,
+  nowMs: number = Date.now(),
+): void {
   const current = activity();
   if (current?.active == null) return;
   const drill = current.drills[current.active.index];
-  if (drill === undefined || !isJudgmentDrill(drill)) return;
+  if (drill === undefined || !isJudgmentDrill(drill) || drill.id !== drillId) return;
+  if (!answerFits(drill, answer)) return;
   finish(current, nowMs, gradeJudgment(drill, answer, scratchDeps()));
 }
 

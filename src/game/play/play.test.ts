@@ -691,7 +691,7 @@ describe('judgment drills with a scene', () => {
     // Predict has no history, so its clock starts at once.
     startNextDrill(T0);
     expect(mission().scene).toBeNull();
-    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 5_000);
+    submitJudgment('sample-predict-typo', { kind: 'pick', optionId: 'error' }, T0 + 5_000);
     expect(mission().lastDrill).toEqual({
       drillId: 'sample-predict-typo',
       passed: true,
@@ -702,30 +702,61 @@ describe('judgment drills with a scene', () => {
 
     startNextDrill(T0 + 10_000);
     framePlay(16, INSTANT_PACE, T0 + 10_000);
-    submitJudgment({ kind: 'pick', optionId: 'deleted' }, T0 + 12_000);
+    submitJudgment('sample-diagnose-home', { kind: 'pick', optionId: 'deleted' }, T0 + 12_000);
     // The reveal names the right answer, worked out from the scene's end state.
     expect(mission().lastDrill).toMatchObject({ passed: false, keyId: 'home' });
 
     startNextDrill(T0 + 20_000);
     framePlay(16, INSTANT_PACE, T0 + 20_000);
-    submitJudgment({ kind: 'pick', optionId: 'step-by-step' }, T0 + 22_000);
+    submitJudgment('sample-fix-cd', { kind: 'pick', optionId: 'step-by-step' }, T0 + 22_000);
     expect(mission().lastDrill).toMatchObject({ passed: true, keyId: 'step-by-step' });
 
     startNextDrill(T0 + 30_000);
-    submitJudgment({ kind: 'approve', allow: false }, T0 + 32_000);
+    submitJudgment('sample-approve-stray', { kind: 'approve', allow: false }, T0 + 32_000);
     expect(mission().lastDrill).toMatchObject({ passed: false, keyId: 'allow' });
 
     startNextDrill(T0 + 40_000);
-    submitJudgment({ kind: 'approve', allow: false }, T0 + 42_000);
+    submitJudgment('sample-approve-notes', { kind: 'approve', allow: false }, T0 + 42_000);
     expect(mission().lastDrill).toMatchObject({ passed: true, keyId: 'deny' });
 
     expect(mission().run.phase).toBe('question');
     expect(queued().sort()).toEqual(['sample-approve-stray', 'sample-diagnose-home']);
   });
 
+  it('ignores a late, doubled or misshapen answer instead of grading or throwing it', () => {
+    startNextDrill(T0);
+    submitJudgment('sample-predict-typo', { kind: 'pick', optionId: 'error' }, T0 + 1_000);
+    startNextDrill(T0 + 10_000);
+    framePlay(16, INSTANT_PACE, T0 + 10_000);
+    submitJudgment('sample-diagnose-home', { kind: 'pick', optionId: 'home' }, T0 + 12_000);
+    startNextDrill(T0 + 20_000);
+    framePlay(16, INSTANT_PACE, T0 + 20_000);
+    submitJudgment('sample-fix-cd', { kind: 'pick', optionId: 'step-by-step' }, T0 + 22_000);
+    startNextDrill(T0 + 30_000);
+    submitJudgment('sample-approve-stray', { kind: 'approve', allow: false }, T0 + 32_000);
+    startNextDrill(T0 + 40_000);
+
+    // A double click on drill 4 lands after drill 5 started: it names drill 4, so it's dropped.
+    submitJudgment('sample-approve-stray', { kind: 'approve', allow: false }, T0 + 40_050);
+    // Answers that don't fit drill 5 (a pick for an approve drill) are dropped too.
+    expect(() => {
+      submitJudgment('sample-approve-notes', { kind: 'pick', optionId: 'error' }, T0 + 40_100);
+    }).not.toThrow();
+    expect(mission().run.drillResults).toHaveLength(4);
+    expect(mission().run.activeDrill).not.toBeNull();
+
+    // Kyle's real answer to drill 5 is graded from when its clock started.
+    submitJudgment('sample-approve-notes', { kind: 'approve', allow: false }, T0 + 45_000);
+    expect(mission().lastDrill).toMatchObject({
+      drillId: 'sample-approve-notes',
+      passed: true,
+      seconds: 5,
+    });
+  });
+
   it("plays Otto's history into the terminal first, and the clock starts after it", () => {
     startNextDrill(T0);
-    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 1_000);
+    submitJudgment('sample-predict-typo', { kind: 'pick', optionId: 'error' }, T0 + 1_000);
 
     startNextDrill(T0 + 10_000);
     expect(mission().scene).toEqual({ index: 0 });
@@ -734,7 +765,7 @@ describe('judgment drills with a scene', () => {
     missionTick(T0 + 500_000);
     expect(mission().run.drillResults).toHaveLength(1);
     // An answer during the scene, or a second start, does nothing.
-    submitJudgment({ kind: 'pick', optionId: 'home' }, T0 + 10_000);
+    submitJudgment('sample-diagnose-home', { kind: 'pick', optionId: 'home' }, T0 + 10_000);
     startNextDrill(T0 + 10_000);
     expect(mission().scene).toEqual({ index: 0 });
 
@@ -744,7 +775,9 @@ describe('judgment drills with a scene', () => {
     });
     expect(mission().scene).toEqual({ index: 1 });
     expect(mission().run.activeDrill).toBeNull();
+    // The line runs only once its typing has shown, so its output plays on the next frame.
     const shown = terminalText(() => {
+      framePlay(10_000, NORMAL_PACE, T0 + 10_032);
       framePlay(10_000, NORMAL_PACE, T0 + 20_016);
     });
     expect(typed + shown).toContain('Get-ChildItem package.json');
@@ -754,13 +787,17 @@ describe('judgment drills with a scene', () => {
     // The drill gets its full limit from the moment the question showed.
     missionTick(T0 + 20_016 + 39_000);
     expect(mission().run.activeDrill).not.toBeNull();
-    submitJudgment({ kind: 'pick', optionId: 'home' }, T0 + 20_016 + 39_000);
+    submitJudgment(
+      'sample-diagnose-home',
+      { kind: 'pick', optionId: 'home' },
+      T0 + 20_016 + 39_000,
+    );
     expect(mission().lastDrill).toMatchObject({ passed: true, seconds: 39 });
   });
 
   it('plays the scene at a review too, and grades the answer there', () => {
     startNextDrill(T0);
-    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 1_000);
+    submitJudgment('sample-predict-typo', { kind: 'pick', optionId: 'error' }, T0 + 1_000);
     startNextDrill(T0 + 10_000);
     framePlay(16, INSTANT_PACE, T0 + 10_000);
     missionTick(T0 + 60_000);
@@ -776,7 +813,11 @@ describe('judgment drills with a scene', () => {
     expect(series().scene).toBeNull();
     expect(series().active).toEqual({ index: 0, startedAtMs: T0 + 101_000 });
 
-    submitSeriesJudgment({ kind: 'pick', optionId: 'home' }, T0 + 104_000);
+    // An answer for another drill, or an option this drill doesn't have, does nothing.
+    submitSeriesJudgment('sample-predict-typo', { kind: 'pick', optionId: 'error' }, T0 + 102_000);
+    submitSeriesJudgment('sample-diagnose-home', { kind: 'pick', optionId: 'nope' }, T0 + 103_000);
+    expect(series().results).toEqual([]);
+    submitSeriesJudgment('sample-diagnose-home', { kind: 'pick', optionId: 'home' }, T0 + 104_000);
     expect(series().results).toEqual([
       { drillId: 'sample-diagnose-home', passed: true, seconds: 3, overtime: false, keyId: 'home' },
     ]);
@@ -790,7 +831,7 @@ describe('judgment drills with a scene', () => {
 
   it('drops a scene when Kyle leaves partway through', () => {
     startNextDrill(T0);
-    submitJudgment({ kind: 'pick', optionId: 'error' }, T0 + 1_000);
+    submitJudgment('sample-predict-typo', { kind: 'pick', optionId: 'error' }, T0 + 1_000);
     startNextDrill(T0 + 10_000);
     leavePlay();
     expect(() => {
