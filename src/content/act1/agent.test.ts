@@ -31,7 +31,8 @@ import {
  * section 5.11). From each step's start, every start card is played under both gate
  * policies, then every card a fix round offers, two rounds deep. Each end state must
  * have exactly one true check option, and every option must be true somewhere, so no
- * answer is a made-up distractor.
+ * answer is a made-up distractor. Kyle can also press Stop between any two actions, so
+ * those paths are played too, and their predictions and checks must still have one answer.
  */
 
 const mission: Mission = requireMission(act1Missions[0]);
@@ -146,6 +147,54 @@ function explore(step: MissionStep, start: SandboxLog): Path[] {
   return paths;
 }
 
+/**
+ * Every way Kyle can press Stop: after each action of each card the first two rounds
+ * offer, then every card the fix round offers next. Those cards run on a laptop another
+ * card only partly changed, so their predictions and checks must still have one answer.
+ */
+function exploreStops(step: MissionStep, start: SandboxLog, paths: readonly Path[]): Path[] {
+  const stops: Path[] = [];
+  const from = (path: Path | null) =>
+    path === null
+      ? { log: start, state: beginAgentStep(step) }
+      : {
+          log: path.played.log,
+          state: openFixRound(
+            answerCheck(
+              path.played.state,
+              step,
+              trueOf(step, path.played.log),
+              queriesOf(path.played.log),
+            ),
+          ),
+        };
+  for (const policy of POLICIES) {
+    const roots = paths.filter(
+      (path) =>
+        path.policy === policy &&
+        path.cards.length === 1 &&
+        path.played.state.stage.at === 'check' &&
+        !passes(step, path.played.log),
+    );
+    for (const root of [null, ...roots]) {
+      const begin = from(root);
+      for (const plan of offeredPlans(begin.state, step)) {
+        const whole = playCard(mission, step, begin, plan.id, policy);
+        for (let stopAt = 0; stopAt < whole.driven; stopAt++) {
+          const stopped = playCard(mission, step, begin, plan.id, policy, stopAt);
+          const cards = [...(root?.cards ?? []), `${plan.id} (Stop after ${String(stopAt)})`];
+          stops.push({ cards, policy, played: stopped });
+          for (const next of offeredPlans(stopped.state, step)) {
+            const played = playCard(mission, step, stopped, next.id, policy);
+            stops.push({ cards: [...cards, next.id], policy, played });
+          }
+        }
+      }
+    }
+  }
+  return stops;
+}
+
 function trueOf(step: MissionStep, log: SandboxLog): string {
   const [only] = trueChecks(step, log);
   if (only === undefined) throw new Error(`No check option is true for "${step.id}".`);
@@ -165,6 +214,7 @@ mission.steps.forEach((step, index) => {
     const start = beginStep(canonicalStart(mission, index), step);
     const paths = explore(step, start);
     const checked = paths.filter((path) => path.played.state.stage.at === 'check');
+    const stops = exploreStops(step, start, paths);
 
     it('is not already passing when Kyle arrives', () => {
       expect(passes(step, start)).toBe(false);
@@ -205,6 +255,12 @@ mission.steps.forEach((step, index) => {
         truths.forEach((id) => seen.add(id));
       }
       expect([...seen].sort()).toEqual(task.check.options.map((option) => option.id).sort());
+    });
+
+    it('has exactly one true check option after every Stop', () => {
+      for (const path of stops.filter(({ played }) => played.state.stage.at === 'check')) {
+        expect(trueChecks(step, path.played.log), path.cards.join(' > ')).toHaveLength(1);
+      }
     });
 
     it('runs every line the first two rounds, failing only where the content says', () => {
@@ -251,9 +307,9 @@ mission.steps.forEach((step, index) => {
         const path = paths.find(({ cards }) => cards.join() === plan.id);
         expect(path?.played.predicts.length, plan.id).toBeGreaterThan(0);
       }
-      for (const path of paths) {
+      for (const path of [...paths, ...stops]) {
         for (const predicted of path.played.predicts) {
-          expect(predicted.trueOptions, predicted.question).toHaveLength(1);
+          expect(predicted.trueOptions, path.cards.join(' > ')).toHaveLength(1);
         }
       }
     });

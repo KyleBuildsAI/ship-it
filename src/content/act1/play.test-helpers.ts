@@ -21,6 +21,7 @@ import {
   outcomeHolds,
   pausesBefore,
   REFUSAL,
+  stopScript,
   toDriverAction,
   type AgentStepState,
   type QueuedAction,
@@ -70,6 +71,8 @@ export interface CardPlayed {
   readonly lines: readonly LineRun[];
   readonly gates: readonly GateSeen[];
   readonly predicts: readonly PredictSeen[];
+  /** How many actions reached the laptop: the gaps where Kyle could have pressed Stop. */
+  readonly driven: number;
 }
 
 /** Questions about the laptop a log builds, as the grading sees it. */
@@ -92,7 +95,8 @@ export function beginStep(log: SandboxLog, step: MissionStep): SandboxLog {
 /**
  * Picks a card and plays Otto's whole script, until he claims he's done (stage `check`)
  * or stops for new directions (stage `direct`). Each prediction is answered with the
- * option that comes true, so the run is the same as with no prediction at all.
+ * option that comes true, so the run is the same as with no prediction at all. With
+ * `stopAt`, Kyle presses Stop once that many actions have reached the laptop.
  */
 export function playCard(
   mission: Mission,
@@ -100,6 +104,7 @@ export function playCard(
   from: { readonly log: SandboxLog; readonly state: AgentStepState },
   planId: string,
   policy: GatePolicy,
+  stopAt?: number,
 ): CardPlayed {
   const task = taskOf(step);
   const judge = { guards: task.guards };
@@ -111,11 +116,14 @@ export function playCard(
   const lines: LineRun[] = [];
   const gates: GateSeen[] = [];
   const predicts: PredictSeen[] = [];
+  let drivenCount = 0;
+  let stopPending = stopAt !== undefined;
 
   const drive = (action: QueuedAction) => {
     const driven = toDriverAction(action);
     const result = playAction(live.shell, live.transcript, driven);
     log = withEntry(log, { kind: 'action', action: driven });
+    drivenCount++;
     if (action.do === 'run') {
       lines.push({
         line: action.line,
@@ -128,6 +136,12 @@ export function playCard(
   };
 
   for (let turns = 0; turns < 100 && state.stage.at === 'running'; turns++) {
+    // Stop comes between actions, once; any refusal it queues then runs like the rest.
+    if (stopPending && drivenCount === stopAt) {
+      stopPending = false;
+      state = stopScript(state);
+      continue;
+    }
     const next = nextAction(state);
     if (next === null) {
       state = finishScript(state);
@@ -163,7 +177,7 @@ export function playCard(
     if (state.stage.at === 'gate') state = decideGate(state, allow);
     if (allow) drive(action);
   }
-  return { log, state, lines, gates, predicts };
+  return { log, state, lines, gates, predicts, driven: drivenCount };
 }
 
 /**
