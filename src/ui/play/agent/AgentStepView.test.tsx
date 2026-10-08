@@ -9,6 +9,7 @@ import {
   type AgentStepState,
   type Gate,
   type QueuedAction,
+  type Verdict,
 } from '../../../game/missions/agentRunner';
 import { finishBriefing, startRun } from '../../../game/missions/runner';
 import { notesMission } from '../../../game/missions/sample.test-mission';
@@ -24,12 +25,22 @@ vi.mock('../../useStore', () => ({
   useStore: <T extends object>(store: Store<T>) => store.get(),
 }));
 
+// The true check option comes from the live laptop, which these tests don't build:
+// play.test.ts proves trueCheckOptions itself. Here, "home" is what's true.
+vi.mock('../../../game/play/agentPlay', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../game/play/agentPlay')>()),
+  trueCheckOptions: () => ['home'],
+}));
+
 function notesStep(): MissionStep {
   const [first] = notesMission.steps;
   if (first === undefined) throw new Error('the notes sample has a step');
   return first;
 }
 const step = notesStep();
+
+/** The checklist play would pass at a result: the panel shows it as given. */
+const CHECKLIST = [{ label: 'The API has a notes folder', passed: false }] as const;
 
 function activity(agent: AgentStepState): MissionActivity {
   return {
@@ -53,7 +64,12 @@ function activity(agent: AgentStepState): MissionActivity {
 function shown(agent: AgentStepState, hintLevel = 0, run: Partial<OttoRun> = {}): string {
   ottoRun.update({ rows: [], last: null, ...run });
   const markup = renderToStaticMarkup(
-    <AgentStepView activity={activity(agent)} step={step} hintLevel={hintLevel} />,
+    <AgentStepView
+      activity={activity(agent)}
+      step={step}
+      hintLevel={hintLevel}
+      checklist={CHECKLIST}
+    />,
   );
   return markup
     .replace(/<button[^>]*>/g, '[')
@@ -140,7 +156,9 @@ describe('the directing panel', () => {
     const run = { do: 'run', line: 'Get-Content .env', onDeny: [] } as const;
     const gate = atGate(run, { kind: 'line', line: run.line, changes: [], harmful: false });
     const markup = (agent: AgentStepState) =>
-      renderToStaticMarkup(<AgentStepView activity={activity(agent)} step={step} hintLevel={0} />);
+      renderToStaticMarkup(
+        <AgentStepView activity={activity(agent)} step={step} hintLevel={0} checklist={[]} />,
+      );
     const disabled = (html: string) => html.match(/<button[^>]*disabled=""/g)?.length ?? 0;
     expect(disabled(markup(gate))).toBe(2);
     const predicting = nextAction(choosePlan(start, step, 'bare-name'))?.state ?? start;
@@ -154,9 +172,68 @@ describe('the directing panel', () => {
     expect(text).toContain('The laptop shows no change, but Otto asked first.');
   });
 
+  it("asks Kyle to check Otto's claim, with his looks beside the answers", () => {
+    const checking: AgentStepState = { ...start, stage: { at: 'check', planId: 'bare-name' } };
+    expect(shown(checking)).toBe(
+      "•Otto: Done: notes is in the API project.Check Otto's claimWhere did notes land?" +
+        'Look before you answer:[List home]' +
+        '[Only in the API folder][In C:\\Users\\kyle, where fresh terminals start][In both places]',
+    );
+  });
+
+  /** A result for the weak card, Kyle having answered `optionId`. */
+  function result(
+    verdict: Verdict,
+    optionId: string,
+    passed: boolean,
+    guardBroken = false,
+  ): AgentStepState {
+    const stage = {
+      at: 'result',
+      planId: 'bare-name',
+      optionId,
+      verdict,
+      passed,
+      guardBroken,
+    } as const;
+    return { ...start, tried: ['bare-name'], stage };
+  }
+
+  it('shows a good catch with the checklist, the slip and the lesson', () => {
+    const text = shown(result('caught', 'home', false));
+    expect(text).toContain("Good catch. Otto's claim was wrong, and you saw it.");
+    expect(text).toContain('The API has a notes folder (not yet)');
+    expect(text).toContain('Slip: wrong place');
+    expect(text).toContain('A fresh terminal stands at home, so notes landed in C:\\Users\\kyle.');
+    expect(text).toContain('[Direct a fix][Rewind step]');
+  });
+
+  it("shows a miss with the option's feedback, and Rewind first when a guard broke", () => {
+    const text = shown(result('missed', 'api', false, true));
+    expect(text).toContain("Missed. Otto's claim was wrong.");
+    // The feedback written for the option Kyle picked, not the card's lesson.
+    expect(text).toContain('Right: the Directory line shows the API folder.');
+    expect(text).not.toContain('A fresh terminal stands at home');
+    expect(text).toContain('The true answer: In C:\\Users\\kyle, where fresh terminals start');
+    expect(text).toContain('[Rewind step][Direct a fix]');
+  });
+
+  it('offers Next step once the step passed, and no Rewind', () => {
+    const text = shown(result('confirmed', 'api', true));
+    expect(text).toContain('Confirmed. Otto was right, and you checked.');
+    expect(text).toContain('A fresh terminal stands at home');
+    expect(text).toContain('[Next step]');
+    expect(text).not.toContain('Rewind');
+  });
+
   it('shows nothing for a typed step', () => {
     const markup = renderToStaticMarkup(
-      <AgentStepView activity={{ ...activity(start), agent: null }} step={step} hintLevel={0} />,
+      <AgentStepView
+        activity={{ ...activity(start), agent: null }}
+        step={step}
+        hintLevel={0}
+        checklist={[]}
+      />,
     );
     expect(markup).toBe('');
   });

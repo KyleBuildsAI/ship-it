@@ -80,10 +80,16 @@ function Sim({
       </p>
       <p className="play-panel__instruction">{step.instruction}</p>
       {/* A directed step: Kyle directs Otto instead of typing. Act 2's typed steps skip it. */}
-      {step.agent === undefined ? null : (
-        <AgentStepView activity={activity} step={step} hintLevel={hint?.level ?? 0} />
+      {step.agent === undefined ? (
+        <Checklist rows={checklist} />
+      ) : (
+        <AgentStepView
+          activity={activity}
+          step={step}
+          hintLevel={hint?.level ?? 0}
+          checklist={checklist}
+        />
       )}
-      <Checklist rows={checklist} />
       {hint ? (
         <div className="hint" aria-live="polite">
           <p className="hint__source">

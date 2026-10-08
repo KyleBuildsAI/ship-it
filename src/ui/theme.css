@@ -801,6 +801,60 @@ body {
   padding-left: 18px;
 }
 
+/* Checking Otto's claim: the question, Kyle's look chips, and the answers. */
+.check-card,
+.result-card {
+  margin: 10px 0;
+}
+
+.looks__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Looks are Kyle's own lines, so they wear the accent, not Otto's magenta. */
+.look-chip {
+  padding: 4px 10px;
+  border: 1px solid rgba(111, 211, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(111, 211, 255, 0.08);
+  color: var(--accent);
+  font: 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.look-chip:hover {
+  background: rgba(111, 211, 255, 0.16);
+}
+
+.look-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.result-card__verdict {
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--warn);
+  border-radius: 6px;
+  background: rgba(255, 207, 107, 0.08);
+  color: var(--warn);
+}
+
+.result-card__verdict--good {
+  border-left-color: var(--ok);
+  background: rgba(126, 226, 168, 0.08);
+  color: var(--ok);
+}
+
+.result-card__slip {
+  color: var(--otto);
+}
+
 .act-menu {
   margin: 10px 0 0;
   padding: 0;
