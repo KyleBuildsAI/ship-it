@@ -1,4 +1,11 @@
-import { feedAction, startFeed, type FeedBeat, type FeedState } from '../agent/feed';
+import {
+  feedAction,
+  feedOutcome,
+  feedTyping,
+  startFeed,
+  type FeedBeat,
+  type FeedState,
+} from '../agent/feed';
 import { advance, START, type Pace, type Playhead } from '../agent/pace';
 import { driverAction, type ContentAction, type LoggedAction } from '../agent/replay';
 import { showInTerminal } from '../agent/terminalFeed';
@@ -28,6 +35,8 @@ interface Scene {
   index: number;
   /** Otto's answer to the Confirm question the last line asked, played before the next line. */
   answerNext: LoggedAction | null;
+  /** The action whose typing is playing now. It is driven only once that typing has shown. */
+  typed: LoggedAction | null;
   feed: FeedState;
   beats: readonly FeedBeat[];
   head: Playhead;
@@ -35,7 +44,10 @@ interface Scene {
 
 let scene: Scene | null = null;
 
-/** Every history line plus its answer, with room to spare: past it, something loops. */
+/**
+ * Each action takes two turns (its typing, then driving it), so this covers every history
+ * line plus its answer with room to spare: past it, something loops.
+ */
 const MAX_TURNS = 100;
 
 /**
@@ -53,6 +65,7 @@ export function beginScene(drill: JudgmentDrill): boolean {
     history: drill.history,
     index: 0,
     answerNext: null,
+    typed: null,
     // No prompt yet: the terminal skips a prompt that matches the one already waiting.
     feed: startFeed(tab),
     beats: [],
@@ -79,9 +92,12 @@ export interface SceneFrame {
 }
 
 /**
- * Plays `drillId`'s scene on by one drawn frame of `elapsedMs`. Each line is driven, then
- * its typing and output play before the next. Returns null when no scene is playing for
- * that drill, like after Kyle left and came back to a different one.
+ * Plays `drillId`'s scene on by one drawn frame of `elapsedMs`. Each line is typed first,
+ * then driven, then its output plays before the next, as Otto's own playback does in
+ * agentPlay.ts. The world hears a line's events on `ws.events` the moment it is driven,
+ * so driving only after the typing keeps the world from running ahead of the terminal
+ * (spec section 4). Returns null when no scene is playing for that drill, like after Kyle
+ * left and came back to a different one.
  */
 export function frameScene(drillId: string, elapsedMs: number, pace: Pace): SceneFrame | null {
   const playing = scene;
@@ -91,7 +107,7 @@ export function frameScene(drillId: string, elapsedMs: number, pace: Pace): Scen
   for (let turns = 0; turns < MAX_TURNS; turns++) {
     if (playing.beats.length > 0) {
       const played = advance(playing.beats, sped, playing.head, elapsed);
-      // The frame's time is spent on the beats; the next line is driven at once.
+      // The frame's time is spent on the beats; what follows them starts at once.
       elapsed = 0;
       showInTerminal(played.reveals);
       if (!played.done) {
@@ -101,22 +117,49 @@ export function frameScene(drillId: string, elapsedMs: number, pace: Pace): Scen
       playing.beats = [];
       playing.head = START;
     }
+    const typed = playing.typed;
+    if (typed !== null) {
+      playing.typed = null;
+      driveTyped(playing, typed);
+      continue;
+    }
     const next = nextAction(playing);
     if (next === null) {
       scene = null;
       return { index: playing.index, done: true };
     }
-    const step = recordAction(next);
-    // A line that asks gets Otto's answer next, as it did when he really ran it.
-    const asked = playing.history[playing.index - 1];
-    if (next.do !== 'answer' && step.asking && asked?.do === 'run' && asked.answer !== undefined) {
-      playing.answerNext = { do: 'answer', choice: asked.answer };
-    }
-    const fed = feedAction(playing.feed, step);
-    playing.feed = fed.state;
-    playing.beats = fed.beats;
+    playing.typed = next;
+    typeOut(playing, next);
   }
   throw new MissionRunError('A drill scene took too many turns in one frame.');
+}
+
+/** Queues the typing of a line or an answer. Other actions type nothing and run at once. */
+function typeOut(playing: Scene, action: LoggedAction): void {
+  let echo: string | null = null;
+  if (action.do === 'run') echo = action.line;
+  else if (action.do === 'answer') echo = action.choice;
+  if (echo === null) return;
+  const shell = sandbox.get().shell;
+  const tab = shell.ws.machine?.active().id ?? 1;
+  const fed = feedTyping(playing.feed, { tab, prompt: shell.prompt(), echo });
+  playing.feed = fed.state;
+  playing.beats = fed.beats;
+}
+
+/** Runs an action whose typing has shown, then queues its Enter, output and result. */
+function driveTyped(playing: Scene, action: LoggedAction): void {
+  const step = recordAction(action);
+  // A line that asks gets Otto's answer next, as it did when he really ran it.
+  const asked = playing.history[playing.index - 1];
+  if (action.do !== 'answer' && step.asking && asked?.do === 'run' && asked.answer !== undefined) {
+    playing.answerNext = { do: 'answer', choice: asked.answer };
+  }
+  // Nothing was typed for a write or a tab change, so its whole action shows now.
+  const fed =
+    playing.feed.typed === null ? feedAction(playing.feed, step) : feedOutcome(playing.feed, step);
+  playing.feed = fed.state;
+  playing.beats = fed.beats;
 }
 
 /** The next action to drive: an answer owed to the last line, else the next line. */

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
 import { testDeps } from '../../engine/git/testDeps';
 import { INSTANT_PACE, NORMAL_PACE } from '../agent/pace';
+import { onTerminalFeed } from '../agent/terminalFeed';
 import { evaluate } from '../missions/predicates';
 import { JudgmentDrillSchema, type JudgmentDrill } from '../missions/schema';
 import { currentLog, currentQueries, loadSandbox } from './sandboxControl';
@@ -54,6 +55,36 @@ describe('a drill scene', () => {
     );
     // Once done, the scene is gone: another frame plays nothing.
     expect(frameScene(drill.id, 16, INSTANT_PACE)).toBeNull();
+  });
+
+  it("drives each line and answer only once Otto's typing of it has shown", () => {
+    const drill = askingDrill();
+    loadSandbox(drill.setup, 'scene', testDeps);
+    beginScene(drill);
+    let keys = '';
+    const stop = onTerminalFeed((reveals) => {
+      for (const shown of reveals) if (shown.kind === 'keys') keys += shown.text;
+    });
+    const notesGone = { kind: 'driveFolder', path: `${HOME}/notes`, exists: false } as const;
+    try {
+      // One frame types nothing whole, so nothing has run and the notes are still there.
+      expect(frameScene(drill.id, 16, NORMAL_PACE)).toEqual({ index: 1, done: false });
+      expect(currentLog().entries).toHaveLength(0);
+      expect(evaluate(notesGone, currentQueries())).toBe(false);
+      // Frame by frame, everything that has run was typed in full first: the line, then
+      // Otto's answer, then the next line. The world never runs ahead of the terminal.
+      const echoes = ['Remove-Item notes', 'A', 'Get-ChildItem'];
+      for (let frame = 0; frame < 1000; frame++) {
+        const ran = currentLog().entries.length;
+        expect(keys.startsWith(echoes.slice(0, ran).join(''))).toBe(true);
+        if (evaluate(notesGone, currentQueries())) expect(keys).toContain('Remove-Item notesA');
+        if (frameScene(drill.id, 16, NORMAL_PACE)?.done !== false) break;
+      }
+    } finally {
+      stop();
+    }
+    expect(keys).toBe('Remove-Item notesAGet-ChildItem');
+    expect(evaluate(notesGone, currentQueries())).toBe(true);
   });
 
   it("plays only the scene of the drill it was started for, and none after it's dropped", () => {
