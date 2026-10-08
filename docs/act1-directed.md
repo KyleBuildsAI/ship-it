@@ -1237,6 +1237,10 @@ export function trueCheckOptions(current: MissionActivity): readonly string[]; /
 // Missed, slip, feedback or lesson, then Next step, or Direct a fix and Rewind step,
 // Rewind first when a guard broke, and the line "A real laptop has no rewind.").
 // The directed panel shows the checklist itself; Sim shows it only for typed steps.
+// ResultCard also shows AnatomyChips (the card's covers lit) and, once passed, Stars.
+// checkClaim adds a SlipMet { stepId, slip, caught } to MissionActivity.slips when the
+// card had a slip and the step didn't pass (caught: a Good catch). The Done screen in
+// MissionView.tsx says "You caught N of M of Otto's slips." and each directed step's stars.
 export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
 // A20: the panels read `ottoRun` (a store beside the play store): run rows built from the
 // reveals the terminal printed (game/agent/runLog.ts logReveals), and Otto's last event
