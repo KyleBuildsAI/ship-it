@@ -10,6 +10,7 @@ import {
 import type { MachineChange } from '../../engine/machine/snapshot';
 import { advance, NORMAL_PACE, START, type Pace, type Playhead } from '../agent/pace';
 import type { SandboxLog } from '../agent/replay';
+import { EMPTY_RUN_LOG, logReveals, type RunLog, type RunRow } from '../agent/runLog';
 import { showInTerminal } from '../agent/terminalFeed';
 import {
   answerCheck,
@@ -41,6 +42,7 @@ import { MissionRunError } from '../missions/runner';
 import type { Mission, MissionStep } from '../missions/schema';
 import { saveProgressNow } from '../progress';
 import { sandbox } from '../sandbox';
+import { createStore } from '../store';
 import { play, type MissionActivity } from './playStore';
 import {
   applyChange,
@@ -85,9 +87,41 @@ interface Playback {
    * line waits until `heldMs` reaches the ghost's time at Otto's pace (ghostMs).
    */
   ghost: { readonly changes: readonly MachineChange[]; heldMs: number } | null;
+  /** The run log as far as the terminal has shown, the line being typed included. */
+  runLog: RunLog;
 }
 
 let playback: Playback | null = null;
+
+/**
+ * The last thing that gave Otto something to say. The panel turns it into his words
+ * (ui/play/agent/ottoLines.ts), so the lines every step shares live in one place.
+ * - said: a line from the content, like an action's `say` or a deny's `denyLine`
+ * - stopped: Kyle pressed Stop
+ * - denied: Kyle denied a line, and the content gave Otto nothing to say about it
+ * - fixing: Kyle chose "Direct a fix" after a check that didn't pass
+ */
+export type OttoEvent =
+  | { readonly kind: 'said'; readonly text: string }
+  | { readonly kind: 'stopped' }
+  | { readonly kind: 'denied'; readonly harmful: boolean }
+  | { readonly kind: 'fixing' };
+
+/**
+ * What the directing panels draw beside the play store: Otto's finished rows and his last
+ * event. It is a store of its own because rows arrive with drawn frames, and the play
+ * store's listeners (grading, saving) have no use for them.
+ */
+export interface OttoRun {
+  readonly rows: readonly RunRow[];
+  readonly last: OttoEvent | null;
+}
+
+export const ottoRun = createStore<OttoRun>({ rows: [], last: null });
+
+function ottoDid(last: OttoEvent): void {
+  ottoRun.update({ last });
+}
 
 /** More turns than any script can take in one frame: past it, something loops. */
 const MAX_TURNS = 1000;
@@ -186,7 +220,9 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
     held: null,
     stopAsked: false,
     ghost: null,
+    runLog: EMPTY_RUN_LOG,
   };
+  ottoRun.update({ rows: [], last: null });
   return { ...current, agent: beginAgentStep(step) };
 }
 
@@ -210,7 +246,10 @@ export function pickCard(planId: string): void {
   const now = live();
   const stage = now?.agent.stage;
   const picking = stage?.at === 'direct' || (stage?.at === 'echo' && stage.planId === planId);
-  if (now !== null && picking) saveAgent(choosePlan(now.agent, now.step, planId));
+  if (now === null || !picking) return;
+  // A new plan starts Otto's talk afresh: the last plan's words are about the last plan.
+  ottoRun.update({ last: null });
+  saveAgent(choosePlan(now.agent, now.step, planId));
 }
 
 /**
@@ -229,6 +268,9 @@ export function frameAgent(elapsedMs: number, pace: Pace): void {
       // The frame's time is spent on the beats; turns that follow happen at once.
       elapsed = 0;
       showInTerminal(played.reveals);
+      shown.runLog = logReveals(shown.runLog, played.reveals);
+      // Rows change only when a line ends, so the panel isn't redrawn for every key.
+      ottoRun.update({ rows: shown.runLog.rows });
       if (!played.done) {
         shown.head = played.head;
         return;
@@ -259,6 +301,7 @@ function takeTurn({ agent, playback: shown }: Live): boolean {
   if (agent.stage.at !== 'running') return false;
   if (shown.stopAsked) {
     shown.stopAsked = false;
+    ottoDid({ kind: 'stopped' });
     saveAgent(stopScript(agent));
     return true;
   }
@@ -268,6 +311,9 @@ function takeTurn({ agent, playback: shown }: Live): boolean {
     return false;
   }
   saveAgent(next.state);
+  if ('say' in next.action && next.action.say !== undefined) {
+    ottoDid({ kind: 'said', text: next.action.say });
+  }
   if (next.state.stage.at === 'predict') {
     // The line waits at the prompt, typed but not run, while Kyle predicts.
     typeOut(next.action);
@@ -390,6 +436,12 @@ export function decide(allow: boolean): void {
     else {
       const fed = feedCancel(now.playback.feed);
       appendBeats(fed.beats, fed.state);
+      const denyLine = held !== null && 'denyLine' in held ? held.denyLine : undefined;
+      ottoDid(
+        denyLine === undefined
+          ? { kind: 'denied', harmful: now.agent.stage.gate.harmful }
+          : { kind: 'said', text: denyLine },
+      );
     }
   }
   saveAgent(next);
@@ -432,6 +484,7 @@ export function checkClaim(optionId: string): void {
 export function directFix(): void {
   const now = live();
   if (now?.agent.stage.at === 'result' && !now.agent.stage.passed) {
+    ottoDid({ kind: 'fixing' });
     saveAgent(openFixRound(now.agent));
   }
 }
@@ -452,6 +505,8 @@ export function rewind(): void {
   shown.held = null;
   shown.stopAsked = false;
   shown.ghost = null;
+  shown.runLog = EMPTY_RUN_LOG;
+  ottoRun.update({ rows: [], last: null });
   // Before any card was picked nothing has run, so the laptop stays as it is, with no notice.
   if (now.agent.tried.length > 0) {
     rewindTo(shown.checkpoint, REWIND_NOTICE);

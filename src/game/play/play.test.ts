@@ -35,6 +35,7 @@ import {
   decide,
   directFix,
   nextStep,
+  ottoRun,
   pickCard,
   pickInstead,
   predict,
@@ -426,6 +427,10 @@ describe('directing Otto through a step', () => {
     expect(typed).toContain('Get-Location');
     expect(stage()).toBe('check');
     expect(holds(inTheApi)).toBe(true);
+    expect(ottoRun.get().rows).toEqual([
+      { text: 'cd C:\\Users\\kyle\\quillwork\\api', answer: false, status: 'ok' },
+      { text: 'Get-Location', answer: false, status: 'ok' },
+    ]);
     // The checklist would answer the check, so it waits for the result.
     expect(play.get().checklist).toEqual([]);
 
@@ -435,6 +440,8 @@ describe('directing Otto through a step', () => {
     });
     expect(look).toContain('Get-Location');
     expect(stage()).toBe('check');
+    // Kyle's look is his own line, not Otto's, so the run log leaves it out.
+    expect(ottoRun.get().rows).toHaveLength(2);
 
     checkClaim('api');
     expect(mission().agent?.stage).toMatchObject({ at: 'result', verdict: 'confirmed' });
@@ -538,6 +545,7 @@ describe('directing Otto through a step', () => {
     stopOtto();
     ottoWaits();
     expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(ottoRun.get().last).toEqual({ kind: 'stopped' });
     // The cd was already on its way, so it finished; Get-Location never ran.
     expect(holds(inTheApi)).toBe(true);
     expect(currentQueries().transcript?.printed('Get-Location')).toBe(false);
@@ -550,6 +558,7 @@ describe('directing Otto through a step', () => {
     rewind();
     expect(holds(inTheApi)).toBe(false);
     expect(mission().agent).toMatchObject({ stage: { at: 'direct', round: 'start' } });
+    expect(ottoRun.get()).toEqual({ rows: [], last: null });
     directTheSampleStep();
     expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
   });
@@ -589,6 +598,7 @@ describe('gates and predictions in play', () => {
     expect(holds(homeNotes)).toBe(true);
     checkClaim('home');
     directFix();
+    expect(ottoRun.get().last).toEqual({ kind: 'fixing' });
   }
 
   it('shows the ghost of a predicted line for 1.5 s before it runs', () => {
@@ -620,7 +630,16 @@ describe('gates and predictions in play', () => {
       gate: { kind: 'confirm', harmful: true },
     });
     decide(false);
+    expect(ottoRun.get().last).toEqual({
+      kind: 'said',
+      text: 'Good stop. That was the whole project.',
+    });
     ottoWaits();
+    // Otto's line asked, and he answered No to All for Kyle before plan B.
+    expect(ottoRun.get().rows.slice(-2)).toEqual([
+      { text: 'Remove-Item C:\\Users\\kyle\\quillwork\\api', answer: false, status: 'asked' },
+      { text: 'L', answer: true, status: 'ok' },
+    ]);
     // Plan B deletes the stray notes at home: a delete, so it pauses too, but it's safe.
     expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
     decide(true);
@@ -673,6 +692,12 @@ describe('gates and predictions in play', () => {
     });
     expect(shown).toBe('\n');
     expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(ottoRun.get().last).toEqual({ kind: 'denied', harmful: false });
+    expect(ottoRun.get().rows.at(-1)).toEqual({
+      text: 'Remove-Item C:\\Users\\kyle\\notes',
+      answer: false,
+      status: 'denied',
+    });
     expect(holds(homeNotes)).toBe(true);
   });
 });
