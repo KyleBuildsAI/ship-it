@@ -1231,6 +1231,11 @@ export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePl
 // A line is typed, then driven once its typing has shown. Each action is dry-run first
 // (dryRunNow, with REFUSAL for a line) to decide its gate; an answer is typed only once allowed.
 export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
+export function trueCheckOptions(current: MissionActivity): readonly string[]; // [] until the result
+// A21: ui/play/agent/CheckCard.tsx (the question, LookChips, the answers, armed like a gate)
+// and ResultCard.tsx (verdict, checklist, the true answer after a Missed, slip, feedback or
+// lesson, then Next step, or Direct a fix and Rewind step, Rewind first when a guard broke).
+// The directed panel shows the checklist itself; Sim shows it only for typed steps.
 export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
 // A20: the panels read `ottoRun` (a store beside the play store): run rows built from the
 // reveals the terminal printed (game/agent/runLog.ts logReveals), and Otto's last event
