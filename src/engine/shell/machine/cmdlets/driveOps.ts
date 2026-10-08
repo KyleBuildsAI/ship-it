@@ -1,4 +1,5 @@
 import { baseName, joinPath, parentDir } from '../../../fs/paths';
+import type { WindowsFs } from '../../../machine/windowsFs';
 import { display, resolveExisting, toCanonical } from '../../../machine/winPath';
 import { heldMessage } from '../redirect';
 import type { CommandContext } from '../registry';
@@ -138,8 +139,8 @@ function copyEntry(
     return;
   }
   // A folder already there is copied into all the same; without -Force PowerShell says so
-  // first (checked in 7.6.6).
-  if (!drive.isDir(to)) drive.makeDir(to);
+  // first (checked in 7.6.6). New folders go through the machine so the world hears of them.
+  if (!drive.isDir(to)) machine.makeFolder(to);
   else if (!force) problems.push(`An item with the specified name ${display(to)} already exists.`);
   if (!recurse) return;
   // PowerShell copies a folder's files before its subfolders, which sets the order its
@@ -162,26 +163,52 @@ function fileOnTheWay({ machine }: CommandContext, path: string): string | null 
   return null;
 }
 
-/** Moves a file or folder (a new name counts), announcing each file as gone and made. */
+/**
+ * Moves a file or folder (a new name counts). Every file and folder is announced as gone
+ * and then made, in the order mkdir and rm use: files out before the folders that held
+ * them, then folders in, outermost first, before the files that go inside them.
+ */
 export function moveItem({ ws, machine }: CommandContext, from: string, to: string): string {
-  const before = machine.drive.isFile(from) ? [from] : machine.drive.allFiles(from);
-  const landed = machine.drive.move(from, to);
-  for (const file of before) {
-    ws.events.emit({ type: 'fileChanged', path: file, change: 'deleted' });
-    const moved = landed + file.slice(from.length);
-    ws.events.emit({ type: 'fileChanged', path: moved, change: 'created' });
-  }
+  const { drive } = machine;
+  const isFile = drive.isFile(from);
+  const files = isFile ? [from] : drive.allFiles(from);
+  const folders = isFile ? [] : [from, ...foldersUnder(drive, from)];
+  // The drive checks the move before changing anything, so a refusal announces nothing.
+  const landed = drive.move(from, to);
+  const moved = (path: string) => landed + path.slice(from.length);
+  for (const file of files) ws.events.emit({ type: 'fileChanged', path: file, change: 'deleted' });
+  for (const folder of [...folders].reverse())
+    ws.events.emit({ type: 'folderChanged', path: folder, change: 'deleted' });
+  for (const folder of folders)
+    ws.events.emit({ type: 'folderChanged', path: moved(folder), change: 'created' });
+  for (const file of files)
+    ws.events.emit({ type: 'fileChanged', path: moved(file), change: 'created' });
   return landed;
 }
 
-/** Deletes a file, or a folder with everything in it. */
-export function deleteItem({ ws, machine }: CommandContext, path: string): void {
-  if (machine.drive.isFile(path)) {
-    machine.drive.deleteFile(path);
+/**
+ * Deletes a file, or a folder with everything in it, announcing each one as rm does:
+ * what's inside a folder before the folder.
+ */
+export function deleteItem(context: Pick<CommandContext, 'ws' | 'machine'>, path: string): void {
+  const { ws, machine } = context;
+  const { drive } = machine;
+  if (drive.isFile(path)) {
+    drive.deleteFile(path);
     ws.events.emit({ type: 'fileChanged', path, change: 'deleted' });
     return;
   }
-  for (const file of machine.drive.allFiles(path))
-    ws.events.emit({ type: 'fileChanged', path: file, change: 'deleted' });
-  machine.drive.removeDir(path, { recursive: true });
+  for (const entry of drive.listDir(path)) deleteItem(context, joinPath(path, entry.name));
+  machine.removeFolder(path);
+}
+
+/** Every folder inside `dir`, at any depth, each before the folders inside it. */
+function foldersUnder(drive: WindowsFs, dir: string): string[] {
+  return drive
+    .listDir(dir)
+    .filter((entry) => entry.kind === 'dir')
+    .flatMap((entry) => {
+      const folder = joinPath(dir, entry.name);
+      return [folder, ...foldersUnder(drive, folder)];
+    });
 }

@@ -3,7 +3,7 @@ import { windows } from '../../../fixtures';
 import { testDeps } from '../../../git/testDeps';
 import type { EngineEvent } from '../../../workspace';
 import type { CommandContext } from '../registry';
-import { copyItem, moveItem, resolveItems } from './driveOps';
+import { copyItem, deleteItem, moveItem, resolveItems } from './driveOps';
 
 /** A laptop with a small folder to copy, and the context a cmdlet would get in its tab. */
 function laptop() {
@@ -134,6 +134,62 @@ describe('copyItem', () => {
     expect(drive.isHidden('Users/kyle/s2/one.txt')).toBe(true);
     expect(drive.isReadOnly('Users/kyle/b.txt')).toBe(true);
     expect(drive.isReadOnly('Users/kyle/ro2')).toBe(false);
+  });
+});
+
+const folderEvents = (events: EngineEvent[]) =>
+  events.filter((event) => event.type === 'folderChanged');
+
+describe('folders are announced', () => {
+  it('announces each folder a copy makes, missing parents first, and none already there', () => {
+    const { context, events } = laptop();
+    copyItem(context, 'Users/kyle/src', 'Users/kyle/dest/x/y', true);
+    expect(folderEvents(events)).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/dest/x', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/dest/x/y', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/dest/x/y/sub', change: 'created' },
+    ]);
+    events.length = 0;
+    copyItem(context, 'Users/kyle/src', 'Users/kyle/dest/x/y', true, true);
+    expect(folderEvents(events)).toEqual([]);
+  });
+
+  it('announces a moved folder as gone, children first, then made, outermost first', () => {
+    const { context, events } = laptop();
+    moveItem(context, 'Users/kyle/src', 'Users/kyle/dest/src');
+    expect(folderEvents(events)).toEqual([
+      { type: 'folderChanged', path: 'Users/kyle/src/sub', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/src', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/dest/src', change: 'created' },
+      { type: 'folderChanged', path: 'Users/kyle/dest/src/sub', change: 'created' },
+    ]);
+    const made = (path: string) =>
+      events.findIndex((event) => 'path' in event && event.path === path);
+    // A folder is there before the files that land in it.
+    expect(made('Users/kyle/dest/src/sub')).toBeLessThan(made('Users/kyle/dest/src/sub/two.txt'));
+  });
+
+  it('announces a moved file as gone and made, with no folders', () => {
+    const { context, events } = laptop();
+    moveItem(context, 'Users/kyle/notes.txt', 'Users/kyle/dest/notes.txt');
+    expect(events).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/notes.txt', change: 'deleted' },
+      { type: 'fileChanged', path: 'Users/kyle/dest/notes.txt', change: 'created' },
+    ]);
+  });
+
+  it('announces everything a delete removes, what is inside a folder before the folder', () => {
+    const { context, drive, events } = laptop();
+    deleteItem(context, 'Users/kyle/src');
+    expect(drive.exists('Users/kyle/src')).toBe(false);
+    expect(events).toEqual([
+      { type: 'fileChanged', path: 'Users/kyle/src/sub/two.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/src/sub', change: 'deleted' },
+      { type: 'fileChanged', path: 'Users/kyle/src/a.txt', change: 'deleted' },
+      { type: 'fileChanged', path: 'Users/kyle/src/one.txt', change: 'deleted' },
+      { type: 'fileChanged', path: 'Users/kyle/src/z.txt', change: 'deleted' },
+      { type: 'folderChanged', path: 'Users/kyle/src', change: 'deleted' },
+    ]);
   });
 });
 
