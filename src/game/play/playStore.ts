@@ -1,4 +1,5 @@
 import type { AgentStepState, Stars } from '../missions/agentRunner';
+import type { Slip } from '../missions/agentSchema';
 import type { CheckRow } from '../missions/predicates';
 import type { PlacementResult, QuestionRoundScore } from '../missions/grading';
 import type { BossOutcome, BossRun, MissionRun } from '../missions/runner';
@@ -43,6 +44,16 @@ export type FreeTextGrade =
     }
   | { readonly state: 'unavailable'; readonly message: string };
 
+/**
+ * One of Otto's slips that reached a check: Kyle picked a card with a slip, and the step
+ * didn't pass. `caught`: Kyle saw it (a Good catch). The Done screen counts them.
+ */
+export interface SlipMet {
+  readonly stepId: string;
+  readonly slip: Slip;
+  readonly caught: boolean;
+}
+
 export interface MissionActivity {
   readonly kind: 'mission';
   /** Unique per start, so a late Sage reply can't land on a replay of the same mission. */
@@ -60,6 +71,8 @@ export interface MissionActivity {
   readonly agent: AgentStepState | null;
   /** The stars each directed step earned, by step id. Act 2's typed missions keep it empty. */
   readonly stars: Readonly<Record<string, Stars>>;
+  /** Every slip of Otto's that reached a check, in order. Typed missions keep it empty. */
+  readonly slips: readonly SlipMet[];
   /** The next drill's scene, while it plays. Act 2's typed drills have none. */
   readonly scene: ScenePlaying;
 }

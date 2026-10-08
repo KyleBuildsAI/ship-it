@@ -96,6 +96,7 @@ export function startMission(missionId: string): void {
     xpEarned: 0,
     agent: null,
     stars: {},
+    slips: [],
     scene: null,
   });
 }

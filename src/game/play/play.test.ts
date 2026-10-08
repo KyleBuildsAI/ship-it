@@ -488,6 +488,10 @@ describe('directing Otto through a step', () => {
     ottoWaits();
     checkClaim('home');
     expect(mission().agent?.stage).toMatchObject({ verdict: 'caught', passed: false });
+    // The weak card's slip reached the check, and Kyle saw it.
+    expect(mission().slips).toEqual([
+      { stepId: 'stand-in-the-api', slip: 'overclaim', caught: true },
+    ]);
     expect(trueCheckOptions(mission())).toEqual(['home']);
     // A step that didn't pass shows its red rows, and earns no stars yet.
     expect(play.get().checklist.map((row) => row.passed)).toEqual([false, true]);
@@ -500,13 +504,18 @@ describe('directing Otto through a step', () => {
     ottoWaits();
     checkClaim('api');
     expect(mission().stars['stand-in-the-api']).toEqual({ plan: false, safety: true, check: true });
+    // The fix had no slip, so the count stays at the one Kyle caught.
+    expect(mission().slips).toHaveLength(1);
   });
 
-  it('names the answer Kyle should have picked after a miss', () => {
+  it('counts a slip Kyle missed, and names the answer he should have picked', () => {
     pickCard('guess');
     ottoWaits();
     checkClaim('api');
     expect(mission().agent?.stage).toMatchObject({ verdict: 'missed', passed: false });
+    expect(mission().slips).toEqual([
+      { stepId: 'stand-in-the-api', slip: 'overclaim', caught: false },
+    ]);
     expect(trueCheckOptions(mission())).toEqual(['home']);
   });
 

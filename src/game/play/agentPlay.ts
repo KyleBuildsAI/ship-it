@@ -500,10 +500,19 @@ export function runLook(lookId: string): void {
 export function checkClaim(optionId: string): void {
   const now = live();
   if (now?.agent.stage.at !== 'check') return;
+  const { planId } = now.agent.stage;
   const agent = answerCheck(now.agent, now.step, optionId, currentQueries());
-  const passed = agent.stage.at === 'result' && agent.stage.passed;
+  if (agent.stage.at !== 'result') return;
+  const { passed, verdict } = agent.stage;
   const earned = passed ? { ...now.current.stars, [now.step.id]: stars(agent) } : now.current.stars;
-  setMission({ ...now.current, agent, stars: earned });
+  // A slip counts once it reaches a check with the step still broken: that's the moment
+  // Kyle either sees Otto's mistake or takes his word for it.
+  const slip = [...now.task.plans, ...now.task.fixes].find((plan) => plan.id === planId)?.slip;
+  const slips =
+    slip === undefined || passed
+      ? now.current.slips
+      : [...now.current.slips, { stepId: now.step.id, slip, caught: verdict === 'caught' }];
+  setMission({ ...now.current, agent, stars: earned, slips });
 }
 
 /**
