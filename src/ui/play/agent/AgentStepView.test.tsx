@@ -82,14 +82,17 @@ describe('the directing panel', () => {
 
   it("shows Otto's run log while he works, with Stop", () => {
     const rows = [
-      { text: 'mkdir notes', answer: false, status: 'failed' },
-      { text: 'A', answer: true, status: 'ok' },
-      { text: null, answer: false, status: 'denied' },
+      { text: 'mkdir notes', typed: true, answer: false, status: 'failed' },
+      { text: 'A', typed: true, answer: true, status: 'ok' },
+      { text: 'Opened a new terminal', typed: false, answer: false, status: 'ok' },
+      { text: 'Wrote README.md', typed: false, answer: false, status: 'denied' },
     ] as const;
     const text = shown(choosePlan(start, step, 'full-path'), 0, { rows });
     expect(text).toContain('mkdir notes (failed)');
     expect(text).toContain('Answered A (ran)');
-    expect(text).toContain('Wrote a file (denied, never ran)');
+    // Actions that type nothing are named by what they did, not all called a file write.
+    expect(text).toContain('Opened a new terminal (ran)');
+    expect(text).toContain('Wrote README.md (denied, never ran)');
     expect(text).toContain('[Stop]');
   });
 

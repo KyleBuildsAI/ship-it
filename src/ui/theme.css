@@ -751,6 +751,10 @@ body {
   overflow-wrap: anywhere;
 }
 
+.run-log__words {
+  overflow-wrap: anywhere;
+}
+
 .run-log__row--ok .run-log__mark {
   color: var(--ok);
 }

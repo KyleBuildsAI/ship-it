@@ -9,9 +9,10 @@ const STATUS: Readonly<Record<RowStatus, { mark: string; words: string }>> = {
   denied: { mark: '⊘', words: 'denied, never ran' },
 };
 
-function rowText(row: RunRow): string {
-  if (row.text === null) return 'Wrote a file';
-  return row.answer ? `Answered ${row.text}` : row.text;
+/** A typed line shows as code; an action that typed nothing reads as words. */
+function RowText({ row }: { row: RunRow }) {
+  if (!row.typed) return <span className="run-log__words">{row.text}</span>;
+  return <code>{row.answer ? `Answered ${row.text}` : row.text}</code>;
 }
 
 /**
@@ -30,7 +31,7 @@ export function RunLog({ rows, running }: { rows: readonly RunRow[]; running: bo
               <span className="run-log__mark" aria-hidden="true">
                 {STATUS[row.status].mark}
               </span>
-              <code>{rowText(row)}</code>
+              <RowText row={row} />
               <span className="visually-hidden"> ({STATUS[row.status].words})</span>
             </li>
           ))}
