@@ -14,6 +14,7 @@ import { useStore } from '../useStore';
 import { Checklist } from './Checklist';
 import type { CheckRow } from '../../game/missions/predicates';
 import { useClock } from './useClock';
+import { AgentStepView } from './agent/AgentStepView';
 
 const CAPTION_MS = 5000;
 
@@ -78,6 +79,10 @@ function Sim({
         Step {run.stepIndex + 1} of {mission.steps.length}
       </p>
       <p className="play-panel__instruction">{step.instruction}</p>
+      {/* A directed step: Kyle directs Otto instead of typing. Act 2's typed steps skip it. */}
+      {step.agent === undefined ? null : (
+        <AgentStepView activity={activity} step={step} hintLevel={hint?.level ?? 0} />
+      )}
       <Checklist rows={checklist} />
       {hint ? (
         <div className="hint" aria-live="polite">
