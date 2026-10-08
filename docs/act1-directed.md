@@ -1269,6 +1269,12 @@ export function frameScene(drillId, elapsedMs, pace): { index: number; done: boo
 // queue through recordDrill's addMiss. An answer for a drill that isn't on the clock, or one
 // that doesn't fit it (judgment.answerFits), is ignored: a button never throws at Kyle.
 // DrillResult gains an optional keyId (the right answer) for the reveal.
+// A22: ui/play/JudgmentDrillView.tsx draws the question (the prompt, Otto's line as code
+// for predict and approve, his claim, the options in shuffleFor order with the attempt
+// counted from drillHistory, or Allow and Deny), the clock with a bar, and no "I'm done".
+// Its buttons arm after ARM_MS. ScenePlaying holds the panel while the scene plays, and
+// JudgmentReveal shows Right, Missed or Out of time, the right answer after a miss, and
+// `explain`. MissionView and SeriesView use all three for judgment drills only.
 ```
 
 Store changes:
