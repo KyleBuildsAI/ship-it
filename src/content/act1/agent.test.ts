@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import type { SandboxLog } from '../../game/agent/replay';
+import { testDeps } from '../../engine/git/testDeps';
+import { snapshotMachine } from '../../engine/machine/snapshot';
+import { drive } from '../../engine/shell/driver';
+import { replay, type SandboxLog } from '../../game/agent/replay';
 import {
   answerCheck,
   beginAgentStep,
+  completeAgentStep,
   offeredPlans,
   openFixRound,
   stepPasses,
   type AgentStepState,
   type Verdict,
 } from '../../game/missions/agentRunner';
+import { finishBriefing, startRun } from '../../game/missions/runner';
 import type { Mission, MissionStep } from '../../game/missions/schema';
 import { act1Missions } from './index';
 import {
@@ -87,6 +92,18 @@ const FIX_RESULTS: Readonly<Record<string, Readonly<Record<string, Expected>>>> 
     'move-here > go-in-new': { passed: false, check: 'moved' },
   },
 };
+
+/**
+ * Every line that pauses for approval, and whether a dry run finds it harmful. Pinned, so
+ * a guard or a setup that drifts changes the answer Kyle is graded on and fails here.
+ */
+const GATES: Readonly<Record<string, boolean>> = {
+  'notes-in-the-api > Remove-Item C:\\Users\\kyle\\notes': false,
+  'web-notes > Remove-Item web -Recurse': false,
+};
+
+/** Text a line prints when the engine can't run it yet: never acceptable in content. */
+const UNSUPPORTED = /doesn't run .* yet|expressions yet|not recognized/i;
 
 function taskOf(step: MissionStep) {
   if (step.agent === undefined) throw new Error(`Step "${step.id}" is not directed.`);
@@ -190,6 +207,16 @@ mission.steps.forEach((step, index) => {
       expect([...seen].sort()).toEqual(task.check.options.map((option) => option.id).sort());
     });
 
+    it('runs every line the first two rounds, failing only where the content says', () => {
+      for (const path of paths.filter(({ cards }) => cards.length <= 2)) {
+        for (const ran of path.played.lines) {
+          const where = `${path.cards.join(' > ')}: ${ran.line}\n${ran.output}`;
+          expect(ran.output, where).not.toMatch(UNSUPPORTED);
+          expect(ran.exitCode !== 0, where).toBe(ran.fails);
+        }
+      }
+    });
+
     it('has a passing card for every end that misses', () => {
       for (const path of checked.filter(({ cards }) => cards.length === 1)) {
         if (passes(step, path.played.log)) continue;
@@ -202,5 +229,70 @@ mission.steps.forEach((step, index) => {
         expect(fixed, path.cards.join(' > ')).toBe(true);
       }
     });
+
+    it('pauses only where the pinned table says, with the harm it pins', () => {
+      const seen = new Set<string>();
+      for (const path of paths) {
+        for (const gate of path.played.gates) {
+          const key = `${step.id} > ${gate.line}`;
+          expect(GATES[key], gate.line).toBe(gate.harmful);
+          seen.add(key);
+        }
+      }
+      const pinned = Object.keys(GATES).filter((key) => key.startsWith(`${step.id} > `));
+      expect([...seen].sort()).toEqual(pinned.sort());
+    });
+
+    it('gives every prediction exactly one true outcome', () => {
+      const predicting = task.plans.filter((plan) =>
+        plan.script.some((action) => 'predict' in action && action.predict !== undefined),
+      );
+      for (const plan of predicting) {
+        const path = paths.find(({ cards }) => cards.join() === plan.id);
+        expect(path?.played.predicts.length, plan.id).toBeGreaterThan(0);
+      }
+      for (const path of paths) {
+        for (const predicted of path.played.predicts) {
+          expect(predicted.trueOptions, predicted.question).toHaveLength(1);
+        }
+      }
+    });
+
+    it('has looks that only look: no events, and the laptop unchanged', () => {
+      for (const path of checked) {
+        for (const look of task.looks) {
+          const { shell } = replay(path.played.log, testDeps());
+          const machine = shell.ws.machine;
+          if (machine === null) throw new Error('Act 1 plays on a laptop.');
+          const before = snapshotMachine(machine);
+          const looked = drive(shell, { do: 'run', line: look.line });
+          expect(looked.events, look.line).toEqual([]);
+          expect(snapshotMachine(machine), look.line).toEqual(before);
+        }
+      }
+    });
+  });
+});
+
+describe('the reference path', () => {
+  it('completes the mission one step at a time, in order', () => {
+    let run = finishBriefing(startRun(mission));
+    let log = canonicalStart(mission, 0);
+    for (const step of mission.steps) {
+      log = beginStep(log, step);
+      const played = playCard(
+        mission,
+        step,
+        { log, state: beginAgentStep(step) },
+        taskOf(step).hintPlan,
+        'allow-all',
+      );
+      log = played.log;
+      const result = answerCheck(played.state, step, trueOf(step, log), queriesOf(log));
+      expect(result.stage).toMatchObject({ at: 'result', verdict: 'confirmed', passed: true });
+      run = completeAgentStep(run, mission, queriesOf(log));
+    }
+    expect(run.phase).toBe('drills');
+    expect(run.steps.every((progress) => progress.completed)).toBe(true);
   });
 });
