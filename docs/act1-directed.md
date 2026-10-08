@@ -196,7 +196,7 @@ A **fix round** looks like Direct:
 3. **Gates.** `harmful` comes from the dry run (D4). Deny is right exactly when the line is harmful.
    - Allowing a harmful line runs it for real. The guard breaks and Rewind is offered first.
    - Denying a safe line only costs time and the Safety star.
-4. **Predicts.** Right when the picked option's `outcome` holds after the line runs. If the line was later denied, it is judged on the dry-run fork.
+4. **Predicts.** Right when the picked option's `outcome` holds after the line runs. If the line was later denied, it is judged on the dry-run fork. Options describe this line's effect (its result, and where the terminal stood when it worked), not just whether a folder exists, because a fix round after a Stop can offer the line after part of another card already ran.
 5. **Stars (0-3 per step).**
    - **Plan**: the first plan chosen passed with no fix and no rewind, and hint rung 3 was never shown.
    - **Safety**: every gate and Confirm decision was right (given free if there were none).
@@ -205,7 +205,7 @@ A **fix round** looks like Direct:
    - Step XP as today.
    - `directingXp` = 2 × stars, paid on the first completion through `completeMission(…, { drillPercent, questionXp, directingXp })`. Act 2 passes 0.
    - No save change in Milestone A.
-7. **Done screen.** "You caught 2 of 3 of Otto's slips", stars per step, the Question Round rationales as today.
+7. **Done screen.** "You caught 2 of 3 of Otto's slips", stars per step, the Question Round rationales as today. A slip counts when it reaches Kyle: at a gate (denying its harmful line catches it) or at a check the step fails. Each card's slip counts once per step, and a retry after a rewind replaces the earlier verdict.
 
 ### 1.5 Look chips
 
@@ -259,14 +259,14 @@ These keep today's drill rules:
 
 ### 2.2 How a drill plays
 
-1. `loadSandbox(drill.setup)`. The world shows the laptop. The drill's `history` (lines Otto already ran) plays through the driver into the terminal at 3× speed (instantly under reduced motion). The world animates each line.
+1. `loadSandbox(drill.setup)`. The world shows the laptop. The drill's `history` (lines Otto already ran) plays through the driver into the terminal at 3× speed (instantly under reduced motion). The world animates each line once its typing has shown, as in section 4, so it never runs ahead of the terminal.
 2. The question card appears. **The clock starts only now**: `startDrill(…, nowMs)` is called once the scene ends.
 3. Kyle answers, or time runs out.
 4. **Reveal.**
    - predict, fix, order and spot run on the live sandbox, so the world animates what really happens.
    - An allowed `approve` runs for real. A denied one shows the ghost it would have caused.
    - A Right or Missed banner, then the drill's `explain` (≤ 30 words).
-5. Options are shuffled by `shuffleFor(drillId, attempt)`, where `attempt` is the number of `drillHistory` entries for that id. Reviews can't be passed by remembering positions.
+5. Options are shuffled by `shuffleFor(drillId, attempt)`, where `attempt` is the number of `drillHistory` entries for that id. Each attempt gets a fresh random order (which can match the last one by chance), so over a few reviews remembering positions stops working.
 
 ### 2.3 Review queue and placement
 
@@ -432,6 +432,12 @@ Start plans:
 | weak | drag it in Explorer; why a demo; how long |
 
 Rubric: *pins an exact absolute path for the source or destination, or the machine.*
+
+**As built (A14).** `src/content/act1/whereThingsLive.ts` follows the tables above, with these changes, each forced by a test in `agent.test.ts` that plays every card through `agentRunner`, two fix rounds deep:
+- Step 3's check gains a third option, "In both places" (`api\web` and `web\notes`). Running `one-up` after `by-name` leaves both, and every end state must have exactly one true option.
+- Step 4's fixes never switch to tab 2: a fix round offers every fix, and `useTerminal 2` throws when only tab 1 is open (after `move-here`). `go-in-new` (okay) runs `cd …\web` in whichever tab is active, which is the new one after `open-one`. `back-and-open` starts with `useTerminal 1`, so it works from any state.
+- Step 4's check options are worded so exactly one holds everywhere: "PS 1 in the API, and a terminal in web" (`all[cd API tab:1, cd WEB tab:'any']`), "PS 1 in the API, PS 2 still at home" (adds `not cd WEB tab:'any'`), and "PS 1 moved to web".
+- The e2e test lives in `tests/e2e/acts.spec.ts` beside the Act menu test, until A27 adds `act1.spec.ts`.
 
 ---
 
@@ -1159,14 +1165,20 @@ export function markHintRung3(state): AgentStepState;
 export function stars(state): Stars;  starXp(stars): number;       // STAR_XP = 2 each
 export function completeAgentStep(run: MissionRun, mission: Mission, q: SandboxQueries): MissionRun; // exactly one step
 
-// src/game/missions/judgment.ts (A13)
+// src/game/missions/judgment.ts (A13). Pure: every key comes from a scratch replay of the scene.
 export type JudgmentAnswer =
   | { readonly kind: 'pick'; readonly optionId: string }     // predict, diagnose, fix
-  | { readonly kind: 'approve'; readonly allow: boolean }
-  | { readonly kind: 'order'; readonly cardIds: readonly string[] }
-  | { readonly kind: 'spot'; readonly lineId: string };
+  | { readonly kind: 'approve'; readonly allow: boolean };
+  // B11 adds { kind: 'order'; cardIds } and { kind: 'spot'; lineId } with their drill kinds
+// Every right answer: predict and diagnose exactly one, fix one or more, approve ['allow'] or ['deny'].
+// A drill that breaks those counts throws JudgmentError (a content bug), as does one whose lines
+// type over an open Confirm question. Predict judges the line as it stands when PowerShell asks.
+// Approve is judged as play gates it: the line with every question refused (dryRunRefused), then
+// Otto's `answer` each time PowerShell asks. A line that asks with no `answer` throws.
+export function answerKey(drill: JudgmentDrill, deps: RepositoryDeps): readonly string[];
+// keyId: Kyle's answer when it passed, else the first right one. A pick of a missing option throws.
 export function gradeJudgment(drill: JudgmentDrill, answer: JudgmentAnswer, deps: RepositoryDeps): { passed: boolean; keyId: string };
-export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[];
+export function shuffleFor(drillId: string, attempt: number): <T>(items: readonly T[]) => T[]; // FNV-1a seed, Mulberry32
 
 // src/game/agent/feed.ts (A15): what the terminal shows, in order. The world hears ws.events live (§4).
 export type Typist = 'otto' | 'kyle';                 // Kyle's lines are looks: no `otto ›` marker
@@ -1212,6 +1224,68 @@ export function onTerminalFeed(listener: (reveals: readonly Reveal[]) => void): 
 // judgment drill. When he takes it, and after any notice, the shell's prompt waits on its last
 // line: start with startFeed(tab, shell.prompt()). A prompt beat equal to the one waiting prints
 // nothing, so startFeed(tab) works too.
+
+// src/game/play/agentPlay.ts (A16, A17): agentRunner's hands. The step's state is
+// MissionActivity.agent; Otto's playback (beats, the action typed or held) stays in the module.
+export function beginDirectedStep(current: MissionActivity): MissionActivity; // `before`, rewind point
+export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePlay, once per drawn frame
+// Kyle's buttons, each a no-op when the stage doesn't allow it:
+// pickCard(planId), repeatCard(planId), pickInstead(), decide(allow),
+// predict(optionId) (a line that doesn't pause then waits 1.5 s at the normal pace, none at instant, for its ghost),
+// stopOtto() (applied at the next gap between lines), runLook(lookId) (at check only),
+// checkClaim(optionId) (stars kept when it passed), directFix(), rewind(), nextStep().
+// A line is typed, then driven once its typing has shown. Each action is dry-run first
+// (dryRunNow, with REFUSAL for a line) to decide its gate; an answer is typed only once allowed.
+export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
+export function trueCheckOptions(current: MissionActivity): readonly string[]; // [] until the result
+// A21: ui/play/agent/CheckCard.tsx (the question, LookChips, the answers, armed like a gate)
+// and ResultCard.tsx (verdict, checklist with failing rows red, the true answer after a
+// Missed, slip, feedback or lesson, then Next step, or Direct a fix and Rewind step,
+// Rewind first when a guard broke, and the line "A real laptop has no rewind.").
+// The directed panel shows the checklist itself; Sim shows it only for typed steps.
+// ResultCard also shows AnatomyChips (the card's covers lit) and, once passed, Stars.
+// MissionActivity.slips holds a SlipMet { stepId, planId, slip, caught } for each slip
+// that reached Kyle: decide() records one (caught) when he denies a harmful line of a slip
+// card, and checkClaim records one when a slip card's step didn't pass (caught: a Good
+// catch). One entry per step and card: a rewind or retry replaces it (meetSlip), so one
+// authored slip counts once. ResultCard names the slip only when it has an entry. The
+// Done screen in MissionView.tsx says "You caught N of M of Otto's slips." and each
+// directed step's stars.
+export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
+// A20: the panels read `ottoRun` (a store beside the play store): run rows built from the
+// reveals the terminal printed (game/agent/runLog.ts logReveals), and Otto's last event
+// (said, stopped, denied, fixing), which ui/play/agent/ottoLines.ts turns into his words.
+// A `say` is dropped when Otto moves to an action without one, and a gate shows only its
+// own action's `say`; a `denyLine` rides on the denied event, so it stays up through plan B.
+// An action that types nothing (write, newTerminal, useTerminal) gets a row in words, like
+// "Opened a new terminal", and a denied write gets a denied row. Gate and predict cards
+// take clicks only after ARM_MS (300 ms, ui/play/agent/useArmed.ts), so a double-click on
+// one card never decides the next.
+// ui/play/useOttoFrames.ts calls play.framePlay once per animation frame while a mission or
+// drill series is open, with choosePace(browserMotion, { reducedMotion }).
+
+// src/game/play/scenePlay.ts (A18): a judgment drill's scene, played live at SCENE_SPEED (3×).
+export function beginScene(drill: JudgmentDrill): boolean;    // false: no history, start the clock now
+export function frameScene(drillId, elapsedMs, pace): { index: number; done: boolean } | null;
+// missionPlay.ts / seriesPlay.ts (A18): startNextDrill and startNextSeriesDrill set `scene`
+// and leave the clock off; play.framePlay(elapsedMs, pace, nowMs) plays it and starts the
+// clock at nowMs once it ends. submitJudgment(drillId, answer, nowMs) and
+// submitSeriesJudgment(drillId, answer, nowMs) grade with gradeJudgment on scratchDeps()
+// (sandboxControl), then submitAnsweredDrill or recordReview; a miss reaches the review
+// queue through recordDrill's addMiss. An answer for a drill that isn't on the clock, or one
+// that doesn't fit it (judgment.answerFits), is ignored: a button never throws at Kyle.
+// DrillResult gains an optional keyId (the right answer) for the reveal.
+// A22: ui/play/JudgmentDrillView.tsx draws the question (the prompt, Otto's line as code
+// for predict and approve, his claim, the options in shuffleFor order with the attempt
+// counted from drillHistory, or Allow and Deny), the clock with a bar, and no "I'm done".
+// Its buttons arm after ARM_MS. ScenePlaying holds the panel while the scene plays, and
+// JudgmentReveal shows Right, Missed or Out of time, the right answer after a miss, and
+// `explain`. MissionView and SeriesView use all three for judgment drills only. The last
+// drill's reveal shows above the Question Round (MissionView) or the summary (SeriesView),
+// since answering it moves the run on. A drill the clock ended names its key too
+// (judgment.unansweredKey). The live part of step 4 (the answer replayed on the live
+// sandbox so the world animates, a real allowed approve, a denied one's ghost) is deferred
+// to A26, which wires ghosts and the world; until then the reveal is text only.
 ```
 
 Store changes:
@@ -1451,9 +1525,9 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/missions/validateAct.ts` | Optional parts, new texts and budgets, the `windows()` rule | Act 2 still returns `[]` |
 | `src/game/missions/runner.ts` | Boss functions use `requireBoss`; `submitAnsweredDrill`; narrowing in `submitDrill` | `runner.test.ts` unchanged |
 | `src/game/play/catalog.ts` | `recommendedAct`: the first Act with `!completedAt && hasWorkLeft(save, entry)` (a mission not done, or a boss or field present and not done), else the first Act. `ActContent.freePlay`. | Act 2 is one tab away |
-| `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` takes an optional `directingXp` | Act 2 passes nothing |
+| `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` requires `directingXp` (2 XP per star, paid on the first completion) | Act 2's missions have no stars, so they pass 0 |
 | `src/game/play/{bossPlay,fieldPlay,seriesPlay}.ts` | `require*` helpers; judgment drills in series | Same flow for Act 2 |
-| `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` | Act 2 route identical, no travel |
+| `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` (A27) | Act 2 route identical, no travel |
 | `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`, all-or-nothing), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`); `loadSandbox` takes a deps factory | `gitQueries` still the base |
 | `src/game/play/freePlay.ts` (NEW) | Laptop free play on the island; the practice project on Git World arrival | Campus unchanged |
 | `src/game/worldState.ts` | `ZoneId = 'campus' \| 'machine' \| 'gitworld'`; `requestedZone: ZoneId \| null` | — |
@@ -1543,18 +1617,18 @@ Sizes exclude content data, captures and lockfiles.
 | A13 | `feat: judgment drills are graded by running them` | `game/missions/judgment.ts` (NEW): predict, diagnose, fix, approve, `shuffleFor` | `judgment.test.ts` on a tiny laptop | 350 |
 | A14 | `feat: act 1 mission 1.1 where things live, behind a preview flag` | `content/act1/{shared,whereThingsLive,act,index,play.test-helpers}.ts`, `src/main.tsx` (`?preview=act1`) | `act1.test.ts`, `agent.test.ts`, `drills.test.ts` | tests ≈ 350 plus content |
 | A15 | `feat: otto's pace and the agent feed` | `game/agent/{feed,pace,browserMotion}.ts` (NEW) | `feed.test.ts`, `pace.test.ts` (instant under reduced motion or webdriver) | 180 |
-| A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing, travel request), `playStore.ts`, `play.ts` (tick; Otto's typing is advanced once per drawn frame, not by the 250 ms `tickPlay`, §5.6), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
+| A16 | `feat: otto plays a plan, and kyle checks his claim` | `play/agentPlay.ts` (NEW: begin step, apply `before`, pick, tick, looks, check, result, next step), `missionPlay.ts` (routing; the travel request moved to A27), `playStore.ts`, `play.ts` (tick; Otto's typing is advanced once per drawn frame, not by the 250 ms `tickPlay`, §5.6), `saveRules.completeMission` (`directingXp`), `sample.test-mission.ts` (a directed sample) | `play.test.ts`: a full sample step, verdicts, XP once | 390 |
 | A17 | `feat: approval gates, predictions, stop, and rewind in play` | `play/agentPlay.ts`, `game/agent/effects.ts` (NEW: `isConsequential`, `describeChanges`) | `effects.test.ts`, `play.test.ts` (allow, deny, onDeny, Confirm answer, rewind) | 330 |
 | A18 | `feat: judgment drills in missions, placement, and reviews` | `missionPlay.ts`, `seriesPlay.ts` (scene playback, clock after the scene, `submitJudgment`) | `play.test.ts`: pass or miss, review queue through `addMiss`, the clock starts after the scene | 300 |
 | A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure), `ui/terminal/readOnly.ts` (NEW), `game/agent/terminalFeed.ts` (NEW) | `feedText.test.ts`, `readOnly.test.ts`, `TerminalTabs.test.tsx`, `terminalFeed.test.ts`; verify loop | 220 |
-| A20 | `feat: directing panels: cards, otto's run, predicts, and gates` | `ui/play/agent/{AgentStepView,PlanCards,RunLog,PredictCard,GateCard,OttoBubble}.tsx`, `ui/play/agent/ottoLines.ts`, `ui/play/diagramStrips.ts`, `MissionView.tsx`, CSS | verify loop with `?preview=act1` | 380 |
+| A20 | `feat: directing panels: cards, otto's run, predicts, and gates` | `ui/play/agent/{AgentStepView,PlanCards,RunLog,PredictCard,GateCard,OttoBubble}.tsx`, `ui/play/agent/ottoLines.ts`, `game/agent/runLog.ts`, `ui/play/useOttoFrames.ts`, `MissionView.tsx`, `PlayPanel.tsx`, CSS (built as three stacked PRs; `diagramStrips.ts` waits for A27, since the briefing strip is already chosen by Act) | `runLog.test.ts`, `ottoLines.test.ts`, `AgentStepView.test.tsx`; verify loop | 380 |
 | A21 | `feat: directing panels: checking the claim and the step result` | `ui/play/agent/{CheckCard,LookChips,ResultCard,AnatomyChips,Stars}.tsx`, the Done screen in `MissionView.tsx` | verify loop | 330 |
 | A22 | `feat: judgment drill cards` | `ui/play/JudgmentDrillView.tsx` (predict, diagnose, fix, approve), `MissionView.tsx`, `SeriesView.tsx` | verify loop | 350 |
 | A23 | `feat: the machine island, its portal, and free play on the laptop` | `worldState.ts`, `world/zones.ts`, `world/world.ts`, `world/machine/machineWorld.ts` (NEW), `world/campus.ts` ("Start here"), `ui/TitleCard.tsx`, `play/freePlay.ts` (NEW), `play/catalog.ts` (`freePlay`) | `zones.test.ts`, `freePlay` unit test; verify loop | 380 |
 | A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure), `engine/machine/queries.ts` (`home`, `hidden`) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus), `queries.test.ts` | 260 |
 | A25 | `feat: folder terraces, lanterns, and otto's drone` | `world/machine/{terraces,lanterns,ottoDrone}.ts` (NEW), `world.ts` (machine sync, event queue, pulses) | verify loop (two differing screenshots) | 380 |
-| A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed | `ghostLayout.test.ts`; verify loop | 300 |
-| A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), `main.tsx`, `ui/terminal/TerminalPanel.tsx` (neutral `WELCOME`), `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
+| A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed, the live judgment reveal (section 2.2 step 4, deferred from A22) | `ghostLayout.test.ts`; verify loop | 300 |
+| A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), the travel request (D11: `missionPlay.startMission`, `worldState.requestedZone`, `world/world.ts`; moved here from A16, which was already at its size limit: travel moves the camera, so it belongs with the world e2e that A27 rewrites anyway), `main.tsx`, `ui/terminal/TerminalPanel.tsx` (neutral `WELCOME`), `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
 
 **Milestone A result:** a new save starts in Act 1. Mission 1.1 plays end to end, offline, with its world, ghosts, drills and Question Round. Act 2 plays as before.
 

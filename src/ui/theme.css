@@ -15,6 +15,9 @@
   --amber: #ffb347;
   --ok: #7ee2a8;
   --warn: #ffcf6b;
+  --danger: #ff7b7b;
+  /* Otto's color everywhere (spec D14), the same magenta as his terminal marker. */
+  --otto: #d69cff;
 
   --glass-bg: rgba(14, 20, 36, 0.55);
   --glass-stroke: rgba(160, 200, 255, 0.14);
@@ -522,6 +525,12 @@ body {
   color: var(--text-muted);
 }
 
+/* At a result, a row that doesn't hold is a broken guard or a missed goal: red, not to-do. */
+.checklist__failed .checklist__mark,
+.checklist__failed > span:nth-child(2) {
+  color: var(--danger);
+}
+
 .hint {
   margin: 10px 0;
   padding: 8px 12px;
@@ -635,6 +644,280 @@ body {
 
 .pick-feedback__weak strong {
   color: #ff7b7b;
+}
+
+/* Directing Otto (docs/act1-directed.md section 1.3): his bubble, the cards, his run log. */
+.otto {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+/* His screen face: a small magenta screen, like the drone's in the world. */
+.otto__face {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 26px;
+  border: 1px solid var(--otto);
+  border-radius: 6px;
+  background: rgba(214, 156, 255, 0.12);
+  color: var(--otto);
+  font: 13px var(--font-mono);
+}
+
+.otto__face--waiting {
+  border-color: var(--amber);
+  color: var(--amber);
+  animation: otto-wait 1.6s ease-in-out infinite;
+}
+
+.otto__face--failed {
+  animation: otto-fail 0.8s ease-out;
+}
+
+@keyframes otto-wait {
+  50% {
+    box-shadow: 0 0 10px rgba(255, 179, 71, 0.55);
+  }
+}
+
+@keyframes otto-fail {
+  from {
+    border-color: var(--danger);
+    background: rgba(255, 123, 123, 0.45);
+  }
+}
+
+.otto__bubble {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(214, 156, 255, 0.35);
+  border-radius: 4px 10px 10px;
+  background: rgba(214, 156, 255, 0.08);
+}
+
+.plan-cards {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-card {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font: 14px var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+}
+
+.plan-card:hover {
+  border-color: var(--accent);
+}
+
+.plan-card:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.plan-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.plan-card--hinted {
+  border-color: var(--accent);
+}
+
+.plan-card__hint {
+  margin-left: 8px;
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.run-log__rows {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.run-log__row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.run-log__row code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.run-log__words {
+  overflow-wrap: anywhere;
+}
+
+.run-log__row--ok .run-log__mark {
+  color: var(--ok);
+}
+
+.run-log__row--failed .run-log__mark,
+.run-log__row--failed code {
+  color: var(--danger);
+}
+
+.run-log__row--asked .run-log__mark {
+  color: var(--amber);
+}
+
+.run-log__row--denied {
+  color: var(--text-muted);
+}
+
+/* A prediction and a gate: the line Otto is about to run, set apart in his terminal font. */
+.predict-card__line,
+.gate-card__line {
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.gate-card {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 179, 71, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 179, 71, 0.06);
+}
+
+.gate-card__effects {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+/* A judgment drill's clock: the countdown and a bar that empties with it. */
+.judgment__timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 8px;
+}
+
+.judgment__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.judgment__bar > span {
+  display: block;
+  height: 100%;
+  background: var(--warn);
+  transition: width 0.25s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judgment__bar > span {
+    transition: none;
+  }
+}
+
+/* Checking Otto's claim: the question, Kyle's look chips, and the answers. */
+.check-card,
+.result-card {
+  margin: 10px 0;
+}
+
+.looks__chips,
+.anatomy,
+.stars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Looks are Kyle's own lines, so they wear the accent, not Otto's magenta. */
+.look-chip {
+  padding: 4px 10px;
+  border: 1px solid rgba(111, 211, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(111, 211, 255, 0.08);
+  color: var(--accent);
+  font: 13px var(--font-ui);
+  cursor: pointer;
+}
+
+.look-chip:hover {
+  background: rgba(111, 211, 255, 0.16);
+}
+
+.look-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.result-card__verdict {
+  margin: 0 0 6px;
+  padding: 6px 10px;
+  border-left: 3px solid var(--warn);
+  border-radius: 6px;
+  background: rgba(255, 207, 107, 0.08);
+  color: var(--warn);
+}
+
+.result-card__verdict--good {
+  border-left-color: var(--ok);
+  background: rgba(126, 226, 168, 0.08);
+  color: var(--ok);
+}
+
+.result-card__slip {
+  color: var(--otto);
+}
+
+/* The parts of a good request: the ones the card had are lit, the gaps stay dim. */
+.anatomy__chip {
+  padding: 2px 8px;
+  border: 1px dashed var(--glass-stroke);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.anatomy__chip--lit {
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+
+.stars__star {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.stars__star--earned {
+  color: var(--amber);
+}
+
+.directing-summary__steps {
+  margin: 6px 0;
+  padding-left: 18px;
 }
 
 .act-menu {

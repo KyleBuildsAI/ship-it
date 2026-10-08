@@ -1,6 +1,15 @@
 import { runGit } from '../../engine/git/cli/runGit';
 import { askHint, gradeQuestion } from '../../mentor/client';
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
+import type { Pace } from '../agent/pace';
+import { markHintRung3, starXp } from '../missions/agentRunner';
+import {
+  answerFits,
+  gradeJudgment,
+  unansweredKey,
+  type JudgmentAnswer,
+  type JudgmentGrade,
+} from '../missions/judgment';
 import { explain, evaluate } from '../missions/predicates';
 import {
   checkStep,
@@ -16,9 +25,11 @@ import {
 import { isJudgmentDrill } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
+import { beginDirectedStep, directedChecklist } from './agentPlay';
 import { findMission, getAct } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
-import { currentQueries, currentWorkspace, loadSandbox } from './sandboxControl';
+import { currentQueries, currentWorkspace, loadSandbox, scratchDeps } from './sandboxControl';
+import { beginScene, endScene, frameScene } from './scenePlay';
 import {
   completeMission,
   questionXp,
@@ -51,7 +62,8 @@ function refreshChecklist(): void {
   const queries = currentQueries();
   if (run.phase === 'sim') {
     const step = mission.steps[run.stepIndex];
-    play.update({ checklist: step === undefined ? [] : explain(step.success, queries) });
+    if (step?.agent !== undefined) play.update({ checklist: directedChecklist(current) });
+    else play.update({ checklist: step === undefined ? [] : explain(step.success, queries) });
   } else if (run.phase === 'drills' && run.activeDrill !== null) {
     const drill = mission.drills[run.activeDrill.drillIndex];
     // A judgment drill's checklist would give its answer away, so it shows none.
@@ -67,6 +79,7 @@ let attempts = 0;
 export function startMission(missionId: string): void {
   const mission = findMission(missionId);
   endDrill();
+  endScene();
   // Act 1 plays on the laptop; the git Acts start from a project on the Workbench.
   const where = mission.act === 1 ? 'the laptop is ready' : 'a fresh project is on your Workbench';
   loadSandbox(mission.initialRepoState, `${mission.title}: ${where}.`);
@@ -82,6 +95,10 @@ export function startMission(missionId: string): void {
     questionScore: null,
     freeTextGrade: null,
     xpEarned: 0,
+    agent: null,
+    stars: {},
+    slips: [],
+    scene: null,
   });
 }
 
@@ -89,7 +106,8 @@ export function startMission(missionId: string): void {
 export function endBriefing(): void {
   const current = activity();
   if (current?.run.phase !== 'briefing') return;
-  setActivity({ ...current, run: finishBriefing(current.run) });
+  // A directed first step starts here: its `before` applies, and Otto waits for a card.
+  setActivity(beginDirectedStep({ ...current, run: finishBriefing(current.run) }));
 }
 
 function stepXp(current: MissionActivity, completedIds: readonly string[]): number {
@@ -98,10 +116,14 @@ function stepXp(current: MissionActivity, completedIds: readonly string[]): numb
     .reduce((total, step) => total + step.xp, 0);
 }
 
-/** Loads the next unplayed drill's sandbox and starts its clock. Sage goes quiet. */
+/**
+ * Loads the next unplayed drill's sandbox and starts its clock. Sage goes quiet. A judgment
+ * drill with a history plays its scene first, and its clock starts when the scene ends.
+ */
 export function startNextDrill(nowMs: number = Date.now()): void {
   const current = activity();
   if (current?.run.phase !== 'drills' || current.run.activeDrill !== null) return;
+  if (current.scene !== null) return;
   const index = current.run.drillResults.length;
   const drill = current.mission.drills[index];
   if (drill === undefined) return;
@@ -110,6 +132,10 @@ export function startNextDrill(nowMs: number = Date.now()): void {
     `No-AI Drill ${String(index + 1)} of ${String(current.mission.drills.length)}. Sage is offline.`,
   );
   beginDrill(`${current.mission.id}:${drill.id}`);
+  if (isJudgmentDrill(drill) && beginScene(drill)) {
+    setActivity({ ...current, scene: { index: 0 }, lastDrill: null });
+    return;
+  }
   setActivity({
     ...current,
     run: startDrill(current.run, current.mission, index, nowMs),
@@ -117,24 +143,61 @@ export function startNextDrill(nowMs: number = Date.now()): void {
   });
 }
 
-function finishDrill(current: MissionActivity, nowMs: number): void {
+/**
+ * Plays the next drill's scene on by one drawn frame. When it ends, the question shows and
+ * the clock starts at `nowMs`, so watching Otto never eats Kyle's time.
+ */
+export function frameMissionScene(elapsedMs: number, pace: Pace, nowMs: number): void {
+  const current = activity();
+  if (current?.scene == null) return;
+  const index = current.run.drillResults.length;
+  const drill = current.mission.drills[index];
+  if (drill === undefined) return;
+  const frame = frameScene(drill.id, elapsedMs, pace);
+  if (frame === null) return;
+  // The scene drove Otto's lines, so a listener may have changed the activity meanwhile.
+  const latest = activity() ?? current;
+  if (frame.done) {
+    setActivity({
+      ...latest,
+      scene: null,
+      run: startDrill(latest.run, latest.mission, index, nowMs),
+    });
+  } else if (frame.index !== current.scene.index) {
+    setActivity({ ...latest, scene: { index: frame.index } });
+  }
+}
+
+/**
+ * Scores the drill on the clock. `graded` is Kyle's answer to a judgment drill; without
+ * one, a judgment drill was never answered (time ran out, or he gave up), so it's a miss.
+ */
+function finishDrill(
+  current: MissionActivity,
+  nowMs: number,
+  graded: JudgmentGrade | null = null,
+): void {
   const active = current.run.activeDrill;
   if (active === null) return;
   const drill = current.mission.drills[active.drillIndex];
   if (drill === undefined) return;
-  // A judgment drill that ends here was never answered: time ran out, or Kyle gave up.
   const run = isJudgmentDrill(drill)
-    ? submitAnsweredDrill(current.run, current.mission, false, nowMs)
+    ? submitAnsweredDrill(current.run, current.mission, graded?.passed ?? false, nowMs)
     : submitDrill(current.run, current.mission, currentQueries(), nowMs);
   endDrill();
   const outcome = run.drillResults.at(-1);
   if (outcome === undefined) return;
+  // An unanswered judgment drill still names its right answer in the reveal.
+  const keyId =
+    graded?.keyId ?? (isJudgmentDrill(drill) ? unansweredKey(drill, scratchDeps()) : undefined);
   const lastDrill: DrillResult = {
     drillId: outcome.drillId,
     passed: outcome.passed,
     seconds: outcome.seconds,
     overtime: outcome.overtime,
+    ...(keyId === undefined ? {} : { keyId }),
   };
+  // A miss joins the review queue here (recordDrill calls addMiss), by the drill's id.
   saveProgressNow((save) => recordDrill(save, drill, outcome, new Date(nowMs)));
   setActivity({ ...current, run, lastDrill });
 }
@@ -149,6 +212,12 @@ export function missionSandboxChanged(nowMs: number = Date.now()): void {
   if (current === null) return;
   const { run, mission } = current;
   if (run.phase === 'sim') {
+    // Otto's lines change the sandbox as he goes, and none of them may finish a directed
+    // step: it is checked when Kyle answers the check, then advanced by agentPlay.nextStep.
+    if (mission.steps[run.stepIndex]?.agent !== undefined) {
+      refreshChecklist();
+      return;
+    }
     const next = checkStep(run, mission, currentQueries());
     const completed = next.steps.filter((step) => step.completed).map((step) => step.stepId);
     const before = run.steps.filter((step) => step.completed).length;
@@ -183,6 +252,27 @@ export function missionTick(nowMs: number = Date.now()): void {
   if (nowMs - active.startedAtMs >= drill.timeLimitSeconds * 1000) finishDrill(current, nowMs);
 }
 
+/**
+ * Kyle's answer to the judgment drill `drillId`, if it is the one on the clock. The key is
+ * worked out by running the drill in a scratch copy (judgment.ts), never read from the
+ * content. An answer that lands after the limit, before the next tick, is overtime and so
+ * a miss (grading.scoreDrill). A late or doubled click, meant for a drill that has ended or
+ * shaped for another kind of drill, does nothing: a button never throws at Kyle.
+ */
+export function submitJudgment(
+  drillId: string,
+  answer: JudgmentAnswer,
+  nowMs: number = Date.now(),
+): void {
+  const current = activity();
+  const active = current?.run.activeDrill;
+  if (current === null || active === null || active === undefined) return;
+  const drill = current.mission.drills[active.drillIndex];
+  if (drill === undefined || !isJudgmentDrill(drill) || drill.id !== drillId) return;
+  if (!answerFits(drill, answer)) return;
+  finishDrill(current, nowMs, gradeJudgment(drill, answer, scratchDeps()));
+}
+
 /** "I'm done": submits the drill now, graded by the sandbox as it stands. */
 export function submitCurrentDrill(nowMs: number = Date.now()): void {
   const current = activity();
@@ -207,13 +297,16 @@ export async function askForHint(): Promise<void> {
   const { run, hint } = requestHint(current.run, current.mission);
   if (hint === null) return;
   const step = current.mission.steps[current.run.stepIndex];
+  // The third rung names the card to pick, which costs a directed step its Plan star.
+  const agent =
+    hint.level === 3 && current.agent !== null ? markHintRung3(current.agent) : current.agent;
   const ladderHint = { level: hint.level, text: hint.text, fromSage: false } as const;
   const mentorEnabled = progress.get().save?.settings.mentorEnabled ?? true;
   if (!mentorEnabled || step === undefined) {
-    setActivity({ ...current, run, hint: ladderHint });
+    setActivity({ ...current, run, agent, hint: ladderHint });
     return;
   }
-  setActivity({ ...current, run, hintLoading: true });
+  setActivity({ ...current, run, agent, hintLoading: true });
   const reply = await askHint({
     missionTitle: current.mission.title,
     stepInstruction: step.instruction,
@@ -264,12 +357,17 @@ export function submitQuestionRound(
       ? 0
       : Math.round((drills.filter((result) => result.passed).length / drills.length) * 100);
   const xpFromQuestions = questionXp(score.perPick);
+  // Stars pay for directing Otto. A typed mission has none, so it pays nothing here.
+  const directingXp = Object.values(current.stars).reduce(
+    (total, earned) => total + starXp(earned),
+    0,
+  );
   saveProgressNow((save) =>
     completeMission(
       save,
       getAct(current.mission.act).act,
       current.mission,
-      { drillPercent, questionXp: xpFromQuestions },
+      { drillPercent, questionXp: xpFromQuestions, directingXp },
       new Date(nowMs),
     ),
   );
@@ -279,7 +377,7 @@ export function submitQuestionRound(
     run,
     questionScore: score,
     freeTextGrade: question === null ? null : { state: 'grading' },
-    xpEarned: current.xpEarned + current.mission.xp + xpFromQuestions,
+    xpEarned: current.xpEarned + current.mission.xp + xpFromQuestions + directingXp,
   });
   if (question !== null) void gradeFreeText(question);
 }

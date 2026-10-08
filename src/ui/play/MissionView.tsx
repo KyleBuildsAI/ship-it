@@ -4,8 +4,10 @@ import {
   endBriefing,
   startNextDrill,
   submitCurrentDrill,
+  submitJudgment,
   submitQuestionRound,
 } from '../../game/play/missionPlay';
+import { isJudgmentDrill, type Drill } from '../../game/missions/schema';
 import { formatClock } from '../../game/play/bossPlay';
 import { leavePlay } from '../../game/play/play';
 import type { DrillResult, MissionActivity } from '../../game/play/playStore';
@@ -14,6 +16,9 @@ import { useStore } from '../useStore';
 import { Checklist } from './Checklist';
 import type { CheckRow } from '../../game/missions/predicates';
 import { useClock } from './useClock';
+import { AgentStepView } from './agent/AgentStepView';
+import { Stars } from './agent/Stars';
+import { JudgmentDrillView, JudgmentReveal, ScenePlaying } from './JudgmentDrillView';
 
 const CAPTION_MS = 5000;
 
@@ -78,7 +83,17 @@ function Sim({
         Step {run.stepIndex + 1} of {mission.steps.length}
       </p>
       <p className="play-panel__instruction">{step.instruction}</p>
-      <Checklist rows={checklist} />
+      {/* A directed step: Kyle directs Otto instead of typing. Act 2's typed steps skip it. */}
+      {step.agent === undefined ? (
+        <Checklist rows={checklist} />
+      ) : (
+        <AgentStepView
+          activity={activity}
+          step={step}
+          hintLevel={hint?.level ?? 0}
+          checklist={checklist}
+        />
+      )}
       {hint ? (
         <div className="hint" aria-live="polite">
           <p className="hint__source">
@@ -106,7 +121,10 @@ function Sim({
   );
 }
 
-function DrillOutcome({ result }: { result: DrillResult }) {
+function DrillOutcome({ result, drill }: { result: DrillResult; drill: Drill | undefined }) {
+  if (drill !== undefined && isJudgmentDrill(drill)) {
+    return <JudgmentReveal drill={drill} result={result} />;
+  }
   const verdict = result.passed ? 'Passed' : result.overtime ? 'Out of time' : 'Not quite';
   return (
     <p className={result.passed ? 'drill-result drill-result--pass' : 'drill-result'}>
@@ -123,20 +141,27 @@ function Drills({
   activity: MissionActivity;
   checklist: readonly CheckRow[];
 }) {
-  const { mission, run, lastDrill } = activity;
+  const { mission, run, lastDrill, scene } = activity;
   const active = run.activeDrill;
   const now = useClock(active !== null);
   const total = mission.drills.length;
+  const next = run.drillResults.length + 1;
+  if (scene !== null) return <ScenePlaying label={`Drill ${String(next)} of ${String(total)}`} />;
   if (active === null) {
-    const next = run.drillResults.length + 1;
+    const judged = mission.drills.some(isJudgmentDrill);
+    const finished = lastDrill
+      ? mission.drills.find((drill) => drill.id === lastDrill.drillId)
+      : undefined;
     return (
       <div>
         <p className="play-panel__eyebrow">No-AI Drills</p>
-        {lastDrill ? <DrillOutcome result={lastDrill} /> : null}
+        {lastDrill ? <DrillOutcome result={lastDrill} drill={finished} /> : null}
         <p className="play-panel__instruction">
           {lastDrill
             ? `Drill ${String(next)} of ${String(total)} is next.`
-            : `${String(total)} timed drills. No hints, no Sage: recall, not recognition.`}
+            : judged
+              ? `${String(total)} timed drills. No hints, no Sage: judge what Otto does.`
+              : `${String(total)} timed drills. No hints, no Sage: recall, not recognition.`}
         </p>
         <div className="play-panel__actions">
           <button
@@ -155,6 +180,19 @@ function Drills({
   const drill = mission.drills[active.drillIndex];
   if (drill === undefined) return null;
   const left = drill.timeLimitSeconds - (now - active.startedAtMs) / 1000;
+  if (isJudgmentDrill(drill)) {
+    return (
+      <JudgmentDrillView
+        key={drill.id}
+        drill={drill}
+        eyebrow={`Drill ${String(active.drillIndex + 1)} of ${String(total)}`}
+        secondsLeft={left}
+        onAnswer={(answer) => {
+          submitJudgment(drill.id, answer);
+        }}
+      />
+    );
+  }
   return (
     <div>
       <p className="play-panel__eyebrow">
@@ -179,6 +217,19 @@ function Drills({
   );
 }
 
+/**
+ * The last drill's reveal, above the Question Round. Answering the last drill moves the run
+ * straight on, so without this Kyle would never see whether he judged it right. Only a
+ * judgment drill shows one: Act 2's typed missions play exactly as before.
+ */
+function FinalJudgmentReveal({ activity }: { activity: MissionActivity }) {
+  const { lastDrill, mission } = activity;
+  if (lastDrill === null) return null;
+  const drill = mission.drills.find((candidate) => candidate.id === lastDrill.drillId);
+  if (drill === undefined || !isJudgmentDrill(drill)) return null;
+  return <JudgmentReveal drill={drill} result={lastDrill} />;
+}
+
 function QuestionRound({ activity }: { activity: MissionActivity }) {
   const { ticket, candidates, pickLimit } = activity.mission.questionRound;
   const { mentor } = useStore(devStatus);
@@ -195,6 +246,7 @@ function QuestionRound({ activity }: { activity: MissionActivity }) {
   };
   return (
     <div>
+      <FinalJudgmentReveal activity={activity} />
       <p className="play-panel__eyebrow">Question Round · ticket from {ticket.from}</p>
       <p className="ticket__title">{ticket.title}</p>
       <p className="ticket__body">{ticket.body}</p>
@@ -249,6 +301,38 @@ function QuestionRound({ activity }: { activity: MissionActivity }) {
 
 const QUALITY_LABEL = { strong: 'Strong', okay: 'Okay', weak: 'Weak' } as const;
 
+/** "You caught 2 of 3 of Otto's slips": the one number that says how well Kyle checked. */
+function slipLine(slips: MissionActivity['slips']): string {
+  if (slips.length === 0) return "None of Otto's slips reached a gate or a check.";
+  const caught = slips.filter((slip) => slip.caught).length;
+  return `You caught ${String(caught)} of ${String(slips.length)} of Otto's slips.`;
+}
+
+/**
+ * How Kyle directed Otto, on the Done screen of a directed mission: the slips he caught
+ * and each step's stars. A typed mission (Act 2) has no directed steps, so it shows nothing.
+ */
+function DirectingSummary({ activity }: { activity: MissionActivity }) {
+  const directed = activity.mission.steps.filter((step) => step.agent !== undefined);
+  if (directed.length === 0) return null;
+  return (
+    <div className="directing-summary">
+      <p>{slipLine(activity.slips)}</p>
+      <ol className="directing-summary__steps" aria-label="Stars per step">
+        {directed.map((step) => {
+          const earned = activity.stars[step.id];
+          return (
+            <li key={step.id}>
+              <span className="play-panel__muted">{step.instruction}</span>
+              {earned === undefined ? null : <Stars earned={earned} />}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function Done({ activity }: { activity: MissionActivity }) {
   const { questionScore, freeTextGrade, run, mission, xpEarned } = activity;
   const passed = run.drillResults.filter((result) => result.passed).length;
@@ -258,6 +342,7 @@ function Done({ activity }: { activity: MissionActivity }) {
       <p className="play-panel__instruction">
         {mission.title}: +{xpEarned} XP · drills {passed}/{run.drillResults.length}
       </p>
+      <DirectingSummary activity={activity} />
       {questionScore ? (
         <ul className="pick-feedback">
           {questionScore.perPick.map((pick) => (

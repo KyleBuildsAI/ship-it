@@ -38,6 +38,11 @@ export type FeedBeat =
       readonly exitCode: number;
       /** PowerShell's Confirm question is open, so the next thing typed answers it. */
       readonly asking: boolean;
+      /**
+       * The run log's words for an action that types nothing, like "Opened a new
+       * terminal": with no typed line to show, its row needs words of its own.
+       */
+      readonly label?: string;
     };
 
 /**
@@ -110,7 +115,7 @@ export function feedTyping(state: FeedState, typing: Typing, by: Typist = 'otto'
  * a file write, or a switch to a tab that's asking, leaves the question open without
  * ending the line it's on.
  */
-export function feedOutcome(state: FeedState, step: DriverStep): Fed {
+export function feedOutcome(state: FeedState, step: DriverStep, label?: string): Fed {
   const { tab } = step;
   const beats: FeedBeat[] = [];
   let now: FeedState = { ...state, tab };
@@ -127,14 +132,20 @@ export function feedOutcome(state: FeedState, step: DriverStep): Fed {
     now = startFeed(tab, CHOICES);
   }
   if (step.events.length > 0) beats.push({ kind: 'world', events: step.events });
-  beats.push({ kind: 'result', tab, exitCode: step.exitCode, asking: step.asking });
+  const result = { kind: 'result', tab, exitCode: step.exitCode, asking: step.asking } as const;
+  beats.push(label === undefined ? result : { ...result, label });
   return { state: now, beats };
 }
 
 /** Everything one action shows, from its prompt to its result. */
-export function feedAction(state: FeedState, step: DriverStep, by: Typist = 'otto'): Fed {
+export function feedAction(
+  state: FeedState,
+  step: DriverStep,
+  by: Typist = 'otto',
+  label?: string,
+): Fed {
   const typing = feedTyping(state, step, by);
-  const outcome = feedOutcome(typing.state, step);
+  const outcome = feedOutcome(typing.state, step, label);
   return { state: outcome.state, beats: [...typing.beats, ...outcome.beats] };
 }
 

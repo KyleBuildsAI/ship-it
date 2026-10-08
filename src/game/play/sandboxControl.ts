@@ -1,10 +1,11 @@
 import { defaultDeps, type FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
-import type { DriverStep } from '../../engine/shell/driver';
+import type { ConfirmLetter, DriverStep } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
 import type { Workspace } from '../../engine/workspace';
 import {
   dryRun,
+  dryRunRefused,
   playAction,
   replay,
   startLog,
@@ -124,13 +125,27 @@ export function applyChange(steps: readonly FixtureStep[]): void {
  * What an action would do from here, tried in a scratch copy with fresh dependencies:
  * the live sandbox, its clock included, never feels it. On the real clock a commit in the
  * copy gets a new time and id; nothing grades by commit id.
+ *
+ * With `refusal`, every Confirm question the line asks gets that answer (replay.ts
+ * dryRunRefused): what the line does even if Kyle refuses, which is what a line gate shows.
  */
 export function dryRunNow(
   action: LoggedAction,
   judge: { readonly guards: readonly Predicate[] },
+  refusal?: ConfirmLetter,
 ): DryRun {
   const live = liveRecording();
-  return dryRun(live.log, action, judge, live.makeDeps());
+  if (refusal === undefined) return dryRun(live.log, action, judge, live.makeDeps());
+  return dryRunRefused(live.log, action, judge, live.makeDeps(), refusal);
+}
+
+/**
+ * Fresh dependencies of the kind the live sandbox was built with, for work done in a
+ * scratch copy, like grading a judgment drill. Tests pass testDeps, so grading sees the
+ * same commit ids a replay would.
+ */
+export function scratchDeps(): RepositoryDeps {
+  return liveRecording().makeDeps();
 }
 
 /**

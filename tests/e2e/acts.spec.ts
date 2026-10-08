@@ -35,7 +35,9 @@ test('every Act is open, and Act 1 opens a PowerShell laptop', async ({ page }) 
   expect(problems).toEqual([]);
 });
 
-test('Mission 1.1 plays in the terminal, graded by where things really are', async ({ page }) => {
+test('Mission 1.1 is directed: Kyle picks a card for Otto and checks his claim', async ({
+  page,
+}) => {
   test.slow();
   const problems = collectConsoleProblems(page);
   await page.goto('./');
@@ -51,14 +53,20 @@ test('Mission 1.1 plays in the terminal, graded by where things really are', asy
   await page.getByRole('button', { name: 'Skip briefing' }).click();
   await expect(page.getByText('Step 1 of 4')).toBeVisible();
 
-  // A bare name from home fails; the full path works.
-  const input = page.locator('.xterm-helper-textarea');
-  await input.focus();
-  await page.keyboard.insertText('cd api');
-  await page.keyboard.press('Enter');
-  await expect(page.getByText('Step 1 of 4')).toBeVisible();
-  await page.keyboard.insertText('cd C:\\Users\\kyle\\quillwork\\api');
-  await page.keyboard.press('Enter');
+  // No typing: Kyle picks the strong card, Otto runs it (instantly under a test robot),
+  // and Kyle answers the check from what the terminal shows.
+  await page
+    .getByRole('list', { name: 'Request cards' })
+    .getByRole('button', { name: /show where you are/ })
+    .click();
+  const terminal = page.locator('.xterm-rows');
+  await expect(terminal).toContainText('PS C:\\Users\\kyle\\quillwork\\api>');
+  await page
+    .getByRole('group', { name: "Check Otto's claim" })
+    .getByRole('button', { name: 'C:\\Users\\kyle\\quillwork\\api', exact: true })
+    .click();
+  await expect(page.getByText('Confirmed.')).toBeVisible();
+  await page.getByRole('button', { name: 'Next step' }).click();
   await expect(page.getByText('Step 2 of 4')).toBeVisible();
   expect(problems).toEqual([]);
 });

@@ -1,3 +1,5 @@
+import type { AgentStepState, Stars } from '../missions/agentRunner';
+import type { Slip } from '../missions/agentSchema';
 import type { CheckRow } from '../missions/predicates';
 import type { PlacementResult, QuestionRoundScore } from '../missions/grading';
 import type { BossOutcome, BossRun, MissionRun } from '../missions/runner';
@@ -18,7 +20,18 @@ export interface DrillResult {
   readonly passed: boolean;
   readonly seconds: number;
   readonly overtime: boolean;
+  /**
+   * A judgment drill's right answer, for the reveal: an option id, 'allow' or 'deny'.
+   * Missing for a drill graded by state, and for one that ended without an answer.
+   */
+  readonly keyId?: string;
 }
+
+/**
+ * A judgment drill's scene playing before its clock starts (docs/act1-directed.md 2.2):
+ * how many of Otto's history lines have run. Null when no scene is playing.
+ */
+export type ScenePlaying = { readonly index: number } | null;
 
 /** Sage's grade for the optional free-text question, or why there isn't one. */
 export type FreeTextGrade =
@@ -30,6 +43,20 @@ export type FreeTextGrade =
       readonly betterVersion: string;
     }
   | { readonly state: 'unavailable'; readonly message: string };
+
+/**
+ * One of Otto's slips that reached Kyle: the card he picked had a slip, and either a line
+ * it broke something with came to a gate, or the step reached a check still broken.
+ * `caught`: Kyle denied that line, or saw the step was broken (a Good catch). The Done
+ * screen counts them, one per step and card: a rewind or a retry replaces the entry.
+ */
+export interface SlipMet {
+  readonly stepId: string;
+  /** The card that carried the slip: one card's slip counts once, however often it's tried. */
+  readonly planId: string;
+  readonly slip: Slip;
+  readonly caught: boolean;
+}
 
 export interface MissionActivity {
   readonly kind: 'mission';
@@ -44,6 +71,14 @@ export interface MissionActivity {
   readonly questionScore: QuestionRoundScore | null;
   readonly freeTextGrade: FreeTextGrade | null;
   readonly xpEarned: number;
+  /** The directed step on screen (agentPlay.ts), or null: a typed step, or past the sim. */
+  readonly agent: AgentStepState | null;
+  /** The stars each directed step earned, by step id. Act 2's typed missions keep it empty. */
+  readonly stars: Readonly<Record<string, Stars>>;
+  /** Every slip of Otto's that reached a check, in order. Typed missions keep it empty. */
+  readonly slips: readonly SlipMet[];
+  /** The next drill's scene, while it plays. Act 2's typed drills have none. */
+  readonly scene: ScenePlaying;
 }
 
 /** A row of timed drills: the placement test, or today's Standup Board reviews. */
@@ -56,6 +91,8 @@ export interface SeriesActivity {
   readonly active: { readonly index: number; readonly startedAtMs: number } | null;
   readonly results: readonly DrillResult[];
   readonly placement: PlacementResult | null;
+  /** The next drill's scene, while it plays. Act 2's typed drills have none. */
+  readonly scene: ScenePlaying;
 }
 
 export interface BossActivity {

@@ -11,6 +11,7 @@ import { FieldView } from './FieldView';
 import { LessonView } from './LessonView';
 import { MissionView } from './MissionView';
 import { SeriesView } from './SeriesView';
+import { useOttoFrames } from './useOttoFrames';
 
 /**
  * The play panel on the left: an Act's menu (the one opened from the HUD, or the island's
@@ -24,6 +25,9 @@ export function PlayPanel() {
   const menuAct = actMenu ?? actForZone(zone);
   const { status, problem } = useStore(progress);
   const panel = useRef<HTMLElement>(null);
+  // Only missions and drill series have Otto in them: a directed step or a drill's scene.
+  const kind = activity?.kind;
+  useOttoFrames(kind === 'mission' || kind === 'placement' || kind === 'review');
 
   let content = null;
   if (status === 'failed') {

@@ -133,12 +133,12 @@ export function completeMission(
   save: SaveData,
   target: Act,
   finished: Mission,
-  result: { drillPercent: number; questionXp: number },
+  result: { drillPercent: number; questionXp: number; directingXp: number },
   now: Date,
 ): SaveData {
   const current = mission(save, finished.id);
   const firstTime = current.completedAt === null;
-  const xp = firstTime ? finished.xp + result.questionXp : 0;
+  const xp = firstTime ? finished.xp + result.questionXp + result.directingXp : 0;
   const updated: MissionProgress = {
     ...current,
     status: 'completed',

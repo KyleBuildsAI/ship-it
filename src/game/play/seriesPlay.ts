@@ -1,13 +1,23 @@
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
+import type { Pace } from '../agent/pace';
+import {
+  answerFits,
+  gradeJudgment,
+  unansweredKey,
+  type JudgmentAnswer,
+  type JudgmentGrade,
+} from '../missions/judgment';
 import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
 import { isJudgmentDrill, requirePlacement } from '../missions/schema';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
+import type { ReviewItem } from '../save/schema';
 import { allMissions, findDrill, getAct } from './catalog';
 import { play, type SeriesActivity } from './playStore';
-import { currentQueries, loadSandbox } from './sandboxControl';
+import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
+import { beginScene, endScene, frameScene } from './scenePlay';
 import { recordDrill, recordPlacement, recordReview } from './saveRules';
 
 /*
@@ -36,6 +46,7 @@ function begin(
   drillIds: readonly string[],
 ): void {
   endDrill();
+  endScene();
   setActivity({
     kind,
     act,
@@ -43,6 +54,7 @@ function begin(
     active: null,
     results: [],
     placement: null,
+    scene: null,
   });
 }
 
@@ -51,30 +63,42 @@ export function startPlacement(act: number): void {
   begin('placement', act, requirePlacement(getAct(act).act).drillIds);
 }
 
+/**
+ * Today's Standup Board set, from the review items this build has content for. A save can
+ * still list a drill that a later build removed: it can never be played or graded, so it
+ * would never leave the queue. Leaving it out here keeps the menu's count and the review
+ * itself in step, and keeps it from taking a slot in the day's set.
+ */
+function todaysItems(now: Date): ReviewItem[] {
+  const save = progress.get().save;
+  if (save === null) return [];
+  const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));
+  const playable = save.reviewQueue.filter((item) => known.has(item.drillId));
+  return dailySet(playable, localDay(now));
+}
+
 /** Today's Standup Board set: 5 to 10 review items, most overdue first. */
 export function startReview(now: Date = new Date()): void {
-  const save = progress.get().save;
-  if (save === null) return;
-  const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));
-  const items = dailySet(save.reviewQueue, localDay(now)).filter((item) => known.has(item.drillId));
+  if (progress.get().save === null) return;
   begin(
     'review',
     null,
-    items.map((item) => item.drillId),
+    todaysItems(now).map((item) => item.drillId),
   );
 }
 
-/** Today's review items that this build has content for. */
+/** Today's review items that are due and that this build has content for. */
 export function reviewItemsToday(now: Date = new Date()): number {
-  const save = progress.get().save;
-  if (save === null) return 0;
-  return dailySet(save.reviewQueue, localDay(now)).filter((item) => item.dueOn <= localDay(now))
-    .length;
+  return todaysItems(now).filter((item) => item.dueOn <= localDay(now)).length;
 }
 
+/**
+ * Loads the next drill and starts its clock. A judgment drill with a history plays its
+ * scene first, and its clock starts when the scene ends (frameSeriesScene).
+ */
 export function startNextSeriesDrill(nowMs: number = Date.now()): void {
   const current = activity();
-  if (current?.active !== null) return;
+  if (current?.active !== null || current.scene !== null) return;
   const index = current.results.length;
   const drill = current.drills[index];
   if (drill === undefined) return;
@@ -84,16 +108,42 @@ export function startNextSeriesDrill(nowMs: number = Date.now()): void {
     `${label} ${String(index + 1)} of ${String(current.drills.length)}. No hints, no Sage.`,
   );
   beginDrill(`${current.kind}:${drill.id}`);
+  if (isJudgmentDrill(drill) && beginScene(drill)) {
+    setActivity({ ...current, scene: { index: 0 } });
+    return;
+  }
   setActivity({ ...current, active: { index, startedAtMs: nowMs } });
 }
 
-function finish(current: SeriesActivity, nowMs: number): void {
+/** Plays the next drill's scene on by one drawn frame, and starts its clock when it ends. */
+export function frameSeriesScene(elapsedMs: number, pace: Pace, nowMs: number): void {
+  const current = activity();
+  if (current?.scene == null) return;
+  const index = current.results.length;
+  const drill = current.drills[index];
+  if (drill === undefined) return;
+  const frame = frameScene(drill.id, elapsedMs, pace);
+  if (frame === null) return;
+  // The scene drove Otto's lines, so a listener may have changed the activity meanwhile.
+  const latest = activity() ?? current;
+  if (frame.done) setActivity({ ...latest, scene: null, active: { index, startedAtMs: nowMs } });
+  else if (frame.index !== current.scene.index) {
+    setActivity({ ...latest, scene: { index: frame.index } });
+  }
+}
+
+/**
+ * Scores the drill on the clock. `graded` is Kyle's answer to a judgment drill; without
+ * one, a judgment drill was never answered (time ran out, or he gave up), so it's a miss.
+ */
+function finish(current: SeriesActivity, nowMs: number, graded: JudgmentGrade | null = null): void {
   if (current.active === null) return;
   const drill = current.drills[current.active.index];
   if (drill === undefined) return;
   const seconds = (nowMs - current.active.startedAtMs) / 1000;
-  // A judgment drill that ends here was never answered: time ran out, or Kyle gave up.
-  const passed = !isJudgmentDrill(drill) && evaluate(drill.success, currentQueries());
+  const passed = isJudgmentDrill(drill)
+    ? (graded?.passed ?? false)
+    : evaluate(drill.success, currentQueries());
   const score = scoreDrill(passed, seconds, drill.timeLimitSeconds);
   endDrill();
   const now = new Date(nowMs);
@@ -102,7 +152,13 @@ function finish(current: SeriesActivity, nowMs: number): void {
       ? recordReview(save, drill, score, now)
       : recordDrill(save, drill, score, now),
   );
-  const results = [...current.results, { drillId: drill.id, ...score }];
+  // An unanswered judgment drill still names its right answer in the reveal.
+  const keyId =
+    graded?.keyId ?? (isJudgmentDrill(drill) ? unansweredKey(drill, scratchDeps()) : undefined);
+  const results = [
+    ...current.results,
+    { drillId: drill.id, ...score, ...(keyId === undefined ? {} : { keyId }) },
+  ];
   const done = results.length === current.drills.length;
   let placement = current.placement;
   if (done && current.kind === 'placement' && current.act !== null) {
@@ -131,6 +187,24 @@ export function seriesTick(nowMs: number = Date.now()): void {
   const drill = current.drills[current.active.index];
   if (drill === undefined) return;
   if (nowMs - current.active.startedAtMs >= drill.timeLimitSeconds * 1000) finish(current, nowMs);
+}
+
+/**
+ * Kyle's answer to the judgment drill `drillId`, if it is the one on the clock, graded by
+ * running the drill in a scratch copy (judgment.ts). A review records it with SM-2; a miss
+ * stays in the queue. Like submitJudgment, a stale or misshapen answer does nothing.
+ */
+export function submitSeriesJudgment(
+  drillId: string,
+  answer: JudgmentAnswer,
+  nowMs: number = Date.now(),
+): void {
+  const current = activity();
+  if (current?.active == null) return;
+  const drill = current.drills[current.active.index];
+  if (drill === undefined || !isJudgmentDrill(drill) || drill.id !== drillId) return;
+  if (!answerFits(drill, answer)) return;
+  finish(current, nowMs, gradeJudgment(drill, answer, scratchDeps()));
 }
 
 /** "I'm done": grades the drill as it stands. */
