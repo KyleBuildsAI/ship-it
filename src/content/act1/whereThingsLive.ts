@@ -164,11 +164,28 @@ export const whereThingsLive: MissionInput = {
               {
                 do: 'run',
                 line: 'mkdir notes',
+                // Each option is about this line: it worked and where the terminal stood
+                // when it did, or it failed. Asking only "does api\notes exist?" would also
+                // be true when an earlier, stopped card had already made it there.
                 predict: {
                   question: 'Before Otto runs it: where will notes land?',
                   options: [
-                    { id: 'api', text: 'In the API folder', outcome: { state: apiNotes } },
-                    { id: 'home', text: 'In C:\\Users\\kyle', outcome: { state: homeNotes } },
+                    {
+                      id: 'api',
+                      text: 'In the API folder',
+                      outcome: {
+                        result: 'ok',
+                        state: { kind: 'all', of: [standsIn(API), apiNotes] },
+                      },
+                    },
+                    {
+                      id: 'home',
+                      text: 'In C:\\Users\\kyle',
+                      outcome: {
+                        result: 'ok',
+                        state: { kind: 'all', of: [standsIn(HOME), homeNotes] },
+                      },
+                    },
                     { id: 'fails', text: 'Nowhere: it fails', outcome: { result: 'error' } },
                   ],
                 },

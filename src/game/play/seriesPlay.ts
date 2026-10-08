@@ -13,6 +13,7 @@ import { isJudgmentDrill, requirePlacement } from '../missions/schema';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
+import type { ReviewItem } from '../save/schema';
 import { allMissions, findDrill, getAct } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
@@ -62,25 +63,33 @@ export function startPlacement(act: number): void {
   begin('placement', act, requirePlacement(getAct(act).act).drillIds);
 }
 
+/**
+ * Today's Standup Board set, from the review items this build has content for. A save can
+ * still list a drill that a later build removed: it can never be played or graded, so it
+ * would never leave the queue. Leaving it out here keeps the menu's count and the review
+ * itself in step, and keeps it from taking a slot in the day's set.
+ */
+function todaysItems(now: Date): ReviewItem[] {
+  const save = progress.get().save;
+  if (save === null) return [];
+  const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));
+  const playable = save.reviewQueue.filter((item) => known.has(item.drillId));
+  return dailySet(playable, localDay(now));
+}
+
 /** Today's Standup Board set: 5 to 10 review items, most overdue first. */
 export function startReview(now: Date = new Date()): void {
-  const save = progress.get().save;
-  if (save === null) return;
-  const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));
-  const items = dailySet(save.reviewQueue, localDay(now)).filter((item) => known.has(item.drillId));
+  if (progress.get().save === null) return;
   begin(
     'review',
     null,
-    items.map((item) => item.drillId),
+    todaysItems(now).map((item) => item.drillId),
   );
 }
 
-/** Today's review items that this build has content for. */
+/** Today's review items that are due and that this build has content for. */
 export function reviewItemsToday(now: Date = new Date()): number {
-  const save = progress.get().save;
-  if (save === null) return 0;
-  return dailySet(save.reviewQueue, localDay(now)).filter((item) => item.dueOn <= localDay(now))
-    .length;
+  return todaysItems(now).filter((item) => item.dueOn <= localDay(now)).length;
 }
 
 /**

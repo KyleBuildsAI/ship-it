@@ -14,6 +14,7 @@ import {
 } from '../missions/sample.test-mission';
 import { ActSchema, ContentError, MissionSchema, type Mission } from '../missions/schema';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
+import { createReviewItem } from '../progression/reviewQueue';
 import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
 import { createDefaultSave } from '../save/schema';
@@ -54,6 +55,7 @@ import {
   seriesSandboxChanged,
   seriesTick,
   startNextSeriesDrill,
+  reviewItemsToday,
   startPlacement,
   startReview,
   submitSeriesJudgment,
@@ -204,6 +206,35 @@ describe('the placement test', () => {
     passPlacement();
     expect(series().placement).toEqual({ percent: 100, testedOut: true });
     expect(progress.get().save?.acts['2']?.completedAt).toEqual(expect.any(String));
+  });
+});
+
+describe('the Standup Board', () => {
+  it('neither counts nor opens a review item whose drill this build removed', async () => {
+    // A save from an older build still lists a drill the content no longer has.
+    const old = createDefaultSave(NOW);
+    const save = {
+      ...old,
+      reviewQueue: [
+        createReviewItem('removed-drill', '2026-09-20'),
+        createReviewItem('sample-init', '2026-09-20'),
+      ],
+    };
+    await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
+
+    expect(reviewItemsToday(NOW)).toBe(1);
+    startReview(NOW);
+    expect(series().drills.map((drill) => drill.id)).toEqual(['sample-init']);
+  });
+
+  it('reports nothing due when the only item is for a removed drill', async () => {
+    const save = {
+      ...createDefaultSave(NOW),
+      reviewQueue: [createReviewItem('removed-drill', '2026-09-20')],
+    };
+    await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
+
+    expect(reviewItemsToday(NOW)).toBe(0);
   });
 });
 

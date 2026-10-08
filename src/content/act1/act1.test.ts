@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { testDeps } from '../../engine/git/testDeps';
+import { dryRun, startLog, withEntry, type SandboxLog } from '../../game/agent/replay';
+import { outcomeHolds } from '../../game/missions/agentRunner';
 import { isJudgmentDrill } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
 import { act1, act1Missions } from './index';
@@ -39,5 +42,45 @@ describe('Mission 1.1, Where Things Live, as a directed mission', () => {
   it('gives the Question Round strong, okay and weak questions', () => {
     const qualities = new Set(mission.questionRound.candidates.map((entry) => entry.quality));
     expect([...qualities].sort()).toEqual(['okay', 'strong', 'weak']);
+  });
+});
+
+describe("Mission 1.1's bare-name prediction", () => {
+  const step = mission.steps.find((found) => found.id === 'notes-in-the-api');
+  const plan = step?.agent?.plans.find((found) => found.id === 'bare-name');
+  const [first] = plan?.script ?? [];
+  const predicted = first?.do === 'run' && 'predict' in first ? first : undefined;
+  if (step?.agent === undefined || predicted?.predict === undefined) {
+    throw new Error('notes-in-the-api has a bare-name card with a predicted line');
+  }
+  const setup = mission.initialRepoState;
+  const before = step.agent.before;
+  const judge = { guards: step.agent.guards };
+  const { line } = predicted;
+  const { options } = predicted.predict;
+  const API_PATH = 'C:\\Users\\kyle\\quillwork\\api';
+
+  /** The step's start, then the lines an earlier card ran before Kyle pressed Stop. */
+  const arrive = (lines: readonly string[]): SandboxLog =>
+    lines.reduce<SandboxLog>(
+      (log, ran) => withEntry(log, { kind: 'action', action: { do: 'run', line: ran } }),
+      withEntry(startLog(setup), { kind: 'steps', steps: before }),
+    );
+
+  const trueOptions = (log: SandboxLog): string[] => {
+    const dry = dryRun(log, { do: 'run', line }, judge, testDeps());
+    return options
+      .filter((option) => outcomeHolds(option.outcome, dry.step, dry.queries))
+      .map((option) => option.id);
+  };
+
+  // A fix round offers bare-name after a Stop, so it can run after part of another card.
+  it.each([
+    ['a fresh terminal at home', [], 'home'],
+    ['full-path stopped after its mkdir', [`mkdir ${API_PATH}\\notes`], 'home'],
+    ['go-then-make stopped after its cd', [`cd ${API_PATH}`], 'api'],
+    ['go-then-make stopped after its mkdir', [`cd ${API_PATH}`, 'mkdir notes'], 'fails'],
+  ])('has exactly one true option after %s', (_, lines, want) => {
+    expect(trueOptions(arrive(lines))).toEqual([want]);
   });
 });

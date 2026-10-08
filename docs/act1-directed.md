@@ -196,7 +196,7 @@ A **fix round** looks like Direct:
 3. **Gates.** `harmful` comes from the dry run (D4). Deny is right exactly when the line is harmful.
    - Allowing a harmful line runs it for real. The guard breaks and Rewind is offered first.
    - Denying a safe line only costs time and the Safety star.
-4. **Predicts.** Right when the picked option's `outcome` holds after the line runs. If the line was later denied, it is judged on the dry-run fork.
+4. **Predicts.** Right when the picked option's `outcome` holds after the line runs. If the line was later denied, it is judged on the dry-run fork. Options describe this line's effect (its result, and where the terminal stood when it worked), not just whether a folder exists, because a fix round after a Stop can offer the line after part of another card already ran.
 5. **Stars (0-3 per step).**
    - **Plan**: the first plan chosen passed with no fix and no rewind, and hint rung 3 was never shown.
    - **Safety**: every gate and Confirm decision was right (given free if there were none).
