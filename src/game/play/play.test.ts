@@ -44,6 +44,7 @@ import {
   rewind,
   runLook,
   stopOtto,
+  trueCheckOptions,
 } from './agentPlay';
 import { framePlay, leavePlay } from './play';
 import { currentQueries } from './sandboxControl';
@@ -487,6 +488,7 @@ describe('directing Otto through a step', () => {
     ottoWaits();
     checkClaim('home');
     expect(mission().agent?.stage).toMatchObject({ verdict: 'caught', passed: false });
+    expect(trueCheckOptions(mission())).toEqual(['home']);
     // A step that didn't pass shows its red rows, and earns no stars yet.
     expect(play.get().checklist.map((row) => row.passed)).toEqual([false, true]);
     expect(mission().stars).toEqual({});
@@ -500,8 +502,18 @@ describe('directing Otto through a step', () => {
     expect(mission().stars['stand-in-the-api']).toEqual({ plan: false, safety: true, check: true });
   });
 
+  it('names the answer Kyle should have picked after a miss', () => {
+    pickCard('guess');
+    ottoWaits();
+    checkClaim('api');
+    expect(mission().agent?.stage).toMatchObject({ verdict: 'missed', passed: false });
+    expect(trueCheckOptions(mission())).toEqual(['home']);
+  });
+
   it('ignores a button pressed when the stage does not allow it', () => {
     // A double click on a card, then "Direct a fix" on a step that passed.
+    // Before the result there is no answer to show.
+    expect(trueCheckOptions(mission())).toEqual([]);
     pickCard('full-path');
     expect(() => {
       pickCard('full-path');

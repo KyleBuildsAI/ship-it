@@ -38,7 +38,7 @@ import {
   type QueuedAction,
 } from '../missions/agentRunner';
 import type { AgentTask, ApprovalMode } from '../missions/agentSchema';
-import { explain, type CheckRow } from '../missions/predicates';
+import { evaluate, explain, type CheckRow } from '../missions/predicates';
 import { MissionRunError } from '../missions/runner';
 import type { Mission, MissionStep } from '../missions/schema';
 import { saveProgressNow } from '../progress';
@@ -504,6 +504,19 @@ export function checkClaim(optionId: string): void {
   const passed = agent.stage.at === 'result' && agent.stage.passed;
   const earned = passed ? { ...now.current.stars, [now.step.id]: stars(agent) } : now.current.stars;
   setMission({ ...now.current, agent, stars: earned });
+}
+
+/**
+ * The check options that are true on the laptop now, for the result after a Missed
+ * check, which shows Kyle the answer he should have picked. Empty until the result.
+ */
+export function trueCheckOptions(current: MissionActivity): readonly string[] {
+  const step = current.mission.steps[current.run.stepIndex];
+  if (current.agent?.stage.at !== 'result' || step?.agent === undefined) return [];
+  const queries = currentQueries();
+  return step.agent.check.options
+    .filter((option) => evaluate(option.truth, queries))
+    .map((option) => option.id);
 }
 
 /** "Direct a fix": after a result that didn't pass, back to the cards for a fix round. */
