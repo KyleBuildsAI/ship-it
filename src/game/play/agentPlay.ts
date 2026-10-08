@@ -8,9 +8,10 @@ import {
   type FeedState,
 } from '../agent/feed';
 import type { MachineChange } from '../../engine/machine/snapshot';
+import { display } from '../../engine/machine/winPath';
 import { advance, NORMAL_PACE, START, type Pace, type Playhead } from '../agent/pace';
 import type { SandboxLog } from '../agent/replay';
-import { EMPTY_RUN_LOG, logReveals, type RunLog, type RunRow } from '../agent/runLog';
+import { EMPTY_RUN_LOG, logDenied, logReveals, type RunLog, type RunRow } from '../agent/runLog';
 import { showInTerminal } from '../agent/terminalFeed';
 import {
   answerCheck,
@@ -96,15 +97,17 @@ let playback: Playback | null = null;
 /**
  * The last thing that gave Otto something to say. The panel turns it into his words
  * (ui/play/agent/ottoLines.ts), so the lines every step shares live in one place.
- * - said: a line from the content, like an action's `say` or a deny's `denyLine`
+ * - said: the `say` of the action Otto is on. It is cleared when he moves on to an action
+ *   with no `say`, so his words are never about a line he has already left behind.
  * - stopped: Kyle pressed Stop
- * - denied: Kyle denied a line, and the content gave Otto nothing to say about it
+ * - denied: Kyle denied a line. `line` is the content's `denyLine` for it, if it has one:
+ *   Otto's answer to the deny, which stays up while he works on plan B.
  * - fixing: Kyle chose "Direct a fix" after a check that didn't pass
  */
 export type OttoEvent =
   | { readonly kind: 'said'; readonly text: string }
   | { readonly kind: 'stopped' }
-  | { readonly kind: 'denied'; readonly harmful: boolean }
+  | { readonly kind: 'denied'; readonly harmful: boolean; readonly line: string | null }
   | { readonly kind: 'fixing' };
 
 /**
@@ -119,7 +122,7 @@ export interface OttoRun {
 
 export const ottoRun = createStore<OttoRun>({ rows: [], last: null });
 
-function ottoDid(last: OttoEvent): void {
+function ottoDid(last: OttoEvent | null): void {
   ottoRun.update({ last });
 }
 
@@ -311,9 +314,10 @@ function takeTurn({ agent, playback: shown }: Live): boolean {
     return false;
   }
   saveAgent(next.state);
-  if ('say' in next.action && next.action.say !== undefined) {
-    ottoDid({ kind: 'said', text: next.action.say });
-  }
+  const say = 'say' in next.action ? next.action.say : undefined;
+  if (say !== undefined) ottoDid({ kind: 'said', text: say });
+  // The last action's words were about that action: this one has none of its own.
+  else if (ottoRun.get().last?.kind === 'said') ottoDid(null);
   if (next.state.stage.at === 'predict') {
     // The line waits at the prompt, typed but not run, while Kyle predicts.
     typeOut(next.action);
@@ -384,14 +388,33 @@ function gateLine(action: QueuedAction): string {
   }
 }
 
+/**
+ * The run log's words for an action Otto doesn't type: his file tool, or a terminal tab.
+ * Null for a line or an answer, whose row shows what he typed.
+ */
+function untypedLabel(action: QueuedAction): string | null {
+  switch (action.do) {
+    case 'run':
+    case 'answer':
+      return null;
+    case 'write':
+      return `Wrote ${display(action.path)}`;
+    case 'newTerminal':
+      return 'Opened a new terminal';
+    case 'useTerminal':
+      return `Switched to terminal ${String(action.tab)}`;
+  }
+}
+
 /** Runs an action in the live sandbox, logs it, and feeds its output to the terminal. */
 function driveAction(action: QueuedAction): void {
   if (playback === null) return;
   const step = recordAction(toDriverAction(action));
+  const label = untypedLabel(action) ?? undefined;
   const fed =
     playback.feed.typed === null
-      ? feedAction(playback.feed, step)
-      : feedOutcome(playback.feed, step);
+      ? feedAction(playback.feed, step, 'otto', label)
+      : feedOutcome(playback.feed, step, label);
   appendBeats(fed.beats, fed.state);
   const agent = missionActivity()?.agent;
   if (step.asking && agent !== null && agent !== undefined) saveAgent(confirmAsked(agent, action));
@@ -436,12 +459,15 @@ export function decide(allow: boolean): void {
     else {
       const fed = feedCancel(now.playback.feed);
       appendBeats(fed.beats, fed.state);
+      // A write or a tab change typed nothing, so no line ends in the terminal to log it.
+      const label = held === null ? null : untypedLabel(held);
+      if (label !== null) {
+        now.playback.runLog = logDenied(now.playback.runLog, label);
+        ottoRun.update({ rows: now.playback.runLog.rows });
+      }
       const denyLine = held !== null && 'denyLine' in held ? held.denyLine : undefined;
-      ottoDid(
-        denyLine === undefined
-          ? { kind: 'denied', harmful: now.agent.stage.gate.harmful }
-          : { kind: 'said', text: denyLine },
-      );
+      const { harmful } = now.agent.stage.gate;
+      ottoDid({ kind: 'denied', harmful, line: denyLine ?? null });
     }
   }
   saveAgent(next);

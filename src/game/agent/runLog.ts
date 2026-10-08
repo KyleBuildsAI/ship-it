@@ -14,8 +14,13 @@ import type { Reveal } from './pace';
 export type RowStatus = 'ok' | 'failed' | 'asked' | 'denied';
 
 export interface RunRow {
-  /** The line Otto typed, or his answer's letter. Null for a file write, which types nothing. */
-  readonly text: string | null;
+  /**
+   * The line Otto typed, or his answer's letter. An action that types nothing (a file
+   * write, a new or switched terminal) has words saying what it did instead.
+   */
+  readonly text: string;
+  /** Otto typed `text` at a prompt, so the panel shows it as code. */
+  readonly typed: boolean;
   /** The row answers PowerShell's Confirm question. */
   readonly answer: boolean;
   readonly status: RowStatus;
@@ -61,8 +66,8 @@ function logReveal(log: RunLog, reveal: Reveal): RunLog {
     case 'cancel':
       return endLine(log, 'denied');
     case 'result':
-      if (beat.asking) return endLine(log, 'asked');
-      return endLine(log, beat.exitCode === 0 ? 'ok' : 'failed');
+      if (beat.asking) return endLine(log, 'asked', beat.label);
+      return endLine(log, beat.exitCode === 0 ? 'ok' : 'failed', beat.label);
     case 'divider':
     case 'type':
     case 'output':
@@ -71,9 +76,25 @@ function logReveal(log: RunLog, reveal: Reveal): RunLog {
   }
 }
 
-function endLine(log: RunLog, status: RowStatus): RunLog {
+/** A row's words when an untyped action came with no label: never empty, never a guess. */
+export const UNLABELLED = 'Did a step without typing';
+
+/** `label` names an action that typed nothing; a typed line always shows itself. */
+function endLine(log: RunLog, status: RowStatus, label?: string): RunLog {
   const done = { typing: null, answering: false, kyle: false };
   if (log.kyle) return { ...log, ...done };
-  const row: RunRow = { text: log.typing, answer: log.answering, status };
+  const row: RunRow =
+    log.typing === null
+      ? { text: label ?? UNLABELLED, typed: false, answer: false, status }
+      : { text: log.typing, typed: true, answer: log.answering, status };
   return { ...log, rows: [...log.rows, row], ...done };
+}
+
+/**
+ * Kyle denied an action that types nothing, like a file write: no typed line ends in the
+ * terminal, so its row is added here, the moment he decides.
+ */
+export function logDenied(log: RunLog, label: string): RunLog {
+  const row: RunRow = { text: label, typed: false, answer: false, status: 'denied' };
+  return { ...log, rows: [...log.rows, row] };
 }

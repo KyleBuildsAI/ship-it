@@ -37,12 +37,12 @@ function firstEffect(changes: Parameters<typeof describeChanges>[0]): string | n
 /** What Otto says after a deny, a stop or a missed check sent him back for directions. */
 function fixRoundLine(last: OttoEvent | null): string {
   switch (last?.kind) {
-    case 'said':
-      return last.text;
     case 'denied':
-      return last.harmful ? GOOD_STOP : FIX_ROUND_LINES[0];
+      return last.line ?? (last.harmful ? GOOD_STOP : FIX_ROUND_LINES[0]);
     case 'fixing':
       return FIX_ROUND_LINES[1];
+    // An action's `say` is about running it, not about why Otto stopped.
+    case 'said':
     case 'stopped':
     case undefined:
       return FIX_ROUND_LINES[0];
@@ -69,14 +69,15 @@ export function ottoLine(
     case 'echo':
       return `Plan: ${planById(task, stage.planId)?.text ?? ''} Go?`;
     case 'running':
-      if (last?.kind === 'denied') return DIFFERENT_WAY;
+      if (last?.kind === 'denied') return last.line ?? DIFFERENT_WAY;
       return said ?? ON_IT;
     case 'predict':
       return PREDICT_ASK;
     case 'gate': {
       const effect = firstEffect(stage.gate.changes);
       if (stage.again && effect !== null) return `I need this to finish: ${effect}. Run it?`;
-      return said ?? NEEDS_OK;
+      // The gate's own action's words, never an earlier line's: Kyle is approving this one.
+      return ('say' in stage.action ? stage.action.say : undefined) ?? NEEDS_OK;
     }
     case 'check':
     case 'result':

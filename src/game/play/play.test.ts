@@ -12,7 +12,7 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
-import { ActSchema, ContentError, type Mission } from '../missions/schema';
+import { ActSchema, ContentError, MissionSchema, type Mission } from '../missions/schema';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
 import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
@@ -428,8 +428,8 @@ describe('directing Otto through a step', () => {
     expect(stage()).toBe('check');
     expect(holds(inTheApi)).toBe(true);
     expect(ottoRun.get().rows).toEqual([
-      { text: 'cd C:\\Users\\kyle\\quillwork\\api', answer: false, status: 'ok' },
-      { text: 'Get-Location', answer: false, status: 'ok' },
+      { text: 'cd C:\\Users\\kyle\\quillwork\\api', typed: true, answer: false, status: 'ok' },
+      { text: 'Get-Location', typed: true, answer: false, status: 'ok' },
     ]);
     // The checklist would answer the check, so it waits for the result.
     expect(play.get().checklist).toEqual([]);
@@ -631,14 +631,20 @@ describe('gates and predictions in play', () => {
     });
     decide(false);
     expect(ottoRun.get().last).toEqual({
-      kind: 'said',
-      text: 'Good stop. That was the whole project.',
+      kind: 'denied',
+      harmful: true,
+      line: 'Good stop. That was the whole project.',
     });
     ottoWaits();
     // Otto's line asked, and he answered No to All for Kyle before plan B.
     expect(ottoRun.get().rows.slice(-2)).toEqual([
-      { text: 'Remove-Item C:\\Users\\kyle\\quillwork\\api', answer: false, status: 'asked' },
-      { text: 'L', answer: true, status: 'ok' },
+      {
+        text: 'Remove-Item C:\\Users\\kyle\\quillwork\\api',
+        typed: true,
+        answer: false,
+        status: 'asked',
+      },
+      { text: 'L', typed: true, answer: true, status: 'ok' },
     ]);
     // Plan B deletes the stray notes at home: a delete, so it pauses too, but it's safe.
     expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
@@ -692,15 +698,71 @@ describe('gates and predictions in play', () => {
     });
     expect(shown).toBe('\n');
     expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
-    expect(ottoRun.get().last).toEqual({ kind: 'denied', harmful: false });
+    expect(ottoRun.get().last).toEqual({ kind: 'denied', harmful: false, line: null });
     expect(ottoRun.get().rows.at(-1)).toEqual({
       text: 'Remove-Item C:\\Users\\kyle\\notes',
+      typed: true,
       answer: false,
       status: 'denied',
     });
     expect(holds(homeNotes)).toBe(true);
   });
+
+  it("logs actions that type nothing by what they did, and a denied write's row", () => {
+    const tabs = [{ do: 'newTerminal' }, { do: 'useTerminal', tab: 1 }] as const;
+    directedCatalog(withStrongScript('sample-notes-tools', [...tabs, PACKAGE_WRITE]));
+    startMission('sample-notes-tools');
+    endBriefing();
+    pickCard('full-path');
+    ottoWaits();
+    // Replacing package.json is a change, so the write pauses with its own words.
+    expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
+    expect(ottoRun.get().last).toEqual({ kind: 'said', text: PACKAGE_WRITE.say });
+    decide(false);
+    decide(false);
+    expect(stage()).toBe('direct');
+    expect(ottoRun.get().rows).toEqual([
+      { text: 'Opened a new terminal', typed: false, answer: false, status: 'ok' },
+      { text: 'Switched to terminal 1', typed: false, answer: false, status: 'ok' },
+      {
+        text: 'Wrote C:\\Users\\kyle\\quillwork\\api\\package.json',
+        typed: false,
+        answer: false,
+        status: 'denied',
+      },
+    ]);
+  });
+
+  it("drops an action's words once Otto moves on to one that has none", () => {
+    const said = { do: 'run', line: 'Get-Location', say: 'Checking where I am.' } as const;
+    directedCatalog(withStrongScript('sample-notes-say', [said, { do: 'run', line: NOTES_LINE }]));
+    startMission('sample-notes-say');
+    endBriefing();
+    pickCard('full-path');
+    ottoWaits();
+    expect(stage()).toBe('check');
+    expect(ottoRun.get().last).toBeNull();
+  });
 });
+
+const NOTES_LINE = 'mkdir C:\\Users\\kyle\\quillwork\\api\\notes';
+const PACKAGE_WRITE = {
+  do: 'write',
+  path: `${API}/package.json`,
+  content: '{ "name": "otto" }\n',
+  say: 'Tidying package.json.',
+} as const;
+
+/** The notes sample, with the strong card's script swapped for `script`. */
+function withStrongScript(id: string, script: readonly object[]): Mission {
+  const [first] = notesMission.steps;
+  if (first?.agent === undefined) throw new Error('the notes sample has a directed step');
+  const plans = first.agent.plans.map((plan) =>
+    plan.id === 'full-path' ? { ...plan, script } : plan,
+  );
+  const steps = [{ ...first, agent: { ...first.agent, plans } }];
+  return MissionSchema.parse({ ...notesMission, id, steps });
+}
 
 describe('judgment drills with a scene', () => {
   beforeEach(() => {

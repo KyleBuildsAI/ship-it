@@ -40,8 +40,8 @@ function next(state: AgentStepState): AgentStepState {
   return taken.state;
 }
 
-/** The tidy fix's first line, a safe delete, waiting at its gate. */
-function atTidyGate(): AgentStepState {
+/** The tidy fix's first line, a safe delete, waiting at its gate, with Otto's `say` if given. */
+function atTidyGate(say?: string): AgentStepState {
   const running = choosePlan(
     { ...beginAgentStep(step), stage: { at: 'direct', round: 'fix' } },
     step,
@@ -55,7 +55,8 @@ function atTidyGate(): AgentStepState {
     changes: [{ kind: 'deleted', item: 'folder', path: 'Users/kyle/notes', inside: 0 }],
     harmful: false,
   } as const;
-  return openGate(taken.state, taken.action, gate);
+  const action = say === undefined ? taken.action : { ...taken.action, say };
+  return openGate(taken.state, action, gate);
 }
 
 describe("Otto's lines", () => {
@@ -78,12 +79,23 @@ describe("Otto's lines", () => {
     const running = choosePlan(start, step, 'full-path');
     expect(ottoLine(running, task, null, false)).toBe(ON_IT);
     expect(ottoLine(running, task, { kind: 'said', text: 'Making it.' }, false)).toBe('Making it.');
-    expect(ottoLine(running, task, { kind: 'denied', harmful: true }, false)).toBe(DIFFERENT_WAY);
+    const denied = { kind: 'denied', harmful: true, line: null } as const;
+    expect(ottoLine(running, task, denied, false)).toBe(DIFFERENT_WAY);
+    // A deny's own line stays up while Otto works on plan B.
+    const answered = { ...denied, line: 'Good stop. That was the whole project.' };
+    expect(ottoLine(running, task, answered, false)).toBe(answered.line);
   });
 
   it('asks at a gate, and names the effect when Kyle denies a safe line', () => {
     const gate = atTidyGate();
     expect(ottoLine(gate, task, null, false)).toBe(NEEDS_OK);
+    // Words from an earlier line or a deny are about another action, never this one.
+    const earlier = { kind: 'said', text: 'Good stop. That was the whole project.' } as const;
+    expect(ottoLine(gate, task, earlier, false)).toBe(NEEDS_OK);
+    const denied = { kind: 'denied', harmful: true, line: earlier.text } as const;
+    expect(ottoLine(gate, task, denied, false)).toBe(NEEDS_OK);
+    const own = 'Clearing the stray notes.';
+    expect(ottoLine(atTidyGate(own), task, earlier, false)).toBe(own);
     expect(ottoLine(decideGate(gate, false), task, null, false)).toBe(
       'I need this to finish: deletes the empty folder C:\\Users\\kyle\\notes. Run it?',
     );
@@ -94,11 +106,14 @@ describe("Otto's lines", () => {
     expect(ottoLine(stopped, task, { kind: 'stopped' }, true)).toBe(FIX_ROUND_LINES[0]);
     expect(ottoLine(stopped, task, null, false)).toBe(FIX_ROUND_LINES[0]);
     expect(ottoLine(stopped, task, { kind: 'fixing' }, false)).toBe(FIX_ROUND_LINES[1]);
-    expect(ottoLine(stopped, task, { kind: 'denied', harmful: true }, false)).toBe(GOOD_STOP);
-    expect(ottoLine(stopped, task, { kind: 'denied', harmful: false }, false)).toBe(
+    const denied = { kind: 'denied', harmful: true, line: null } as const;
+    expect(ottoLine(stopped, task, denied, false)).toBe(GOOD_STOP);
+    expect(ottoLine(stopped, task, { ...denied, harmful: false }, false)).toBe(FIX_ROUND_LINES[0]);
+    expect(ottoLine(stopped, task, { ...denied, line: 'Good stop.' }, false)).toBe('Good stop.');
+    // A line's `say` was about running it, not about why he stopped.
+    expect(ottoLine(stopped, task, { kind: 'said', text: 'Making it.' }, false)).toBe(
       FIX_ROUND_LINES[0],
     );
-    expect(ottoLine(stopped, task, { kind: 'said', text: 'Good stop.' }, false)).toBe('Good stop.');
   });
 
   it('claims he is done when Kyle checks', () => {
