@@ -2089,3 +2089,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/148
 3. Kyle already decided. Gating his own "No" would ask him the same thing twice, and denying it would have no safer letter to fall back on.
 
 </details>
+
+---
+
+## #150 feat: every act is playable through its portal
+
+https://github.com/KyleBuildsAI/ship-it/pull/150
+
+1. Why are Acts 3 to 8 lessons rather than simulated missions like Act 2?
+2. Where would you add a new card to Act 5?
+3. What does a "prompt" card practice?
+
+<details><summary>Answers</summary>
+
+1. The game doesn't simulate GitHub, CI or HTTP, so those Acts teach through real-looking situations you judge, not commands you run.
+2. In a lesson file under `src/content/act5`, as another object in that lesson's `cards` list. The schema checks it when the game loads.
+3. Directing an AI agent: picking the instruction that says what done looks like and how to prove it.
+
+</details>
