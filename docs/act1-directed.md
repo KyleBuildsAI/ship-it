@@ -433,6 +433,12 @@ Start plans:
 
 Rubric: *pins an exact absolute path for the source or destination, or the machine.*
 
+**As built (A14).** `src/content/act1/whereThingsLive.ts` follows the tables above, with these changes, each forced by a test in `agent.test.ts` that plays every card through `agentRunner`, two fix rounds deep:
+- Step 3's check gains a third option, "In both places" (`api\web` and `web\notes`). Running `one-up` after `by-name` leaves both, and every end state must have exactly one true option.
+- Step 4's fixes never switch to tab 2: a fix round offers every fix, and `useTerminal 2` throws when only tab 1 is open (after `move-here`). `go-in-new` (okay) runs `cd …\web` in whichever tab is active, which is the new one after `open-one`. `back-and-open` starts with `useTerminal 1`, so it works from any state.
+- Step 4's check options are worded so exactly one holds everywhere: "PS 1 in the API, and a terminal in web" (`all[cd API tab:1, cd WEB tab:'any']`), "PS 1 in the API, PS 2 still at home" (adds `not cd WEB tab:'any'`), and "PS 1 moved to web".
+- The e2e test lives in `tests/e2e/acts.spec.ts` beside the Act menu test, until A27 adds `act1.spec.ts`.
+
 ---
 
 ### Mission 1.2: Deletes Are Forever (`deletes-are-forever`), approvals `destructive`

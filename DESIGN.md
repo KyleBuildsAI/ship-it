@@ -219,7 +219,7 @@ Every Act is playable today, each entered through its Campus portal (section 4).
 
 ### Act 1: The Machine (directed, in progress)
 The principles every engineer who directs AI agents needs about the machine they run on, learned by getting the Quillwork API running on Kyle's laptop with Otto. Kyle directs; Otto's real PowerShell runs through the laptop engine and animates the machine island. It becomes the starting Act as soon as Mission 1.1 is playable, and ships in early access, one mission at a time.
-- 1.1 **Where Things Live**: every command runs in a folder; bare names versus full paths; a fresh terminal starts at home
+- 1.1 **Where Things Live** (playable, directed): every command runs in a folder; bare names versus full paths; a fresh terminal starts at home. Four directed steps, eight judgment drills, and a Question Round.
 - 1.2 **Deletes Are Forever**: terminal deletes skip the Recycle Bin; read the scope before approving; make undo possible first
 - 1.3 **Secrets Stay Home**: `.env` versus `.env.example`, `.gitignore`, and why you handle secrets yourself
 - 1.4 **Every Terminal Is Its Own World**: a terminal copies variables and PATH when it opens; "not recognized" means not on *this* terminal's PATH
