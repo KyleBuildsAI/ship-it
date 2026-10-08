@@ -1,22 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { evaluate, type Predicate } from '../../game/missions/predicates';
-import { sandboxQueries } from '../../game/missions/sandbox';
+import { isJudgmentDrill } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import type { Shell } from '../../engine/shell/shell';
-import { enter, sandboxShell } from '../act2/play.test-helpers';
 import { act1, act1Missions } from './index';
 
 const mission = act1Missions[0];
 if (mission === undefined) throw new Error('Act 1 has no mission');
-
-const passes = (shell: Shell, predicate: Predicate) =>
-  evaluate(predicate, sandboxQueries(shell.ws));
-
-function step(id: string): Predicate {
-  const found = mission?.steps.find((entry) => entry.id === id);
-  if (found === undefined) throw new Error(`no step ${id}`);
-  return found.success;
-}
 
 describe('Act 1', () => {
   it('parses, ships Mission 1.1 in early access, and passes validateAct', () => {
@@ -27,80 +15,29 @@ describe('Act 1', () => {
   });
 });
 
-describe('Mission 1.1, Where Things Live, played by typing', () => {
-  it('starts with no step already done', () => {
-    const shell = sandboxShell(mission.initialRepoState);
-    for (const { id, success } of mission.steps) {
-      expect(passes(shell, success), `${id} is already true`).toBe(false);
+describe('Mission 1.1, Where Things Live, as a directed mission', () => {
+  it('has 3-5 steps, every one directed, and pauses Otto before deletes', () => {
+    expect(mission.approvals).toBe('destructive');
+    expect(mission.steps.length).toBeGreaterThanOrEqual(3);
+    expect(mission.steps.length).toBeLessThanOrEqual(5);
+    for (const step of mission.steps) expect(step.agent, step.id).toBeDefined();
+  });
+
+  it('has 5-8 judgment drills of at least 3 kinds, each 30-60 seconds', () => {
+    const drills = mission.drills.filter(isJudgmentDrill);
+    expect(drills).toHaveLength(mission.drills.length);
+    expect(drills.length).toBeGreaterThanOrEqual(5);
+    expect(drills.length).toBeLessThanOrEqual(8);
+    expect(new Set(drills.map((drill) => drill.kind)).size).toBeGreaterThanOrEqual(3);
+    for (const drill of drills) {
+      expect(drill.id.startsWith('wtl-'), drill.id).toBe(true);
+      expect(drill.timeLimitSeconds).toBeGreaterThanOrEqual(30);
+      expect(drill.timeLimitSeconds).toBeLessThanOrEqual(60);
     }
   });
 
-  it('is finished by the commands its hints give, in order', () => {
-    const shell = sandboxShell(mission.initialRepoState);
-    enter(shell, 'cd C:\\Users\\kyle\\quillwork\\api');
-    expect(passes(shell, step('stand-in-the-api'))).toBe(true);
-    enter(shell, 'mkdir notes');
-    expect(passes(shell, step('notes-in-the-api'))).toBe(true);
-    enter(shell, 'mkdir ..\\web\\notes');
-    expect(passes(shell, step('web-notes'))).toBe(true);
-    enter(shell, 'Remove-Item C:\\Users\\kyle\\logs');
-    expect(passes(shell, step('tidy-home'))).toBe(true);
+  it('gives the Question Round strong, okay and weak questions', () => {
+    const qualities = new Set(mission.questionRound.candidates.map((entry) => entry.quality));
+    expect([...qualities].sort()).toEqual(['okay', 'strong', 'weak']);
   });
-
-  it('does not pass a bare cd from home, which fails', () => {
-    const shell = sandboxShell(mission.initialRepoState);
-    shell.run('cd api');
-    expect(passes(shell, step('stand-in-the-api'))).toBe(false);
-  });
-
-  it('does not pass notes made from home, where a bare name lands', () => {
-    const shell = sandboxShell(mission.initialRepoState);
-    enter(shell, 'mkdir notes');
-    enter(shell, 'mkdir C:\\Users\\kyle\\quillwork\\api\\notes');
-    // The API has notes, but so does home: the stray folder fails the step.
-    expect(passes(shell, step('notes-in-the-api'))).toBe(false);
-  });
-
-  it('does not pass web\\notes made inside the API', () => {
-    const shell = sandboxShell(mission.initialRepoState);
-    enter(shell, 'cd C:\\Users\\kyle\\quillwork\\api');
-    enter(shell, 'mkdir web\\notes');
-    expect(passes(shell, step('web-notes'))).toBe(false);
-  });
-
-  it('can be solved with full paths from anywhere', () => {
-    const shell = sandboxShell(mission.initialRepoState);
-    enter(shell, 'cd C:\\Users\\kyle\\quillwork\\api');
-    enter(shell, 'mkdir C:\\Users\\kyle\\quillwork\\api\\notes');
-    enter(shell, 'mkdir C:\\Users\\kyle\\quillwork\\web\\notes');
-    enter(shell, 'Remove-Item C:\\Users\\kyle\\logs');
-    for (const { id, success } of mission.steps) {
-      expect(passes(shell, success), id).toBe(true);
-    }
-  });
-});
-
-describe("Mission 1.1's drills", () => {
-  const solutions: Readonly<Record<string, readonly string[]>> = {
-    'wtl-go-web': ['cd C:\\Users\\kyle\\quillwork\\web'],
-    'wtl-logs-in-api': ['mkdir C:\\Users\\kyle\\quillwork\\api\\logs'],
-    'wtl-up-two': ['cd ..\\..'],
-    'wtl-todo-in-web': ['New-Item C:\\Users\\kyle\\quillwork\\web\\todo.md'],
-    'wtl-remove-stray': ['Remove-Item C:\\Users\\kyle\\notes'],
-  };
-
-  it('has a solution for every drill', () => {
-    expect(mission.drills.map((drill) => drill.id).sort()).toEqual(Object.keys(solutions).sort());
-  });
-
-  for (const [id, commands] of Object.entries(solutions)) {
-    it(`${id}: starts unsolved, and its solution solves it`, () => {
-      const drill = mission.drills.find((entry) => entry.id === id);
-      if (drill === undefined || !('success' in drill)) throw new Error(`no typed drill ${id}`);
-      const shell = sandboxShell(drill.setup);
-      expect(passes(shell, drill.success)).toBe(false);
-      for (const command of commands) enter(shell, command);
-      expect(passes(shell, drill.success)).toBe(true);
-    });
-  }
 });
