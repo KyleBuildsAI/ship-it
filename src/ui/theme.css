@@ -813,7 +813,9 @@ body {
   margin: 10px 0;
 }
 
-.looks__chips {
+.looks__chips,
+.anatomy,
+.stars {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -859,6 +861,34 @@ body {
 
 .result-card__slip {
   color: var(--otto);
+}
+
+/* The parts of a good request: the ones the card had are lit, the gaps stay dim. */
+.anatomy__chip {
+  padding: 2px 8px;
+  border: 1px dashed var(--glass-stroke);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.anatomy__chip--lit {
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+
+.stars__star {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.stars__star--earned {
+  color: var(--amber);
+}
+
+.directing-summary__steps {
+  margin: 6px 0;
+  padding-left: 18px;
 }
 
 .act-menu {

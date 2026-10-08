@@ -71,6 +71,7 @@ export function AgentStepView({
           task={task}
           stage={stage}
           checklist={checklist}
+          earned={stage.passed ? (activity.stars[step.id] ?? null) : null}
           trueIds={stage.verdict === 'missed' ? trueCheckOptions(activity) : []}
         />
       ) : null}

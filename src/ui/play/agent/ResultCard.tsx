@@ -1,9 +1,11 @@
-import type { AgentStage, Verdict } from '../../../game/missions/agentRunner';
+import type { AgentStage, Stars as StarSet, Verdict } from '../../../game/missions/agentRunner';
 import type { AgentTask, Slip } from '../../../game/missions/agentSchema';
 import type { CheckRow } from '../../../game/missions/predicates';
 import { directFix, nextStep, rewind } from '../../../game/play/agentPlay';
 import { Checklist } from '../Checklist';
+import { AnatomyChips } from './AnatomyChips';
 import { planById } from './ottoLines';
+import { Stars } from './Stars';
 
 /** The banner for each verdict (section 1.4's table): what Kyle said, against what's true. */
 const VERDICTS: Readonly<Record<Verdict, { title: string; detail: string; good: boolean }>> = {
@@ -20,18 +22,21 @@ function slipName(slip: Slip): string {
 
 /**
  * The step's result (docs/act1-directed.md section 1.3, stage 4): the verdict, the
- * checklist kept hidden until now, Otto's slip and one line to learn from. Then Kyle moves on, or directs a fix. Rewind is always there for a
+ * checklist kept hidden until now, what the request had, Otto's slip, one line to learn
+ * from, and the stars. Then Kyle moves on, or directs a fix. Rewind is always there for a
  * broken step, and goes first when a guard broke, since that damage is the urgent part.
  */
 export function ResultCard({
   task,
   stage,
   checklist,
+  earned,
   trueIds,
 }: {
   task: AgentTask;
   stage: Extract<AgentStage, { at: 'result' }>;
   checklist: readonly CheckRow[];
+  earned: StarSet | null;
   /** The check options true now: shown after a Missed check, so Kyle sees the answer. */
   trueIds: readonly string[];
 }) {
@@ -56,10 +61,12 @@ export function ResultCard({
         <p key={option.id}>The true answer: {option.text}</p>
       ))}
       <Checklist rows={checklist} result />
+      {plan === undefined ? null : <AnatomyChips covers={plan.covers} />}
       {plan?.slip === undefined ? null : (
         <p className="result-card__slip">Slip: {slipName(plan.slip)}</p>
       )}
       {takeaway === undefined ? null : <p>{takeaway}</p>}
+      {earned === null ? null : <Stars earned={earned} />}
       <ResultActions passed={stage.passed} guardBroken={stage.guardBroken} />
     </div>
   );

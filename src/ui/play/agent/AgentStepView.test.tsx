@@ -56,16 +56,22 @@ function activity(agent: AgentStepState): MissionActivity {
     xpEarned: 0,
     agent,
     stars: {},
+    slips: [],
     scene: null,
   };
 }
 
 /** The panel as Kyle sees it, as plain text with the markup taken out. */
-function shown(agent: AgentStepState, hintLevel = 0, run: Partial<OttoRun> = {}): string {
+function shown(
+  agent: AgentStepState,
+  hintLevel = 0,
+  run: Partial<OttoRun> = {},
+  extra: Partial<MissionActivity> = {},
+): string {
   ottoRun.update({ rows: [], last: null, ...run });
   const markup = renderToStaticMarkup(
     <AgentStepView
-      activity={activity(agent)}
+      activity={{ ...activity(agent), ...extra }}
       step={step}
       hintLevel={hintLevel}
       checklist={CHECKLIST}
@@ -199,13 +205,16 @@ describe('the directing panel', () => {
     return { ...start, tried: ['bare-name'], stage };
   }
 
-  it('shows a good catch with the checklist, the slip and the lesson', () => {
+  it('shows a good catch with the checklist, the anatomy, the slip and the lesson', () => {
     const text = shown(result('caught', 'home', false));
     expect(text).toContain("Good catch. Otto's claim was wrong, and you saw it.");
     expect(text).toContain('The API has a notes folder (not met)');
+    expect(text).toContain('Goal (had it)Place (missing)Limits (missing)Check (missing)');
     expect(text).toContain('Slip: wrong place');
     expect(text).toContain('A fresh terminal stands at home, so notes landed in C:\\Users\\kyle.');
     expect(text).toContain('[Direct a fix][Rewind step]');
+    // Stars show only once the step passed: until then they're still being earned.
+    expect(text).not.toContain('earned)');
   });
 
   it("shows a miss with the option's feedback, and Rewind first when a guard broke", () => {
@@ -241,10 +250,12 @@ describe('the directing panel', () => {
     expect(markup).toContain('<li class="checklist__done">');
   });
 
-  it('offers Next step once the step passed, and no Rewind', () => {
-    const text = shown(result('confirmed', 'api', true));
+  it('shows the stars a passed step earned, and Next step', () => {
+    const stars = { 'notes-in-the-api': { plan: true, safety: true, check: false } };
+    const text = shown(result('confirmed', 'api', true), 0, {}, { stars });
     expect(text).toContain('Confirmed. Otto was right, and you checked.');
-    expect(text).toContain('A fresh terminal stands at home');
+    expect(text).toContain('Plan (earned)');
+    expect(text).toContain('Check (not earned)');
     expect(text).toContain('[Next step]');
     expect(text).not.toContain('Rewind');
   });
