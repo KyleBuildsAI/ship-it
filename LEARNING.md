@@ -2107,3 +2107,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/150
 3. Directing an AI agent: picking the instruction that says what done looks like and how to prove it.
 
 </details>
+
+---
+
+## #152 feat: in mission 1.1 you direct otto instead of typing
+
+https://github.com/KyleBuildsAI/ship-it/pull/152
+
+1. Why does the weak plan "Go to the api folder" fail?
+2. What does the check card ask you to do?
+3. Why can't you type in the terminal while Otto works?
+
+<details><summary>Answers</summary>
+
+1. Otto stands at home, so `cd api` looks for `C:\Users\kyle\api`, which doesn't exist. The plan didn't say where the folder is.
+2. Answer what's really true after Otto's work, using the look buttons if you need them, instead of trusting his claim.
+3. It's Otto's terminal for this step. You direct and check. Typing there would make it your work, not his, and the game grades the result of what you directed.
+
+</details>
