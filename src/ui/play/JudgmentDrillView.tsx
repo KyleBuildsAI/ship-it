@@ -175,7 +175,7 @@ function keyText(drill: JudgmentDrill, keyId: string): string | null {
 
 /**
  * After the answer: Right or Missed, the right answer when Kyle missed it, and the drill's
- * explain. A drill that ran out of time has no answer to grade, so it shows only why.
+ * explain. A drill that ran out of time is a miss, so it names the right answer too.
  */
 export function JudgmentReveal({ drill, result }: { drill: JudgmentDrill; result: DrillResult }) {
   const verdict = result.passed ? 'Right' : result.overtime ? 'Out of time' : 'Missed';

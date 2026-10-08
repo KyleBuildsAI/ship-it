@@ -1,12 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { startDrill, startRun } from '../../game/missions/runner';
+import { startDrill, startRun, submitAnsweredDrill } from '../../game/missions/runner';
 import {
   directedMission,
   notesMission,
   sampleMission,
 } from '../../game/missions/sample.test-mission';
-import type { Mission } from '../../game/missions/schema';
+import { isJudgmentDrill, type Mission } from '../../game/missions/schema';
 import type { MissionActivity, SlipMet } from '../../game/play/playStore';
 import type { Store } from '../../game/store';
 import { MissionView } from './MissionView';
@@ -124,5 +124,45 @@ describe('judgment drills in a mission', () => {
     expect(text).toContain('Missed');
     expect(text).toContain('quilwork is misspelled');
     expect(text).toContain('Start drill 1');
+  });
+});
+
+describe('the last drill of a mission', () => {
+  it('reveals the final judgment drill above the Question Round', () => {
+    // Every drill played through the runner as a miss: the last answer moves the run on.
+    let run: MissionActivity['run'] = { ...startRun(directedMission), phase: 'drills' };
+    directedMission.drills.forEach((_drill, index) => {
+      run = submitAnsweredDrill(
+        startDrill(run, directedMission, index, 0),
+        directedMission,
+        false,
+        6_000,
+      );
+    });
+    const last = run.drillResults.at(-1);
+    const final = directedMission.drills.at(-1);
+    if (last === undefined || final === undefined || !isJudgmentDrill(final)) {
+      throw new Error('the directed sample ends with a judgment drill');
+    }
+    expect(run.phase).toBe('question');
+    const text = drillsScreen({ run, lastDrill: { ...last, keyId: 'deny' } });
+    expect(text).toContain('Question Round');
+    expect(text).toContain('Missed');
+    expect(text).toContain('The right answer: Deny');
+    expect(text).toContain(final.explain.replaceAll(/\s+/g, ' '));
+  });
+
+  it('shows no reveal after a typed mission’s last drill, as before', () => {
+    const drill = sampleMission.drills.at(-1);
+    if (drill === undefined) throw new Error('the sample has no drills');
+    const lastDrill = { drillId: drill.id, passed: false, seconds: 6, overtime: false };
+    const text = drillsScreen({
+      mission: sampleMission,
+      run: { ...startRun(sampleMission), phase: 'question' },
+      lastDrill,
+    });
+    expect(text).toContain('Question Round');
+    expect(text).not.toContain('Missed');
+    expect(text).not.toContain('Not quite');
   });
 });

@@ -1274,7 +1274,12 @@ export function frameScene(drillId, elapsedMs, pace): { index: number; done: boo
 // counted from drillHistory, or Allow and Deny), the clock with a bar, and no "I'm done".
 // Its buttons arm after ARM_MS. ScenePlaying holds the panel while the scene plays, and
 // JudgmentReveal shows Right, Missed or Out of time, the right answer after a miss, and
-// `explain`. MissionView and SeriesView use all three for judgment drills only.
+// `explain`. MissionView and SeriesView use all three for judgment drills only. The last
+// drill's reveal shows above the Question Round (MissionView) or the summary (SeriesView),
+// since answering it moves the run on. A drill the clock ended names its key too
+// (judgment.unansweredKey). The live part of step 4 (the answer replayed on the live
+// sandbox so the world animates, a real allowed approve, a denied one's ghost) is deferred
+// to A26, which wires ghosts and the world; until then the reveal is text only.
 ```
 
 Store changes:
@@ -1616,7 +1621,7 @@ Sizes exclude content data, captures and lockfiles.
 | A23 | `feat: the machine island, its portal, and free play on the laptop` | `worldState.ts`, `world/zones.ts`, `world/world.ts`, `world/machine/machineWorld.ts` (NEW), `world/campus.ts` ("Start here"), `ui/TitleCard.tsx`, `play/freePlay.ts` (NEW), `play/catalog.ts` (`freePlay`) | `zones.test.ts`, `freePlay` unit test; verify loop | 380 |
 | A24 | `feat: terrace layout follows the laptop` | `world/machine/terraceLayout.ts` (NEW, pure), `engine/machine/queries.ts` (`home`, `hidden`) | `terraceLayout.test.ts` (caps, determinism, lantern tiles, focus), `queries.test.ts` | 260 |
 | A25 | `feat: folder terraces, lanterns, and otto's drone` | `world/machine/{terraces,lanterns,ottoDrone}.ts` (NEW), `world.ts` (machine sync, event queue, pulses) | verify loop (two differing screenshots) | 380 |
-| A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed | `ghostLayout.test.ts`; verify loop | 300 |
+| A26 | `feat: ghost tiles and the blast radius` | `world/machine/{ghostLayout,ghosts}.ts` (NEW), gate and predict wiring through the feed, the live judgment reveal (section 2.2 step 4, deferred from A22) | `ghostLayout.test.ts`; verify loop | 300 |
 | A27 | `feat: act 1 is the starting act` | `content/index.ts` (Act 1 first; flag removed), the travel request (D11: `missionPlay.startMission`, `worldState.requestedZone`, `world/world.ts`; moved here from A16, which was already at its size limit: travel moves the camera, so it belongs with the world e2e that A27 rewrites anyway), `main.tsx`, `ui/terminal/TerminalPanel.tsx` (neutral `WELCOME`), `tutorial.ts`, `TutorialCard.tsx`, `tutorial.test.ts`, `tests/e2e/{play,tutorial,world}.spec.ts`, `tests/e2e/act1.spec.ts` (NEW), `README.md`, `DESIGN.md` §4, §5, §11, §15 | `catalog.test.ts`; e2e | 300 |
 
 **Milestone A result:** a new save starts in Act 1. Mission 1.1 plays end to end, offline, with its world, ghosts, drills and Question Round. Act 2 plays as before.

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
 import { testDeps } from '../../engine/git/testDeps';
-import { answerFits, answerKey, gradeJudgment, JudgmentError, shuffleFor } from './judgment';
+import {
+  answerFits,
+  answerKey,
+  gradeJudgment,
+  JudgmentError,
+  shuffleFor,
+  unansweredKey,
+} from './judgment';
 import { sampleJudgmentDrillsInput } from './sample.test-mission';
 import { JudgmentDrillSchema, type JudgmentDrill, type JudgmentDrillInput } from './schema';
 
@@ -87,6 +94,14 @@ describe('gradeJudgment', () => {
     expect(answerFits(sample('sample-predict-typo'), pick('error'))).toBe(true);
     expect(answerFits(sample('sample-predict-typo'), pick('nope'))).toBe(false);
     expect(answerFits(sample('sample-predict-typo'), allow)).toBe(false);
+  });
+});
+
+describe('unansweredKey', () => {
+  it('names the key a miss would show, for a drill the clock ended', () => {
+    expect(unansweredKey(sample('sample-predict-typo'), testDeps())).toBe('error');
+    expect(unansweredKey(sample('sample-fix-cd'), testDeps())).toBe('full-path');
+    expect(unansweredKey(sample('sample-approve-notes'), testDeps())).toBe('deny');
   });
 });
 

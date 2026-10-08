@@ -217,6 +217,19 @@ function Drills({
   );
 }
 
+/**
+ * The last drill's reveal, above the Question Round. Answering the last drill moves the run
+ * straight on, so without this Kyle would never see whether he judged it right. Only a
+ * judgment drill shows one: Act 2's typed missions play exactly as before.
+ */
+function FinalJudgmentReveal({ activity }: { activity: MissionActivity }) {
+  const { lastDrill, mission } = activity;
+  if (lastDrill === null) return null;
+  const drill = mission.drills.find((candidate) => candidate.id === lastDrill.drillId);
+  if (drill === undefined || !isJudgmentDrill(drill)) return null;
+  return <JudgmentReveal drill={drill} result={lastDrill} />;
+}
+
 function QuestionRound({ activity }: { activity: MissionActivity }) {
   const { ticket, candidates, pickLimit } = activity.mission.questionRound;
   const { mentor } = useStore(devStatus);
@@ -233,6 +246,7 @@ function QuestionRound({ activity }: { activity: MissionActivity }) {
   };
   return (
     <div>
+      <FinalJudgmentReveal activity={activity} />
       <p className="play-panel__eyebrow">Question Round · ticket from {ticket.from}</p>
       <p className="ticket__title">{ticket.title}</p>
       <p className="ticket__body">{ticket.body}</p>

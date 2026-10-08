@@ -313,7 +313,12 @@ describe('judgment drills', () => {
     missionSandboxChanged(T0 + 1_000);
     expect(mission().run.activeDrill).not.toBeNull();
     missionTick(T0 + 40_000);
-    expect(mission().lastDrill).toMatchObject({ drillId: first?.id, passed: false });
+    // A timeout still names the right answer, so the reveal teaches what was right.
+    expect(mission().lastDrill).toMatchObject({
+      drillId: first?.id,
+      passed: false,
+      keyId: 'error',
+    });
     expect(progress.get().save?.reviewQueue.map((item) => item.drillId)).toEqual([first?.id]);
 
     // The miss comes back at the Standup Board, where it waits for an answer too.
@@ -325,7 +330,7 @@ describe('judgment drills', () => {
     expect(series().active).not.toBeNull();
     seriesTick(T0 + 90_000);
     expect(series().results).toEqual([
-      { drillId: first?.id, passed: false, seconds: 40, overtime: false },
+      { drillId: first?.id, passed: false, seconds: 40, overtime: false, keyId: 'error' },
     ]);
   });
 });

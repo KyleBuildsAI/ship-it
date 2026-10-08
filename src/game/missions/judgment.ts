@@ -102,6 +102,15 @@ export function gradeJudgment(
 }
 
 /**
+ * The right answer to show when Kyle gave none (the clock ran out): the first key, as
+ * gradeJudgment would show after a miss. A timeout is a miss too, and the reveal should
+ * still teach him what was right.
+ */
+export function unansweredKey(drill: JudgmentDrill, deps: RepositoryDeps): string {
+  return answerKey(drill, deps)[0] ?? '';
+}
+
+/**
  * Whether `answer` is the kind of answer `drill` takes: allow or deny for approve, else one
  * of its own options. Play checks this first, so a stray click is ignored, not thrown.
  */

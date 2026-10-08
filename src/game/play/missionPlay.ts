@@ -6,6 +6,7 @@ import { markHintRung3, starXp } from '../missions/agentRunner';
 import {
   answerFits,
   gradeJudgment,
+  unansweredKey,
   type JudgmentAnswer,
   type JudgmentGrade,
 } from '../missions/judgment';
@@ -186,12 +187,15 @@ function finishDrill(
   endDrill();
   const outcome = run.drillResults.at(-1);
   if (outcome === undefined) return;
+  // An unanswered judgment drill still names its right answer in the reveal.
+  const keyId =
+    graded?.keyId ?? (isJudgmentDrill(drill) ? unansweredKey(drill, scratchDeps()) : undefined);
   const lastDrill: DrillResult = {
     drillId: outcome.drillId,
     passed: outcome.passed,
     seconds: outcome.seconds,
     overtime: outcome.overtime,
-    ...(graded === null ? {} : { keyId: graded.keyId }),
+    ...(keyId === undefined ? {} : { keyId }),
   };
   // A miss joins the review queue here (recordDrill calls addMiss), by the drill's id.
   saveProgressNow((save) => recordDrill(save, drill, outcome, new Date(nowMs)));

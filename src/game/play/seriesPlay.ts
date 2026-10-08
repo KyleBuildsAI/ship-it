@@ -3,6 +3,7 @@ import type { Pace } from '../agent/pace';
 import {
   answerFits,
   gradeJudgment,
+  unansweredKey,
   type JudgmentAnswer,
   type JudgmentGrade,
 } from '../missions/judgment';
@@ -142,8 +143,13 @@ function finish(current: SeriesActivity, nowMs: number, graded: JudgmentGrade | 
       ? recordReview(save, drill, score, now)
       : recordDrill(save, drill, score, now),
   );
-  const keyId = graded === null ? {} : { keyId: graded.keyId };
-  const results = [...current.results, { drillId: drill.id, ...score, ...keyId }];
+  // An unanswered judgment drill still names its right answer in the reveal.
+  const keyId =
+    graded?.keyId ?? (isJudgmentDrill(drill) ? unansweredKey(drill, scratchDeps()) : undefined);
+  const results = [
+    ...current.results,
+    { drillId: drill.id, ...score, ...(keyId === undefined ? {} : { keyId }) },
+  ];
   const done = results.length === current.drills.length;
   let placement = current.placement;
   if (done && current.kind === 'placement' && current.act !== null) {
