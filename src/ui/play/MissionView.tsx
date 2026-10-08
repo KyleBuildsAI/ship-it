@@ -4,8 +4,10 @@ import {
   endBriefing,
   startNextDrill,
   submitCurrentDrill,
+  submitJudgment,
   submitQuestionRound,
 } from '../../game/play/missionPlay';
+import { isJudgmentDrill, type Drill } from '../../game/missions/schema';
 import { formatClock } from '../../game/play/bossPlay';
 import { leavePlay } from '../../game/play/play';
 import type { DrillResult, MissionActivity } from '../../game/play/playStore';
@@ -16,6 +18,7 @@ import type { CheckRow } from '../../game/missions/predicates';
 import { useClock } from './useClock';
 import { AgentStepView } from './agent/AgentStepView';
 import { Stars } from './agent/Stars';
+import { JudgmentDrillView, JudgmentReveal, ScenePlaying } from './JudgmentDrillView';
 
 const CAPTION_MS = 5000;
 
@@ -118,7 +121,10 @@ function Sim({
   );
 }
 
-function DrillOutcome({ result }: { result: DrillResult }) {
+function DrillOutcome({ result, drill }: { result: DrillResult; drill: Drill | undefined }) {
+  if (drill !== undefined && isJudgmentDrill(drill)) {
+    return <JudgmentReveal drill={drill} result={result} />;
+  }
   const verdict = result.passed ? 'Passed' : result.overtime ? 'Out of time' : 'Not quite';
   return (
     <p className={result.passed ? 'drill-result drill-result--pass' : 'drill-result'}>
@@ -135,20 +141,27 @@ function Drills({
   activity: MissionActivity;
   checklist: readonly CheckRow[];
 }) {
-  const { mission, run, lastDrill } = activity;
+  const { mission, run, lastDrill, scene } = activity;
   const active = run.activeDrill;
   const now = useClock(active !== null);
   const total = mission.drills.length;
+  const next = run.drillResults.length + 1;
+  if (scene !== null) return <ScenePlaying label={`Drill ${String(next)} of ${String(total)}`} />;
   if (active === null) {
-    const next = run.drillResults.length + 1;
+    const judged = mission.drills.some(isJudgmentDrill);
+    const finished = lastDrill
+      ? mission.drills.find((drill) => drill.id === lastDrill.drillId)
+      : undefined;
     return (
       <div>
         <p className="play-panel__eyebrow">No-AI Drills</p>
-        {lastDrill ? <DrillOutcome result={lastDrill} /> : null}
+        {lastDrill ? <DrillOutcome result={lastDrill} drill={finished} /> : null}
         <p className="play-panel__instruction">
           {lastDrill
             ? `Drill ${String(next)} of ${String(total)} is next.`
-            : `${String(total)} timed drills. No hints, no Sage: recall, not recognition.`}
+            : judged
+              ? `${String(total)} timed drills. No hints, no Sage: judge what Otto does.`
+              : `${String(total)} timed drills. No hints, no Sage: recall, not recognition.`}
         </p>
         <div className="play-panel__actions">
           <button
@@ -167,6 +180,19 @@ function Drills({
   const drill = mission.drills[active.drillIndex];
   if (drill === undefined) return null;
   const left = drill.timeLimitSeconds - (now - active.startedAtMs) / 1000;
+  if (isJudgmentDrill(drill)) {
+    return (
+      <JudgmentDrillView
+        key={drill.id}
+        drill={drill}
+        eyebrow={`Drill ${String(active.drillIndex + 1)} of ${String(total)}`}
+        secondsLeft={left}
+        onAnswer={(answer) => {
+          submitJudgment(drill.id, answer);
+        }}
+      />
+    );
+  }
   return (
     <div>
       <p className="play-panel__eyebrow">

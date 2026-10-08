@@ -1,7 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { startRun } from '../../game/missions/runner';
-import { notesMission, sampleMission } from '../../game/missions/sample.test-mission';
+import { startDrill, startRun } from '../../game/missions/runner';
+import {
+  directedMission,
+  notesMission,
+  sampleMission,
+} from '../../game/missions/sample.test-mission';
 import type { Mission } from '../../game/missions/schema';
 import type { MissionActivity, SlipMet } from '../../game/play/playStore';
 import type { Store } from '../../game/store';
@@ -61,5 +65,64 @@ describe('the Done screen', () => {
 
   it('shows nothing about Otto for a typed mission', () => {
     expect(doneScreen(sampleMission)).not.toContain('Otto');
+  });
+});
+
+/** The drills phase of the directed sample, whose drills are all judgment drills. */
+function drillsScreen(extra: Partial<MissionActivity> = {}, onClock = false): string {
+  const drills = { ...startRun(directedMission), phase: 'drills' as const };
+  const activity: MissionActivity = {
+    kind: 'mission',
+    attempt: 1,
+    mission: directedMission,
+    run: onClock ? startDrill(drills, directedMission, 0, Date.now()) : drills,
+    hint: null,
+    hintLoading: false,
+    lastDrill: null,
+    questionScore: null,
+    freeTextGrade: null,
+    xpEarned: 0,
+    agent: null,
+    stars: {},
+    slips: [],
+    scene: null,
+    ...extra,
+  };
+  return renderToStaticMarkup(<MissionView activity={activity} checklist={[]} />)
+    .replace(/<[^>]+>/g, ' ')
+    .replaceAll('&#x27;', "'")
+    .replace(/\s+/g, ' ');
+}
+
+describe('judgment drills in a mission', () => {
+  it('says the drills are about judging Otto, not recall', () => {
+    expect(drillsScreen()).toContain('judge what Otto does');
+  });
+
+  it('shows the question card, with no "I’m done", while the drill is on the clock', () => {
+    const text = drillsScreen({}, true);
+    expect(text).toContain('Otto is about to run this. What happens?');
+    expect(text).toContain('Drill 1 of 5');
+    expect(text).not.toContain('I’m done');
+  });
+
+  it('waits for the scene before the question shows', () => {
+    const text = drillsScreen({ scene: { index: 0 } });
+    expect(text).toContain('The clock starts when Otto stops.');
+    expect(text).not.toContain('Start drill');
+  });
+
+  it('reveals the last answer, with its explanation, before the next drill', () => {
+    const lastDrill = {
+      drillId: 'sample-predict-typo',
+      passed: false,
+      seconds: 9,
+      overtime: false,
+      keyId: 'error',
+    };
+    const text = drillsScreen({ lastDrill });
+    expect(text).toContain('Missed');
+    expect(text).toContain('quilwork is misspelled');
+    expect(text).toContain('Start drill 1');
   });
 });

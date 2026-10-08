@@ -2,8 +2,14 @@ import { formatClock } from '../../game/play/bossPlay';
 import type { CheckRow } from '../../game/missions/predicates';
 import { leavePlay } from '../../game/play/play';
 import type { SeriesActivity } from '../../game/play/playStore';
-import { startNextSeriesDrill, submitSeriesDrill } from '../../game/play/seriesPlay';
+import { isJudgmentDrill } from '../../game/missions/schema';
+import {
+  startNextSeriesDrill,
+  submitSeriesDrill,
+  submitSeriesJudgment,
+} from '../../game/play/seriesPlay';
 import { Checklist } from './Checklist';
+import { JudgmentDrillView, JudgmentReveal, ScenePlaying } from './JudgmentDrillView';
 import { useClock } from './useClock';
 
 const TITLES = { placement: 'Placement test', review: 'Standup Board review' } as const;
@@ -44,18 +50,31 @@ export function SeriesView({
   activity: SeriesActivity;
   checklist: readonly CheckRow[];
 }) {
-  const { active, drills, results } = activity;
+  const { active, drills, results, scene } = activity;
   const now = useClock(active !== null);
   const finished = results.length === drills.length;
   const last = results.at(-1);
+  const lastDrill = drills[results.length - 1];
+  const position = `${String(results.length + 1)} of ${String(drills.length)}`;
 
   let body;
   if (finished) {
-    body = <Summary activity={activity} />;
+    body = (
+      <>
+        {last && lastDrill && isJudgmentDrill(lastDrill) ? (
+          <JudgmentReveal drill={lastDrill} result={last} />
+        ) : null}
+        <Summary activity={activity} />
+      </>
+    );
+  } else if (scene !== null) {
+    body = <ScenePlaying label={position} />;
   } else if (active === null) {
     body = (
       <div>
-        {last ? (
+        {last && lastDrill && isJudgmentDrill(lastDrill) ? (
+          <JudgmentReveal drill={lastDrill} result={last} />
+        ) : last ? (
           <p className={last.passed ? 'drill-result drill-result--pass' : 'drill-result'}>
             {last.passed ? 'Passed' : last.overtime ? 'Out of time' : 'Not quite'} ·{' '}
             {last.seconds.toFixed(0)}s
@@ -73,7 +92,7 @@ export function SeriesView({
               startNextSeriesDrill();
             }}
           >
-            Start {results.length + 1} of {drills.length}
+            Start {position}
           </button>
         </div>
       </div>
@@ -81,26 +100,38 @@ export function SeriesView({
   } else {
     const drill = drills[active.index];
     const left = drill ? drill.timeLimitSeconds - (now - active.startedAtMs) / 1000 : 0;
-    body = (
-      <div>
-        <p className="play-panel__eyebrow">
-          {active.index + 1} of {drills.length} · <span className="clock">{formatClock(left)}</span>
-        </p>
-        <p className="play-panel__instruction">{drill?.prompt}</p>
-        <Checklist rows={checklist} />
-        <div className="play-panel__actions">
-          <button
-            type="button"
-            className="play-button"
-            onClick={() => {
-              submitSeriesDrill();
-            }}
-          >
-            I’m done
-          </button>
+    body =
+      drill !== undefined && isJudgmentDrill(drill) ? (
+        <JudgmentDrillView
+          key={drill.id}
+          drill={drill}
+          eyebrow={`${String(active.index + 1)} of ${String(drills.length)}`}
+          secondsLeft={left}
+          onAnswer={(answer) => {
+            submitSeriesJudgment(drill.id, answer);
+          }}
+        />
+      ) : (
+        <div>
+          <p className="play-panel__eyebrow">
+            {active.index + 1} of {drills.length} ·{' '}
+            <span className="clock">{formatClock(left)}</span>
+          </p>
+          <p className="play-panel__instruction">{drill?.prompt}</p>
+          <Checklist rows={checklist} />
+          <div className="play-panel__actions">
+            <button
+              type="button"
+              className="play-button"
+              onClick={() => {
+                submitSeriesDrill();
+              }}
+            >
+              I’m done
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
   }
 
   return (
