@@ -50,8 +50,14 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'Branching',
     topics:
       'Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.',
-    stage: 'planned',
-    status: 'Planned · Not built yet.',
+    stage: 'playable',
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Branches Are Pointers' },
+      { title: 'Two Ways to Merge' },
+      { title: 'Conflicts Without Panic' },
+      { title: 'Tools for Bad Days' },
+    ],
     boss: { title: 'Conflict Storm' },
   },
   {
@@ -59,8 +65,14 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'GitHub Team Flow',
     topics:
       'Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.',
-    stage: 'planned',
-    status: 'Planned · Not built yet.',
+    stage: 'playable',
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Remotes and Pushing' },
+      { title: 'Issues and Pull Requests' },
+      { title: 'Reviewing Pull Requests' },
+      { title: 'Releases and Versions' },
+    ],
     boss: { title: 'Rejected Push' },
   },
   {
@@ -68,8 +80,14 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'Quality Gates',
     topics:
       'Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.',
-    stage: 'planned',
-    status: 'Planned · Not built yet.',
+    stage: 'playable',
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Tests Are Guardrails' },
+      { title: 'Lint and Types' },
+      { title: 'Reading CI' },
+      { title: 'Secrets and Updates' },
+    ],
     boss: { title: 'Red CI' },
   },
   {
@@ -77,8 +95,14 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'How Systems Work',
     topics:
       'HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.',
-    stage: 'planned',
-    status: 'Planned · Not built yet.',
+    stage: 'playable',
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Requests and Responses' },
+      { title: 'APIs and Auth' },
+      { title: 'Data, Speed and Scale' },
+      { title: 'Logs and Stack Traces' },
+    ],
     boss: { title: 'The 3am Page' },
   },
   {
@@ -86,8 +110,14 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'AI-Native Engineering',
     topics:
       'Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.',
-    stage: 'planned',
-    status: 'Planned · Not built yet.',
+    stage: 'playable',
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Brief the Agent' },
+      { title: 'Read What It Wrote' },
+      { title: 'Tests and Evals' },
+      { title: 'Guardrails for Agents' },
+    ],
     boss: { title: 'The Agent Went Rogue' },
   },
   {
@@ -95,9 +125,15 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'The Loop',
     topics:
       'Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.',
-    stage: 'planned',
-    status: 'Planned · Not built yet.',
-    boss: { title: 'A full mock interview loop' },
+    stage: 'playable',
+    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    missions: [
+      { title: 'Think Out Loud' },
+      { title: 'Debug From Symptoms' },
+      { title: 'Design Trade-offs' },
+      { title: 'Customers and Your Story' },
+    ],
+    boss: { title: 'The Mock Interview Loop' },
   },
 ];
 

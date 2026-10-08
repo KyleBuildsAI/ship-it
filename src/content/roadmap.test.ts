@@ -3,8 +3,6 @@ import { RoadmapSchema, type RoadmapActInput } from '../game/missions/roadmapSch
 import { ACTS } from './index';
 import { ROADMAP, roadmapAct } from './roadmap';
 
-const planned = ROADMAP.filter((entry) => entry.stage === 'planned');
-
 describe('the roadmap', () => {
   it('has every Act from 1 to 8, once each, in order', () => {
     expect(ROADMAP.map((entry) => entry.act)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
@@ -12,23 +10,30 @@ describe('the roadmap', () => {
     expect(roadmapAct(9)).toBeUndefined();
   });
 
-  it('marks Acts 1 and 2 playable, which is exactly what the catalog ships', () => {
+  it('marks every Act playable, which is exactly what the catalog ships', () => {
     const playable = ROADMAP.filter((entry) => entry.stage === 'playable');
-    expect(playable.map((entry) => entry.act)).toEqual([1, 2]);
+    expect(playable.map((entry) => entry.act)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     expect(playable.map((entry) => entry.act)).toEqual(ACTS.map(({ act }) => act.act));
   });
 
   it('names a playable Act and its parts exactly as the catalog does', () => {
-    for (const { act, missions } of ACTS) {
-      const entry = roadmapAct(act.act);
-      expect(entry?.title).toBe(act.title);
-      // Shipped missions, then the ones an early-access Act says are coming.
-      expect(entry?.missions.map((mission) => mission.title)).toEqual([
-        ...act.missionIds.map((id) => missions.find((mission) => mission.id === id)?.title),
+    for (const entry of ACTS) {
+      const { act, missions } = entry;
+      const lessons = 'lessons' in entry ? entry.lessons : [];
+      const roadmap = roadmapAct(act.act);
+      expect(roadmap?.title).toBe(act.title);
+      // A lesson Act's final is its boss, so the roadmap lists it as the boss, not a mission.
+      const titleOf = (id: string) =>
+        missions.find((mission) => mission.id === id)?.title ??
+        lessons.find((lesson) => lesson.id === id)?.title;
+      const playedIds = act.missionIds.filter((id) => id !== act.finalLessonId);
+      expect(roadmap?.missions.map((mission) => mission.title)).toEqual([
+        ...playedIds.map(titleOf),
         ...act.upcoming,
       ]);
-      if (act.boss) expect(entry?.boss.title).toBe(act.boss.title);
-      if (act.fieldMission) expect(entry?.fieldMission?.title).toBe(act.fieldMission.title);
+      if (act.boss) expect(roadmap?.boss.title).toBe(act.boss.title);
+      if (act.finalLessonId) expect(roadmap?.boss.title).toBe(titleOf(act.finalLessonId));
+      if (act.fieldMission) expect(roadmap?.fieldMission?.title).toBe(act.fieldMission.title);
     }
   });
 
@@ -47,13 +52,15 @@ describe('the roadmap', () => {
     expect(act1?.fieldMission?.title).toBe('Brief Your Real Agent');
     expect(act1?.tryouts).toEqual([]);
   });
-  it('keeps Acts 3 to 8 to a topic line and a boss, and says they are not built', () => {
-    expect(planned.map((entry) => entry.act)).toEqual([3, 4, 5, 6, 7, 8]);
-    for (const entry of planned) {
-      expect(entry.missions).toEqual([]);
-      expect(entry.tryouts).toEqual([]);
-      expect(entry.status).toContain('Not built yet');
-      expect(entry.topics.length).toBeGreaterThan(0);
+
+  it('says plainly that Acts 3 to 8 are played by clicking, with their finals as bosses', () => {
+    for (const number of [3, 4, 5, 6, 7, 8]) {
+      const entry = roadmapAct(number);
+      expect(entry?.status).toContain('answered by clicking');
+      // A lesson Act has 3 to 6 lessons with the final last, so 2 to 5 before its boss.
+      expect(entry?.missions.length).toBeGreaterThanOrEqual(2);
+      expect(entry?.missions.length).toBeLessThanOrEqual(5);
+      expect(entry?.status).not.toContain('Not built yet');
     }
   });
 });

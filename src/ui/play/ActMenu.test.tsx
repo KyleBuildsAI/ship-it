@@ -9,8 +9,17 @@ import {
   secondMission,
   thirdMission,
 } from '../../game/missions/sample.test-mission';
+import {
+  sampleFinal,
+  sampleLesson,
+  sampleLessonAct,
+  sampleSecondLesson,
+} from '../../game/missions/sample.test-lesson';
 import { ActSchema } from '../../game/missions/schema';
 import { setCatalog, type ActContent } from '../../game/play/catalog';
+import { startLesson } from '../../game/play/lessonPlay';
+import { leavePlay } from '../../game/play/play';
+import { play } from '../../game/play/playStore';
 import { withUnlock } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import {
@@ -242,16 +251,63 @@ describe('the Act menu in preview mode', () => {
     ]);
   });
 
-  it('shows a planned Act as its title, topics and boss, with nothing to start', () => {
+  it('shows a roadmap Act the catalog lacks as its title, topics and parts, with nothing to start', () => {
+    // Every Act ships in the real catalog; this one holds only Act 2, so Act 3 comes
+    // from the roadmap.
     const markup = menuOf(3);
     expect(heading(markup)).toBe('Act 3 · Branching');
-    expect(text(markup)).toContain('Planned · Not built yet.');
     expect(text(markup)).toContain('Pointers, switch, merge');
-    expect(rows(markup)).toEqual(['Boss: Conflict Storm · Not built yet']);
+    expect(rows(markup)).toEqual([
+      '3.1 Branches Are Pointers · Not built yet',
+      '3.2 Two Ways to Merge · Not built yet',
+      '3.3 Conflicts Without Panic · Not built yet',
+      '3.4 Tools for Bad Days · Not built yet',
+      'Boss: Conflict Storm · Not built yet',
+    ]);
     expect(markup.match(/<button/g)).toHaveLength(8);
   });
 
   it('shows nothing for an Act the game does not ship, once preview is off', () => {
     expect(menuOf(3, newSave)).toBe('');
+  });
+});
+
+describe('an Act made of lessons', () => {
+  const lessonAct: ActContent = sampleLessonAct();
+
+  /** The save with the sample lesson finished at `percent` first-try. */
+  function withLessonDone(percent: number): SaveData {
+    const done = {
+      ...createMissionProgress(),
+      status: 'completed' as const,
+      bestDrillScore: percent,
+    };
+    return { ...newSave, missions: { ...newSave.missions, [sampleLesson.id]: done } };
+  }
+
+  it('lists each lesson with Play, its card count, and the final as timed', () => {
+    expect(rows(menuFor(lessonAct))).toEqual([
+      `4.1 ${sampleLesson.title} · 6 cards [Play]`,
+      `4.2 ${sampleSecondLesson.title} · 6 cards [Play]`,
+      `4.3 Final: ${sampleFinal.title} · Timed final challenge [Play]`,
+    ]);
+  });
+
+  it('shows a finished lesson with its stars and Replay', () => {
+    expect(rows(menuFor(lessonAct, withLessonDone(100)))[0]).toBe(
+      `4.1 ${sampleLesson.title} · Done · ★★★ [Replay]`,
+    );
+    expect(rows(menuFor(lessonAct, withLessonDone(67)))[0]).toBe(
+      `4.1 ${sampleLesson.title} · Done · ★★☆ [Replay]`,
+    );
+  });
+
+  it('starts the lesson from its row', () => {
+    setCatalog({ acts: [lessonAct] });
+    progress.update({ status: 'ready', save: newSave, problem: null });
+    startLesson(sampleLesson.id);
+    const current = play.get().activity;
+    expect(current?.kind === 'lesson' ? current.lesson.id : null).toBe(sampleLesson.id);
+    leavePlay();
   });
 });

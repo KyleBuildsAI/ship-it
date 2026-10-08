@@ -9,6 +9,7 @@ import {
   type MissionProgress,
   type SaveData,
 } from '../save/schema';
+import type { Lesson } from '../missions/lessonSchema';
 import { requireFieldMission, type Act, type Drill, type Mission } from '../missions/schema';
 
 /*
@@ -147,6 +148,38 @@ export function completeMission(
   };
   return refreshAct(addXp(withMission(save, finished.id, updated), xp), target, now);
 }
+/**
+ * Finishes a lesson. Its XP is paid the first time only, like a mission's, so replays
+ * practise without farming. The save has no stars field: a lesson's best first-try
+ * percent goes in bestDrillScore (a lesson has no drills to need it), and the stars are
+ * worked out from it, so no save migration is needed.
+ */
+export function completeLesson(
+  save: SaveData,
+  target: Act,
+  finished: Lesson,
+  firstTryPercent: number,
+  now: Date,
+): SaveData {
+  const current = mission(save, finished.id);
+  const xp = current.completedAt === null ? finished.xp : 0;
+  const updated: MissionProgress = {
+    ...current,
+    status: 'completed',
+    completedAt: current.completedAt ?? now.toISOString(),
+    bestDrillScore: Math.max(current.bestDrillScore ?? 0, firstTryPercent),
+    xpEarned: current.xpEarned + xp,
+  };
+  let next = addXp(withMission(save, finished.id, updated), xp);
+  // The Act's final stands in for its boss, so beating it is recorded as beating the
+  // boss. Its own XP is the reward; the boss award isn't paid on top.
+  const progress = act(next, target.act);
+  if (target.finalLessonId === finished.id && progress.bossCompletedAt === null) {
+    next = withAct(next, target.act, { ...progress, bossCompletedAt: now.toISOString() });
+  }
+  return refreshAct(next, target, now);
+}
+
 /** Records a placement test. Testing out completes the Act's missions at half XP, once. */
 export function recordPlacement(
   save: SaveData,
@@ -218,15 +251,18 @@ export function missionDone(save: SaveData, missionId: string): boolean {
  * Stamps the Act complete once every mission is done (or tested out), the boss is beaten,
  * and the Field Mission is verified. A placement pass alone also completes it (section 5).
  * An early-access Act never completes: finishing what's built so far isn't the whole Act.
+ *
+ * A lesson Act's final is listed in missionIds and stands in for the boss, so finishing
+ * every lesson beats it. Its Field Mission is optional, and only counts when it exists.
  */
 function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   if (target.earlyAccess) return save;
   const current = act(save, target.act);
   if (current.completedAt !== null) return save;
+  const bossBeaten = target.finalLessonId !== undefined || current.bossCompletedAt !== null;
+  const fieldDone = target.fieldMission === undefined || current.fieldMissionCompletedAt !== null;
   const everything =
-    target.missionIds.every((id) => missionDone(save, id)) &&
-    current.bossCompletedAt !== null &&
-    current.fieldMissionCompletedAt !== null;
+    target.missionIds.every((id) => missionDone(save, id)) && bossBeaten && fieldDone;
   if (!everything && !current.placement.testedOut) return save;
   return withAct(save, target.act, { ...current, completedAt: now.toISOString() });
 }

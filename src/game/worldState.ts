@@ -1,6 +1,9 @@
 import { createStore } from './store';
 
-export type ZoneId = 'campus' | 'gitworld' | 'machine';
+/** The themed islands of Acts 3 to 8, each built by actIsland.ts from the same kit. */
+export type ActIslandZone = 'act3' | 'act4' | 'act5' | 'act6' | 'act7' | 'act8';
+
+export type ZoneId = 'campus' | 'gitworld' | 'machine' | ActIslandZone;
 
 /**
  * Where the player is and whether they have started exploring. It lives outside the

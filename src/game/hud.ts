@@ -67,6 +67,14 @@ export function openTerminal(): void {
   hud.update({ terminalOpen: true, terminalFocusRequests: terminalFocusRequests + 1 });
 }
 
+/**
+ * Hides the terminal without counting it as the player's toggle (the tutorial counts
+ * those). A lesson does this: it's answered by clicking, and the play panel gets the room.
+ */
+export function closeTerminal(): void {
+  hud.update({ terminalOpen: false });
+}
+
 /** Counts a command the player ran in the terminal. */
 export function countCommand(): void {
   hud.update({ commandsRun: hud.get().commandsRun + 1 });

@@ -7,6 +7,7 @@ import {
   type AgentTask,
   type BaseAction,
 } from './agentSchema';
+import type { Lesson } from './lessonSchema';
 import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
 import {
@@ -291,33 +292,61 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
  * point hintPlan at a strong card; repeating those here means content built without
  * parsing is covered too, and every problem is listed at once with its location.
  *
+ * An Act's lessons are listed in missionIds beside its missions, so the same links are
+ * checked for them, plus where a final lesson sits. A lesson's words are held to their
+ * budgets by LessonSchema.
+ *
  * Returns an empty list when the Act is ready to ship.
  */
-export function validateAct(act: Act, missions: readonly Mission[]): ContentIssue[] {
+export function validateAct(
+  act: Act,
+  missions: readonly Mission[],
+  lessons: readonly Lesson[] = [],
+): ContentIssue[] {
   const issues: ContentIssue[] = [];
   const report = (where: string, problem: string) => issues.push({ where, problem });
-  const byId = new Map(missions.map((mission) => [mission.id, mission]));
+  const parts = [
+    ...missions.map((mission) => ({ ...mission, label: 'mission' })),
+    ...lessons.map((lesson) => ({ ...lesson, label: 'lesson' })),
+  ];
 
-  for (const id of duplicates(missions.map((mission) => mission.id))) {
+  for (const id of duplicates(parts.map((part) => part.id))) {
     report(`mission ${id}`, 'Two missions share this id.');
   }
   for (const id of duplicates(act.missionIds)) {
     report('act > missionIds', `"${id}" is listed more than once.`);
   }
+  const known = new Set(parts.map((part) => part.id));
   for (const id of act.missionIds) {
-    if (!byId.has(id)) report('act > missionIds', `No mission has the id "${id}".`);
+    if (!known.has(id)) report('act > missionIds', `No mission has the id "${id}".`);
   }
-  for (const mission of missions) {
-    if (!act.missionIds.includes(mission.id)) {
-      report(`mission ${mission.id}`, `Not listed in Act ${String(act.act)}'s missionIds.`);
+  for (const part of parts) {
+    if (!act.missionIds.includes(part.id)) {
+      report(`${part.label} ${part.id}`, `Not listed in Act ${String(act.act)}'s missionIds.`);
     }
-    if (mission.act !== act.act) {
-      report(`mission ${mission.id}`, `Says act ${String(mission.act)}, not ${String(act.act)}.`);
+    if (part.act !== act.act) {
+      report(`${part.label} ${part.id}`, `Says act ${String(part.act)}, not ${String(act.act)}.`);
     }
   }
 
+  // A final is the Act's last challenge, so there's one, and it's played last.
+  const finals = lessons.filter((lesson) => lesson.kind === 'final');
+  if (finals.length > 1) report('act', 'An Act has at most one final lesson.');
+  for (const final of finals) {
+    if (act.missionIds.at(-1) !== final.id) {
+      report(`lesson ${final.id}`, 'A final lesson comes last in missionIds.');
+    }
+    // The final completes the Act in place of a boss only when the Act names it.
+    if (act.finalLessonId !== final.id) {
+      report(`lesson ${final.id}`, "A final lesson is named as the Act's finalLessonId.");
+    }
+  }
+  if (act.finalLessonId !== undefined && !finals.some((final) => final.id === act.finalLessonId)) {
+    report('act > finalLessonId', `No final lesson has the id "${act.finalLessonId}".`);
+  }
+
   // Shipping a mission means taking it off the "Coming soon" list, or it shows twice.
-  const shippedTitles = new Set(missions.map((mission) => mission.title));
+  const shippedTitles = new Set(parts.map((part) => part.title));
   for (const title of act.upcoming) {
     if (shippedTitles.has(title)) {
       report('act > upcoming', `"${title}" has shipped, so it isn't upcoming.`);
@@ -326,7 +355,7 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
 
   // The boss and Field Mission are saved and unlocked alongside missions, so all three
   // kinds of id must be told apart.
-  const activityIds = [...byId.keys(), ...partIds(act)];
+  const activityIds = [...known, ...partIds(act)];
   for (const id of duplicates(activityIds)) {
     report('act', `The id "${id}" is used by more than one mission, boss, or Field Mission.`);
   }
@@ -389,14 +418,19 @@ export function validateAct(act: Act, missions: readonly Mission[]): ContentIssu
  * just within one. Each Act on its own is checked by validateAct.
  */
 export function validateCatalog(
-  acts: readonly { readonly act: Act; readonly missions: readonly Mission[] }[],
+  acts: readonly {
+    readonly act: Act;
+    readonly missions: readonly Mission[];
+    readonly lessons?: readonly Lesson[];
+  }[],
 ): ContentIssue[] {
   const issues: ContentIssue[] = [];
   for (const number of duplicates(acts.map((entry) => String(entry.act.act)))) {
     issues.push({ where: 'catalog', problem: `Act ${number} appears more than once.` });
   }
-  const activityIds = acts.flatMap(({ act, missions }) => [
+  const activityIds = acts.flatMap(({ act, missions, lessons = [] }) => [
     ...missions.map((mission) => mission.id),
+    ...lessons.map((lesson) => lesson.id),
     ...partIds(act),
   ]);
   for (const id of duplicates(activityIds)) {
