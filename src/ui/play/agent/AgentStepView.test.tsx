@@ -202,7 +202,7 @@ describe('the directing panel', () => {
   it('shows a good catch with the checklist, the slip and the lesson', () => {
     const text = shown(result('caught', 'home', false));
     expect(text).toContain("Good catch. Otto's claim was wrong, and you saw it.");
-    expect(text).toContain('The API has a notes folder (not yet)');
+    expect(text).toContain('The API has a notes folder (not met)');
     expect(text).toContain('Slip: wrong place');
     expect(text).toContain('A fresh terminal stands at home, so notes landed in C:\\Users\\kyle.');
     expect(text).toContain('[Direct a fix][Rewind step]');
@@ -216,6 +216,29 @@ describe('the directing panel', () => {
     expect(text).not.toContain('A fresh terminal stands at home');
     expect(text).toContain('The true answer: In C:\\Users\\kyle, where fresh terminals start');
     expect(text).toContain('[Rewind step][Direct a fix]');
+    // The Plan star is gone whichever button Kyle picks, so the note claims no trade-off.
+    expect(text).toContain('A real laptop has no rewind.');
+    expect(text).not.toContain('Plan star');
+  });
+
+  it('draws the rows that fail at a result red, as broken rather than still to do', () => {
+    ottoRun.update({ rows: [], last: null });
+    const markup = renderToStaticMarkup(
+      <AgentStepView
+        activity={activity(result('missed', 'api', false, true))}
+        step={step}
+        hintLevel={0}
+        checklist={[
+          { label: 'The API has a notes folder', passed: true },
+          { label: 'The API is intact', passed: false },
+        ]}
+      />,
+    );
+    expect(markup).toContain('<li class="checklist__failed">');
+    expect(markup).toContain('✗');
+    expect(markup).not.toContain('○');
+    expect(markup).not.toContain('(not yet)');
+    expect(markup).toContain('<li class="checklist__done">');
   });
 
   it('offers Next step once the step passed, and no Rewind', () => {

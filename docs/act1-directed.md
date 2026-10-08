@@ -1233,8 +1233,9 @@ export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePl
 export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
 export function trueCheckOptions(current: MissionActivity): readonly string[]; // [] until the result
 // A21: ui/play/agent/CheckCard.tsx (the question, LookChips, the answers, armed like a gate)
-// and ResultCard.tsx (verdict, checklist, the true answer after a Missed, slip, feedback or
-// lesson, then Next step, or Direct a fix and Rewind step, Rewind first when a guard broke).
+// and ResultCard.tsx (verdict, checklist with failing rows red, the true answer after a
+// Missed, slip, feedback or lesson, then Next step, or Direct a fix and Rewind step,
+// Rewind first when a guard broke, and the line "A real laptop has no rewind.").
 // The directed panel shows the checklist itself; Sim shows it only for typed steps.
 export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
 // A20: the panels read `ottoRun` (a store beside the play store): run rows built from the

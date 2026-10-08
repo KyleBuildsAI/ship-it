@@ -55,7 +55,7 @@ export function ResultCard({
       {truth.map((option) => (
         <p key={option.id}>The true answer: {option.text}</p>
       ))}
-      <Checklist rows={checklist} />
+      <Checklist rows={checklist} result />
       {plan?.slip === undefined ? null : (
         <p className="result-card__slip">Slip: {slipName(plan.slip)}</p>
       )}
@@ -98,7 +98,8 @@ function ResultActions({ passed, guardBroken }: { passed: boolean; guardBroken: 
   return (
     <>
       <div className="play-panel__actions">{guardBroken ? [back, fix] : [fix, back]}</div>
-      <p className="play-panel__muted">Rewind costs the Plan star: a real laptop has no rewind.</p>
+      {/* Not "Rewind costs the Plan star": a step that didn't pass has lost it already. */}
+      <p className="play-panel__muted">A real laptop has no rewind.</p>
     </>
   );
 }

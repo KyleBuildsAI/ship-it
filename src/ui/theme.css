@@ -525,6 +525,12 @@ body {
   color: var(--text-muted);
 }
 
+/* At a result, a row that doesn't hold is a broken guard or a missed goal: red, not to-do. */
+.checklist__failed .checklist__mark,
+.checklist__failed > span:nth-child(2) {
+  color: var(--danger);
+}
+
 .hint {
   margin: 10px 0;
   padding: 8px 12px;
