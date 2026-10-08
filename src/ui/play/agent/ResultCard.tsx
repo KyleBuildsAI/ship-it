@@ -32,6 +32,7 @@ export function ResultCard({
   checklist,
   earned,
   trueIds,
+  slipMet,
 }: {
   task: AgentTask;
   stage: Extract<AgentStage, { at: 'result' }>;
@@ -39,6 +40,12 @@ export function ResultCard({
   earned: StarSet | null;
   /** The check options true now: shown after a Missed check, so Kyle sees the answer. */
   trueIds: readonly string[];
+  /**
+   * The card's slip reached Kyle (a gate or a broken check). A slip card that passed with
+   * nothing denied never showed its slip, so naming it here would disagree with the Done
+   * screen's count.
+   */
+  slipMet: boolean;
 }) {
   const verdict = VERDICTS[stage.verdict];
   const plan = planById(task, stage.planId);
@@ -62,7 +69,7 @@ export function ResultCard({
       ))}
       <Checklist rows={checklist} result />
       {plan === undefined ? null : <AnatomyChips covers={plan.covers} />}
-      {plan?.slip === undefined ? null : (
+      {plan?.slip === undefined || !slipMet ? null : (
         <p className="result-card__slip">Slip: {slipName(plan.slip)}</p>
       )}
       {takeaway === undefined ? null : <p>{takeaway}</p>}

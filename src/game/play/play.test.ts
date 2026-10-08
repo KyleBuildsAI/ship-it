@@ -490,7 +490,7 @@ describe('directing Otto through a step', () => {
     expect(mission().agent?.stage).toMatchObject({ verdict: 'caught', passed: false });
     // The weak card's slip reached the check, and Kyle saw it.
     expect(mission().slips).toEqual([
-      { stepId: 'stand-in-the-api', slip: 'overclaim', caught: true },
+      { stepId: 'stand-in-the-api', planId: 'guess', slip: 'overclaim', caught: true },
     ]);
     expect(trueCheckOptions(mission())).toEqual(['home']);
     // A step that didn't pass shows its red rows, and earns no stars yet.
@@ -514,9 +514,26 @@ describe('directing Otto through a step', () => {
     checkClaim('api');
     expect(mission().agent?.stage).toMatchObject({ verdict: 'missed', passed: false });
     expect(mission().slips).toEqual([
-      { stepId: 'stand-in-the-api', slip: 'overclaim', caught: false },
+      { stepId: 'stand-in-the-api', planId: 'guess', slip: 'overclaim', caught: false },
     ]);
     expect(trueCheckOptions(mission())).toEqual(['home']);
+  });
+
+  it('counts one slip once, however often Kyle rewinds and replays its card', () => {
+    const replay = (answer: string): void => {
+      pickCard('guess');
+      ottoWaits();
+      checkClaim(answer);
+    };
+    replay('api');
+    rewind();
+    replay('api');
+    rewind();
+    // The latest try is the one that counts: a rewind undid the earlier ones.
+    replay('home');
+    expect(mission().slips).toEqual([
+      { stepId: 'stand-in-the-api', planId: 'guess', slip: 'overclaim', caught: true },
+    ]);
   });
 
   it('ignores a button pressed when the stage does not allow it', () => {
@@ -676,6 +693,11 @@ describe('gates and predictions in play', () => {
     checkClaim('api');
     expect(mission().agent?.gates).toEqual([true, true]);
     expect(mission().agent?.stage).toMatchObject({ verdict: 'confirmed', passed: true });
+    // Denying the harmful line caught the start-over card's slip, though the step passed.
+    expect(mission().slips).toEqual([
+      { stepId: 'notes-in-the-api', planId: 'bare-name', slip: 'wrong-place', caught: true },
+      { stepId: 'notes-in-the-api', planId: 'start-over', slip: 'too-broad', caught: true },
+    ]);
   });
 
   it('asks again when Kyle denies a safe line, and runs it once allowed', () => {

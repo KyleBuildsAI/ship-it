@@ -205,7 +205,7 @@ A **fix round** looks like Direct:
    - Step XP as today.
    - `directingXp` = 2 × stars, paid on the first completion through `completeMission(…, { drillPercent, questionXp, directingXp })`. Act 2 passes 0.
    - No save change in Milestone A.
-7. **Done screen.** "You caught 2 of 3 of Otto's slips", stars per step, the Question Round rationales as today.
+7. **Done screen.** "You caught 2 of 3 of Otto's slips", stars per step, the Question Round rationales as today. A slip counts when it reaches Kyle: at a gate (denying its harmful line catches it) or at a check the step fails. Each card's slip counts once per step, and a retry after a rewind replaces the earlier verdict.
 
 ### 1.5 Look chips
 
@@ -1238,9 +1238,13 @@ export function trueCheckOptions(current: MissionActivity): readonly string[]; /
 // Rewind first when a guard broke, and the line "A real laptop has no rewind.").
 // The directed panel shows the checklist itself; Sim shows it only for typed steps.
 // ResultCard also shows AnatomyChips (the card's covers lit) and, once passed, Stars.
-// checkClaim adds a SlipMet { stepId, slip, caught } to MissionActivity.slips when the
-// card had a slip and the step didn't pass (caught: a Good catch). The Done screen in
-// MissionView.tsx says "You caught N of M of Otto's slips." and each directed step's stars.
+// MissionActivity.slips holds a SlipMet { stepId, planId, slip, caught } for each slip
+// that reached Kyle: decide() records one (caught) when he denies a harmful line of a slip
+// card, and checkClaim records one when a slip card's step didn't pass (caught: a Good
+// catch). One entry per step and card: a rewind or retry replaces it (meetSlip), so one
+// authored slip counts once. ResultCard names the slip only when it has an entry. The
+// Done screen in MissionView.tsx says "You caught N of M of Otto's slips." and each
+// directed step's stars.
 export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
 // A20: the panels read `ottoRun` (a store beside the play store): run rows built from the
 // reveals the terminal printed (game/agent/runLog.ts logReveals), and Otto's last event

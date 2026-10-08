@@ -37,7 +37,12 @@ function doneScreen(mission: Mission, extra: Partial<MissionActivity> = {}): str
     .replaceAll('&#x27;', "'");
 }
 
-const caught: SlipMet = { stepId: 'notes-in-the-api', slip: 'wrong-place', caught: true };
+const caught: SlipMet = {
+  stepId: 'notes-in-the-api',
+  planId: 'bare-name',
+  slip: 'wrong-place',
+  caught: true,
+};
 
 describe('the Done screen', () => {
   it("counts the slips Kyle caught, and shows each directed step's stars", () => {
@@ -50,8 +55,8 @@ describe('the Done screen', () => {
     expect(text).toContain('Safety (earned)');
   });
 
-  it('says so when no slip reached a check', () => {
-    expect(doneScreen(notesMission)).toContain('Otto made no slips that reached a check.');
+  it('says so when no slip reached a gate or a check', () => {
+    expect(doneScreen(notesMission)).toContain("None of Otto's slips reached a gate or a check.");
   });
 
   it('shows nothing about Otto for a typed mission', () => {

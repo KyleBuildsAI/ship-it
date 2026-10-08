@@ -45,11 +45,15 @@ export type FreeTextGrade =
   | { readonly state: 'unavailable'; readonly message: string };
 
 /**
- * One of Otto's slips that reached a check: Kyle picked a card with a slip, and the step
- * didn't pass. `caught`: Kyle saw it (a Good catch). The Done screen counts them.
+ * One of Otto's slips that reached Kyle: the card he picked had a slip, and either a line
+ * it broke something with came to a gate, or the step reached a check still broken.
+ * `caught`: Kyle denied that line, or saw the step was broken (a Good catch). The Done
+ * screen counts them, one per step and card: a rewind or a retry replaces the entry.
  */
 export interface SlipMet {
   readonly stepId: string;
+  /** The card that carried the slip: one card's slip counts once, however often it's tried. */
+  readonly planId: string;
   readonly slip: Slip;
   readonly caught: boolean;
 }

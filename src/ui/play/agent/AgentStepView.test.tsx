@@ -206,7 +206,15 @@ describe('the directing panel', () => {
   }
 
   it('shows a good catch with the checklist, the anatomy, the slip and the lesson', () => {
-    const text = shown(result('caught', 'home', false));
+    const met = { stepId: 'notes-in-the-api', planId: 'bare-name', slip: 'wrong-place' } as const;
+    const text = shown(
+      result('caught', 'home', false),
+      0,
+      {},
+      {
+        slips: [{ ...met, caught: true }],
+      },
+    );
     expect(text).toContain("Good catch. Otto's claim was wrong, and you saw it.");
     expect(text).toContain('The API has a notes folder (not met)');
     expect(text).toContain('Goal (had it)Place (missing)Limits (missing)Check (missing)');
@@ -258,6 +266,9 @@ describe('the directing panel', () => {
     expect(text).toContain('Check (not earned)');
     expect(text).toContain('[Next step]');
     expect(text).not.toContain('Rewind');
+    // The weak card passed with nothing denied, so its slip never reached Kyle: the
+    // card doesn't name one the Done screen won't count.
+    expect(text).not.toContain('Slip:');
   });
 
   it('shows nothing for a typed step', () => {

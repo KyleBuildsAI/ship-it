@@ -44,7 +44,7 @@ import type { Mission, MissionStep } from '../missions/schema';
 import { saveProgressNow } from '../progress';
 import { sandbox } from '../sandbox';
 import { createStore } from '../store';
-import { play, type MissionActivity } from './playStore';
+import { play, type MissionActivity, type SlipMet } from './playStore';
 import {
   applyChange,
   currentLog,
@@ -188,6 +188,23 @@ export function directedChecklist(current: MissionActivity): CheckRow[] {
 
 function setMission(next: MissionActivity): void {
   play.update({ activity: next, checklist: directedChecklist(next) });
+}
+
+/**
+ * Adds a slip Kyle met, replacing any earlier entry for the same step and card. Rewind
+ * undoes an attempt on the laptop, so the latest try is the one that counts: one authored
+ * slip is one slip on the Done screen, however many times Kyle replays it.
+ */
+export function meetSlip(slips: readonly SlipMet[], met: SlipMet): SlipMet[] {
+  const others = slips.filter(
+    (entry) => entry.stepId !== met.stepId || entry.planId !== met.planId,
+  );
+  return [...others, met];
+}
+
+/** The slip written on a step's card, start plan or fix, if it has one. */
+function slipOf(task: AgentTask, planId: string): SlipMet['slip'] | undefined {
+  return [...task.plans, ...task.fixes].find((plan) => plan.id === planId)?.slip;
 }
 
 function saveAgent(agent: AgentStepState): void {
@@ -468,6 +485,15 @@ export function decide(allow: boolean): void {
       const denyLine = held !== null && 'denyLine' in held ? held.denyLine : undefined;
       const { harmful } = now.agent.stage.gate;
       ottoDid({ kind: 'denied', harmful, line: denyLine ?? null });
+      // Denying the harmful line of a card with a slip is catching that slip, even though
+      // plan B may then pass the step and the check never sees it.
+      const { planId } = now.agent.stage;
+      const slip = slipOf(now.task, planId);
+      if (harmful && slip !== undefined) {
+        const met = { stepId: now.step.id, planId, slip, caught: true };
+        setMission({ ...now.current, agent: next, slips: meetSlip(now.current.slips, met) });
+        return;
+      }
     }
   }
   saveAgent(next);
@@ -506,12 +532,18 @@ export function checkClaim(optionId: string): void {
   const { passed, verdict } = agent.stage;
   const earned = passed ? { ...now.current.stars, [now.step.id]: stars(agent) } : now.current.stars;
   // A slip counts once it reaches a check with the step still broken: that's the moment
-  // Kyle either sees Otto's mistake or takes his word for it.
-  const slip = [...now.task.plans, ...now.task.fixes].find((plan) => plan.id === planId)?.slip;
+  // Kyle either sees Otto's mistake or takes his word for it. A step that passed keeps
+  // whatever a gate already recorded for this card.
+  const slip = slipOf(now.task, planId);
   const slips =
     slip === undefined || passed
       ? now.current.slips
-      : [...now.current.slips, { stepId: now.step.id, slip, caught: verdict === 'caught' }];
+      : meetSlip(now.current.slips, {
+          stepId: now.step.id,
+          planId,
+          slip,
+          caught: verdict === 'caught',
+        });
   setMission({ ...now.current, agent, stars: earned, slips });
 }
 

@@ -263,7 +263,7 @@ const QUALITY_LABEL = { strong: 'Strong', okay: 'Okay', weak: 'Weak' } as const;
 
 /** "You caught 2 of 3 of Otto's slips": the one number that says how well Kyle checked. */
 function slipLine(slips: MissionActivity['slips']): string {
-  if (slips.length === 0) return 'Otto made no slips that reached a check.';
+  if (slips.length === 0) return "None of Otto's slips reached a gate or a check.";
   const caught = slips.filter((slip) => slip.caught).length;
   return `You caught ${String(caught)} of ${String(slips.length)} of Otto's slips.`;
 }
