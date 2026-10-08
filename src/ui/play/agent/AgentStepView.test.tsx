@@ -135,6 +135,18 @@ describe('the directing panel', () => {
     expect(text).toContain('[Allow][Deny]');
   });
 
+  it('shows each new gate and prediction with its buttons not yet taking clicks', () => {
+    // A double-click must not decide a card that appeared between its two clicks.
+    const run = { do: 'run', line: 'Get-Content .env', onDeny: [] } as const;
+    const gate = atGate(run, { kind: 'line', line: run.line, changes: [], harmful: false });
+    const markup = (agent: AgentStepState) =>
+      renderToStaticMarkup(<AgentStepView activity={activity(agent)} step={step} hintLevel={0} />);
+    const disabled = (html: string) => html.match(/<button[^>]*disabled=""/g)?.length ?? 0;
+    expect(disabled(markup(gate))).toBe(2);
+    const predicting = nextAction(choosePlan(start, step, 'bare-name'))?.state ?? start;
+    expect(disabled(markup(predicting))).toBe(3);
+  });
+
   it('says so when a line Otto asks about changes nothing the laptop shows', () => {
     const run = { do: 'run', line: 'Get-Content .env', onDeny: [] } as const;
     const text = shown(atGate(run, { kind: 'line', line: run.line, changes: [], harmful: false }));

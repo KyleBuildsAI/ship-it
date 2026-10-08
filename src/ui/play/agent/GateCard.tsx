@@ -3,6 +3,7 @@ import type { Gate, QueuedAction } from '../../../game/missions/agentRunner';
 import { decide } from '../../../game/play/agentPlay';
 import { display } from '../../../engine/machine/winPath';
 import type { ConfirmLetter } from '../../../engine/shell/driver';
+import { useArmed } from './useArmed';
 
 /** What each of PowerShell's Confirm letters means, so Kyle can read Otto's answer. */
 const LETTERS: Readonly<Record<ConfirmLetter, string>> = {
@@ -22,9 +23,11 @@ function heading(gate: Gate, action: QueuedAction): string {
  * An approval gate (docs/act1-directed.md section 1.3). Otto waits while Kyle reads the
  * line and what a dry run says it changes, worked out on a copy of the laptop, never
  * written by an author. Allow and Deny look alike on purpose: the card's colors must not
- * hint which one is right.
+ * hint which one is right. Both wait a moment before they take a click (useArmed), so a
+ * double-click on one gate never decides the next.
  */
 export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction }) {
+  const armed = useArmed();
   const effects = describeChanges(gate.changes, display);
   return (
     <div className="gate-card" role="group" aria-label="Approve Otto's action">
@@ -51,6 +54,7 @@ export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction })
         <button
           type="button"
           className="play-button"
+          disabled={!armed}
           onClick={() => {
             decide(true);
           }}
@@ -60,6 +64,7 @@ export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction })
         <button
           type="button"
           className="play-button"
+          disabled={!armed}
           onClick={() => {
             decide(false);
           }}

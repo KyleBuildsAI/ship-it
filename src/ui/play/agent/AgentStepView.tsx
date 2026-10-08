@@ -48,8 +48,17 @@ export function AgentStepView({
         />
       ) : null}
       {stage.at === 'echo' ? <EchoChoice planId={stage.planId} /> : null}
-      {stage.at === 'predict' ? <PredictCard action={stage.action} /> : null}
-      {stage.at === 'gate' ? <GateCard gate={stage.gate} action={stage.action} /> : null}
+      {/* Keyed by how many decisions came before, so each new card mounts unarmed. */}
+      {stage.at === 'predict' ? (
+        <PredictCard key={`predict-${String(agent.predicts.length)}`} action={stage.action} />
+      ) : null}
+      {stage.at === 'gate' ? (
+        <GateCard
+          key={`gate-${String(agent.gates.length)}`}
+          gate={stage.gate}
+          action={stage.action}
+        />
+      ) : null}
       <RunLog rows={rows} running={stage.at === 'running'} />
     </div>
   );

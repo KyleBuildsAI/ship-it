@@ -1235,6 +1235,12 @@ export function predictionGhost(): readonly MachineChange[]; // the predicted li
 // A20: the panels read `ottoRun` (a store beside the play store): run rows built from the
 // reveals the terminal printed (game/agent/runLog.ts logReveals), and Otto's last event
 // (said, stopped, denied, fixing), which ui/play/agent/ottoLines.ts turns into his words.
+// A `say` is dropped when Otto moves to an action without one, and a gate shows only its
+// own action's `say`; a `denyLine` rides on the denied event, so it stays up through plan B.
+// An action that types nothing (write, newTerminal, useTerminal) gets a row in words, like
+// "Opened a new terminal", and a denied write gets a denied row. Gate and predict cards
+// take clicks only after ARM_MS (300 ms, ui/play/agent/useArmed.ts), so a double-click on
+// one card never decides the next.
 // ui/play/useOttoFrames.ts calls play.framePlay once per animation frame while a mission or
 // drill series is open, with choosePace(browserMotion, { reducedMotion }).
 
