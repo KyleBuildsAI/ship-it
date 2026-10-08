@@ -1232,6 +1232,11 @@ export function frameAgent(elapsedMs: number, pace: Pace): void; // play.framePl
 // (dryRunNow, with REFUSAL for a line) to decide its gate; an answer is typed only once allowed.
 export function directedChecklist(current: MissionActivity): CheckRow[]; // [] until the result
 export function predictionGhost(): readonly MachineChange[]; // the predicted line's changes while its ghost shows (A26 draws them)
+// A20: the panels read `ottoRun` (a store beside the play store): run rows built from the
+// reveals the terminal printed (game/agent/runLog.ts logReveals), and Otto's last event
+// (said, stopped, denied, fixing), which ui/play/agent/ottoLines.ts turns into his words.
+// ui/play/useOttoFrames.ts calls play.framePlay once per animation frame while a mission or
+// drill series is open, with choosePace(browserMotion, { reducedMotion }).
 
 // src/game/play/scenePlay.ts (A18): a judgment drill's scene, played live at SCENE_SPEED (3×).
 export function beginScene(drill: JudgmentDrill): boolean;    // false: no history, start the clock now
@@ -1579,7 +1584,7 @@ Sizes exclude content data, captures and lockfiles.
 | A17 | `feat: approval gates, predictions, stop, and rewind in play` | `play/agentPlay.ts`, `game/agent/effects.ts` (NEW: `isConsequential`, `describeChanges`) | `effects.test.ts`, `play.test.ts` (allow, deny, onDeny, Confirm answer, rewind) | 330 |
 | A18 | `feat: judgment drills in missions, placement, and reviews` | `missionPlay.ts`, `seriesPlay.ts` (scene playback, clock after the scene, `submitJudgment`) | `play.test.ts`: pass or miss, review queue through `addMiss`, the clock starts after the scene | 300 |
 | A19 | `feat: the terminal shows what otto runs` | `ui/terminal/TerminalPanel.tsx`, `ui/terminal/TerminalTabs.tsx` (NEW), `ui/terminal/feedText.ts` (NEW, pure), `ui/terminal/readOnly.ts` (NEW), `game/agent/terminalFeed.ts` (NEW) | `feedText.test.ts`, `readOnly.test.ts`, `TerminalTabs.test.tsx`, `terminalFeed.test.ts`; verify loop | 220 |
-| A20 | `feat: directing panels: cards, otto's run, predicts, and gates` | `ui/play/agent/{AgentStepView,PlanCards,RunLog,PredictCard,GateCard,OttoBubble}.tsx`, `ui/play/agent/ottoLines.ts`, `ui/play/diagramStrips.ts`, `MissionView.tsx`, CSS | verify loop with `?preview=act1` | 380 |
+| A20 | `feat: directing panels: cards, otto's run, predicts, and gates` | `ui/play/agent/{AgentStepView,PlanCards,RunLog,PredictCard,GateCard,OttoBubble}.tsx`, `ui/play/agent/ottoLines.ts`, `game/agent/runLog.ts`, `ui/play/useOttoFrames.ts`, `MissionView.tsx`, `PlayPanel.tsx`, CSS (built as three stacked PRs; `diagramStrips.ts` waits for A27, since the briefing strip is already chosen by Act) | `runLog.test.ts`, `ottoLines.test.ts`, `AgentStepView.test.tsx`; verify loop | 380 |
 | A21 | `feat: directing panels: checking the claim and the step result` | `ui/play/agent/{CheckCard,LookChips,ResultCard,AnatomyChips,Stars}.tsx`, the Done screen in `MissionView.tsx` | verify loop | 330 |
 | A22 | `feat: judgment drill cards` | `ui/play/JudgmentDrillView.tsx` (predict, diagnose, fix, approve), `MissionView.tsx`, `SeriesView.tsx` | verify loop | 350 |
 | A23 | `feat: the machine island, its portal, and free play on the laptop` | `worldState.ts`, `world/zones.ts`, `world/world.ts`, `world/machine/machineWorld.ts` (NEW), `world/campus.ts` ("Start here"), `ui/TitleCard.tsx`, `play/freePlay.ts` (NEW), `play/catalog.ts` (`freePlay`) | `zones.test.ts`, `freePlay` unit test; verify loop | 380 |
