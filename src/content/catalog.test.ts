@@ -10,7 +10,8 @@ describe('the shipped catalog', () => {
   it.each(ACTS.map((entry) => [entry.act.act, entry] as const))(
     'Act %i is ready to ship on its own',
     (_number, entry) => {
-      expect(validateAct(entry.act, entry.missions)).toEqual([]);
+      const lessons = 'lessons' in entry ? entry.lessons : [];
+      expect(validateAct(entry.act, entry.missions, lessons)).toEqual([]);
     },
   );
 });

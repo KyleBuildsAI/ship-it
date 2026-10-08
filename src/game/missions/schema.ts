@@ -424,6 +424,43 @@ const MIN_MISSIONS = 3;
 const MAX_MISSIONS = 6;
 
 /**
+ * The rules for an Act taught by lessons, which ends in a final lesson instead of a boss
+ * fight (DESIGN.md section 5, Lessons). The final stands in for the boss, so there's no
+ * boss as well. There's no placement test either: a placement test borrows drills from
+ * missions, and lessons have none, so a few lessons are played instead of tested out of.
+ * A Field Mission is optional; when there is one, it's needed to complete the Act.
+ */
+function checkLessonAct(
+  act: {
+    readonly earlyAccess: boolean;
+    readonly missionIds: readonly string[];
+    readonly upcoming: readonly string[];
+    readonly finalLessonId?: string;
+    // Only whether these exist matters here, so their shapes aren't needed.
+    readonly boss?: unknown;
+    readonly placementTest?: unknown;
+  },
+  problem: (path: string, message: string) => void,
+): void {
+  if (act.missionIds.at(-1) !== act.finalLessonId) {
+    problem('finalLessonId', 'The final lesson is played last, so list it last in missionIds.');
+  }
+  if (act.boss !== undefined) {
+    problem('boss', 'The final lesson is this Act’s boss, so it has no boss fight as well.');
+  }
+  if (act.placementTest !== undefined) {
+    problem('placementTest', 'A lesson Act has no placement test: lessons have no drills.');
+  }
+  if (act.earlyAccess) return;
+  if (act.missionIds.length < MIN_MISSIONS) {
+    problem('missionIds', 'A finished Act needs 3 to 6 missions. Set earlyAccess until then.');
+  }
+  if (act.upcoming.length > 0) {
+    problem('upcoming', 'Only an early-access Act has upcoming missions.');
+  }
+}
+
+/**
  * An Act is either finished, with every part, or in early access: it ships the missions
  * built so far, and its boss and Field Mission once they exist. The parts are optional in
  * the shape and required by the refinement below, so each rule can say what's missing.
@@ -440,6 +477,11 @@ export const ActSchema = z
     placementTest: PlacementSchema.optional(),
     boss: BossSchema.optional(),
     fieldMission: FieldMissionSchema.optional(),
+    /**
+     * A lesson Act's timed final (DESIGN.md section 5, Lessons), named here because it is
+     * the Act's boss: beating it counts as beating the boss. It's the last of missionIds.
+     */
+    finalLessonId: IdSchema.optional(),
   })
   .superRefine((act, ctx) => {
     const problem = (path: string, message: string) => {
@@ -447,6 +489,10 @@ export const ActSchema = z
     };
     if (act.missionIds.length + act.upcoming.length > MAX_MISSIONS) {
       problem('upcoming', 'An Act has at most 6 missions, counting the upcoming ones.');
+    }
+    if (act.finalLessonId !== undefined) {
+      checkLessonAct(act, problem);
+      return;
     }
     if (act.earlyAccess) {
       // Testing out completes every mission, and some of this Act's aren't built yet.

@@ -34,6 +34,7 @@ import {
   sampleMission,
   sampleMissionInput,
 } from './sample.test-mission';
+import { lessonActInput } from './sample.test-lesson';
 
 /** The messages zod reports, so a test can check the right rule fired. */
 function problems(result: { success: boolean; error?: { issues: { message: string }[] } }) {
@@ -586,6 +587,43 @@ describe('early access', () => {
       setEarlyAccess('A finished Act needs a Field Mission.'),
       'Only an early-access Act has upcoming missions.',
     ]);
+  });
+});
+
+describe('an Act made of lessons', () => {
+  const lessonAct = (changes: object) => ActSchema.safeParse({ ...lessonActInput, ...changes });
+
+  it('is finished with 3 lessons and its final, which stands in for the boss', () => {
+    // No boss, placement test or Field Mission: the final completes it (DESIGN.md 5).
+    const parsed = ActSchema.parse(lessonActInput);
+    expect(parsed).toMatchObject({ earlyAccess: false, finalLessonId: 'sample-final' });
+    expect([parsed.boss, parsed.placementTest, parsed.fieldMission]).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(lessonAct({ fieldMission: sampleActInput.fieldMission }).success).toBe(true);
+  });
+
+  it('plays its final last, and has no boss or placement test besides', () => {
+    const reordered = ['sample-final', 'sample-pr-review', 'sample-second-review'];
+    expect(problems(lessonAct({ missionIds: reordered }))).toEqual([
+      'The final lesson is played last, so list it last in missionIds.',
+    ]);
+    const { boss, placementTest } = sampleActInput;
+    expect(problems(lessonAct({ boss, placementTest }))).toEqual([
+      'The final lesson is this Act’s boss, so it has no boss fight as well.',
+      'A lesson Act has no placement test: lessons have no drills.',
+    ]);
+  });
+
+  it('needs 3 to 6 lessons and nothing upcoming once finished, but not in early access', () => {
+    const short = { missionIds: ['sample-final'], upcoming: ['More'] };
+    expect(problems(lessonAct(short))).toEqual([
+      'A finished Act needs 3 to 6 missions. Set earlyAccess until then.',
+      'Only an early-access Act has upcoming missions.',
+    ]);
+    expect(lessonAct({ ...short, earlyAccess: true }).success).toBe(true);
   });
 });
 

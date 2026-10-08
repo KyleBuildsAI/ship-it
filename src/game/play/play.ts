@@ -1,5 +1,6 @@
 import { endDrill } from '../../mentor/drillGuard';
 import { bossSandboxChanged, bossTick } from './bossPlay';
+import { lessonTick } from './lessonPlay';
 import { missionSandboxChanged, missionTick } from './missionPlay';
 import { play } from './playStore';
 import { watchSandbox } from './sandboxControl';
@@ -13,12 +14,13 @@ function sandboxChanged(): void {
   else if (kind === 'boss') bossSandboxChanged();
 }
 
-/** Drives drill clocks and boss twists. The UI calls it a few times a second. */
+/** Drives drill clocks, boss twists and a final lesson's clock. The UI calls it often. */
 export function tickPlay(nowMs: number = Date.now()): void {
   const kind = play.get().activity?.kind;
   if (kind === 'mission') missionTick(nowMs);
   else if (kind === 'placement' || kind === 'review') seriesTick(nowMs);
   else if (kind === 'boss') bossTick(nowMs);
+  else if (kind === 'lesson') lessonTick(nowMs);
 }
 
 /** Leaves whatever is being played. The sandbox stays as it is, for free play. */

@@ -48,14 +48,15 @@ Intern -> Junior -> Mid -> Senior -> Staff.
 
 ### Hub: Campus
 A night-time floating island HQ. Contains:
-- Portals to each Act (locked until prerequisites are met, except placement tests). An open portal leads to its own Act's island: walk into its ring, or click it and the avatar walks there. Acts with an island have an open portal (`ZONE_FOR_ACT` in `src/game/world/zones.ts`): Act 1's machine island and Act 2's Git World so far.
+- Portals to each Act (locked until prerequisites are met, except placement tests). An open portal leads to its own Act's island: walk into its ring, or click it and the avatar walks there. Every Act has an island, so every portal is open (`ZONE_FOR_ACT` in `src/game/world/zones.ts`): Act 1's machine island, Act 2's Git World, and a themed island for each of Acts 3 to 8. Arriving on an island opens that Act's menu, so whatever is built there can be tried at once.
 - **The machine island** (Act 1, `src/game/world/machineIsland.ts`): the laptop's folders as terraces rising away from the player, C:\ at the front. Files lie on their folder as cards, and each terminal is a "PS n" lantern on the folder it stands in, so a cd moves a lantern and a mkdir raises a tile. A signpost spells out the active terminal's path. With no laptop loaded, a sign says to open Mission 1.1 or the Laptop sandbox.
+- **The Act islands** (Acts 3 to 8, `src/game/world/actIsland.ts`, data in `ACT_ISLANDS` in `zones.ts`): one kit builds each from plain shapes: the Act's title in its own accent colour, a portal home to Campus, and a few props that say what the Act is about. Act 3 has branching paths of commits, Act 4 a town square with a notice board of issues, Act 5 a road through quality gates with watchtowers, Act 6 server racks, pipes and a database, Act 7 a robot workshop, and Act 8 an interview hall. Their lessons are played from the Act menu (section 5, Lessons), and each island's title card names its Act's first lesson (a test holds the hint to the catalog).
 - **Standup Board**: the daily review queue.
 - **Trophy Wall**: rank, stats, completed Acts.
 - **Sage's desk**: mentor chat and settings.
 - In M1 these three are HUD menus (Standup, Trophies, Settings) reachable from anywhere, next to an **Acts** button that opens an Act menu outside its island too. It opens on the first Act that isn't complete and still has work left (`recommendedAct`): a mission, boss or Field Mission not done yet. So once an early-access Act's built missions are done, it opens on the next Act. There's a tab per Act once more than one ships. Standing on an Act's island shows that Act's menu. Mentor chat arrives with later modes.
 - **The catalog holds every Act** (`src/content/index.ts` `ACTS`, loaded by `setCatalog`). Activities carry their Act number, so placement tests, bosses, Field Missions and progress are all per Act, and reviews draw from every Act. `validateCatalog` keeps mission, drill, boss and Field Mission ids unique across Acts, because the save and the review queue refer to them by id alone. Each Act's placement test has its own pitch line.
-- **First-run tutorial** (M2): a card at the top left (over the locked portals, so the open ones stay in view) teaches the controls by doing, one step at a time: walk, jump, look around, run a command, hide and show the terminal, enter an Act. Each step advances when the player has done it (counters in the world and HUD stores; logic in `src/game/tutorial.ts`), never on a "Next" button. Skippable; Settings can replay it. Finishing or skipping is saved, so it runs once per save.
+- **First-run tutorial** (M2): a card at the top left (over the far portals of the later Acts, so Act 1 and Act 2 stay in view) teaches the controls by doing, one step at a time: walk, jump, look around, run a command, hide and show the terminal, enter an Act. Each step advances when the player has done it (counters in the world and HUD stores; logic in `src/game/tutorial.ts`), never on a "Next" button. Skippable; Settings can replay it. Finishing or skipping is saved, so it runs once per save.
 
 ### Git World visual language (reused everywhere)
 | Git concept | In-world object |
@@ -88,6 +89,17 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 - **Boss**: timed, multi-step scenario with a twist.
 - **Field Mission**: real task on a real repo, with a checklist and verification (section 8).
 - **Early access**: an Act can ship before it's finished. It plays the missions built so far, lists the rest as coming soon, and gains its boss and Field Mission as they're built. It has no placement test, because testing out would skip missions that don't exist yet, and it never counts as complete until early access ends.
+
+### Lessons
+For Acts whose systems the game doesn't simulate (GitHub's team flow, CI, HTTP, directing agents), a mission can be a **lesson**: everything is answered by clicking, never typing. The point is judgment about systems and about directing AI, not syntax.
+- A lesson is a **briefing** (2-3 captions, read at Kyle's pace), then **6-10 cards**, then a Done screen with stars and XP.
+- **Choose** card: a situation, an optional **artifact** to read (a diff, a CI log, a terminal transcript, a PR description, an agent's message, an HTTP request or response; monospace, scrollable, labelled by kind), a question, and 3-5 options each with feedback. One or more are right.
+- **Prompt** card: the same shape, asking which instruction to give the AI agent. Its options are prompts, and the feedback says why one gets better results.
+- Options show in the order content lists them, so content moves the right answer around. Length mustn't give it away either: each prompt card has a detailed but flawed instruction nearly as long as the right one (say, a good brief that ends with the agent merging into main itself), and distractors are tempting real-world mistakes, not strawmen. Act 3's tests hold both.
+- **Order** card: 3-6 steps to put in order with up and down buttons, then "Check order".
+- Every card shows an explanation (why, in plain words) once solved. A wrong answer shows its feedback and the card stays open; only the first try counts. Stars come from the share right on the first try: 3 from 90%, 2 from 60%, otherwise 1. XP is paid once; replays practise for free.
+- A **final** lesson is an Act's timed final challenge: all its cards share one clock that starts when the briefing ends. If it runs out before the last card is answered, the run ends without completing, and Kyle tries again. Once the last card is answered the clock stops, so reading the last explanation is never a race.
+- **A lesson Act** is an Act taught by lessons. Its final is its boss: the Act names it as `finalLessonId`, and beating it is saved as beating the boss (its own XP, no boss award on top). It has 3-6 lessons, final last, no boss fight and no placement test (lessons have no drills to borrow). A Field Mission is optional. It's complete once every lesson, the final included, is done, and its Field Mission too if it has one.
 
 ## 6. Progression and systems
 
@@ -191,14 +203,19 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 ## 10. Content format
 
-- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes.
+- Missions are typed data in `src/content/actN/*.ts`, never hardcoded in scenes. A lesson Act's lessons are listed in `src/content/actN/lessons.ts`, in play order with the final last (each lesson of Acts 3 to 8 lives in its own file and is listed there), and `lessonAct` (`src/content/lessonAct.ts`) parses them and builds the Act, naming the final as its `finalLessonId`.
 - A schema (zod or equivalent) validates every mission in tests.
 - **Mission object**: `id`, `act`, `title`, `briefing` (scene id + captions), `initialRepoState` (fixture), `steps` (instruction, success predicate, hint ladder), `drills` (scenario text, setup fixture, success predicate), `questionRound` (ticket, candidates with quality tag + rationale, rubric for free text), `xp`.
 - **Directed steps** (`agentSchema.ts`): a step's `agent` task holds 2-3 start `plans` and 1-3 `fixes` (a card, Otto's script, his claim, a lesson), one `check` whose options are graded by `truth` predicates, `guards` that must stay true, and read-only `looks`. A mission's steps are all directed or all typed. A directed mission starts with `windows()` and sets `approvals` (`changes` or `destructive`). `validateAct` gives directed text tighter budgets: goal and hints 20 words, cards and Otto's lines 12, lessons and feedback 25, checklist labels 8. It also adds up the texts that share a screen (the Direct screen, a fix round, each Check screen, each predict).
 - **Judgment drills** (`JudgmentDrillSchema` in `schema.ts`): a directed mission's drills have a `kind` (`predict`, `diagnose`, `fix` or `approve`), a `setup`, the `history` Otto already ran, an optional `claim`, and an `explain` shown after the answer. No option is marked right: each has an `outcome`, a `truth` or a `script` the engine checks, and an approve drill has `guards`. A typed mission's drills have no `kind` and keep their `success` predicate. `validateAct` keeps a drill's question (prompt, claim, Otto's line, options) to 60 words and its `explain` to 30.
-- **Act object**: `act`, `title`, `missionIds`, `placementTest`, `boss`, `fieldMission`. With `earlyAccess: true`, it has 1-6 missions counting the `upcoming` titles, no placement test, and a boss and Field Mission only once they're built. Code reads a part through `requirePlacement`, `requireBoss` or `requireFieldMission`, which throw a `ContentError` when it isn't built yet.
+- **Lesson object** (`lessonSchema.ts`): `id`, `act`, `title`, `kind` (`lesson` or `final`), `briefing` (2-3 captions), `cards` (6-10), `xp`, and `timeLimitSeconds` for a final only. Every card has `id`, `kind` (`choose`, `prompt` or `order`), `situation`, an optional `artifact` (`kind`, optional `label`, `text` up to 30 lines), `question` and `explanation`. Choose and prompt cards have `options` (`id`, `text`, `correct`, `feedback`), at least one right and one wrong; order cards have `steps` (`id`, `text`) listed in the right order, which the game scrambles. Word budgets: captions 30, situation 40, question 25, options 25 (prompts 40), feedback 30, explanation 45, steps 15, and situation plus question 60. An Act lists its lessons in `missionIds` beside missions (`ActContent.lessons` holds them); `validateAct` checks they exist, belong to the Act, and that a final comes last and is the Act's `finalLessonId`. A lesson's progress is saved like a mission's, with its best first-try percent in `bestDrillScore`.
+- **Act object**: `act`, `title`, `missionIds`, `placementTest`, `boss`, `fieldMission`, and `finalLessonId` for a lesson Act (section 5, Lessons), which then has no `boss` or `placementTest`, and an optional `fieldMission`. With `earlyAccess: true`, it has 1-6 missions counting the `upcoming` titles, no placement test, and a boss and Field Mission only once they're built. Code reads a part through `requirePlacement`, `requireBoss` or `requireFieldMission`, which throw a `ContentError` when it isn't built yet.
 
 ## 11. Curriculum
+
+Every Act is playable today, each entered through its Campus portal (section 4). They're taught two ways:
+- **Acts 1 and 2 are simulated.** Act 1 runs Otto's real PowerShell on the simulated laptop and its machine island; Act 2 runs the git engine in the Git World. Act 1 is in early access (Mission 1.1 and the laptop sandbox); Act 2 is complete.
+- **Acts 3 to 8 are lessons** (section 5, Lessons): four lessons each and a timed final in place of the boss, answered by clicking, never typing. They teach judgment about git, GitHub, CI, systems and directing AI agents rather than syntax. Their Field Missions aren't built yet.
 
 ### Act 1: The Machine (directed, in progress)
 The principles every engineer who directs AI agents needs about the machine they run on, learned by getting the Quillwork API running on Kyle's laptop with Otto. Kyle directs; Otto's real PowerShell runs through the laptop engine and animates the machine island. It becomes the starting Act as soon as Mission 1.1 is playable, and ships in early access, one mission at a time.
@@ -221,29 +238,65 @@ Three areas, status, add, commit, log, diff, .gitignore, commit hygiene, undo.
 
 Boss: **"The Dirty Tree"**: Dex deploys from a clean checkout in 3:00. The Workbench has ~40 modified and untracked files. Commit the right things in sensible commits, without committing `.env` or build output, before the timer hits zero. Twist at 1:00: Dex reports a missing file that was never tracked: a too-broad `.gitignore` rule (`log*`) has been hiding `src/logger.ts`, and the player must commit it before the clock runs out.
 
-### Act 3: Branching
+### Act 3: Branching (lessons)
 Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.
-Boss: **"Conflict Storm"**.
+Every card happens at Quillwork with Otto and the team, and each lesson has at least two cards asking what to tell Otto and one order card. Content lives in `src/content/act3/`, one file per lesson.
+- 3.1 **Branches Are Pointers**: why main stays deployable, a branch as a tiny file holding a commit id, HEAD, briefing Otto to branch, a switch git refuses, switching safely, cleaning up merged branches, committed versus merged
+- 3.2 **Two Ways to Merge**: fast-forward versus three-way, briefing `--ff-only`, why a rebase changes commit ids, which branches are safe to rebase, `--force-with-lease`, update-then-merge, merge versus rebase
+- 3.3 **Conflicts Without Panic**: why git stops, reading markers, resolving by intent, directing Otto through 14 conflicts, catching markers he left in, the resolve steps, `merge --abort`, short-lived branches
+- 3.4 **Tools for Bad Days**: cherry-picking one fix (and briefing it), what stash does, stashing for a hotfix, tags for releases, bisect by hand and driven by Otto with a test
 
-### Act 4: GitHub Team Flow
+Final (the boss): **"Conflict Storm"**, 6:00, 8 cards on release day: a fast-forward, a real conflict, Otto's conflicts under time pressure, a shared rebase gone wrong, a cherry-picked fix, bisect's arithmetic, the release steps with a tag, and a hotfix with stash.
+
+### Act 4: GitHub Team Flow (lessons)
 Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.
-Boss: **"Rejected Push"** at 5pm on release day.
+Set at Quillwork, a small startup, with Sage, Dex, Marco, Priya and Otto, the team's AI agent. Each lesson has its own file in `src/content/act4/`.
+- 4.1 **Remotes and Pushing**: what origin is, committed versus pushed, fetch before pull, briefing Otto to sync, a rejected push, Otto asking to force-push, forks, the start-of-task routine
+- 4.2 **Issues and Pull Requests**: issues first, briefing Otto to draft an issue, a useless bug report, a PR's life, draft PRs, an agent's PR that bundles unrelated changes, briefing a PR description, splitting a PR that's too big, "Closes #57"
+- 4.3 **Reviewing Pull Requests**: an agent's PR that skips a failing test, redirecting Otto to the root cause, review comments, nits, protected branches, CODEOWNERS, asking Otto to review itself sceptically, the review routine
+- 4.4 **Releases and Versions**: MINOR, MAJOR, big is not breaking, briefing a changelog, what a tag is, briefing release prep, never moving a published tag, the release steps
 
-### Act 5: Quality Gates
+Final (the boss): **"Rejected Push"** at 5pm on release day, 6:00 for 8 cards: a protected-branch rejection, briefing a tight hotfix, a fetch-first rejection, an agent's diff that drops a CODEOWNERS line, a red check called flaky, briefing a conflict resolution, the hotfix version, shipping it.
+
+### Act 5: Quality Gates (lessons)
 Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.
-Boss: **"Red CI"**: main is broken. Find the commit, then fix forward or revert.
+Every card happens at Quillwork with Sage, Dex, Marco, Priya and Otto. The lessons live one per file in `src/content/act5/`.
+- 5.1 **Tests Are Guardrails**: unit versus integration versus end-to-end, testing at the lowest level that proves it, reading a failing test, test-first briefs, an agent weakening a test, the bug-fix loop
+- 5.2 **Lint and Types**: type errors as bug reports, refusing `@ts-ignore` and `any`, why lint blocks a merge, blanket `eslint-disable`, a formatter in CI, scoping a lint fix for an agent, what green does and doesn't prove, the local gates in order
+- 5.3 **Reading CI**: reading a workflow, reading a GitHub Actions log to its first failure, laptop versus CI, why CI must pass before merge, flaky tests, briefing an agent from a log, asking an agent for evidence
+- 5.4 **Secrets and Updates**: secrets in Actions, a leaked key (revoke first) and the cleanup in order, fork PRs and secrets, major dependency bumps, the lockfile, briefing an upgrade, judging a new dependency
 
-### Act 6: How Systems Work
+Final (the boss): **"Red CI"**, 6:00 for 9 cards: main is broken on release day. Find the first red build, read the trace, choose revert or fix forward, brief Otto's revert, catch his skipped test, and stop admins bypassing the required CI check.
+
+### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.
-Boss: **"The 3am Page"**: incident triage from logs and metrics.
+Every card is a day at Quillwork, a small startup that makes a writing app, with Sage, Dex, Marco, Priya and the coding agent Otto. Each lesson has 7 to 10 cards, at least two of them about what to tell Otto, and one order card.
+- 6.1 **Requests and Responses**: reading a request, status codes, picking the right code, specifying an endpoint for an agent, briefing an agent on a failing request, safe retries and idempotency, CORS, a request's journey
+- 6.2 **APIs and Auth**: REST design, JSON and null, keeping an API's contract, OAuth versus API keys, sessions and cookies, a secret key in browser code, least-scope access (a GitHub App on one repo) for an agent's integration, the OAuth sign-in flow
+- 6.3 **Data, Speed and Scale**: reading SQL, indexes, asking an agent to measure with EXPLAIN, SQL injection in an agent's code, a SELECT before any DELETE, caching, a cached read in order, queues, containers, a managed cloud database (regions, zones, cost)
+- 6.4 **Logs and Stack Traces**: where to look in a stack trace, what was undefined, briefing a fix for the cause not the symptom, a swallowed error, following one request id, briefing safe logging, log levels, the debugging steps in order
 
-### Act 7: AI-Native Engineering
+Final (the boss): **"The 3am Page"**, 6:00 for nine cards: incident triage from metrics and logs, rolling back, telling the team, confirming recovery, then briefing Otto on the root cause and a blameless postmortem. Content lives one lesson per file in `src/content/act6/`, collected in play order by `lessons.ts`.
+
+### Act 7: AI-Native Engineering (lessons)
 Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.
-Boss: **"The Agent Went Rogue"**: an agent's PR passes CI but is subtly wrong.
+Every card happens at Quillwork, where Kyle directs Otto, the team's coding agent, beside Sage, Dex, Marco and Priya. Each lesson has its own file in `src/content/act7/`. Every lesson has at least one long, specific-sounding wrong option, so the right answer can't be picked by its length, and every order card has only one defensible order.
+- 7.1 **Brief the Agent**: a spec an agent can follow, lasting context in the repo, plan before code, answering an agent's question, the agent loop, defining done, focused context, pointing at an example
+- 7.2 **Read What It Wrote**: swallowed errors, a lost permission check, scope drift, asking for evidence, invented APIs, new dependencies, the order of a review, a review comment that gets a fix
+- 7.3 **Tests and Evals**: tests as guardrails, tests first, a test bent to fit the bug, a rule against editing tests, coverage gaps, evals, building an eval, noisy eval scores
+- 7.4 **Guardrails for Agents**: prompt injection in an issue and in a web page, least-privilege tokens, secrets in `.env`, responding to a leaked key, approving destructive tools, cost and latency (a rename tool beats any model), when to stop an agent, a stopping rule
 
-### Act 8: The Loop
+Final (the boss): **"The Agent Went Rogue"**, 6:00, nine cards: Otto's PR passes CI and has a real rounding fix, but also doubles the refund limit, flips the test that guarded it and switches off `npm test` in CI. Kyle finds it, holds the deploy, sends it back and hardens the process.
+
+### Act 8: The Loop (lessons)
 Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.
-Boss: a full mock interview loop.
+Every card is set at Quillwork, with Sage running a mock loop and Otto, Marco, Priya and Dex in the stories, and every lesson asks at least twice what Kyle would tell Otto. Content: `src/content/act8/`, one file per lesson.
+- 8.1 **Think Out Loud**: the coding round, no AI: clarifying a vague ticket, reading Otto's code for bugs (off-by-one, a shared default list, a slow list search), a reading method, asking for proof of a fix, getting unstuck, AI as a practice partner
+- 8.2 **Debug From Symptoms**: reading a traceback, a try/except that hides a bug, "what changed?", a debugging method, evidence before fixes when briefing Otto, works-locally-fails-in-CI, bisect, a flaky test with a cause
+- 8.3 **Design Trade-offs**: requirements first, the read-heavy path, queues for slow work, a design method, defending a choice, asking Otto for options with costs, right-sizing for a small team, the risk that can't be undone
+- 8.4 **Customers and Your Story**: listening to a customer, fixing their real workflow, briefing Otto's reply, handling missed webhooks, the SandCastles deep-dive, honest credit for AI's part, disagreement and mistakes
+
+Final (the boss): **"The Mock Interview Loop"**, 6:00: one card per round, eight cards. Live coding with Pyodide (the Python Arena, M5) comes later.
 
 ### Cross-Act features
 - **Code Review mini-game (M2)**: diffs in a review panel. Click lines with bugs, pick the issue type, write a comment. Includes AI-written diffs with plausible-looking mistakes.

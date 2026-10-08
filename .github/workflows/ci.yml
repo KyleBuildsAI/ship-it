@@ -17,7 +17,9 @@ jobs:
   checks:
     name: Lint, types, tests, build, e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # CI draws the 3D world in software, so the e2e walks are slow: main already took 13.5
+    # minutes of the old 15. The limit only stops a stuck run; it doesn't skip any check.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
 

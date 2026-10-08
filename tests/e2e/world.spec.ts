@@ -57,9 +57,14 @@ test('Space jumps, even right after clicking a HUD button', async ({ page }) => 
   expect(problems).toEqual([]);
 });
 
+// Every Act has an island, so every Campus portal opens. Each walk is checked on its own.
+// One walk per kind of island: the laptop, the Git World, and a lesson island. Each walk is
+// slow on CI, which renders in software, so the other lesson portals are covered by
+// zones.test.ts (every Act has an island and an open portal) instead of a walk each.
 const PORTALS = [
   { act: 1, zone: 'machine', heading: 'The Machine' },
   { act: 2, zone: 'gitworld', heading: 'Git World' },
+  { act: 4, zone: 'act4', heading: 'GitHub Team Flow' },
 ] as const;
 
 for (const { act, zone, heading } of PORTALS) {

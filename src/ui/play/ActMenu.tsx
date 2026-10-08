@@ -2,14 +2,17 @@ import { roadmapAct } from '../../content/roadmap';
 import type { Act, Boss, FieldMission, PlacementTest } from '../../game/missions/schema';
 import { startBossFight } from '../../game/play/bossPlay';
 import { findAct, hasWorkLeft, type ActContent } from '../../game/play/catalog';
+import { starsFor } from '../../game/missions/lessonRunner';
+import type { Lesson } from '../../game/missions/lessonSchema';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startFreePlay } from '../../game/play/freePlay';
+import { startLesson } from '../../game/play/lessonPlay';
 import { startMission } from '../../game/play/missionPlay';
 import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
 import { bossAccess, isUnlocked, type BossAccess } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { completedActNumbers, rankFor } from '../../game/progression/xp';
-import type { ActProgress, MissionStatus, SaveData } from '../../game/save/schema';
+import type { ActProgress, MissionProgress, MissionStatus, SaveData } from '../../game/save/schema';
 import { useStore } from '../useStore';
 import { ActTabs } from './ActTabs';
 import { PreviewActMenu } from './PreviewActMenu';
@@ -20,6 +23,50 @@ const STATUS: Record<MissionStatus, string> = {
   completed: 'Done',
   'tested-out': 'Tested out',
 };
+
+/**
+ * What a lesson's row says under its title: its stars once done (the save keeps the best
+ * first-try percent in bestDrillScore), and for a final, that it's timed.
+ */
+function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string {
+  const status = saved?.status ?? 'available';
+  if (status === 'completed') {
+    const stars = starsFor(saved?.bestDrillScore ?? 0);
+    return `Done · ${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`;
+  }
+  const kind =
+    lesson.kind === 'final' ? 'Timed final challenge' : `${String(lesson.cards.length)} cards`;
+  return status === 'available' ? kind : `${STATUS[status]} · ${kind}`;
+}
+
+/** A row that starts a mission or a lesson: Play the first time, Replay once it's done. */
+function PlayRow({
+  label,
+  note,
+  status,
+  onPlay,
+}: {
+  label: string;
+  note: string;
+  status: MissionStatus;
+  onPlay: () => void;
+}) {
+  return (
+    <li>
+      <span>
+        {label}
+        <small>{note}</small>
+      </span>
+      <button
+        type="button"
+        className={status === 'available' ? 'play-button play-button--primary' : 'play-button'}
+        onClick={onPlay}
+      >
+        {status === 'completed' || status === 'tested-out' ? 'Replay' : 'Play'}
+      </button>
+    </li>
+  );
+}
 
 /** An Act's free-play sandbox: open it and try things, with nothing graded. */
 function FreePlayRow({ steps, notice }: NonNullable<ActContent['freePlay']>) {
@@ -206,27 +253,35 @@ export function ActMenu({ act: number }: { act: number }) {
           <PlacementRow actNumber={act.act} actProgress={actProgress} test={placementTest} />
         ) : null}
         {act.missionIds.map((id, index) => {
+          const number = `${String(act.act)}.${String(index + 1)}`;
+          const saved = save.missions[id];
+          const status = saved?.status ?? 'available';
           const mission = missions.find((entry) => entry.id === id);
-          if (mission === undefined) return null;
-          const status = save.missions[id]?.status ?? 'available';
-          return (
-            <li key={id}>
-              <span>
-                {act.act}.{index + 1} {mission.title}
-                <small>{STATUS[status]}</small>
-              </span>
-              <button
-                type="button"
-                className={
-                  status === 'available' ? 'play-button play-button--primary' : 'play-button'
-                }
-                onClick={() => {
+          if (mission !== undefined) {
+            return (
+              <PlayRow
+                key={id}
+                label={`${number} ${mission.title}`}
+                note={STATUS[status]}
+                status={status}
+                onPlay={() => {
                   startMission(id);
                 }}
-              >
-                {status === 'completed' || status === 'tested-out' ? 'Replay' : 'Play'}
-              </button>
-            </li>
+              />
+            );
+          }
+          const lesson = content.lessons?.find((entry) => entry.id === id);
+          if (lesson === undefined) return null;
+          return (
+            <PlayRow
+              key={id}
+              label={`${number} ${lesson.kind === 'final' ? 'Final: ' : ''}${lesson.title}`}
+              note={lessonNote(lesson, saved)}
+              status={status}
+              onPlay={() => {
+                startLesson(id);
+              }}
+            />
           );
         })}
         <UpcomingRows act={act} />
