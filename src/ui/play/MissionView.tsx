@@ -15,6 +15,7 @@ import { Checklist } from './Checklist';
 import type { CheckRow } from '../../game/missions/predicates';
 import { useClock } from './useClock';
 import { AgentStepView } from './agent/AgentStepView';
+import { Stars } from './agent/Stars';
 
 const CAPTION_MS = 5000;
 
@@ -260,6 +261,38 @@ function QuestionRound({ activity }: { activity: MissionActivity }) {
 
 const QUALITY_LABEL = { strong: 'Strong', okay: 'Okay', weak: 'Weak' } as const;
 
+/** "You caught 2 of 3 of Otto's slips": the one number that says how well Kyle checked. */
+function slipLine(slips: MissionActivity['slips']): string {
+  if (slips.length === 0) return 'Otto made no slips that reached a check.';
+  const caught = slips.filter((slip) => slip.caught).length;
+  return `You caught ${String(caught)} of ${String(slips.length)} of Otto's slips.`;
+}
+
+/**
+ * How Kyle directed Otto, on the Done screen of a directed mission: the slips he caught
+ * and each step's stars. A typed mission (Act 2) has no directed steps, so it shows nothing.
+ */
+function DirectingSummary({ activity }: { activity: MissionActivity }) {
+  const directed = activity.mission.steps.filter((step) => step.agent !== undefined);
+  if (directed.length === 0) return null;
+  return (
+    <div className="directing-summary">
+      <p>{slipLine(activity.slips)}</p>
+      <ol className="directing-summary__steps" aria-label="Stars per step">
+        {directed.map((step) => {
+          const earned = activity.stars[step.id];
+          return (
+            <li key={step.id}>
+              <span className="play-panel__muted">{step.instruction}</span>
+              {earned === undefined ? null : <Stars earned={earned} />}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
 function Done({ activity }: { activity: MissionActivity }) {
   const { questionScore, freeTextGrade, run, mission, xpEarned } = activity;
   const passed = run.drillResults.filter((result) => result.passed).length;
@@ -269,6 +302,7 @@ function Done({ activity }: { activity: MissionActivity }) {
       <p className="play-panel__instruction">
         {mission.title}: +{xpEarned} XP · drills {passed}/{run.drillResults.length}
       </p>
+      <DirectingSummary activity={activity} />
       {questionScore ? (
         <ul className="pick-feedback">
           {questionScore.perPick.map((pick) => (
