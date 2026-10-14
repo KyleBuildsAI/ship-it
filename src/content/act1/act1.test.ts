@@ -4,22 +4,27 @@ import { dryRun, startLog, withEntry, type SandboxLog } from '../../game/agent/r
 import { outcomeHolds } from '../../game/missions/agentRunner';
 import { isJudgmentDrill } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import { act1, act1Missions } from './index';
+import { act1, act1Lessons, act1Missions } from './index';
 
 const mission = act1Missions[0];
 if (mission === undefined) throw new Error('Act 1 has no mission');
 
 describe('Act 1', () => {
-  it('parses, ships Missions 1.1 to 1.4 in early access, and passes validateAct', () => {
+  it('parses, ships 1.1 to 1.4, then 1.5, 1.6 and the final, and passes validateAct', () => {
+    // Still early access: the Field Mission isn't built, so the Act can't complete yet.
     expect(act1.earlyAccess).toBe(true);
     expect(act1.missionIds).toEqual([
       'where-things-live',
       'deletes-are-forever',
       'secrets-stay-home',
       'every-terminal',
+      'dependencies-are-declared',
+      'running-isnt-working',
+      'works-on-my-machine',
     ]);
-    expect(act1.upcoming).toHaveLength(2);
-    expect(validateAct(act1, act1Missions)).toEqual([]);
+    expect(act1.finalLessonId).toBe('works-on-my-machine');
+    expect(act1.upcoming).toEqual([]);
+    expect(validateAct(act1, act1Missions, act1Lessons)).toEqual([]);
   });
 });
 
