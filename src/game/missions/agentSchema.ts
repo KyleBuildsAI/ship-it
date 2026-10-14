@@ -207,6 +207,12 @@ export const PlanSchema = z.strictObject({
   /** Why this direction worked or didn't. validateAct keeps it to 25 words. */
   lesson: ScreenTextSchema,
   slip: z.enum(SLIPS).optional(),
+  /**
+   * A fix offered only while this holds, like "the newest commit holds README.md". A fix
+   * that undoes Otto's commit is a trap when Kyle denied that commit: the newest one is
+   * then an earlier, good commit. Start cards are always offered, so only a fix has one.
+   */
+  when: PredicateSchema.optional(),
 });
 
 const CheckOptionSchema = z.strictObject({
@@ -266,6 +272,15 @@ export const AgentTaskSchema = z
   .superRefine((task, ctx) => {
     checkUniqueIds(task.plans, 'plans', ctx);
     checkUniqueIds(task.fixes, 'fixes', ctx);
+    task.plans.forEach((plan, index) => {
+      if (plan.when !== undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['plans', index, 'when'],
+          message: 'Only a fix has `when`: the start cards are always offered.',
+        });
+      }
+    });
     // A fix round offers fixes beside untried start plans, and play remembers which
     // were tried by id, so an id may be used only once across both lists.
     const startIds = new Set(task.plans.map((plan) => plan.id));

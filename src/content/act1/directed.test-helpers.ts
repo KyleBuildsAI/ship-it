@@ -142,7 +142,7 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
       policy: GatePolicy,
     ) => {
       const cards = before?.cards ?? [];
-      for (const plan of offeredPlans(from.state, step)) {
+      for (const plan of offeredPlans(from.state, step, queriesOf(from.log))) {
         const played = playCard(mission, step, from, plan.id, policy);
         const wrecked =
           (before?.wrecked ?? false) ||
@@ -178,14 +178,14 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
           root === null
             ? { log: start, state: beginAgentStep(step) }
             : fixRoundAfter(step, root.played);
-        for (const plan of offeredPlans(begin.state, step)) {
+        for (const plan of offeredPlans(begin.state, step, queriesOf(begin.log))) {
           const whole = playCard(mission, step, begin, plan.id, policy);
           for (let stopAt = 0; stopAt < whole.driven; stopAt++) {
             const stopped = playCard(mission, step, begin, plan.id, policy, stopAt);
             const cards = [...(root?.cards ?? []), `${plan.id} (Stop after ${String(stopAt)})`];
             const wrecked = root?.wrecked ?? false;
             stops.push({ cards, policy, played: stopped, wrecked });
-            for (const next of offeredPlans(stopped.state, step)) {
+            for (const next of offeredPlans(stopped.state, step, queriesOf(stopped.log))) {
               const played = playCard(mission, step, stopped, next.id, policy);
               stops.push({ cards: [...cards, next.id], policy, played, wrecked });
             }

@@ -895,6 +895,8 @@ export const PlanSchema = z.strictObject({
   /** Why this direction worked or didn't. At most 25 words. */
   lesson: ScreenTextSchema,
   slip: z.enum(SLIPS).optional(),
+  /** A fix only: offered while this holds on the sandbox (e.g. there is a commit to undo). */
+  when: PredicateSchema.optional(),
 });
 
 const CheckOptionSchema = z.strictObject({

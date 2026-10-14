@@ -135,22 +135,22 @@ describe('picking a card', () => {
   const start = beginAgentStep(step);
 
   it('offers the start cards, and only for the step it began', () => {
-    expect(ids(offeredPlans(start, step))).toEqual(['guess', 'full-path']);
+    expect(ids(offeredPlans(start, step, atHome))).toEqual(['guess', 'full-path']);
     const other = { ...step, id: 'another-step' };
-    expect(() => offeredPlans(start, other)).toThrow(/for step "stand-in-the-api"/);
+    expect(() => offeredPlans(start, other, atHome)).toThrow(/for step "stand-in-the-api"/);
   });
 
   it('runs the picked card, and marks it tried', () => {
     const running = choosePlan(start, step, 'full-path');
     expect(running.tried).toEqual(['full-path']);
     expect(running.stage).toMatchObject({ at: 'running', planId: 'full-path' });
-    expect(offeredPlans(running, step)).toEqual([]);
+    expect(offeredPlans(running, step, atHome)).toEqual([]);
   });
 
   it('repeats a card back first, and goes back to the cards on "Pick instead"', () => {
     const echoed = echoPlan(start, step, 'guess');
     expect(echoed.stage).toEqual({ at: 'echo', round: 'start', planId: 'guess' });
-    expect(ids(offeredPlans(echoed, step))).toEqual(['guess', 'full-path']);
+    expect(ids(offeredPlans(echoed, step, atHome))).toEqual(['guess', 'full-path']);
     expect(backToCards(echoed)).toEqual(start);
     expect(choosePlan(echoed, step, 'guess').stage).toMatchObject({ at: 'running' });
     expect(() => choosePlan(echoed, step, 'full-path')).toThrow(/repeated back "guess"/);
@@ -171,7 +171,24 @@ describe('picking a card', () => {
       tried: ['guess', 'fix-full-path'],
       stage: { at: 'direct', round: 'fix' },
     };
-    expect(ids(offeredPlans(fixTried, step))).toEqual(['fix-full-path', 'full-path']);
+    expect(ids(offeredPlans(fixTried, step, atHome))).toEqual(['fix-full-path', 'full-path']);
+  });
+
+  it('offers a fix with a `when` only while it holds on the sandbox', () => {
+    const task = step.agent;
+    const [fix] = task?.fixes ?? [];
+    const inApi = task?.check.options.find((option) => option.id === 'api')?.truth;
+    if (task === undefined || fix === undefined || inApi === undefined) {
+      throw new Error('The sample step has a fix and an "api" check option.');
+    }
+    const gated = { ...step, agent: { ...task, fixes: [{ ...fix, when: inApi }] } };
+    const fixing: AgentStepState = {
+      ...start,
+      tried: ['guess'],
+      stage: { at: 'direct', round: 'fix' },
+    };
+    expect(ids(offeredPlans(fixing, gated, atHome))).toEqual(['full-path']);
+    expect(ids(offeredPlans(fixing, gated, inTheApi))).toEqual(['fix-full-path', 'full-path']);
   });
 });
 
@@ -195,7 +212,7 @@ describe('running a script', () => {
     if (next === null) throw new Error('The strong card has lines.');
     const stopped = stopScript(next.state);
     expect(stopped.stage).toEqual({ at: 'direct', round: 'fix' });
-    expect(ids(offeredPlans(stopped, step))).toEqual(['fix-full-path', 'guess']);
+    expect(ids(offeredPlans(stopped, step, atHome))).toEqual(['fix-full-path', 'guess']);
     expect(() => stopScript(stopped)).toThrow(MissionRunError);
   });
 
@@ -264,7 +281,7 @@ describe('fix rounds and rewind', () => {
   it('opens a fix round after a failed check, with the fixes and the untried cards', () => {
     const fixing = openFixRound(missed);
     expect(fixing.stage).toEqual({ at: 'direct', round: 'fix' });
-    expect(ids(offeredPlans(fixing, step))).toEqual(['fix-full-path', 'full-path']);
+    expect(ids(offeredPlans(fixing, step, atHome))).toEqual(['fix-full-path', 'full-path']);
     expect(() => choosePlan(fixing, step, 'guess')).toThrow(/isn't on offer/);
     const fixed = playCard(fixing, 'fix-full-path', 'api', inTheApi);
     expect(fixed.verdicts).toEqual(['missed', 'confirmed']);
@@ -282,7 +299,7 @@ describe('fix rounds and rewind', () => {
     const rewound = rewindStep(missed);
     expect(rewound.stage).toEqual({ at: 'direct', round: 'start' });
     expect(rewound.rewound).toBe(true);
-    expect(ids(offeredPlans(rewound, step))).toEqual(['guess', 'full-path']);
+    expect(ids(offeredPlans(rewound, step, atHome))).toEqual(['guess', 'full-path']);
   });
 
   it('costs nothing to rewind before any card was picked, since nothing has run', () => {
