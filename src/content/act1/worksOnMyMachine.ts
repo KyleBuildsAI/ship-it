@@ -59,67 +59,23 @@ export const worksOnMyMachine = {
         'A terminal copies PATH when it opens. Anything installed after that is invisible to it. Before reinstalling anything, open a fresh terminal and try again.',
     },
     {
-      id: 'old-node-first',
+      // The dev script runs nodemon from node_modules, so with nothing installed it is
+      // the first thing missing: this card has to come before old Node can crash anything.
+      id: 'no-modules',
       kind: 'prompt',
       situation:
-        'In the new terminal, npm runs. The dev script fails differently, and Otto has a fix.',
+        'In the new terminal, npm runs, but the dev script fails. Otto suggests a clean slate.',
       artifact: {
         kind: 'terminal',
         label: 'PS 2',
         text: [
           'PS C:\\Users\\priya\\quillwork-api> npm run dev',
-          '> node --watch server.js',
-          'node: bad option: --watch',
-          'PS C:\\Users\\priya\\quillwork-api> (Get-Command node).Source',
-          'C:\\tools\\node16\\node.exe',
           '',
-          'otto › Old Node comes first on PATH. I’ll fix it for good:',
-          'otto › setx PATH "C:\\Program Files\\nodejs"',
-        ].join('\n'),
-      },
-      question: 'What do you tell Otto?',
-      options: [
-        {
-          id: 'setx',
-          text: 'Approve the setx.',
-          correct: false,
-          feedback:
-            'setx replaces Priya’s saved PATH with that one folder. Every new terminal loses git and everything else.',
-        },
-        {
-          id: 'this-terminal',
-          text: 'No setx. Put C:\\Program Files\\nodejs first on this terminal’s PATH with $env:Path, check node --version, and note the old Node 16 for Priya.',
-          correct: true,
-          feedback: 'Yes. A fix you can see and undo, and Priya decides about her old Node.',
-        },
-        {
-          id: 'drop-watch',
-          text: 'Remove --watch from the dev script.',
-          correct: false,
-          feedback: 'That changes the project for everyone to dodge one laptop’s problem.',
-        },
-        {
-          id: 'uninstall',
-          text: 'Uninstall Node 16 from her laptop.',
-          correct: false,
-          feedback: 'Another of her projects may need it. That’s Priya’s call, not yours mid-demo.',
-        },
-      ],
-      explanation:
-        'The first matching folder on PATH wins. Fix the order in this terminal to get moving, and leave saved, laptop-wide changes to their owner. setx with one folder wipes the rest.',
-    },
-    {
-      id: 'no-modules',
-      kind: 'prompt',
-      situation: 'Node 24 now. The server starts, then stops. Otto suggests a clean slate.',
-      artifact: {
-        kind: 'terminal',
-        label: 'PS 2',
-        text: [
-          "Error: Cannot find module 'express'",
-          'Require stack:',
-          '- C:\\Users\\priya\\quillwork-api\\server.js',
-          "  code: 'MODULE_NOT_FOUND'",
+          '> quillwork-api@1.0.0 dev',
+          '> nodemon server.js',
+          '',
+          "'nodemon' is not recognized as an internal or external command,",
+          'operable program or batch file.',
           'PS C:\\Users\\priya\\quillwork-api> Test-Path node_modules',
           'False',
           '',
@@ -137,10 +93,10 @@ export const worksOnMyMachine = {
         },
         {
           id: 'global',
-          text: 'Install express globally with -g.',
+          text: 'Install nodemon globally with -g.',
           correct: false,
           feedback:
-            'A project never reads global packages with require. And it needs more than express.',
+            'That fixes one tool on one laptop. The API still needs express and the rest of its own list.',
         },
         {
           id: 'npm-ci',
@@ -157,18 +113,81 @@ export const worksOnMyMachine = {
         },
       ],
       explanation:
-        '“Cannot find module” means it isn’t installed where the project looks. Install from the project’s own list. The lockfile is how Priya gets exactly what works for Marco.',
+        'A project’s own tool “not recognized”, with no node_modules, means nothing is installed yet. Install from the project’s own list. The lockfile is how Priya gets exactly what works for Marco.',
+    },
+    {
+      id: 'old-node-first',
+      kind: 'prompt',
+      situation:
+        'npm ci worked. Now server.js crashes: it calls fetch, built into Node 18 and later. An old build tool put a lone Node 16 node.exe, no npm, early on her saved system PATH.',
+      artifact: {
+        kind: 'terminal',
+        label: 'PS 2',
+        text: [
+          'PS C:\\Users\\priya\\quillwork-api> npm run dev',
+          '',
+          '> quillwork-api@1.0.0 dev',
+          '> nodemon server.js',
+          '',
+          '[nodemon] starting `node server.js`',
+          'ReferenceError: fetch is not defined',
+          '    at Object.<anonymous> (C:\\Users\\priya\\quillwork-api\\server.js:4:19)',
+          '[nodemon] app crashed - waiting for file changes before starting...',
+          '^C',
+          'PS C:\\Users\\priya\\quillwork-api> (Get-Command node).Source',
+          'C:\\tools\\buildkit\\node.exe',
+          '',
+          'otto › Old Node comes first on PATH. I’ll fix it for good:',
+          'otto › setx PATH "C:\\Program Files\\nodejs"',
+        ].join('\n'),
+      },
+      question: 'What do you tell Otto?',
+      options: [
+        {
+          id: 'setx',
+          text: 'Approve the setx.',
+          correct: false,
+          // Without /M, setx writes only the user PATH, and Windows puts the system PATH
+          // first, so this both wipes Priya's entries and leaves old Node in front.
+          feedback:
+            'setx replaces Priya’s whole saved user PATH with that one folder, wiping her own entries, and the system PATH still comes first, so old Node still wins.',
+        },
+        {
+          id: 'this-terminal',
+          text: 'No setx. Put C:\\Program Files\\nodejs first on this terminal’s PATH with $env:Path, check node --version, and note the old Node 16 for Priya.',
+          correct: true,
+          feedback: 'Yes. A fix you can see and undo, and Priya decides about her old Node.',
+        },
+        {
+          id: 'rewrite',
+          text: 'Rewrite server.js so it doesn’t need fetch.',
+          correct: false,
+          feedback: 'That changes the project for everyone to dodge one laptop’s problem.',
+        },
+        {
+          id: 'uninstall',
+          text: 'Delete the build tool’s old node.exe.',
+          correct: false,
+          feedback: 'Her build tool may need it. That’s Priya’s call, not yours mid-demo.',
+        },
+      ],
+      explanation:
+        'The first matching folder on PATH wins. Fix the order in this terminal to get moving, and leave saved, laptop-wide changes to their owner. setx with one folder wipes her user PATH, and the system PATH comes first anyway.',
     },
     {
       id: 'no-env',
       kind: 'prompt',
       situation:
-        'Next error. Priya has no .env yet. docs\\setup.md lists the local dev DATABASE_URL. Otto has a suggestion.',
+        'Next error. Priya has no .env yet. Marco DMs her the dev DATABASE_URL, password included. Otto has a suggestion.',
       artifact: {
         kind: 'terminal',
         label: 'PS 2',
         text: [
+          '[nodemon] starting `node server.js`',
           'Error: DATABASE_URL is not set',
+          '    at Object.<anonymous> (C:\\Users\\priya\\quillwork-api\\server.js:9:9)',
+          '[nodemon] app crashed - waiting for file changes before starting...',
+          '^C',
           'PS C:\\Users\\priya\\quillwork-api> Get-ChildItem -Name -Force .env*',
           '.env.example',
           '',
@@ -179,7 +198,7 @@ export const worksOnMyMachine = {
       options: [
         {
           id: 'env-from-template',
-          text: 'Copy .env.example to .env and fill DATABASE_URL from docs\\setup.md in .env only. .env.example keeps names only.',
+          text: 'Copy .env.example to .env and put Marco’s DATABASE_URL in .env only. .env.example keeps names only.',
           correct: true,
           feedback:
             'Yes. Values live in the ignored .env; the committed template stays names only.',
@@ -189,7 +208,7 @@ export const worksOnMyMachine = {
           text: 'Good idea. Put it in .env.example and commit.',
           correct: false,
           feedback:
-            '.env.example is committed. A value there is shared with everyone, and keys follow.',
+            '.env.example is committed. The password would sit in git history, for everyone, for good.',
         },
         {
           id: 'env-var',
@@ -202,7 +221,8 @@ export const worksOnMyMachine = {
           id: 'hardcode',
           text: 'Write the URL straight into server.js.',
           correct: false,
-          feedback: 'Now every laptop and the server use Priya’s local database address.',
+          feedback:
+            'Now the password is committed, and the deployed server would try to reach a localhost dev database.',
         },
       ],
       explanation:
@@ -212,12 +232,16 @@ export const worksOnMyMachine = {
       id: 'port-taken',
       kind: 'choose',
       situation:
-        'Next: EADDRINUSE on port 3000. Priya’s login script starts her old mock server. Her dev database is also a node process.',
+        'Next: EADDRINUSE on port 3000. Priya’s login script starts her old mock server. Her dev database, a separate node process, hasn’t been started today.',
       artifact: {
         kind: 'terminal',
         label: 'PS 2',
         text: [
-          'PS> (Get-NetTCPConnection -LocalPort 3000 -State Listen).OwningProcess',
+          '[nodemon] starting `node server.js`',
+          'Error: listen EADDRINUSE: address already in use :::3000',
+          '[nodemon] app crashed - waiting for file changes before starting...',
+          '^C',
+          'PS C:\\Users\\priya\\quillwork-api> (Get-NetTCPConnection -LocalPort 3000 -State Listen).OwningProcess',
           '8712',
           '',
           'otto › Quickest fix: Stop-Process -Name node',
@@ -229,7 +253,8 @@ export const worksOnMyMachine = {
           id: 'by-name',
           text: 'Stop-Process -Name node',
           correct: false,
-          feedback: 'That also stops her dev database, and you’ll meet that next.',
+          feedback:
+            'That also stops every other node process, including anything Priya needs, like her dev database once it runs.',
         },
         {
           id: 'reboot',
@@ -245,7 +270,7 @@ export const worksOnMyMachine = {
         },
       ],
       explanation:
-        'Ask the port for its owner and stop that PID. Stopping by name takes down every process with the name, here the database the API needs.',
+        'Ask the port for its owner and stop that PID. Stopping by name takes down every process with the name, including ones the API needs.',
     },
     {
       id: 'db-down',
@@ -273,7 +298,7 @@ export const worksOnMyMachine = {
         },
         {
           id: 'not-ready',
-          text: 'Running, not working yet. The dev database is stopped; I’m starting it in its own terminal, then I’ll curl again.',
+          text: 'Running, not working yet. The dev database isn’t started; I’m starting it in its own terminal, then I’ll curl again.',
           correct: true,
           feedback: 'Yes. Honest, specific, and with the next step.',
         },
