@@ -352,10 +352,17 @@ export type FieldParser = (typeof FIELD_PARSERS)[number];
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
   /**
-   * Nothing left to commit. With `pushed`, the branch must also be level with its remote
-   * branch, which a long status says in words and `git status -sb` in its `##` line.
+   * Nothing left to commit. With `branch`, the paste must also show that branch checked
+   * out. With `pushed`, the branch must be level with its remote branch (`git status -sb`'s
+   * `##` line or a long status), so the work is on GitHub; `upToDate` also refuses being
+   * behind, so nothing on GitHub is left unpulled.
    */
-  z.strictObject({ kind: z.literal('clean'), pushed: z.literal(true).optional() }),
+  z.strictObject({
+    kind: z.literal('clean'),
+    branch: NameSchema.optional(),
+    pushed: z.literal(true).optional(),
+    upToDate: z.literal(true).optional(),
+  }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
@@ -364,6 +371,12 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
+  /**
+   * The newest commit is a merge (not a squash or a rebase) of a typed branch like
+   * `feat/x`, and the branch's own newest commit is a Conventional Commit. Needs
+   * `git log --oneline --graph`, whose drawing shows which commits the branch brought in.
+   */
+  z.strictObject({ kind: z.literal('mergeCommit') }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
   /** At least one of these files is tracked, e.g. the CLAUDE.md or AGENTS.md just written. */
   z.strictObject({ kind: z.literal('tracksAny'), paths: z.array(NameSchema).min(1) }),
@@ -386,6 +399,7 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   newestCommitType: ['log-oneline'],
   // A status lists only changed files, so only ls-files can show an unchanged one is tracked.
   tracksAny: ['ls-files'],
+  mergeCommit: ['log-oneline'],
 };
 
 const VerificationSchema = z

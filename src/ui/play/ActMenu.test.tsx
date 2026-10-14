@@ -264,6 +264,7 @@ describe('the Act menu in preview mode', () => {
       '3.3 Conflicts Without Panic · Not built yet',
       '3.4 Tools for Bad Days · Not built yet',
       'Boss: Conflict Storm · Not built yet',
+      'Field Mission: Land a Real Branch · Not built yet',
     ]);
     expect(markup.match(/<button/g)).toHaveLength(8);
   });

@@ -1,4 +1,5 @@
 import type { ParsedStatusLong } from './statusLong';
+import type { GraphCommit } from './logOneline';
 import type { ParsedStatusShort, ShortEntry } from './statusShort';
 
 /** Either status format. Checks read both, so Kyle can paste whichever he ran. */
@@ -213,4 +214,69 @@ export function buildOutputToIgnore(source: PathSource): string[] {
     for (const folder of path.toLowerCase().split('/').slice(0, -1)) seen.add(folder);
   }
   return BUILD_OUTPUT_FOLDERS.filter((folder) => seen.has(folder)).map((folder) => `${folder}/`);
+}
+
+// ---- Merges ----------------------------------------------------------------------------
+
+// The branch a merge subject names, in the forms git and GitHub write: `Merge pull request
+// #3 from owner/feat/x`, `Merge branch 'feat/x'` (maybe `into main`), and `Merge
+// remote-tracking branch 'origin/feat/x'`.
+const PULL_REQUEST_MERGE = /^Merge pull request #\d+ from [^/\s]+\/(\S+)/;
+const BRANCH_MERGE = /^Merge branch '([^']+)'/;
+const REMOTE_BRANCH_MERGE = /^Merge remote-tracking branch '[^/']+\/([^']+)'/;
+
+// A branch named for the kind of change it holds, the way Conventional Commits name types.
+const TYPED_BRANCH =
+  /^(?:feat|fix|docs|style|refactor|perf|test|build|ci|chore)\/[A-Za-z0-9][A-Za-z0-9._/-]*$/;
+
+/** The branch a merge commit's subject says it merged, or null if it names none. */
+export function mergedBranchName(subject: string): string | null {
+  for (const pattern of [PULL_REQUEST_MERGE, BRANCH_MERGE, REMOTE_BRANCH_MERGE]) {
+    const name = pattern.exec(subject)?.[1];
+    if (name !== undefined) return name;
+  }
+  return null;
+}
+
+/** True for a branch name like `feat/readme-fix`: a type, a slash, then a short name. */
+export function isTypedBranchName(name: string): boolean {
+  return TYPED_BRANCH.test(name);
+}
+
+/** What the newest commit in a `git log --oneline --graph` paste says about a merge. */
+export type TopMerge =
+  | { readonly kind: 'empty' }
+  /** The newest commit isn't a merge: a direct commit, a squash, or a rebase. */
+  | { readonly kind: 'not-a-merge'; readonly subject: string }
+  /** A merge, but the paste has no graph, so its branch's commits can't be told apart. */
+  | { readonly kind: 'no-graph'; readonly branch: string | null }
+  /** A merge whose branch brought in no commit the paste shows. */
+  | { readonly kind: 'no-branch-commit'; readonly branch: string | null }
+  | {
+      readonly kind: 'merged';
+      /** The merged branch's name from the subject, or null when the subject names none. */
+      readonly branch: string | null;
+      /** The newest commit on the merged branch: the merge's second parent. */
+      readonly branchCommit: GraphCommit;
+    };
+
+/**
+ * Reads the newest commit of a graph paste as a merge. Only the newest counts, so an old
+ * merge further down can't pass for new work. In git's drawing a merge's first parent stays
+ * in the merge's own column and the branch it brought in gets a lane to the right, so the
+ * first commit drawn right of column 0 is the branch's newest commit.
+ */
+export function readTopMerge(commits: readonly GraphCommit[]): TopMerge {
+  const [top, ...rest] = commits;
+  if (top === undefined) return { kind: 'empty' };
+  if (!isGeneratedSubject(top.subject) || top.subject.startsWith('Revert "')) {
+    return { kind: 'not-a-merge', subject: top.subject };
+  }
+  const branch = mergedBranchName(top.subject);
+  const mainColumn = top.column;
+  if (mainColumn === null) return { kind: 'no-graph', branch };
+  const branchCommit = rest.find((commit) => commit.column !== null && commit.column > mainColumn);
+  return branchCommit === undefined
+    ? { kind: 'no-branch-commit', branch }
+    : { kind: 'merged', branch, branchCommit };
 }
