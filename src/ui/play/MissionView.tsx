@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import {
   askForHint,
   endBriefing,
+  restartMission,
   startNextDrill,
   submitCurrentDrill,
   submitJudgment,
@@ -100,6 +101,13 @@ function Sim({
             {hint.fromSage ? 'Sage' : 'Hint'} · level {hint.level} of 3
           </p>
           <p>{hint.text}</p>
+          {/* The ladder's fixed hints assume the step can still be reached. A slip like
+              committing too much can make it unreachable, so the top rung names the way out. */}
+          {hint.level === 3 && step.agent === undefined ? (
+            <p className="play-panel__muted">
+              Stuck? Start mission over puts the project back the way it began.
+            </p>
+          ) : null}
         </div>
       ) : null}
       <div className="play-panel__actions">
@@ -113,6 +121,18 @@ function Sim({
         >
           {hintLoading ? 'Sage is thinking…' : hint ? 'Next hint' : 'Hint'}
         </button>
+        {/* A directed step has Rewind for this; a typed one needs its own way back. */}
+        {step.agent === undefined ? (
+          <button
+            type="button"
+            className="play-button"
+            onClick={() => {
+              restartMission(mission.id);
+            }}
+          >
+            Start mission over
+          </button>
+        ) : null}
         <span className="play-panel__muted">
           {mentor === 'online' ? 'Sage is online' : 'Written hints (Sage offline)'}
         </span>

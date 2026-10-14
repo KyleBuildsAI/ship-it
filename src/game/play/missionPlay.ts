@@ -46,6 +46,7 @@ import {
   completeMission,
   questionXp,
   recordDrill,
+  recordResume,
   recordSteps,
   startMissionProgress,
 } from './saveRules';
@@ -147,6 +148,16 @@ export function startMission(missionId: string): void {
   const where = mission.act === 1 ? 'the laptop is ready' : 'a fresh project is on your Workbench';
   loadSandbox(mission.initialRepoState, `${mission.title}: ${where}.`);
   setActivity(newActivity(mission, startRun(mission)));
+}
+
+/**
+ * "Start mission over": forgets the unfinished attempt and starts again at step 1, with the
+ * project back the way it began. The way out when a step can no longer be reached.
+ */
+export function restartMission(missionId: string): void {
+  saveProgressNow((save) => recordResume(save, missionId, null));
+  startMission(missionId);
+  endBriefing();
 }
 
 /** Ends the briefing, whether it played through or was skipped. */

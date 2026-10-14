@@ -28,6 +28,7 @@ import {
   endBriefing,
   missionSandboxChanged,
   missionTick,
+  restartMission,
   startMission,
   startNextDrill,
   submitJudgment,
@@ -268,6 +269,19 @@ describe('leaving a mission partway', () => {
     startMission(sampleMission.id);
     expect(mission().run.phase).toBe('drills');
     expect(mission().run.drillResults).toHaveLength(1);
+  });
+
+  it('starts over from step 1 when Kyle asks', () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init');
+    missionSandboxChanged(T0);
+
+    restartMission(sampleMission.id);
+    expect(mission().run.phase).toBe('sim');
+    expect(mission().run.stepIndex).toBe(0);
+    expect(gitStatus()).toContain('not a git repository');
+    expect(progress.get().save?.missions[sampleMission.id]?.resume).toBeNull();
   });
 });
 
