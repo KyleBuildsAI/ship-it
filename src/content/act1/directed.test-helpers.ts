@@ -66,8 +66,10 @@ export interface DirectedSpec {
   /**
    * What a fix does after a start card failed: `step > '<start card> > <fix card>'`. A fix
    * whose line fails unplanned ends at 'direct': Otto stops instead of claiming success.
+   * The start card may have ended at 'direct' too, after a deny, so the same route can
+   * end one way per gate policy.
    */
-  readonly fixes: Readonly<Record<string, Readonly<Record<string, Ending>>>>;
+  readonly fixes: Readonly<Record<string, Readonly<Record<string, CardResult>>>>;
   /**
    * Start cards that, allowed, leave a step no fix can pass: only Rewind can help (D8).
    * `step > card`. Every other allowed start card that misses must have a passing fix,
@@ -79,9 +81,21 @@ export interface DirectedSpec {
    * finds it harmful: `<step> > <cards played> > <line>`. Pinned, so a guard or a setup
    * that drifts changes the answer Kyle is graded on and fails here. The cards are part
    * of the key because one line can be safe or harmful depending on what ran before it:
-   * a lossy edit is harmful with no backup and safe beside one.
+   * a lossy edit is harmful with no backup and safe beside one. For the same reason a
+   * gate can have one answer per policy: a fix played after an allowed line and after a
+   * denied one sees two different states.
    */
-  readonly gates: Readonly<Record<string, boolean>>;
+  readonly gates: Readonly<Record<string, GateHarm>>;
+}
+
+/** Whether a gate is harmful, the same under both policies or one answer per policy. */
+export type GateHarm = boolean | Readonly<Partial<Record<GatePolicy, boolean>>>;
+
+/** One answer when every policy that reached the gate agrees, else one per policy. */
+function harmOf(byPolicy: Partial<Record<GatePolicy, boolean>>): GateHarm {
+  const answers = new Set(Object.values(byPolicy));
+  const [only] = answers;
+  return answers.size === 1 && only !== undefined ? only : byPolicy;
 }
 
 /** Text a line prints when the engine can't run it yet: never acceptable in content. */
@@ -149,8 +163,14 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
           (policy === 'allow-all' && played.gates.some((gate) => gate.harmful));
         const path = { cards: [...cards, plan.id], policy, played, wrecked };
         paths.push(path);
-        if (cards.length >= 2 || played.state.stage.at !== 'check') continue;
-        if (passes(step, played.log)) continue;
+        if (cards.length >= 2) continue;
+        // After a deny Otto waits for new directions with no check: those cards are the
+        // first Kyle meets after getting the gate right, so they are played too.
+        if (played.state.stage.at === 'direct') {
+          walk(path, { log: played.log, state: played.state }, policy);
+          continue;
+        }
+        if (played.state.stage.at !== 'check' || passes(step, played.log)) continue;
         walk(path, fixRoundAfter(step, played), policy);
       }
     };
@@ -228,10 +248,12 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
       });
 
       it('fixes the failed cards the way the spec describes', () => {
-        for (const [route, want] of Object.entries(spec.fixes[step.id] ?? {})) {
+        for (const [route, result] of Object.entries(spec.fixes[step.id] ?? {})) {
           const found = paths.filter((path) => path.cards.join(' > ') === route);
           if (found.length === 0) throw new Error(`No path ${route}`);
           for (const path of found) {
+            const want = endingFor(result, path.policy);
+            if (want === undefined) throw new Error(`No ending for ${route} (${path.policy})`);
             if (want === 'direct') {
               expect(path.played.state.stage.at, route).toBe('direct');
               continue;
@@ -240,6 +262,24 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
             expect(passes(step, path.played.log), route).toBe(want.passed);
             expect(trueChecks(step, path.played.log), route).toEqual([want.check]);
           }
+        }
+      });
+
+      it('offers a card that passes after every deny that leaves Otto waiting', () => {
+        const waiting = paths.filter(
+          (path) =>
+            path.cards.length === 1 && !path.wrecked && path.played.state.stage.at === 'direct',
+        );
+        for (const path of waiting) {
+          const [card = ''] = path.cards;
+          const fixed = checked.some(
+            (other) =>
+              other.policy === path.policy &&
+              other.cards.length === 2 &&
+              other.cards[0] === card &&
+              passes(step, other.played.log),
+          );
+          expect(fixed, `${card} (${path.policy})`).toBe(true);
         }
       });
 
@@ -276,8 +316,12 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         );
         for (const path of paths.filter(({ cards }) => cards.length <= 2)) {
           const before = byCards.get(`${path.policy}: ${path.cards.slice(0, -1).join()}`);
+          const route = path.cards.join(' > ');
+          // A fix the spec pins as stopping Otto ('direct') fails on purpose, e.g. a
+          // restore offered after a deny, when the backup it reads was never made.
+          const pinnedStop = endingFor(spec.fixes[step.id]?.[route], path.policy) === 'direct';
           // On a wrecked laptop, a card's lines can fail because their folder is gone.
-          const strict = before?.wrecked !== true;
+          const strict = before?.wrecked !== true && !pinnedStop;
           for (const ran of path.played.lines) {
             const where = `${path.cards.join(' > ')}: ${ran.line}\n${ran.output}`;
             expect(ran.output, where).not.toMatch(UNSUPPORTED);
@@ -311,15 +355,20 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
       });
 
       it('pauses only where the pinned table says, with the harm it pins', () => {
-        const seen: Record<string, boolean> = {};
+        const byPolicy: Record<string, Partial<Record<GatePolicy, boolean>>> = {};
         for (const path of paths.filter(({ cards }) => cards.length <= 2)) {
           for (const gate of path.played.gates) {
             const key = `${step.id} > ${path.cards.join(' > ')} > ${gate.line}`;
-            // Both policies reach a gate the same way, so they must agree on its harm.
-            if (key in seen) expect(gate.harmful, key).toBe(seen[key]);
-            seen[key] = gate.harmful;
+            const answers = (byPolicy[key] ??= {});
+            // One card can reach a line twice; each time must agree on its harm.
+            const earlier = answers[path.policy];
+            if (earlier !== undefined) expect(gate.harmful, key).toBe(earlier);
+            answers[path.policy] = gate.harmful;
           }
         }
+        const seen = Object.fromEntries(
+          Object.entries(byPolicy).map(([key, answers]) => [key, harmOf(answers)]),
+        );
         const pinned = Object.entries(spec.gates).filter(([key]) =>
           key.startsWith(`${step.id} > `),
         );

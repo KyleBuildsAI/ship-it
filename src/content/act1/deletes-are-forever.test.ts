@@ -79,10 +79,17 @@ describeDirectedMission(missionById('deletes-are-forever'), {
       // With no backup, the restore fails and Otto stops: he never claims the settings are back.
       'just-edit > restore-and-edit': 'direct',
       'just-edit > restore-only': 'direct',
-      // Its edit finds no port 8080 in the lossy file, so Otto stops there too.
-      'just-edit > backup-keep-rest': 'direct',
-      // A backup made after the damage holds the damaged file.
-      'just-edit > backup-then-edit': { passed: false, check: 'no-backup' },
+      // Allowed, its edit finds no port 8080 in the lossy file, so Otto stops there too.
+      // Denied, the file was never damaged, so the strong card works as it does at the start.
+      'just-edit > backup-keep-rest': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'kept' },
+      },
+      // Allowed, a backup made after the damage holds the damaged file.
+      'just-edit > backup-then-edit': {
+        'allow-all': { passed: false, check: 'no-backup' },
+        'deny-harmful': { passed: true, check: 'kept' },
+      },
     },
   },
   // Allowed, these lose files no card can bring back: only Rewind can help.
@@ -111,6 +118,18 @@ describeDirectedMission(missionById('deletes-are-forever'), {
     'backup-first > backup-then-edit > restore-and-edit > Copy-Item config.backup.json config.json': false,
     [`backup-first > backup-then-edit > restore-and-edit > ${EDIT}`]: false,
     'backup-first > backup-then-edit > restore-only > Copy-Item config.backup.json config.json': false,
+    // The cards Kyle meets after denying a harmful line: Otto waits, nothing was lost.
+    'clear-tmp > clean-up > inside-tmp > Remove-Item .\\* -Recurse': true,
+    'clear-tmp > clean-up > inside-tmp > Remove-Item .\\tmp\\* -Recurse': false,
+    'clear-tmp > clean-up > just-tmp > Remove-Item .\\tmp\\* -Recurse': false,
+    [`clear-tmp > clean-up > whole-tmp > Remove-Item ${API}\\tmp -Recurse`]: false,
+    'the-confirm-question > no-questions > just-log-files > Remove-Item logs\\*.log': false,
+    'the-confirm-question > no-questions > logs-folder > Remove-Item logs': true,
+    'the-confirm-question > no-questions > logs-folder > Remove-Item logs\\*.log': false,
+    [`the-confirm-question > no-questions > only-logs > Remove-Item ${API}\\logs\\*.log`]: false,
+    [`backup-first > just-edit > backup-keep-rest > ${EDIT}`]: false,
+    [`backup-first > just-edit > backup-then-edit > ${WRITE}`]: true,
+    [`backup-first > just-edit > backup-then-edit > ${EDIT}`]: false,
   },
 });
 
