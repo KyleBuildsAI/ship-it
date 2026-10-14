@@ -139,6 +139,51 @@ describe('git status (long format)', () => {
   });
 });
 
+describe('git status --ignored', () => {
+  /** A project like the Act 2 boss: build output, a log rule too broad, and source. */
+  const ignoring = () =>
+    build(
+      repo()
+        .commit('init', { '.gitignore': 'dist/\nlog*\n', 'src/app.ts': 'app' })
+        .untracked('dist/app.js')
+        .untracked('dist/index.html')
+        .untracked('src/logger.ts')
+        .untracked('notes.md'),
+    );
+
+  it('lists ignored files in a section of their own, folding whole folders', () => {
+    expect(gitText(ignoring(), ['status', '--ignored'])).toBe(
+      [
+        'On branch main',
+        'Untracked files:',
+        '  (use "git add <file>..." to include in what will be committed)',
+        '\tnotes.md',
+        '',
+        'Ignored files:',
+        '  (use "git add -f <file>..." to include in what will be committed)',
+        '\tdist/',
+        '\tsrc/logger.ts',
+        '',
+        'nothing added to commit but untracked files present (use "git add" to track)',
+      ].join('\n'),
+    );
+  });
+
+  it('marks ignored paths with !! in the short format', () => {
+    expect(gitText(ignoring(), ['status', '--short', '--ignored'])).toBe(
+      ['?? notes.md', '!! dist/', '!! src/logger.ts'].join('\n'),
+    );
+  });
+
+  it('leaves ignored files out without the flag, and adds nothing when none are ignored', () => {
+    expect(gitText(ignoring(), ['status', '-s'])).toBe('?? notes.md');
+    const plain = build(repo().commit('init', { 'a.ts': 'a' }));
+    expect(gitText(plain, ['status', '--ignored'])).toBe(
+      'On branch main\nnothing to commit, working tree clean',
+    );
+  });
+});
+
 describe('git status --short', () => {
   it('prints two status columns, a branch header with -b, and ?? for untracked', () => {
     const ws = build(

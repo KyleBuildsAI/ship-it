@@ -82,7 +82,10 @@ describe('The Dirty Tree boss', () => {
       applySteps(shell.ws, twist.apply);
     });
 
-    // The sandbox has no `git status --ignored`, so the clue is git add refusing the file.
+    // Dex asks why git status never showed the file. git status --ignored answers it...
+    const ignored = shell.run('git status --short --ignored');
+    expect(ignored.lines.map((line) => line.text)).toContain('!! src/logger.ts');
+    // ...and git add refusing the file says the same.
     const refused = shell.run('git add src/logger.ts');
     expect(refused.exitCode).not.toBe(0);
     expect(refused.lines.map((line) => line.text)).toContain(
