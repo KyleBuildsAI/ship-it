@@ -5,8 +5,14 @@ import {
   type Lesson,
   type LessonCard,
 } from '../../game/missions/lessonSchema';
+import { placementLesson } from '../../game/missions/lessonPlacement';
+import { LESSON_PLACEMENT_SECONDS_PER_CARD } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import { act7, act7Lessons } from '.';
+import { verifyPaste, type Verification } from '../../game/play/fieldCheck';
+import { completeLesson, recordFieldMission, recordPlacement } from '../../game/play/saveRules';
+import { placementTestOutXp } from '../../game/progression/xp';
+import { createDefaultSave } from '../../game/save/schema';
+import { act7, act7Lessons, act7Placement, specThenShip } from '.';
 
 const { act, lessons } = act7;
 const regular = lessons.filter((lesson) => lesson.kind === 'lesson');
@@ -125,5 +131,135 @@ describe('Act 7: AI-Native Engineering', () => {
   it('starts with the lesson the Act 7 island points to', () => {
     // src/game/world/zones.ts tells the player to start with 7.1 Brief the Agent.
     expect(lessons[0]?.title).toBe('Brief the Agent');
+  });
+});
+
+const NOW = new Date('2026-10-13T12:00:00.000Z');
+
+describe('Act 7 placement test', () => {
+  it('is a finished Act with its placement test and Field Mission, not early access', () => {
+    expect(act.earlyAccess).toBe(false);
+    expect(act.placementTest).toBeDefined();
+    expect(act.fieldMission?.id).toBe(specThenShip.id);
+  });
+
+  it('borrows two or three cards from every lesson, and none from the final', () => {
+    for (const lesson of regular) {
+      const ids = new Set(lesson.cards.map((card) => card.id));
+      const lent = act7Placement.cardIds.filter((id) => ids.has(id)).length;
+      expect(lent, lesson.id).toBeGreaterThanOrEqual(2);
+      expect(lent, lesson.id).toBeLessThanOrEqual(3);
+    }
+    const finalIds = new Set(final?.cards.map((card) => card.id));
+    expect(act7Placement.cardIds.filter((id) => finalIds.has(id))).toEqual([]);
+  });
+
+  it('gives every card at least the placement minimum on its clock', () => {
+    const perCard = act7Placement.timeLimitSeconds / act7Placement.cardIds.length;
+    expect(perCard).toBeGreaterThanOrEqual(LESSON_PLACEMENT_SECONDS_PER_CARD);
+  });
+
+  it('plays as one clocked run of the borrowed cards, in the order listed', () => {
+    const run = placementLesson(act, lessons);
+    expect(run.cards.map((card) => card.id)).toEqual(act7Placement.cardIds);
+    expect(run.timeLimitSeconds).toBe(act7Placement.timeLimitSeconds);
+  });
+
+  it('tests out of every lesson at half XP, completes the Act, and leaves the final open', () => {
+    const save = recordPlacement(
+      createDefaultSave(NOW),
+      act,
+      lessons,
+      { percent: 100, testedOut: true },
+      NOW,
+    );
+    for (const lesson of regular) expect(save.missions[lesson.id]?.status).toBe('tested-out');
+    expect(save.missions[final?.id ?? '']).toBeUndefined();
+    expect(save.acts['7']?.completedAt).toBe(NOW.toISOString());
+    const half = regular.reduce((total, lesson) => total + placementTestOutXp([lesson.xp]), 0);
+    expect(save.profile.xp).toBe(half);
+  });
+});
+
+/** Genuine-shaped PowerShell output for each check, as Kyle would paste it. */
+const PASSING_PASTES: Record<string, string> = {
+  'spec-committed': 'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts per spec (#14)',
+  'agent-commits-conventional': [
+    'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts per spec (#14)',
+    '9f8e7d6 docs: add tide alerts spec',
+    '5c4b3a2 fix: keep the map centered on resize',
+  ].join('\n'),
+  'nothing-left-behind': [
+    'On branch main',
+    "Your branch is up to date with 'origin/main'.",
+    '',
+    'nothing to commit, working tree clean',
+  ].join('\n'),
+  'agent-kept-secrets-out': ['.env.example', '.gitignore', 'docs/specs/tide-alerts.md'].join('\n'),
+};
+
+function verificationOf(id: string): Verification {
+  const found = act.fieldMission?.verifications.find((entry) => entry.id === id);
+  if (found === undefined) throw new Error(`No check ${id}`);
+  return found;
+}
+
+describe('Act 7 Field Mission: Spec It, Then Ship It', () => {
+  const field = act.fieldMission;
+
+  it('happens on SandCastles, with a spec that has the four parts an agent needs', () => {
+    expect(field?.repoName).toBe('SandCastles');
+    const spec = field?.checklist.find((item) => item.id === 'spec')?.text ?? '';
+    for (const part of ['docs/specs/', 'Goal', 'Constraints', 'Done means', 'How to verify']) {
+      expect(spec, part).toContain(part);
+    }
+  });
+
+  it('tells Kyle the game sees commits, not the PR page, so linking the spec is his job', () => {
+    // The panel itself says no token is needed (FieldView), so the briefing doesn't repeat it.
+    const briefing = field?.briefing.join(' ') ?? '';
+    expect(briefing).toContain('not the PR page');
+    expect(field?.checklist.some((item) => item.text.includes('PR'))).toBe(true);
+  });
+
+  it('passes every check on output from a merged spec PR', () => {
+    for (const verification of field?.verifications ?? []) {
+      const verdict = verifyPaste(verification, PASSING_PASTES[verification.id] ?? '');
+      expect(verdict, verification.id).toMatchObject({ passed: true });
+    }
+  });
+
+  it('fails when no spec was ever committed: the log prints nothing', () => {
+    expect(verifyPaste(verificationOf('spec-committed'), '').passed).toBe(false);
+  });
+
+  it('fails when the agent wrote vague commit messages', () => {
+    const vague = ['a1b2c3d update files', '9f8e7d6 wip', '5c4b3a2 fix: keep the map'].join('\n');
+    expect(verifyPaste(verificationOf('agent-commits-conventional'), vague).passed).toBe(false);
+  });
+
+  it('fails when the agent left stray files or tracked a .env', () => {
+    const stray = [
+      'On branch main',
+      'Untracked files:',
+      '  (use "git add <file>..." to include in what will be committed)',
+      '\tscratch.ts',
+      '',
+      'nothing added to commit but untracked files present (use "git add" to track)',
+    ].join('\n');
+    expect(verifyPaste(verificationOf('nothing-left-behind'), stray).passed).toBe(false);
+    const leaked = ['.env', '.gitignore', 'src/app.ts'].join('\n');
+    expect(verifyPaste(verificationOf('agent-kept-secrets-out'), leaked).passed).toBe(false);
+  });
+
+  it('is needed to complete the Act: lessons alone are not enough', () => {
+    const played = lessons.reduce(
+      (save, lesson) => completeLesson(save, act, lesson, 100, NOW),
+      createDefaultSave(NOW),
+    );
+    expect(played.acts['7']?.completedAt).toBeNull();
+    const ids = field?.verifications.map((check) => check.id) ?? [];
+    const finished = recordFieldMission(played, act, ids, NOW);
+    expect(finished.acts['7']?.completedAt).toBe(NOW.toISOString());
   });
 });

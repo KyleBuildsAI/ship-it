@@ -112,7 +112,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on your real repo with your own AI agent.',
     missions: [
       { title: 'Brief the Agent' },
       { title: 'Read What It Wrote' },
@@ -120,6 +121,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Guardrails for Agents' },
     ],
     boss: { title: 'The Agent Went Rogue' },
+    fieldMission: { title: 'Spec It, Then Ship It' },
   },
   {
     act: 8,
