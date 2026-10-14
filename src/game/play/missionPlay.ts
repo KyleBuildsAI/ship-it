@@ -4,6 +4,7 @@ import { loadWorkbench } from '../../engine/workbench';
 import { askHint, gradeQuestion } from '../../mentor/client';
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import type { Pace } from '../agent/pace';
+import { closeTerminal, openTerminal } from '../hud';
 import { markHintRung3, starXp } from '../missions/agentRunner';
 import {
   answerFits,
@@ -142,6 +143,10 @@ export function startMission(missionId: string): void {
   endDrill();
   endScene();
   saveProgressNow((save) => startMissionProgress(save, mission.id));
+  // A typed mission (Act 2's git) needs the terminal; a directed one shows Otto's work in
+  // the panel and the world, so the terminal stays put away unless the player opens it.
+  if (mission.steps.some((step) => step.agent === undefined)) openTerminal();
+  else closeTerminal();
   const saved = progress.get().save?.missions[mission.id]?.resume ?? null;
   if (saved !== null && resumeMission(mission, saved)) return;
   // Act 1 plays on the laptop; the git Acts start from a project on the Workbench.

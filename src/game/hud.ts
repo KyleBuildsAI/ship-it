@@ -41,7 +41,9 @@ export interface HudState {
 }
 
 export const hud = createStore<HudState>({
-  terminalOpen: true,
+  // Closed until something needs typing: most of the game is seen in the world and the
+  // panels, and the terminal is a button (or Ctrl+`) away for anyone who wants it.
+  terminalOpen: false,
   terminalFocusRequests: 0,
   suggestion: null,
   pendingCommand: null,
