@@ -23,7 +23,10 @@ export interface CardState {
   readonly order: readonly string[];
   /** How many times "Check order" was pressed with the steps out of order. */
   readonly wrongOrders: number;
-  /** True once the right answer is in; the explanation shows and Next appears. */
+  /**
+   * True once the card is over and Next appears: the right answer is in, or, on a locked
+   * run, any answer is.
+   */
   readonly solved: boolean;
 }
 
@@ -36,6 +39,12 @@ export interface LessonRun {
   readonly firstTry: readonly boolean[];
   /** When the cards started. A final's shared clock counts from here. */
   readonly startedAtMs: number | null;
+  /**
+   * True for a placement test: the first answer on a card locks it, and nothing says
+   * whether it was right. A lesson lets a wrong pick try again, which is how it teaches;
+   * a test that did the same would show every answer, so a retry would score 100%.
+   */
+  readonly locked: boolean;
 }
 
 /**
@@ -83,7 +92,10 @@ function freshCard(card: LessonCard | undefined): CardState {
   };
 }
 
-export function startLessonRun(lesson: Lesson): LessonRun {
+export function startLessonRun(
+  lesson: Lesson,
+  options: { readonly locked?: boolean } = {},
+): LessonRun {
   return {
     phase: 'briefing',
     outcome: 'running',
@@ -91,6 +103,7 @@ export function startLessonRun(lesson: Lesson): LessonRun {
     card: freshCard(lesson.cards[0]),
     firstTry: [],
     startedAtMs: null,
+    locked: options.locked ?? false,
   };
 }
 
@@ -111,7 +124,8 @@ function playable(run: LessonRun): boolean {
 /**
  * Picks an option on a choose or prompt card. A right pick solves the card; a wrong one
  * is remembered (its feedback shows, and it can't be picked again) and the card stays
- * open. The first pick decides the card's first-try result.
+ * open. The first pick decides the card's first-try result. On a locked run the first pick
+ * ends the card, right or wrong.
  */
 export function pickOption(run: LessonRun, lesson: Lesson, optionId: string): LessonRun {
   const card = currentCard(run, lesson);
@@ -119,6 +133,14 @@ export function pickOption(run: LessonRun, lesson: Lesson, optionId: string): Le
   const option = card.options.find((entry) => entry.id === optionId);
   if (option === undefined || run.card.picked.includes(optionId)) return run;
   const picked = [...run.card.picked, optionId];
+  if (run.locked) {
+    // A test card takes one answer, right or wrong, and moves on without saying which.
+    return {
+      ...run,
+      card: { ...run.card, picked, solved: true },
+      firstTry: [...run.firstTry, option.correct],
+    };
+  }
   if (!option.correct) return { ...run, card: { ...run.card, picked } };
   return {
     ...run,
@@ -149,11 +171,18 @@ export function stepsInPlace(run: LessonRun, card: OrderCard): number {
   return card.steps.filter((step, index) => run.card.order[index] === step.id).length;
 }
 
-/** "Check order": solves the card when every step is in place, or counts a wrong try. */
+/**
+ * "Check order": solves the card when every step is in place, or counts a wrong try. On a
+ * locked (test) run the first check ends the card either way.
+ */
 export function checkOrder(run: LessonRun, lesson: Lesson): LessonRun {
   const card = currentCard(run, lesson);
   if (card?.kind !== 'order' || !playable(run)) return run;
-  if (stepsInPlace(run, card) < card.steps.length) {
+  const inPlace = stepsInPlace(run, card) === card.steps.length;
+  if (run.locked) {
+    return { ...run, card: { ...run.card, solved: true }, firstTry: [...run.firstTry, inPlace] };
+  }
+  if (!inPlace) {
     return { ...run, card: { ...run.card, wrongOrders: run.card.wrongOrders + 1 } };
   }
   return {

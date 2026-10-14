@@ -29,8 +29,9 @@ import {
  * the run in the play store and writes finished lessons to the save. A lesson never
  * touches the sandbox, so the terminal closes and the cards get the room.
  *
- * A lesson Act's placement test plays here too: its borrowed cards run as one timed
- * lesson, and the end of the run is saved as a placement attempt instead.
+ * A lesson Act's placement test plays here too: its borrowed cards run as one timed,
+ * locked lesson (one answer a card, no feedback until the score). The attempt is saved
+ * when the first card shows, and the score when the run ends.
  */
 
 function activity(): LessonActivity | null {
@@ -106,7 +107,9 @@ export function startLesson(lessonId: string): void {
 export function startLessonPlacement(act: number): void {
   const content = getAct(act);
   const test = requireLessonPlacement(content.act);
-  const lesson = placementLesson(content.act, content.lessons ?? []);
+  // Each attempt shows the options in a new order, so a remembered position is no answer.
+  const attempts = progress.get().save?.acts[String(act)]?.placement.attempts ?? 0;
+  const lesson = placementLesson(content.act, content.lessons ?? [], attempts);
   endDrill();
   closeTerminal();
   beginDrill(`placement:${lesson.id}`);
@@ -114,7 +117,7 @@ export function startLessonPlacement(act: number): void {
     activity: {
       kind: 'lesson',
       lesson,
-      run: startLessonRun(lesson),
+      run: startLessonRun(lesson, { locked: true }),
       xpEarned: 0,
       placement: { act, passPercent: test.passPercent, result: null },
     },

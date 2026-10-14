@@ -12,7 +12,7 @@ import {
 } from '../../game/missions/lessonRunner';
 import type { PlacementResult } from '../../game/missions/grading';
 import { placementLesson } from '../../game/missions/lessonPlacement';
-import type { Lesson } from '../../game/missions/lessonSchema';
+import { isPickCard, type Lesson } from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { LessonView } from './LessonView';
@@ -145,7 +145,7 @@ describe('a lesson Act’s placement test in the lesson view', () => {
   it('ends with the score and whether it tested out, never stars', () => {
     const done: LessonRun = { ...cards(lesson), phase: 'done', outcome: 'finished' };
     const passed = text(placementView(done, { percent: 100, testedOut: true }));
-    expect(passed).toContain('100% right on the first try.');
+    expect(passed).toContain('100% right.');
     expect(passed).toContain('Tested out. Every lesson in Act 6 is marked done');
     expect(passed).not.toContain('★');
     const missed = text(placementView(done, { percent: 67, testedOut: false }));
@@ -156,9 +156,37 @@ describe('a lesson Act’s placement test in the lesson view', () => {
   it('says how many cards were answered when the clock ran out', () => {
     const out = tickLesson(cards(lesson), lesson, T0 + 240_000);
     expect(text(placementView(out, { percent: 0, testedOut: false }))).toContain(
-      '0% right on the first try before time ran out (0 of 6 answered).',
+      '0% right before time ran out (0 of 6 answered).',
     );
     // Until the result is saved, the Done screen waits rather than guessing.
-    expect(text(placementView(out, null))).not.toContain('right on the first try');
+    expect(text(placementView(out, null))).not.toContain('% right');
+  });
+
+  it('locks a card on its answer, and shows no feedback, colour or why', () => {
+    const picks: Lesson = { ...lesson, cards: lesson.cards.filter(isPickCard) };
+    const card = picks.cards[0];
+    if (card === undefined || !isPickCard(card)) throw new Error('expected a pick card');
+    const wrong = card.options.find((option) => !option.correct);
+    if (wrong === undefined) throw new Error('expected a wrong option');
+    const locked = finishLessonBriefing(startLessonRun(picks, { locked: true }), T0);
+    const markup = renderToStaticMarkup(
+      <LessonView
+        activity={{
+          kind: 'lesson',
+          lesson: picks,
+          run: pickOption(locked, picks, wrong.id),
+          xpEarned: 0,
+          placement: { act: full.act.act, passPercent: 85, result: null },
+        }}
+      />,
+    );
+    expect(text(markup)).toContain('Answer locked in. Your score comes at the end.');
+    expect(text(markup)).not.toContain('Not quite');
+    expect(text(markup)).not.toContain(text(wrong.feedback));
+    expect(text(markup)).not.toContain(text(card.explanation));
+    expect(markup).not.toContain('lesson-option--wrong');
+    expect(markup).not.toContain('lesson-option--right');
+    expect(markup).toContain('lesson-option--chosen');
+    expect(text(markup)).toContain('Next card');
   });
 });

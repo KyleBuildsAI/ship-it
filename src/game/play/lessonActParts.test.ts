@@ -153,6 +153,83 @@ describe("a lesson Act's placement test", () => {
   });
 });
 
+describe("a lesson placement test can't be passed by retrying", () => {
+  /** Picks a wrong answer on the card on screen. */
+  function pickWrong(): void {
+    const { lesson: playing, run } = lesson();
+    const card = currentCard(run, playing);
+    if (card === undefined) throw new Error('no card');
+    if (card.kind === 'order') checkLessonOrder(T0);
+    else answerLesson(card.options.find((option) => !option.correct)?.id ?? '', T0);
+  }
+
+  /** Each card's option ids in the order shown; an order card's are its scrambled steps. */
+  function optionOrder(): string[][] {
+    return lesson().lesson.cards.map((card) =>
+      card.kind === 'order' ? [] : card.options.map((option) => option.id),
+    );
+  }
+
+  it('locks each card on its first answer and never says which answer was right', () => {
+    startLessonPlacement(act.act);
+    endLessonBriefing(T0);
+    const { lesson: playing, run } = lesson();
+    const card = currentCard(run, playing);
+    if (card === undefined || card.kind === 'order') throw new Error('expected a pick card');
+    pickWrong();
+    expect(lesson().run.card).toMatchObject({ solved: true, picked: [expect.any(String)] });
+    expect(lesson().run.firstTry).toEqual([false]);
+    // The right answer can't be tried now: the card is over, and the run says nothing more.
+    const right = card.options.find((option) => option.correct);
+    answerLesson(right?.id ?? '', T0);
+    expect(lesson().run.card.picked).toHaveLength(1);
+    expect(lesson().run.firstTry).toEqual([false]);
+  });
+
+  it('scores a run that picked wrong every time at 0%, and a retry starts locked again', () => {
+    startLessonPlacement(act.act);
+    endLessonBriefing(T0);
+    const count = lesson().lesson.cards.length;
+    for (let index = 0; index < count; index++) {
+      pickWrong();
+      nextLessonCard(T0);
+    }
+    expect(lesson().placement?.result).toEqual({ percent: 0, testedOut: false });
+    startLessonPlacement(act.act);
+    expect(lesson().run.locked).toBe(true);
+  });
+
+  it('shows each attempt its options in a new order', () => {
+    startLessonPlacement(act.act);
+    const firstOrder = optionOrder();
+    endLessonBriefing(T0);
+    leavePlay();
+    startLessonPlacement(act.act);
+    const secondOrder = optionOrder();
+    expect(secondOrder).not.toEqual(firstOrder);
+    // Same options, only moved: nothing is added or lost.
+    expect(secondOrder.map((ids) => [...ids].sort())).toEqual(
+      firstOrder.map((ids) => [...ids].sort()),
+    );
+  });
+
+  it('counts a run left after one card as an attempt, but not one left at the briefing', () => {
+    startLessonPlacement(act.act);
+    leavePlay();
+    expect(save().acts['6']?.placement.attempts ?? 0).toBe(0);
+    startLessonPlacement(act.act);
+    endLessonBriefing(T0);
+    answer();
+    leavePlay();
+    expect(save().acts['6']?.placement).toMatchObject({
+      attempts: 1,
+      bestPercent: null,
+      testedOut: false,
+    });
+    expect(save().acts['6']?.completedAt ?? null).toBeNull();
+  });
+});
+
 describe('taking an Act’s placement test from its menu', () => {
   it('plays cards for a lesson Act, and drills for an Act with missions', () => {
     const missions = [sampleMission, secondMission, thirdMission];

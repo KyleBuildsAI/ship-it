@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { finishLessonBriefing, nextCard, pickOption, startLessonRun } from './lessonRunner';
 import { isPickCard, type Lesson } from './lessonSchema';
-import { lessonPlacementResult, placementLesson, placementLessonId } from './lessonPlacement';
+import {
+  lessonPlacementResult,
+  placementLesson,
+  placementLessonId,
+  shuffledBy,
+} from './lessonPlacement';
 import { sampleLessonAct } from './sample.test-lesson';
 import { fullSampleLessonAct, fullSamplePlacement } from './sample.test-lessonAct';
 import { sampleAct } from './sample.test-mission';
@@ -123,6 +128,27 @@ describe('the placement run', () => {
     expect(lesson.briefing[0]).toBe(fullSamplePlacement.pitch);
   });
 
+  it('shows the options in an order set by the attempt, the same for the same attempt', () => {
+    const optionIds = (target: Lesson) =>
+      target.cards.map((card) => (isPickCard(card) ? card.options.map((option) => option.id) : []));
+    const again = placementLesson(full.act, full.lessons, 0);
+    expect(optionIds(again)).toEqual(optionIds(lesson));
+    const next = placementLesson(full.act, full.lessons, 1);
+    expect(optionIds(next)).not.toEqual(optionIds(lesson));
+    // The cards themselves keep the Act's order, and an option keeps its text and answer.
+    expect(next.cards.map((card) => card.id)).toEqual(fullSamplePlacement.cardIds);
+  });
+
+  it('shuffles by seed: every item kept, the same seed the same order', () => {
+    const items = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const once = shuffledBy(items, 'seed:1');
+    expect([...once].sort()).toEqual(items);
+    expect(shuffledBy(items, 'seed:1')).toEqual(once);
+    const seeds = ['seed:2', 'seed:3', 'seed:4', 'seed:5'];
+    expect(seeds.some((seed) => shuffledBy(items, seed).join() !== once.join())).toBe(true);
+    expect(shuffledBy([], 'x')).toEqual([]);
+  });
+
   it('throws a ContentError for a card the lessons don’t have', () => {
     expect(() =>
       placementLesson(withCards(['nope', 'nada', 'zip', 'zilch']), full.lessons),
@@ -131,14 +157,15 @@ describe('the placement run', () => {
 
   /** Plays the run, right first try except the cards at `misses`; stops after `answered`. */
   function playRun(target: Lesson, misses: readonly number[], answered = target.cards.length) {
-    let run = finishLessonBriefing(startLessonRun(target), T0);
+    let run = finishLessonBriefing(startLessonRun(target, { locked: true }), T0);
     for (let index = 0; index < answered; index++) {
       const card = target.cards[index];
       if (card === undefined || !isPickCard(card)) throw new Error('expected pick cards');
       const wrong = card.options.find((option) => !option.correct);
       const right = card.options.find((option) => option.correct);
-      if (misses.includes(index) && wrong) run = pickOption(run, target, wrong.id);
-      if (right) run = pickOption(run, target, right.id);
+      // A locked run takes the first pick, so a miss is a wrong pick and nothing after it.
+      const pick = misses.includes(index) ? wrong : right;
+      if (pick) run = pickOption(run, target, pick.id);
       run = nextCard(run, target);
     }
     return run;

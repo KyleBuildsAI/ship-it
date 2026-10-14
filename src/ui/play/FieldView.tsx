@@ -13,6 +13,7 @@ import { useStore } from '../useStore';
  * repos, then paste checks that verify it. Any Act can have one. Passed checks are saved,
  * so it can be done over days. Checking a paste happens here in the browser, so it needs
  * no GitHub token or API key, and the panel says so before anyone goes looking for one.
+ * DESIGN.md section 8's planned GitHub API checks (M3+) would be opt-in, beside these.
  */
 export function FieldView({ activity }: { activity: FieldActivity }) {
   const field = requireFieldMission(getAct(activity.act).act);

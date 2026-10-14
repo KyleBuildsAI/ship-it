@@ -112,14 +112,40 @@ function ArtifactBlock({ artifact }: { artifact: Artifact }) {
   );
 }
 
-function optionClass(picked: readonly string[], id: string, correct: boolean): string {
+function optionClass(
+  picked: readonly string[],
+  id: string,
+  correct: boolean,
+  locked: boolean,
+): string {
   if (!picked.includes(id)) return 'lesson-option';
+  // A test never colours an answer: right or wrong is only told in the final score.
+  if (locked) return 'lesson-option lesson-option--chosen';
   return correct ? 'lesson-option lesson-option--right' : 'lesson-option lesson-option--wrong';
 }
 
+/** What a test card says once answered: that it's in, never whether it's right. */
+function LockedNote({ last }: { last: boolean }) {
+  return (
+    <p className="drill-result" aria-live="polite">
+      <strong>Answer locked in.</strong>{' '}
+      {last ? 'Finish to see your score.' : 'Your score comes at the end.'}
+    </p>
+  );
+}
+
 /** A choose or prompt card: options as buttons, and the latest pick's feedback. */
-function PickOptions({ card, activity }: { card: PickCard; activity: LessonActivity }) {
+function PickOptions({
+  card,
+  activity,
+  last,
+}: {
+  card: PickCard;
+  activity: LessonActivity;
+  last: boolean;
+}) {
   const { picked, solved } = activity.run.card;
+  const { locked } = activity.run;
   const latest = card.options.find((option) => option.id === picked.at(-1));
   return (
     <>
@@ -128,7 +154,7 @@ function PickOptions({ card, activity }: { card: PickCard; activity: LessonActiv
           <li key={option.id}>
             <button
               type="button"
-              className={optionClass(picked, option.id, option.correct)}
+              className={optionClass(picked, option.id, option.correct, locked)}
               disabled={solved || picked.includes(option.id)}
               onClick={() => {
                 answerLesson(option.id);
@@ -139,7 +165,8 @@ function PickOptions({ card, activity }: { card: PickCard; activity: LessonActiv
           </li>
         ))}
       </ol>
-      {latest === undefined ? null : (
+      {latest !== undefined && locked ? <LockedNote last={last} /> : null}
+      {latest === undefined || locked ? null : (
         <p
           className={latest.correct ? 'drill-result drill-result--pass' : 'drill-result'}
           aria-live="polite"
@@ -154,8 +181,17 @@ function PickOptions({ card, activity }: { card: PickCard; activity: LessonActiv
 }
 
 /** An order card: the steps with up and down buttons, then "Check order". */
-function OrderSteps({ card, activity }: { card: OrderCard; activity: LessonActivity }) {
+function OrderSteps({
+  card,
+  activity,
+  last,
+}: {
+  card: OrderCard;
+  activity: LessonActivity;
+  last: boolean;
+}) {
   const { order, solved, wrongOrders } = activity.run.card;
+  const { locked } = activity.run;
   const text = new Map(card.steps.map((step) => [step.id, step.text]));
   return (
     <>
@@ -190,11 +226,13 @@ function OrderSteps({ card, activity }: { card: OrderCard; activity: LessonActiv
           </li>
         ))}
       </ol>
-      {solved ? (
+      {solved && locked ? <LockedNote last={last} /> : null}
+      {solved && !locked ? (
         <p className="drill-result drill-result--pass" aria-live="polite">
           <strong>Right order.</strong>
         </p>
-      ) : (
+      ) : null}
+      {solved ? null : (
         <>
           {wrongOrders > 0 ? (
             <p className="drill-result" aria-live="polite">
@@ -210,7 +248,7 @@ function OrderSteps({ card, activity }: { card: OrderCard; activity: LessonActiv
                 checkLessonOrder();
               }}
             >
-              Check order
+              {locked ? 'Lock in this order' : 'Check order'}
             </button>
           </div>
         </>
@@ -231,14 +269,19 @@ function CardScreen({ activity }: { activity: LessonActivity }) {
       {card.artifact === undefined ? null : <ArtifactBlock artifact={card.artifact} />}
       <p className="lesson-card__question">{card.question}</p>
       {card.kind === 'order' ? (
-        <OrderSteps card={card} activity={activity} />
+        <OrderSteps card={card} activity={activity} last={last} />
       ) : (
-        <PickOptions card={card} activity={activity} />
+        <PickOptions card={card} activity={activity} last={last} />
       )}
       {run.card.solved ? (
-        <div className="hint">
-          <p className="hint__source">Why</p>
-          <p>{card.explanation}</p>
+        <div className={run.locked ? undefined : 'hint'}>
+          {/* The why would give a test's answer away, so a test moves straight on. */}
+          {run.locked ? null : (
+            <>
+              <p className="hint__source">Why</p>
+              <p>{card.explanation}</p>
+            </>
+          )}
           <div className="play-panel__actions">
             <button
               type="button"
@@ -296,7 +339,7 @@ function PlacementDone({ activity }: { activity: LessonActivity }) {
   return (
     <div>
       <p className={result.testedOut ? 'drill-result drill-result--pass' : 'drill-result'}>
-        {result.percent}% right on the first try
+        {result.percent}% right
         {timedOut
           ? ` before time ran out (${String(run.firstTry.length)} of ${String(lesson.cards.length)} answered)`
           : ''}

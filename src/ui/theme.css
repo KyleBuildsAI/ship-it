@@ -1039,6 +1039,10 @@ body {
   background: rgba(126, 226, 168, 0.12);
 }
 
+.lesson-option--chosen {
+  border-color: var(--accent);
+}
+
 .lesson-option--wrong {
   border-color: rgba(255, 123, 123, 0.6);
   color: var(--text-muted);
