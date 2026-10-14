@@ -141,7 +141,7 @@ describe("Act 1's lessons", () => {
     expect(new Set(places).size).toBeGreaterThanOrEqual(3);
   });
 
-  it('records the final as the boss, but leaves Act 1 open while it is in early access', () => {
+  it('records the final as the boss, but leaves Act 1 open until its missions and Field Mission are done', () => {
     const save = act1Lessons.reduce(
       (next, lesson) => completeLesson(next, act1, lesson, 100, NOW),
       createDefaultSave(NOW),
