@@ -200,6 +200,18 @@ describe('file contents', () => {
     expect(holds(ws, { kind: 'fileAtHead', path: '.env' })).toBe(false);
   });
 
+  it('still finds a file in history after a later commit drops it', () => {
+    const ws = project();
+    expect(holds(ws, { kind: 'inHistory', path: 'app.ts' })).toBe(true);
+    expect(holds(ws, { kind: 'inHistory', path: '.env' })).toBe(false);
+    git(ws, ['rm', '--cached', 'app.ts']);
+    git(ws, ['commit', '-m', 'chore: stop tracking app.ts']);
+    expect(holds(ws, { kind: 'fileAtHead', path: 'app.ts' })).toBe(false);
+    // git show HEAD~2:app.ts still prints it, so it never left git.
+    expect(holds(ws, { kind: 'inHistory', path: 'app.ts' })).toBe(true);
+    expect(holds(folder().build(testDeps()), { kind: 'inHistory', path: 'app.ts' })).toBe(false);
+  });
+
   it('reads files on disk, including checking one is gone', () => {
     const ws = project();
     expect(holds(ws, { kind: 'workingFile', path: 'app.ts' })).toBe(true);
@@ -376,6 +388,7 @@ describe('describe', () => {
     [{ kind: 'fileAtHead', path: 'a.ts' }, 'a.ts is committed'],
     [{ kind: 'fileAtHead', path: 'a.ts', equals: 'x' }, 'Committed a.ts has the expected content'],
     [{ kind: 'fileAtHead', path: 'a.ts', contains: 'x' }, 'Committed a.ts contains "x"'],
+    [{ kind: 'inHistory', path: 'a.ts' }, 'a.ts is in a commit'],
     [{ kind: 'workingFile', path: 'a.ts' }, 'a.ts exists'],
     [{ kind: 'workingFile', path: 'a.ts', exists: false }, 'a.ts does not exist'],
     [{ kind: 'workingFile', path: 'a.ts', contains: 'TODO' }, 'a.ts contains "TODO"'],

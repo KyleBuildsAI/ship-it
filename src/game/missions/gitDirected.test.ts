@@ -50,9 +50,16 @@ describeDirectedMission(mission, {
     'commit-app': {
       'save-all > unstage-notes': { passed: true, check: 'only-app' },
       'save-all > just-app': { passed: false, check: 'extra' },
+      // After start-clean, allowed or denied, notes.txt is not on the dock to unstage, so
+      // the restore fails and Otto stops instead of claiming he unstaged it.
+      'start-clean > unstage-notes': 'direct',
     },
     'drop-login': {
-      'go-back > fix-rm': 'direct',
+      // Allowed, the reset took login.ts away and git rm fails. Denied, nothing was lost.
+      'go-back > fix-rm': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'kept' },
+      },
       'delete-file > fix-rm': { passed: true, check: 'kept' },
     },
   },
@@ -65,6 +72,10 @@ describeDirectedMission(mission, {
     'drop-login > delete-file > rm login.ts': false,
     'drop-login > go-back > git reset --hard HEAD~2': true,
     'drop-login > delete-file > go-back > git reset --hard HEAD~2': true,
+    // The cards after denying go-back's reset: nothing was lost, so they are safe.
+    'drop-login > go-back > delete-file > rm login.ts': false,
+    'drop-login > go-back > fix-rm > git rm login.ts': false,
+    'drop-login > go-back > rm-commit > git rm login.ts': false,
   },
 });
 

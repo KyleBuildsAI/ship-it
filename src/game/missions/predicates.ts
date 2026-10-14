@@ -59,6 +59,12 @@ export type Predicate =
   | { kind: 'allMessagesMatch'; pattern: string; flags?: string; last?: number; label?: string }
   /** The file is in the HEAD commit, optionally with exact or partial content. */
   | { kind: 'fileAtHead'; path: string; equals?: string; contains?: string; label?: string }
+  /**
+   * Some commit in HEAD's history holds the file, by first parents like `commitCount`. A
+   * later commit that drops the file leaves it here, since git log and git show still
+   * read it from the older commit: "is it out of git" means out of every commit.
+   */
+  | { kind: 'inHistory'; path: string; label?: string }
   /** The file on disk. `exists: false` means it must be gone. */
   | {
       kind: 'workingFile';
@@ -222,6 +228,8 @@ export function evaluate(predicate: Predicate, q: SandboxQueries): boolean {
       return allMessagesMatch(q, predicate.pattern, predicate.flags, predicate.last);
     case 'fileAtHead':
       return contentMatches(q.fileAt('HEAD', predicate.path), predicate);
+    case 'inHistory':
+      return q.log().some((commit) => commit.files.has(predicate.path));
     case 'workingFile': {
       const content = q.workingFile(predicate.path);
       if (predicate.exists === false) return content === null;
@@ -333,6 +341,8 @@ export function describe(
         predicate,
         `${predicate.path} is committed`,
       );
+    case 'inHistory':
+      return `${predicate.path} is in a commit`;
     case 'workingFile':
       if (predicate.exists === false) return `${predicate.path} does not exist`;
       return describeContent(predicate.path, predicate, `${predicate.path} exists`);
