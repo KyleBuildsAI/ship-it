@@ -22,17 +22,21 @@ export const act2Input: ActInput = {
   missionIds: act2MissionInputs.map((mission) => mission.id),
   placementTest: {
     pitch: 'Already know git? 85% tests out of the Act.',
-    // Two or three drills per mission, so testing out still proves every idea in the Act.
+    // Two or three judgment drills per mission, so testing out still proves every idea in
+    // the Act, all answered by clicking. The kinds are mixed (3 predict, 3 diagnose, 4
+    // fix, 2 approve) so a pass needs reading git output and weighing Otto's lines, not
+    // one skill. Of the two approve drills one is denied and one allowed, so "always deny"
+    // can't carry it.
     drillIds: [
-      'rooms-stage-folder',
       'rooms-commit-staged-only',
+      'rooms-diagnose-staged',
       'history-old-port',
       'history-staged-surprise',
+      'history-debug-print',
       'commits-split-two',
       'commits-am-trap',
-      'ignore-tracked-dist',
-      'ignore-negate',
-      'undo-unstage',
+      'ignore-approve-rm-cached',
+      'ignore-diagnose-leak',
       'undo-soft-reset',
       'undo-revert-shared',
       'undo-reflog-rescue',

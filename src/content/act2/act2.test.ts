@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { testDeps } from '../../engine/git/testDeps';
 import { scoreQuestionRound } from '../../game/missions/grading';
-import { ActSchema, MissionSchema, type Candidate } from '../../game/missions/schema';
+import { answerKey } from '../../game/missions/judgment';
+import {
+  ActSchema,
+  isJudgmentDrill,
+  MissionSchema,
+  type Candidate,
+  type JudgmentDrill,
+} from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
 import { act2, act2Missions } from '../index';
 import { act2Input, act2MissionInputs } from './act';
@@ -67,6 +75,26 @@ describe('Act 2 content', () => {
     );
     const covered = new Set(act2.placementTest.drillIds.map((id) => missionOf.get(id)));
     expect([...covered].sort()).toEqual([...act2.missionIds].sort());
+  });
+
+  it('tests out by clicking: every placement drill is a judgment drill, of mixed kinds', () => {
+    const byId = new Map(
+      act2Missions.flatMap((mission) => mission.drills.map((drill) => [drill.id, drill])),
+    );
+    const drills = act2.placementTest.drillIds.map((id) => byId.get(id));
+    // A typed drill would open the terminal; Act 2 is directed, so none may be typed.
+    const judged = drills.filter(
+      (drill): drill is JudgmentDrill => drill !== undefined && isJudgmentDrill(drill),
+    );
+    expect(judged).toHaveLength(drills.length);
+    const kinds = new Set(judged.map((drill) => drill.kind));
+    expect([...kinds].sort()).toEqual(['approve', 'diagnose', 'fix', 'predict']);
+    // One approve to allow and one to deny, so "always deny" can't pass.
+    const approveKeys = judged
+      .filter((drill) => drill.kind === 'approve')
+      .map((drill) => answerKey(drill, testDeps())[0]);
+    expect(approveKeys).toContain('allow');
+    expect(approveKeys).toContain('deny');
   });
 
   it('gives the boss 3:00 on the clock and its twist at 1:00', () => {
