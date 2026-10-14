@@ -29,6 +29,8 @@ import { isJudgmentDrill, type Mission } from '../missions/schema';
 import type { MissionResume } from '../save/schema';
 import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
+import { zoneForAct } from '../world/zones';
+import { travelTo } from '../worldState';
 import { beginDirectedStep, directedChecklist } from './agentPlay';
 import { findMission, getAct } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
@@ -146,6 +148,7 @@ export function startMission(missionId: string): void {
   // the panel and the world, so the terminal stays put away unless the player opens it.
   if (mission.steps.some((step) => step.agent === undefined)) openTerminal();
   else closeTerminal();
+  travelTo(zoneForAct(mission.act));
   const saved = progress.get().save?.missions[mission.id]?.resume ?? null;
   if (saved !== null && resumeMission(mission, saved)) return;
   // Act 1 plays on the laptop; the git Acts start from a project on the Workbench.

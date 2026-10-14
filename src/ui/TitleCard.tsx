@@ -6,8 +6,9 @@ import { useStore } from './useStore';
 const HINTS: Record<ZoneId, string> = {
   campus:
     'WASD or click to walk · Space to jump · drag to look around · step through a glowing portal',
-  gitworld: 'Workbench · Loading Dock · Vault. Try git status in the terminal.',
-  machine: 'Folders are terraces, terminals are lanterns. Try cd and mkdir in the terminal.',
+  // Hints point at the Acts menu, not the terminal: missions are directed by clicking.
+  gitworld: 'Workbench · Loading Dock · Vault. Open Acts and watch Otto move the crates.',
+  machine: 'Folders are terraces, terminals are lanterns. Open Acts and watch them grow.',
   // Each Act island's line lives with its other data in zones.ts.
   ...perActIsland((island) => island.hint),
 };

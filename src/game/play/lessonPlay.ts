@@ -14,6 +14,8 @@ import {
 import { lessonPlacementResult, placementLesson } from '../missions/lessonPlacement';
 import { requireLessonPlacement } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
+import { zoneForAct } from '../world/zones';
+import { travelTo } from '../worldState';
 import { findLesson, getAct } from './catalog';
 import { play, type LessonActivity } from './playStore';
 import {
@@ -93,6 +95,7 @@ export function startLesson(lessonId: string): void {
   endDrill();
   // Nothing in a lesson is typed, so the terminal steps aside and the cards get the room.
   closeTerminal();
+  travelTo(zoneForAct(lesson.act));
   saveProgressNow((save) => startMissionProgress(save, lesson.id));
   play.update({
     activity: { kind: 'lesson', lesson, run: startLessonRun(lesson), xpEarned: 0 },
