@@ -53,7 +53,8 @@ describe("Act 2's command lines under the Act 1 lexer", () => {
     for (const source of Object.values(sources))
       expect(commandLines(source).length).toBeGreaterThan(0);
     expect(corpus.length).toBeGreaterThan(100);
-    expect(corpus).toContain('git commit -m "feat: add notes app"');
+    // A boss line: the boss stays typed while the missions become directed.
+    expect(corpus).toContain('git commit -m "feat: add search"');
     expect(corpus).toContain('echo "*.log" >> .gitignore');
   });
 

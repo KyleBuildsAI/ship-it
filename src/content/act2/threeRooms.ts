@@ -1,26 +1,631 @@
 import { folder, repo } from '../../engine/git/fixtures';
-import type { MissionInput } from '../../game/missions/schema';
+import type { AgentTaskInput } from '../../game/missions/agentSchema';
+import type { Predicate } from '../../game/missions/predicates';
+import type { JudgmentDrillInput, MissionInput } from '../../game/missions/schema';
 
 /**
  * Mission 2.1: the three areas every change travels through. Workbench (working tree),
- * Loading Dock (index), Vault (history), with init, status, add, and commit.
+ * Loading Dock (index), Vault (history), with init, status, add, and commit. Kyle directs
+ * Otto, who runs the git lines, and the Git World moves the crates for each one. The
+ * trap all the way through is todo.txt: a personal list that "save everything" sweeps
+ * into the Vault, and that only a careful request (check git status, name the files)
+ * leaves on the Workbench.
  */
 
 const README = '# Quillwork Notes\n\nA tiny note-taking app.\n';
+const RUN_LINE = 'Run it with npm start.\n';
 const APP =
   "import './styles.css';\n\nexport function addNote(text: string): string {\n  return text.trim();\n}\n";
 const STYLES = 'body {\n  font-family: system-ui, sans-serif;\n}\n';
 // A personal file that has no business in the project's history.
 const TODO = '- buy coffee\n- ask Sage what HEAD means\n';
+const PROJECT_FILES = ['README.md', 'src/app.ts', 'src/styles.css'];
 
 const HEADER_V1 = "export const header = '<h1>Quillwork</h1>';\n";
 const HEADER_V2 = "export const header = '<h1>Quillwork Notes</h1>';\n";
+
+/*
+ * What the steps grade and guard. Each is a question about the three areas, never about
+ * which command Otto typed, so any route to the same Vault counts the same.
+ */
+
+/**
+ * Neither on the Loading Dock nor in the Vault. Untracked, not just uncommitted, so the
+ * gate on git add . is the one that breaks it: that is where Kyle can still say no.
+ */
+const todoOut: Predicate = {
+  kind: 'untracked',
+  paths: ['todo.txt'],
+  label: 'todo.txt stays out of git',
+};
+/** The list itself survives on the Workbench: git rm without --cached would delete it. */
+const todoKept: Predicate = {
+  kind: 'workingFile',
+  path: 'todo.txt',
+  label: 'Your todo.txt survives',
+};
+const todoAtHead: Predicate = { kind: 'fileAtHead', path: 'todo.txt' };
+const projectAtHead: Predicate = {
+  kind: 'all',
+  of: PROJECT_FILES.map((path): Predicate => ({ kind: 'fileAtHead', path })),
+  label: 'README.md and src are in the latest commit',
+};
+const readmeEditAtHead: Predicate = {
+  kind: 'fileAtHead',
+  path: 'README.md',
+  contains: 'npm start',
+  label: 'Your README.md edit is in the latest commit',
+};
+const noCommits: Predicate = { kind: 'commitCount', max: 0 };
+
+/** Read-only lines Kyle can have Otto run while checking a claim. */
+const gitLooks = [
+  { id: 'status', label: "What's on the dock?", line: 'git status' },
+  { id: 'log', label: "What's in the Vault?", line: 'git log --oneline' },
+  { id: 'staged', label: 'What will commit?', line: 'git diff --staged' },
+];
+
+/**
+ * Step 1: make the repository. The weak card asks Otto to "save" before there is
+ * anything to save into, so git add fails and he claims it worked anyway.
+ */
+const startTracking: AgentTaskInput = {
+  note: 'Quillwork is a plain folder: no Loading Dock, no Vault yet.',
+  plans: [
+    {
+      id: 'save-it',
+      text: 'Save my project in git.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['save my project in git', 'save the project', 'put it in git'],
+      script: [{ do: 'run', line: 'git add .', say: 'Saving everything into git.', fails: true }],
+      claim: 'Done: your project is saved in git.',
+      lesson: 'There was no repository yet, so git add failed and nothing was saved.',
+      slip: 'overclaim',
+    },
+    {
+      id: 'init-only',
+      text: 'Turn this folder into a git repository.',
+      quality: 'okay',
+      covers: ['goal', 'place'],
+      intents: ['turn this folder into a git repository', 'make a repository', 'git init'],
+      script: [{ do: 'run', line: 'git init' }],
+      claim: 'Done: this folder is a git repository.',
+      lesson: 'git init made the repository. Asking for git status too shows what git now sees.',
+    },
+    {
+      id: 'init-status',
+      text: 'Run git init here, then show me git status.',
+      quality: 'strong',
+      covers: ['goal', 'place', 'check'],
+      intents: ['git init then git status', 'init and show me status', 'init here and status'],
+      script: [
+        {
+          do: 'run',
+          line: 'git init',
+          say: 'Starting a repository in this folder.',
+          predict: {
+            question: 'Before Otto runs it: what happens to your four files?',
+            // Split by one question: does git init load anything onto the dock?
+            options: [
+              {
+                id: 'stay',
+                text: 'They stay on the Workbench, unstaged',
+                outcome: {
+                  state: { kind: 'not', predicate: { kind: 'staged', paths: ['README.md'] } },
+                },
+              },
+              {
+                id: 'dock',
+                text: 'They all go onto the Loading Dock',
+                outcome: { state: { kind: 'staged', paths: ['README.md'] } },
+              },
+            ],
+          },
+        },
+        { do: 'run', line: 'git status' },
+      ],
+      claim: 'Done: repository made, four new files waiting.',
+      lesson: 'git status proved it: four new crates on the Workbench, todo.txt among them.',
+    },
+  ],
+  fixes: [
+    {
+      id: 'fix-init',
+      text: 'There is no repository. Run git init, then git status.',
+      quality: 'strong',
+      covers: ['goal', 'place', 'check'],
+      intents: ['run git init first', 'there is no repository'],
+      script: [
+        { do: 'run', line: 'git init' },
+        { do: 'run', line: 'git status' },
+      ],
+      claim: 'Fixed: this folder is a repository now.',
+      lesson: 'A folder needs git init before git can stage or save anything in it.',
+    },
+  ],
+  hintPlan: 'init-status',
+  check: {
+    question: 'What does git see in the Quillwork folder now?',
+    options: [
+      {
+        id: 'four-new',
+        text: 'A new repository: four files, nothing committed yet',
+        // Not "nothing staged": Kyle can Stop Otto and pick a card that stages.
+        truth: { kind: 'all', of: [{ kind: 'isRepo' }, noCommits] },
+        feedback: 'git status says "No commits yet" and lists the four files.',
+      },
+      {
+        id: 'no-repo',
+        text: 'Nothing: there is no repository here',
+        truth: { kind: 'not', predicate: { kind: 'isRepo' } },
+        feedback: 'git status says "not a git repository". git init never ran.',
+      },
+    ],
+  },
+  looks: gitLooks,
+};
+
+/**
+ * Step 2: the first commit. The weak card loads every crate, todo.txt too; the okay card
+ * loads the right ones and never commits. The strong card looks first and names files.
+ */
+const firstCommit: AgentTaskInput = {
+  note: 'Every line that moves a crate pauses for you, so you see each trip.',
+  plans: [
+    {
+      id: 'commit-all',
+      text: 'Commit everything as the first version.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['commit everything', 'save everything as the first version'],
+      script: [
+        { do: 'run', line: 'git add .', say: 'Loading every file onto the dock.' },
+        { do: 'run', line: 'git commit -m "first version"' },
+      ],
+      claim: 'Done: first commit made, project saved.',
+      lesson: 'git add . loaded todo.txt too, so your personal list went into the Vault.',
+      slip: 'too-broad',
+    },
+    {
+      id: 'stage-project',
+      text: 'Stage README.md and src for the first commit.',
+      quality: 'okay',
+      covers: ['goal', 'limits'],
+      intents: ['stage readme and src', 'stage the project files'],
+      script: [{ do: 'run', line: 'git add README.md src' }],
+      claim: 'Done: your first commit is made.',
+      lesson: 'Otto staged the right files but never ran git commit. The Vault is still empty.',
+      slip: 'overclaim',
+    },
+    {
+      id: 'status-first',
+      text: 'Check status, stage README.md and src, commit as feat: add notes app.',
+      quality: 'strong',
+      covers: ['goal', 'limits', 'check'],
+      intents: ['check status then stage readme and src', 'feat: add notes app'],
+      script: [
+        { do: 'run', line: 'git status', say: 'Looking before I load anything.' },
+        {
+          do: 'run',
+          line: 'git add README.md src',
+          predict: {
+            question: 'Before Otto runs it: which crates go onto the dock?',
+            // Split by one question: does todo.txt ride along?
+            options: [
+              {
+                id: 'three',
+                text: 'README.md, app.ts and styles.css',
+                outcome: { state: { kind: 'staged', paths: PROJECT_FILES, exact: true } },
+              },
+              {
+                id: 'four',
+                text: 'All four, todo.txt too',
+                outcome: {
+                  state: {
+                    kind: 'not',
+                    predicate: { kind: 'staged', paths: PROJECT_FILES, exact: true },
+                  },
+                },
+              },
+            ],
+          },
+        },
+        { do: 'run', line: 'git commit -m "feat: add notes app"' },
+        { do: 'run', line: 'git log --oneline' },
+      ],
+      claim: 'Done: the first commit holds README.md and src.',
+      lesson:
+        'git status showed todo.txt waiting. Naming README.md and src left it on the Workbench.',
+    },
+  ],
+  fixes: [
+    {
+      id: 'commit-dock',
+      text: 'Commit what is on the dock as feat: add notes app.',
+      quality: 'strong',
+      covers: ['goal', 'check'],
+      intents: ['commit what is on the dock', 'commit the staged files'],
+      script: [
+        { do: 'run', line: 'git status' },
+        { do: 'run', line: 'git commit -m "feat: add notes app"' },
+      ],
+      claim: 'Fixed: the first commit is made.',
+      lesson: 'Staging packs the dock. Only git commit seals it into the Vault.',
+    },
+    {
+      // Works after either miss: it empties the dock whether or not todo.txt was committed.
+      id: 'restage',
+      text: 'Take every file out of git, then commit only README.md and src.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['take every file out of git', 'untrack everything and commit only the project'],
+      script: [
+        { do: 'run', line: 'git rm --cached -r .', say: 'Untracking everything, files kept.' },
+        { do: 'run', line: 'git add README.md src' },
+        { do: 'run', line: 'git commit -m "feat: add notes app"' },
+      ],
+      claim: 'Fixed: the latest commit holds only README.md and src.',
+      lesson:
+        'rm --cached took every crate out of git and kept the files. Only the project went back.',
+    },
+  ],
+  hintPlan: 'status-first',
+  check: {
+    question: 'What does the latest commit in the Vault hold?',
+    // Split by two questions: is there a commit, and does it hold todo.txt?
+    options: [
+      {
+        id: 'project',
+        text: 'README.md and src, with todo.txt left out',
+        truth: {
+          kind: 'all',
+          of: [
+            { kind: 'commitCount', min: 1 },
+            { kind: 'not', predicate: todoAtHead },
+          ],
+        },
+        feedback: 'git log shows the commit, and git status still lists todo.txt as untracked.',
+      },
+      {
+        id: 'todo-too',
+        text: 'The project, plus your todo.txt',
+        truth: todoAtHead,
+        feedback: 'git add . loads every crate. todo.txt rode into the commit.',
+      },
+      {
+        id: 'empty',
+        text: 'Nothing: the Vault has no commits yet',
+        truth: noCommits,
+        feedback: 'git log says there are no commits yet. Staged files are not saved.',
+      },
+    ],
+  },
+  guards: [todoOut, todoKept],
+  looks: gitLooks,
+};
+
+/**
+ * Step 3: the same trip again, for an edit. The okay card commits without staging, so
+ * git finds an empty dock; the weak card sweeps todo.txt in once more.
+ */
+const commitEdit: AgentTaskInput = {
+  before: [{ op: 'write', path: 'README.md', content: `${README}\n${RUN_LINE}` }],
+  note: 'You added a line to README.md saying how to run the app.',
+  plans: [
+    {
+      id: 'commit-changes',
+      text: 'Commit all my changes.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['commit all my changes', 'commit everything'],
+      script: [
+        { do: 'run', line: 'git add .', say: 'Loading all your changes.' },
+        { do: 'run', line: 'git commit -m "update"' },
+      ],
+      claim: 'Done: all your changes are committed.',
+      lesson: 'git add . loaded todo.txt again. Everything on the Workbench rode into the commit.',
+      slip: 'too-broad',
+    },
+    {
+      id: 'just-commit',
+      text: 'Commit my README change as docs: explain how to run.',
+      quality: 'okay',
+      covers: ['goal', 'limits'],
+      intents: ['commit my readme change', 'docs: explain how to run'],
+      script: [
+        { do: 'run', line: 'git commit -m "docs: explain how to run the app"', fails: true },
+      ],
+      claim: 'Done: your README change is committed.',
+      lesson:
+        'The edit was only on the Workbench. git commit found an empty dock and saved nothing.',
+      slip: 'overclaim',
+    },
+    {
+      id: 'add-readme',
+      text: 'Check status, stage only README.md, commit as docs: explain how to run.',
+      quality: 'strong',
+      covers: ['goal', 'limits', 'check'],
+      intents: ['stage only readme then commit', 'check status, stage readme'],
+      script: [
+        { do: 'run', line: 'git status', say: 'Checking what changed first.' },
+        { do: 'run', line: 'git add README.md' },
+        { do: 'run', line: 'git commit -m "docs: explain how to run the app"' },
+        { do: 'run', line: 'git log --oneline' },
+      ],
+      claim: 'Done: your README edit is in a new commit.',
+      lesson:
+        'Same trip as before: Workbench, Loading Dock, Vault. todo.txt never left the Workbench.',
+    },
+  ],
+  fixes: [
+    {
+      id: 'stage-readme',
+      text: 'Stage README.md first, then commit as docs: explain how to run.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['stage readme first', 'add readme then commit'],
+      script: [
+        { do: 'run', line: 'git add README.md' },
+        { do: 'run', line: 'git commit -m "docs: explain how to run the app"' },
+      ],
+      claim: 'Fixed: your README edit is committed.',
+      lesson: 'An edit has to be loaded onto the dock again before a commit can seal it.',
+    },
+    {
+      // Works after either miss, like step 2's restage: README.md goes back in either way.
+      id: 'restage-readme',
+      text: 'Take every file out of git, then commit only README.md and src.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['take every file out of git again', 'untrack everything, commit readme and src'],
+      script: [
+        { do: 'run', line: 'git rm --cached -r .', say: 'Untracking everything, files kept.' },
+        { do: 'run', line: 'git add README.md src' },
+        { do: 'run', line: 'git commit -m "docs: explain how to run the app"' },
+      ],
+      claim: 'Fixed: your README edit is committed, todo.txt is not.',
+      lesson:
+        'rm --cached took every crate out of git and kept the files. Only the project went back.',
+    },
+  ],
+  hintPlan: 'add-readme',
+  check: {
+    question: 'Where is your README.md edit now?',
+    // Split by two questions: is the edit in the latest commit, and is todo.txt?
+    options: [
+      {
+        id: 'committed',
+        text: 'In a new commit, with todo.txt left out',
+        truth: { kind: 'all', of: [readmeEditAtHead, { kind: 'not', predicate: todoAtHead }] },
+        feedback: 'git log shows the new commit, and todo.txt is still untracked.',
+      },
+      {
+        id: 'with-todo',
+        text: 'In a new commit that also holds todo.txt',
+        truth: { kind: 'all', of: [readmeEditAtHead, todoAtHead] },
+        feedback: 'git add . loaded todo.txt again, and the commit sealed it.',
+      },
+      {
+        id: 'workbench',
+        text: 'Only on the Workbench: no commit holds it',
+        truth: { kind: 'not', predicate: readmeEditAtHead },
+        feedback: 'git status still lists README.md as modified. Nothing was staged.',
+      },
+    ],
+  },
+  guards: [todoOut, todoKept],
+  looks: gitLooks,
+};
+
+/** A Quillwork repo after the first commit, with todo.txt still loose. */
+const committedProject = () =>
+  repo()
+    .commit('feat: add notes app', { 'README.md': README, 'src/app.ts': APP })
+    .write('todo.txt', TODO);
+
+/**
+ * Judgment drills on git scenes. No drill names its answer: the engine finds each key by
+ * running the drill. Two keep their typed-era ids, since the placement test draws them.
+ */
+const drills: JudgmentDrillInput[] = [
+  {
+    kind: 'approve',
+    id: 'rooms-approve-add-all',
+    prompt: 'Otto wants to stage everything. Allow?',
+    concept: 'staging',
+    setup: repo()
+      .write('README.md', README)
+      .write('src/app.ts', APP)
+      .write('todo.txt', TODO)
+      .toSpec(),
+    action: { do: 'run', line: 'git add .', say: 'Loading every file onto the dock.' },
+    guards: [todoOut],
+    explain: 'git add . loads every crate, your todo.txt included. Deny, and name the files.',
+  },
+  {
+    kind: 'approve',
+    id: 'rooms-approve-add-readme',
+    prompt: 'Otto wants to stage your README.md edit. Allow?',
+    concept: 'staging',
+    setup: committedProject().write('README.md', `${README}\n${RUN_LINE}`).toSpec(),
+    action: { do: 'run', line: 'git add README.md', say: 'Loading README.md onto the dock.' },
+    guards: [todoOut],
+    explain: 'git add README.md loads one crate. todo.txt stays on the Workbench.',
+  },
+  {
+    kind: 'predict',
+    id: 'rooms-stage-folder',
+    prompt: 'Otto is about to run this. What lands on the Loading Dock?',
+    concept: 'staging',
+    setup: repo()
+      .commit('chore: add readme', { 'README.md': README })
+      .write('src/header.ts', HEADER_V1)
+      .write('src/footer.ts', "export const footer = '<footer>Quillwork AI</footer>';\n")
+      .write('scratch.txt', 'ideas for later\n')
+      .toSpec(),
+    action: { do: 'run', line: 'git add src' },
+    options: [
+      {
+        id: 'src-only',
+        text: 'header.ts and footer.ts, nothing else',
+        outcome: {
+          state: { kind: 'staged', paths: ['src/header.ts', 'src/footer.ts'], exact: true },
+        },
+      },
+      {
+        id: 'everything',
+        text: 'Both src files, and scratch.txt too',
+        outcome: { state: { kind: 'staged', paths: ['scratch.txt'] } },
+      },
+      {
+        id: 'error',
+        text: 'Nothing: git add needs file names, not folders',
+        outcome: { result: 'error' },
+      },
+    ],
+    explain: 'A folder name loads everything inside it, and only that. scratch.txt stays loose.',
+  },
+  {
+    kind: 'predict',
+    id: 'rooms-commit-staged-only',
+    prompt: 'Otto is about to commit. What does the commit hold?',
+    concept: 'commit',
+    setup: repo()
+      .commit('feat: add header', { 'README.md': README, 'src/header.ts': HEADER_V1 })
+      .write('README.md', `${README}\n${RUN_LINE}`)
+      .stage('README.md')
+      .write('src/header.ts', HEADER_V2)
+      .toSpec(),
+    history: [{ do: 'run', line: 'git status' }],
+    action: { do: 'run', line: 'git commit -m "docs: add run command"' },
+    options: [
+      {
+        id: 'readme-only',
+        text: 'Only README.md: the header.ts edit stays behind',
+        outcome: {
+          state: {
+            kind: 'all',
+            of: [
+              { kind: 'commitChanged', paths: ['README.md'], only: true },
+              { kind: 'modified', paths: ['src/header.ts'] },
+            ],
+          },
+        },
+      },
+      {
+        id: 'both',
+        text: 'README.md and the header.ts edit',
+        outcome: { state: { kind: 'commitChanged', paths: ['src/header.ts'] } },
+      },
+      { id: 'error', text: 'Nothing: it fails', outcome: { result: 'error' } },
+    ],
+    explain: 'A commit seals only what is on the dock. The header.ts edit was never staged.',
+  },
+  {
+    kind: 'diagnose',
+    id: 'rooms-diagnose-staged',
+    prompt: 'Otto says your edit is saved. Is he right?',
+    concept: 'commit',
+    setup: committedProject().write('README.md', `${README}\n${RUN_LINE}`).toSpec(),
+    history: [{ do: 'run', line: 'git add README.md' }],
+    claim: 'Done: your README edit is saved in git.',
+    options: [
+      {
+        id: 'on-dock',
+        text: 'Not yet: it waits on the Loading Dock',
+        truth: {
+          kind: 'all',
+          of: [
+            { kind: 'staged', paths: ['README.md'] },
+            { kind: 'not', predicate: readmeEditAtHead },
+          ],
+        },
+      },
+      { id: 'in-vault', text: 'Yes: it is in the latest commit', truth: readmeEditAtHead },
+      {
+        id: 'lost',
+        text: 'No: the edit is gone',
+        truth: {
+          kind: 'not',
+          predicate: { kind: 'workingFile', path: 'README.md', contains: 'npm start' },
+        },
+      },
+    ],
+    explain: 'git add only loads the dock. Until git commit runs, the Vault holds the old README.',
+  },
+  {
+    kind: 'diagnose',
+    id: 'rooms-diagnose-no-repo',
+    prompt: 'Otto says the project is saved. Is he right?',
+    concept: 'init',
+    setup: folder().write('index.html', '<h1>Quillwork</h1>\n').toSpec(),
+    history: [{ do: 'run', line: 'git add .' }],
+    claim: 'Done: the project is saved in git.',
+    options: [
+      {
+        id: 'no-repo',
+        text: 'No: there is no repository yet',
+        truth: { kind: 'not', predicate: { kind: 'isRepo' } },
+      },
+      {
+        id: 'on-dock',
+        text: 'Partly: the files wait on the dock',
+        truth: { kind: 'staged', paths: ['index.html'] },
+      },
+      {
+        id: 'saved',
+        text: 'Yes: they are in a first commit',
+        truth: { kind: 'commitCount', min: 1 },
+      },
+    ],
+    explain: 'git add failed: git only works inside a repository, and git init makes one.',
+  },
+  {
+    kind: 'fix',
+    id: 'rooms-fix-todo-staged',
+    prompt: 'todo.txt is on the dock by mistake. Which fix is right?',
+    concept: 'staging',
+    setup: committedProject()
+      .write('README.md', `${README}\n${RUN_LINE}`)
+      .stage('README.md', 'todo.txt')
+      .toSpec(),
+    goal: {
+      kind: 'all',
+      of: [
+        { kind: 'staged', paths: ['README.md'] },
+        { kind: 'untracked', paths: ['todo.txt'] },
+      ],
+    },
+    failIf: [{ kind: 'not', predicate: todoKept }],
+    options: [
+      {
+        id: 'restore-staged',
+        text: 'git restore --staged todo.txt',
+        script: [{ do: 'run', line: 'git restore --staged todo.txt' }],
+      },
+      {
+        id: 'commit',
+        text: 'Commit now, and sort it out later',
+        script: [{ do: 'run', line: 'git commit -m "update"' }],
+      },
+      {
+        id: 'rm-force',
+        text: 'git rm -f todo.txt',
+        script: [{ do: 'run', line: 'git rm -f todo.txt' }],
+      },
+    ],
+    explain:
+      'restore --staged takes a crate off the dock and leaves the file alone. rm -f deletes it.',
+  },
+];
 
 export const threeRooms: MissionInput = {
   id: 'three-rooms',
   act: 2,
   title: 'Three Rooms',
   xp: 100,
+  approvals: 'changes',
   briefing: {
     sceneId: 'three-rooms',
     captions: [
@@ -38,168 +643,49 @@ export const threeRooms: MissionInput = {
     .toSpec(),
   steps: [
     {
-      id: 'init',
-      instruction:
-        'Sage: "This project has no history yet. Turn the folder into a git repository."',
-      success: { kind: 'isRepo' },
+      id: 'start-tracking',
+      instruction: 'Quillwork has no history yet. Have Otto turn the folder into a git repository.',
+      success: { kind: 'isRepo', label: 'The folder is a git repository' },
       hints: [
-        'Which git command starts tracking a brand-new folder?',
+        'Can git stage or save anything in a folder it is not tracking yet?',
         'git init creates a hidden .git folder: an empty Loading Dock and Vault for this project.',
-        'Run: git init',
+        'Pick the card that runs git init, then shows git status.',
       ],
-    },
-    {
-      id: 'stage-project',
-      instruction:
-        'Run git status to see the unlabeled crates. Stage README.md and everything in src/. Leave todo.txt on the Workbench: it is your personal list.',
-      success: {
-        kind: 'staged',
-        paths: ['README.md', 'src/app.ts', 'src/styles.css'],
-        exact: true,
-        label: 'Only README.md and src/ are on the Loading Dock',
-      },
-      hints: [
-        'Which room does a crate visit before the Vault, and which command carries it there?',
-        'git add takes file or folder names, and a folder brings everything inside it. Staged too much before your first commit? git rm --cached <file> takes a crate back.',
-        'Run: git add README.md src',
-      ],
+      agent: startTracking,
     },
     {
       id: 'first-commit',
       instruction:
-        'Seal the Loading Dock into the Vault with your first commit. Give it a short message.',
+        'Make the first commit: README.md and everything in src/. todo.txt is your personal list, so it stays out.',
       success: {
         kind: 'all',
-        of: [
-          { kind: 'tracked', paths: ['README.md', 'src/app.ts', 'src/styles.css'] },
-          { kind: 'notTracked', paths: ['todo.txt'] },
-        ],
+        of: [projectAtHead, todoOut],
+        label: 'README.md and src are committed, todo.txt is not',
       },
       hints: [
-        'What turns the Loading Dock into a permanent snapshot?',
-        'A commit records exactly what is staged, plus a message saying why. Crates left on the Workbench stay behind.',
-        'Run: git commit -m "feat: add notes app"',
+        'Which crates belong in the Vault, and which one is only yours?',
+        'A commit seals exactly what is on the Loading Dock. git add . loads every crate, todo.txt too.',
+        'Pick the card that checks git status, then stages only README.md and src.',
       ],
-    },
-    {
-      id: 'edit-readme',
-      instruction:
-        'Add a line to README.md saying how to run the app. Then run git status: the crate now glows amber as modified.',
-      success: {
-        kind: 'any',
-        label: 'README.md has a new change',
-        of: [
-          { kind: 'modified', paths: ['README.md'] },
-          { kind: 'staged', paths: ['README.md'] },
-        ],
-      },
-      hints: [
-        'How could you add a line to the end of a file from the terminal?',
-        'In PowerShell, >> appends text to a file. You can also open it in the editor with code README.md.',
-        'Run: echo "Run it with npm start." >> README.md',
-      ],
+      agent: firstCommit,
     },
     {
       id: 'commit-edit',
-      instruction:
-        'Stage README.md again and commit it. Every change makes the same trip: Workbench, Loading Dock, Vault. todo.txt still stays out.',
+      instruction: 'Get your README.md edit into a new commit. todo.txt still stays out.',
       success: {
         kind: 'all',
-        of: [
-          { kind: 'commitCount', min: 2 },
-          { kind: 'commitChanged', paths: ['README.md'] },
-          { kind: 'notTracked', paths: ['todo.txt'] },
-        ],
+        of: [readmeEditAtHead, todoOut, { kind: 'commitCount', min: 2 }],
+        label: 'The README.md edit is committed, todo.txt is not',
       },
       hints: [
-        'The file is modified on the Workbench. Which two commands get it into the Vault?',
-        'Git does not save edits on its own. Each change is staged with add, then sealed with commit.',
-        'Run: git add README.md, then git commit -m "docs: explain how to run the app"',
+        'The edit is on the Workbench. Which two rooms does it still have to pass through?',
+        'Git never saves edits on its own. Each change is staged with add, then sealed with commit.',
+        'Pick the card that stages only README.md, then commits.',
       ],
+      agent: commitEdit,
     },
   ],
-  drills: [
-    {
-      id: 'rooms-init',
-      prompt: 'Start tracking this folder with git.',
-      setup: folder().write('index.html', '<h1>Quillwork</h1>\n').toSpec(),
-      success: { kind: 'isRepo' },
-      timeLimitSeconds: 45,
-      concept: 'init',
-    },
-    {
-      id: 'rooms-stage-one',
-      prompt: 'Stage src/app.ts and nothing else. notes.txt stays on the Workbench.',
-      setup: repo().write('src/app.ts', APP).write('notes.txt', 'Call the dentist.\n').toSpec(),
-      success: { kind: 'staged', paths: ['src/app.ts'], exact: true },
-      timeLimitSeconds: 45,
-      concept: 'staging',
-    },
-    {
-      id: 'rooms-stage-folder',
-      prompt: 'Stage everything inside src/, and nothing outside it.',
-      setup: repo()
-        .commit('chore: add readme', { 'README.md': README })
-        .write('src/header.ts', HEADER_V1)
-        .write('src/footer.ts', "export const footer = '<footer>Quillwork AI</footer>';\n")
-        .write('scratch.txt', 'ideas for later\n')
-        .toSpec(),
-      success: { kind: 'staged', paths: ['src/header.ts', 'src/footer.ts'], exact: true },
-      timeLimitSeconds: 60,
-      concept: 'staging',
-    },
-    {
-      id: 'rooms-first-commit',
-      prompt: 'Make the first commit, with both index.html and style.css in it.',
-      setup: repo()
-        .write('index.html', '<h1>Quillwork</h1>\n')
-        .write('style.css', 'h1 {\n  color: gold;\n}\n')
-        .toSpec(),
-      success: { kind: 'tracked', paths: ['index.html', 'style.css'] },
-      timeLimitSeconds: 60,
-      concept: 'commit',
-    },
-    {
-      id: 'rooms-commit-staged-only',
-      prompt:
-        'Commit only what is already on the Loading Dock. The unstaged edit to src/header.ts must stay out of the commit.',
-      setup: repo()
-        .commit('feat: add header', { 'README.md': README, 'src/header.ts': HEADER_V1 })
-        .write('README.md', `${README}\nRun it with npm start.\n`)
-        .stage('README.md')
-        .write('src/header.ts', HEADER_V2)
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'fileAtHead', path: 'README.md', contains: 'npm start' },
-          { kind: 'fileAtHead', path: 'src/header.ts', equals: HEADER_V1 },
-          { kind: 'modified', paths: ['src/header.ts'] },
-        ],
-      },
-      timeLimitSeconds: 60,
-      concept: 'commit',
-    },
-    {
-      id: 'rooms-clean-tree',
-      prompt: 'Commit every change, new file included, so git status says the tree is clean.',
-      setup: repo()
-        .commit('feat: add header', { 'src/header.ts': HEADER_V1 })
-        .modify('src/header.ts', HEADER_V2)
-        .untracked('src/footer.ts', "export const footer = '<footer>Quillwork AI</footer>';\n")
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'clean' },
-          { kind: 'tracked', paths: ['src/footer.ts'] },
-          { kind: 'fileAtHead', path: 'src/header.ts', equals: HEADER_V2 },
-        ],
-      },
-      timeLimitSeconds: 60,
-      concept: 'commit',
-    },
-  ],
+  drills,
   questionRound: {
     ticket: {
       from: 'Marco',

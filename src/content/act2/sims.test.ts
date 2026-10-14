@@ -16,13 +16,6 @@ import { enter, sandboxShell } from './play.test-helpers';
 
 /** The reference solution: command lines for each step, keyed by mission id then step id. */
 const SOLUTIONS: Record<string, Record<string, string[]>> = {
-  'three-rooms': {
-    init: ['git init'],
-    'stage-project': ['git status', 'git add README.md src'],
-    'first-commit': ['git commit -m "feat: add notes app"'],
-    'edit-readme': ['echo "Run it with npm start." >> README.md', 'git status'],
-    'commit-edit': ['git add README.md', 'git commit -m "docs: explain how to run the app"'],
-  },
   'reading-history': {
     'restore-tax': [
       'git log --oneline',
@@ -77,8 +70,16 @@ const SOLUTIONS: Record<string, Record<string, string[]>> = {
   },
 };
 
+/**
+ * Act 2's typed missions. A directed one (2.1 so far) has no sim to type into: its own
+ * test file plays every card through describeDirectedMission instead.
+ */
+const typedMissions = act2Missions.filter((mission) =>
+  mission.steps.every((step) => step.agent === undefined),
+);
+
 function missionById(id: string): Mission {
-  const mission = act2Missions.find((candidate) => candidate.id === id);
+  const mission = typedMissions.find((candidate) => candidate.id === id);
   if (mission === undefined) throw new Error(`Act 2 has no mission "${id}".`);
   return mission;
 }
@@ -104,14 +105,14 @@ function play(mission: Mission, start: MissionRun, shell: Shell, commands: reado
 
 describe('Act 2 sims, played step by step', () => {
   it('has a reference solution for exactly the steps each mission has', () => {
-    for (const mission of act2Missions) {
+    for (const mission of typedMissions) {
       expect(Object.keys(SOLUTIONS[mission.id] ?? {}), mission.id).toEqual(
         mission.steps.map((step) => step.id),
       );
     }
   });
 
-  it.each(act2Missions.map((mission) => mission.id))('%s is solvable by state', (id) => {
+  it.each(typedMissions.map((mission) => mission.id))('%s is solvable by state', (id) => {
     const mission = missionById(id);
     const sim = startSim(mission);
     const { shell } = sim;
@@ -140,28 +141,6 @@ describe('Act 2 sims accept other valid paths', () => {
     const { run, shell } = startSim(mission);
     return { run: play(mission, run, shell, commands), shell };
   }
-
-  it('three-rooms: stage everything, then take todo.txt back off the dock', () => {
-    const { run } = playThrough('three-rooms', [
-      'git init',
-      'git add .',
-      // Before the first commit there is no HEAD to restore from, so real git (and the
-      // sandbox) unstage with rm --cached instead of restore --staged.
-      'git rm --cached todo.txt',
-      'git commit -m "feat: add notes app"',
-      'echo "Run it with npm start." >> README.md',
-      // -a is safe here: README.md is tracked and todo.txt is new, so it is skipped.
-      'git commit -am "docs: explain how to run the app"',
-    ]);
-    expect(run.phase).toBe('drills');
-  });
-
-  it('three-rooms: staging too much does not pass until todo.txt is off the dock', () => {
-    const mission = missionById('three-rooms');
-    const { run, shell } = startSim(mission);
-    const staged = play(mission, run, shell, ['git init', 'git add .']);
-    expect(staged.stepIndex).toBe(1);
-  });
 
   it('reading-history: redirect git show into the file, and unstage with reset', () => {
     const { run } = playThrough('reading-history', [

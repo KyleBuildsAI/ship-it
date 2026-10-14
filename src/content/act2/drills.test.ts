@@ -11,19 +11,6 @@ import { enter, sandboxShell } from './play.test-helpers';
  * pass. Some drills have a second answer, to prove any valid path to the state counts.
  */
 const ANSWERS: Record<string, string[][]> = {
-  // 2.1 Three Rooms
-  'rooms-init': [['git init']],
-  'rooms-stage-one': [['git add src/app.ts'], ['git add src']],
-  'rooms-stage-folder': [['git add src'], ['git add src/header.ts src/footer.ts']],
-  'rooms-first-commit': [
-    ['git add index.html style.css', 'git commit -m "feat: add landing page"'],
-    ['git add .', 'git commit -m "feat: add landing page"'],
-  ],
-  'rooms-commit-staged-only': [['git diff --staged', 'git commit -m "docs: add run command"']],
-  'rooms-clean-tree': [
-    ['git add .', 'git commit -m "feat: add footer and new title"'],
-    ['git add -A', 'git commit -m "feat: add footer and new title"'],
-  ],
   // 2.2 Reading History
   'history-old-port': [
     ['git log --oneline -- config.json', 'git restore --source=HEAD~2 config.json'],
@@ -106,8 +93,6 @@ const ANSWERS: Record<string, string[][]> = {
 
 /** Answers that reach the wrong state, to prove the drill really checks what it says. */
 const WRONG_ANSWERS: Record<string, string[]> = {
-  'rooms-stage-one': ['git add .'],
-  'rooms-commit-staged-only': ['git commit -am "docs: add run command"'],
   'history-staged-surprise': ['git restore --staged src/api.ts src/search.ts'],
   'commits-type-fix': ['git commit -m "feat: round cart totals"'],
   'commits-am-trap': ['git commit -am "feat: add dark mode"'],
@@ -117,13 +102,15 @@ const WRONG_ANSWERS: Record<string, string[]> = {
   'undo-soft-reset': ['git reset HEAD~1'],
 };
 
-/** Act 2 is typed, so its drills are graded by state; the mission schema refuses any other. */
-function typed(drill: Drill): SandboxDrill {
-  if (isJudgmentDrill(drill)) throw new Error(`Act 2's drill "${drill.id}" should be typed.`);
-  return drill;
+/**
+ * Act 2's typed drills. Directed missions (2.1 so far) have judgment drills instead, which
+ * their own test files prove with describeJudgmentDrills.
+ */
+function typed(drill: Drill): drill is SandboxDrill {
+  return !isJudgmentDrill(drill);
 }
 
-const drills = act2Missions.flatMap((mission) => mission.drills.map(typed));
+const drills = act2Missions.flatMap((mission) => mission.drills.filter(typed));
 
 describe('Act 2 No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {
