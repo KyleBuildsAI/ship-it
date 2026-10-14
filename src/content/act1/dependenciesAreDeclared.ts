@@ -114,7 +114,8 @@ export const dependenciesAreDeclared = {
           id: 'global',
           text: 'Add -g so it installs for the whole laptop.',
           correct: false,
-          feedback: '-g installs one named tool for your user. It can’t install a project’s list.',
+          feedback:
+            '-g puts tools on your laptop’s PATH. It doesn’t install this project’s list into its node_modules, and there’s still no package.json here.',
         },
       ],
       explanation:
@@ -360,14 +361,18 @@ export const dependenciesAreDeclared = {
         'Sage asks you to write down how Otto should add any new library to a Quillwork project.',
       question: 'Put the steps in order.',
       steps: [
-        { id: 'folder', text: 'Go to the project folder that holds package.json' },
+        // Checking the name works from any folder, so the folder rides with the install:
+        // two separate steps would make either order right.
         { id: 'name', text: 'Check the exact name: downloads, repository, maintainers' },
-        { id: 'install', text: 'Run npm install with that exact name' },
+        {
+          id: 'install',
+          text: 'In the folder that holds package.json, run npm install with that name',
+        },
         { id: 'diff', text: 'Read the package.json and package-lock.json diff' },
         { id: 'commit', text: 'Commit package.json and package-lock.json together' },
       ],
       explanation:
-        'Right folder, right name, then the install, then read what changed before it’s committed. The two files go in one commit, so the list and the pinned versions never disagree.',
+        'Right name first, then the install from the project’s folder, then read what changed before it’s committed. The two files go in one commit, so the list and the pinned versions never disagree.',
     },
   ],
 } satisfies LessonInput;
