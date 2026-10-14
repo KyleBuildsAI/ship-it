@@ -31,7 +31,8 @@ test('a boss fight opened from a scrolled Act menu starts at its top', async ({ 
   expect(await panel(page).evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   await fight.click();
 
-  await expect(page.getByText('Dex deploys in')).toBeInViewport();
+  // "Dex deploys in" appears twice (the clock and Dex's message), so check the first one.
+  await expect(page.getByText('Dex deploys in').first()).toBeInViewport();
   expect(await panel(page).evaluate((element) => element.scrollTop)).toBe(0);
   expect(problems).toEqual([]);
 });
