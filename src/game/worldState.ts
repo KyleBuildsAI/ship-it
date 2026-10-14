@@ -19,6 +19,8 @@ export const worldState = createStore<{
   walks: number;
   jumps: number;
   looks: number;
+  /** An island the game asked the world to travel to, cleared once the world takes it up. */
+  destination: ZoneId | null;
 }>({
   zone: 'campus',
   hasMoved: false,
@@ -26,4 +28,15 @@ export const worldState = createStore<{
   walks: 0,
   jumps: 0,
   looks: 0,
+  destination: null,
 });
+
+/**
+ * Takes the player to an island, as stepping through its portal would. Starting a mission
+ * from a menu does this so the player sees the world react to it (Otto's crates moving in
+ * the Git World, the laptop's terraces growing) instead of staying on Campus.
+ */
+export function travelTo(zone: ZoneId | null): void {
+  if (zone === null || zone === worldState.get().zone) return;
+  worldState.update({ destination: zone });
+}

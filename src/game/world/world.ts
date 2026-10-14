@@ -215,6 +215,14 @@ export function createWorld(
     window.setTimeout(arrive, 350);
   };
 
+  // A menu that starts a mission asks for its island; travel there like a portal would.
+  const stopDestinations = worldState.subscribe(() => {
+    const { destination } = worldState.get();
+    if (destination === null) return;
+    worldState.update({ destination: null });
+    if (destination !== zone) travel(destination);
+  });
+
   // The Git World mirrors the sandbox: any engine event marks the crates and the commit
   // path for a redraw, done at most once per frame however many events a command produced.
   const yard = new CrateYard(gitWorld, scene);
@@ -441,6 +449,7 @@ export function createWorld(
       stopInset();
       stopWatching();
       stopSandbox();
+      stopDestinations();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointermove', onPointerMove);

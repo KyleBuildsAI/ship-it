@@ -2236,6 +2236,23 @@ https://github.com/KyleBuildsAI/ship-it/pull/158
 
 ---
 
+## #160 feat: starting a mission or lesson takes you to its island
+
+https://github.com/KyleBuildsAI/ship-it/pull/160
+
+1. Why does `missionPlay.ts` write to `worldState` instead of calling the world's `travel()` function directly?
+2. Why does the world set `destination` back to `null` right after reading it?
+3. What would the player see if `travelTo` didn't check whether they were already on the island?
+<details><summary>Answers</summary>
+
+1. `travel()` lives inside the three.js world module. Importing it from game logic would pull three.js into code that should stay light and testable without a GPU. The store is the shared meeting point.
+2. So the request is used up. Without it, any later change to `worldState` (a walk, a jump) would trigger the subscription again and could start another trip.
+3. A pointless fade to black and back, plus a reset to the island's spawn point, every time they replayed a mission while already there.
+
+</details>
+
+---
+
 ## #159 feat: act 2 ends in a timed final you click through
 
 https://github.com/KyleBuildsAI/ship-it/pull/159
@@ -2249,5 +2266,4 @@ https://github.com/KyleBuildsAI/ship-it/pull/159
 1. Act 2 names the final as its `finalLessonId`. When a lesson with that id is finished, `completeLesson` stamps `bossCompletedAt`, and `refreshAct` treats an Act with a final as having a boss that's beaten by playing its last part.
 2. Act 2 has a final now, so it would have been treated like a card-tested Act. A placement pass would no longer complete Act 2 until its Field Mission was verified. That's a silent behaviour change, and a drills test proves more than guessable cards do.
 3. It's general code that runs any Act's `boss` (a timed typed fight with twists), and its tests use a sample Act, not Act 2. Deleting it would remove a working feature that a future Act could use. Only the Act 2 content that nothing else used was removed.
-
 </details>
