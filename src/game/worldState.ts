@@ -6,6 +6,16 @@ export type ActIslandZone = 'act3' | 'act4' | 'act5' | 'act6' | 'act7' | 'act8';
 export type ZoneId = 'campus' | 'gitworld' | 'machine' | ActIslandZone;
 
 /**
+ * A lesson scene the game asked an Act island to play (see src/game/world/beats.ts). The
+ * nonce changes on every new card, so two cards in a row with the same beat replay it.
+ */
+export interface IslandBeat {
+  readonly zone: ActIslandZone;
+  readonly id: string;
+  readonly nonce: number;
+}
+
+/**
  * Where the player is and whether they have started exploring. It lives outside the
  * world module so the HUD can read it without pulling three.js into the first download.
  */
@@ -21,6 +31,8 @@ export const worldState = createStore<{
   looks: number;
   /** An island the game asked the world to travel to, cleared once the world takes it up. */
   destination: ZoneId | null;
+  /** The lesson scene playing now, or null when no lesson card asks for one. */
+  beat: IslandBeat | null;
 }>({
   zone: 'campus',
   hasMoved: false,
@@ -29,6 +41,7 @@ export const worldState = createStore<{
   jumps: 0,
   looks: 0,
   destination: null,
+  beat: null,
 });
 
 /**

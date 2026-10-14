@@ -4,7 +4,7 @@ import { frameAgent } from './agentPlay';
 import { bossSandboxChanged, bossTick } from './bossPlay';
 import { isLessonPlacement, requirePlacement } from '../missions/schema';
 import { getAct } from './catalog';
-import { lessonTick, startLessonPlacement } from './lessonPlay';
+import { lessonTick, startLessonPlacement, watchLessonBeats } from './lessonPlay';
 import { frameMissionScene, missionSandboxChanged, missionTick } from './missionPlay';
 import { play } from './playStore';
 import { endScene } from './scenePlay';
@@ -61,7 +61,15 @@ export function leavePlay(): void {
   play.update({ activity: null, checklist: [] });
 }
 
-/** Starts grading sandbox changes. Called once at startup; returns a stop function. */
+/**
+ * Starts grading sandbox changes, and lets lesson cards cue their island's scenes. Called
+ * once at startup; returns a stop function.
+ */
 export function startPlay(): () => void {
-  return watchSandbox(sandboxChanged);
+  const stopSandbox = watchSandbox(sandboxChanged);
+  const stopBeats = watchLessonBeats();
+  return () => {
+    stopSandbox();
+    stopBeats();
+  };
 }

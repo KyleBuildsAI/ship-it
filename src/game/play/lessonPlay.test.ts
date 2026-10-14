@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { act3 } from '../../content/act3';
 import { hud, openTerminal } from '../hud';
 import { currentCard } from '../missions/lessonRunner';
 import {
@@ -10,6 +11,7 @@ import {
 import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
 import { createDefaultSave } from '../save/schema';
+import { worldState } from '../worldState';
 import { findLesson, setCatalog } from './catalog';
 import {
   answerLesson,
@@ -19,6 +21,7 @@ import {
   moveLessonStep,
   nextLessonCard,
   startLesson,
+  watchLessonBeats,
 } from './lessonPlay';
 import { startMission } from './missionPlay';
 import { leavePlay, tickPlay } from './play';
@@ -178,5 +181,65 @@ describe('a final lesson', () => {
       mission: { status: 'completed', bestDrillScore: 100 },
       xp: sampleFinal.xp,
     });
+  });
+});
+
+describe('lesson scenes', () => {
+  const pointers = act3.lessons[0];
+  let stopBeats: () => void = () => undefined;
+
+  beforeEach(() => {
+    setCatalog({ acts: [act3] });
+    worldState.update({ beat: null });
+    stopBeats = watchLessonBeats();
+  });
+
+  afterEach(() => {
+    stopBeats();
+  });
+
+  it("cues the briefing's beat, then each card's, on the Act's island", () => {
+    if (pointers === undefined) throw new Error('Act 3 has no first lesson');
+    startLesson(pointers.id);
+    expect(worldState.get().beat).toMatchObject({ zone: 'act3', id: pointers.briefingBeat });
+    endLessonBriefing(T0);
+    const first = worldState.get().beat;
+    expect(first).toMatchObject({ zone: 'act3', id: pointers.cards[0]?.beat });
+    answer();
+    const second = worldState.get().beat;
+    expect(second).toMatchObject({ zone: 'act3', id: pointers.cards[1]?.beat });
+    // A new card is a new cue, even when it names the same beat, so the scene replays.
+    expect(second?.nonce).not.toBe(first?.nonce);
+  });
+
+  it('keeps the cue while a card is retried, so the scene is not restarted by a wrong pick', () => {
+    if (pointers === undefined) throw new Error('Act 3 has no first lesson');
+    startLesson(pointers.id);
+    endLessonBriefing(T0);
+    const cue = worldState.get().beat;
+    const card = currentCard(lesson().run, lesson().lesson);
+    const wrong =
+      card?.kind === 'order' ? undefined : card?.options.find((option) => !option.correct);
+    if (wrong !== undefined) answerLesson(wrong.id, T0);
+    expect(worldState.get().beat).toBe(cue);
+  });
+
+  it('clears the cue when the lesson is done or left', () => {
+    if (pointers === undefined) throw new Error('Act 3 has no first lesson');
+    startLesson(pointers.id);
+    playThrough();
+    expect(lesson().run.phase).toBe('done');
+    expect(worldState.get().beat).toBeNull();
+    startLesson(pointers.id);
+    expect(worldState.get().beat).not.toBeNull();
+    leavePlay();
+    expect(worldState.get().beat).toBeNull();
+  });
+
+  it('cues nothing for a lesson whose Act island has no beats', () => {
+    setCatalog({ acts: [sampleLessonAct()] });
+    startLesson(sampleLesson.id);
+    endLessonBriefing(T0);
+    expect(worldState.get().beat).toBeNull();
   });
 });
