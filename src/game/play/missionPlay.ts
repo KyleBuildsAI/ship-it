@@ -1,4 +1,6 @@
+import { defaultDeps } from '../../engine/fixtures';
 import { runGit } from '../../engine/git/cli/runGit';
+import { loadWorkbench } from '../../engine/workbench';
 import { askHint, gradeQuestion } from '../../mentor/client';
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import type { Pace } from '../agent/pace';
@@ -17,18 +19,28 @@ import {
   finishQuestionRound,
   missedDrills,
   requestHint,
+  resumeRun,
   startDrill,
   startRun,
   submitAnsweredDrill,
   submitDrill,
+  type MissionRun,
 } from '../missions/runner';
-import { isJudgmentDrill } from '../missions/schema';
+import { isJudgmentDrill, type Mission } from '../missions/schema';
+import type { MissionResume } from '../save/schema';
 import { progress, saveProgressNow } from '../progress';
 import { DISPLAY_ROOT, sandbox } from '../sandbox';
 import { beginDirectedStep, directedChecklist } from './agentPlay';
 import { findMission, getAct } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
-import { currentQueries, currentWorkspace, loadSandbox, scratchDeps } from './sandboxControl';
+import { saveResume } from './resumePoint';
+import {
+  currentQueries,
+  currentWorkspace,
+  loadSandbox,
+  resumeSandbox,
+  scratchDeps,
+} from './sandboxControl';
 import { beginScene, endScene, frameScene } from './scenePlay';
 import {
   completeMission,
@@ -76,19 +88,12 @@ function refreshChecklist(): void {
 
 let attempts = 0;
 
-export function startMission(missionId: string): void {
-  const mission = findMission(missionId);
-  endDrill();
-  endScene();
-  // Act 1 plays on the laptop; the git Acts start from a project on the Workbench.
-  const where = mission.act === 1 ? 'the laptop is ready' : 'a fresh project is on your Workbench';
-  loadSandbox(mission.initialRepoState, `${mission.title}: ${where}.`);
-  saveProgressNow((save) => startMissionProgress(save, mission.id));
-  setActivity({
+function newActivity(mission: Mission, run: MissionRun): MissionActivity {
+  return {
     kind: 'mission',
     attempt: ++attempts,
     mission,
-    run: startRun(mission),
+    run,
     hint: null,
     hintLoading: false,
     lastDrill: null,
@@ -99,7 +104,49 @@ export function startMission(missionId: string): void {
     stars: {},
     slips: [],
     scene: null,
-  });
+  };
+}
+
+/**
+ * Picks up an attempt the save kept (DESIGN.md principle 7: leaving or reloading loses
+ * nothing). Returns false when there is nothing that can be resumed: no saved place, one
+ * that no longer fits the mission, or a sim step whose sandbox wasn't kept (a laptop).
+ */
+function resumeMission(mission: Mission, saved: MissionResume): boolean {
+  const run = resumeRun(mission, saved.stepIndex, saved.drillResults);
+  if (run === null) return false;
+  if (run.phase === 'sim') {
+    if (saved.workbench === null) return false;
+    let ws;
+    try {
+      ws = loadWorkbench(saved.workbench, defaultDeps());
+    } catch (error) {
+      console.error('[ship-it] the saved sandbox could not be rebuilt; starting over', error);
+      return false;
+    }
+    const step = String(run.stepIndex + 1);
+    resumeSandbox(ws, `${mission.title}: picked up at step ${step}, as you left it.`);
+  } else {
+    // Each drill loads its own sandbox, so the starting project is only a backdrop here.
+    loadSandbox(mission.initialRepoState, `${mission.title}: picked up where you left off.`);
+  }
+  const { xpEarned, stars, slips } = saved;
+  setActivity(beginDirectedStep({ ...newActivity(mission, run), xpEarned, stars, slips }));
+  return true;
+}
+
+/** Plays a mission: picks up an unfinished attempt, or starts at the briefing. */
+export function startMission(missionId: string): void {
+  const mission = findMission(missionId);
+  endDrill();
+  endScene();
+  saveProgressNow((save) => startMissionProgress(save, mission.id));
+  const saved = progress.get().save?.missions[mission.id]?.resume ?? null;
+  if (saved !== null && resumeMission(mission, saved)) return;
+  // Act 1 plays on the laptop; the git Acts start from a project on the Workbench.
+  const where = mission.act === 1 ? 'the laptop is ready' : 'a fresh project is on your Workbench';
+  loadSandbox(mission.initialRepoState, `${mission.title}: ${where}.`);
+  setActivity(newActivity(mission, startRun(mission)));
 }
 
 /** Ends the briefing, whether it played through or was skipped. */
@@ -193,6 +240,7 @@ function finishDrill(
   };
   // A miss joins the review queue here (recordDrill calls addMiss), by the drill's id.
   const paid = saveProgressNow((save) => recordDrill(save, drill, outcome, new Date(nowMs)));
+  saveResume(current, run, current.xpEarned + paid);
   setActivity({ ...current, run, lastDrill, xpEarned: current.xpEarned + paid });
 }
 
@@ -216,10 +264,12 @@ export function missionSandboxChanged(nowMs: number = Date.now()): void {
     const completed = next.steps.filter((step) => step.completed).map((step) => step.stepId);
     const before = run.steps.filter((step) => step.completed).length;
     // What the save paid, not what the steps are worth: a replay pays nothing for them.
-    const paid =
-      completed.length > before
-        ? saveProgressNow((save) => recordSteps(save, mission, completed, next.stepIndex))
-        : 0;
+    const advanced = completed.length > before;
+    const paid = advanced
+      ? saveProgressNow((save) => recordSteps(save, mission, completed, next.stepIndex))
+      : 0;
+    // Taken as the next step begins, so a resume starts it exactly as it is now.
+    if (advanced) saveResume(current, next, current.xpEarned + paid);
     // A finished step retires its hint; the next step starts at the bottom of the ladder.
     const hint = next.stepIndex === run.stepIndex ? current.hint : null;
     setActivity({ ...current, run: next, hint, xpEarned: current.xpEarned + paid });

@@ -45,6 +45,10 @@ test('a mission step is graded by state and survives a reload', async ({ page })
   await expect(page.getByLabel('Developer status')).toContainText('saved');
   await openAct2(page);
   await expect(missionRow(page, 'Three Rooms')).toContainText('In progress');
+  // ...and Play picks it up at the step reached, on the repository git init made.
+  await missionRow(page, 'Three Rooms').getByRole('button', { name: 'Play' }).click();
+  await expect(page.getByText('Step 2 of 5')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Skip briefing' })).toHaveCount(0);
   expect(problems).toEqual([]);
 });
 

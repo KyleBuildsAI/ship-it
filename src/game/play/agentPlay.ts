@@ -58,6 +58,7 @@ import {
   recordKyleAction,
   rewindTo,
 } from './sandboxControl';
+import { saveResume } from './resumePoint';
 import { recordSteps } from './saveRules';
 
 /*
@@ -640,5 +641,6 @@ export function nextStep(): void {
   const paid = saveProgressNow((save) =>
     recordSteps(save, current.mission, completed, run.stepIndex),
   );
+  saveResume(current, run, current.xpEarned + paid);
   setMission(beginDirectedStep({ ...current, run, hint: null, xpEarned: current.xpEarned + paid }));
 }

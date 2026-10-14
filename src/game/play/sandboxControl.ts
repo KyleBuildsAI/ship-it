@@ -70,6 +70,20 @@ export function loadSandbox(
   return swapIn({ shell, transcript: [] }, startLog(steps), makeDeps, notice);
 }
 
+/**
+ * Swaps in a sandbox that comes back from the save (a mission being resumed), and says so
+ * in the terminal. Its log starts empty: there is no setup that rebuilds it, and only a
+ * directed step (Act 1's laptop, which is never saved this way) replays the log.
+ */
+export function resumeSandbox(
+  ws: Workspace,
+  notice: string,
+  makeDeps: () => RepositoryDeps = defaultDeps,
+): Workspace {
+  const shell = new Shell(ws, DISPLAY_ROOT);
+  return swapIn({ shell, transcript: [] }, startLog([]), makeDeps, notice);
+}
+
 export function currentWorkspace(): Workspace {
   return sandbox.get().shell.ws;
 }

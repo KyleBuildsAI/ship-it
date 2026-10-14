@@ -209,6 +209,68 @@ describe('the XP a mission shows', () => {
   });
 });
 
+describe('leaving a mission partway', () => {
+  function gitStatus(): string {
+    return sandbox
+      .get()
+      .shell.run('git status')
+      .lines.map((entry) => entry.text)
+      .join('\n');
+  }
+
+  it('picks up at the step reached, on the sandbox it was left on', () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init');
+    missionSandboxChanged(T0);
+    expect(mission().run.stepIndex).toBe(1);
+
+    leavePlay();
+    startMission(sampleMission.id);
+    expect(mission().run.phase).toBe('sim');
+    expect(mission().run.stepIndex).toBe(1);
+    expect(gitStatus()).not.toContain('not a git repository');
+  });
+
+  it('survives a reload: the save alone brings the attempt back', async () => {
+    let stored = createDefaultSave(NOW);
+    const storage: ProgressStorage = {
+      load: () => Promise.resolve(stored),
+      write: (save) => {
+        stored = save;
+        return Promise.resolve();
+      },
+    };
+    await startProgress(storage, NOW);
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init');
+    missionSandboxChanged(T0);
+    await flushProgress();
+
+    leavePlay();
+    await startProgress(storage, NOW);
+    startMission(sampleMission.id);
+    expect(mission().run.stepIndex).toBe(1);
+    expect(gitStatus()).not.toContain('not a git repository');
+  });
+
+  it('picks up at the next drill, keeping the drills already played', () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init', 'git add app.ts', 'git commit -m "feat: add app"');
+    missionSandboxChanged(T0);
+    startNextDrill(T0);
+    run('git init');
+    missionSandboxChanged(T0 + 5_000);
+
+    leavePlay();
+    startMission(sampleMission.id);
+    expect(mission().run.phase).toBe('drills');
+    expect(mission().run.drillResults).toHaveLength(1);
+  });
+});
+
 describe('late Sage replies', () => {
   it('never land on a replay of the same mission', async () => {
     startMission(sampleMission.id);

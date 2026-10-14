@@ -96,6 +96,35 @@ export function startRun(mission: Mission): MissionRun {
   };
 }
 
+/**
+ * A run picked up where an earlier attempt stopped: every step before `stepIndex` done,
+ * and the drills in `drillResults` already played. The briefing is skipped, since Kyle
+ * has seen it. Null when the saved place doesn't fit this mission any more (its content
+ * changed since), so the caller starts it fresh instead of resuming somewhere wrong.
+ */
+export function resumeRun(
+  mission: Mission,
+  stepIndex: number,
+  drillResults: readonly DrillOutcome[],
+): MissionRun | null {
+  const steps = mission.steps.length;
+  if (stepIndex > steps || (stepIndex < steps && drillResults.length > 0)) return null;
+  if (drillResults.length > mission.drills.length) return null;
+  if (drillResults.some((result, index) => result.drillId !== mission.drills[index]?.id)) {
+    return null;
+  }
+  const fresh = startRun(mission);
+  const phase =
+    stepIndex < steps ? 'sim' : drillResults.length < mission.drills.length ? 'drills' : 'question';
+  return {
+    ...fresh,
+    phase,
+    stepIndex,
+    steps: fresh.steps.map((step, index) => ({ ...step, completed: index < stepIndex })),
+    drillResults: [...drillResults],
+  };
+}
+
 /** Ends the briefing, whether it played through or was skipped. */
 export function finishBriefing(run: MissionRun): MissionRun {
   expectPhase(run, 'briefing', 'finish the briefing');
