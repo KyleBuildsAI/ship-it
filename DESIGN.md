@@ -176,7 +176,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 | 1 | Map SandCastles' environment: where it runs, ports, env var names (never values). Written up as a README section. |
 | 2 | **Clean the dirty tree.** Commit outstanding SandCastles work in logical commits with conventional messages. Add .gitignore entries for build output and secrets. End with a clean `git status`. (Based on a real incident where deploys built from clean checkouts silently dropped uncommitted work.) |
 | 3 | Use feature branches for all SandCastles work. Land one branch by rebase and one by merge. Explain the difference in the commit or PR text. |
-| 4 | Create the sanitized public alpha repo. Open issues for the next 3 features. Every change via PR. Release v0.1.0 with notes. |
+| 4 | **Ship It Through a Pull Request** (built): one real SandCastles change through an issue and a PR whose description has What changed, Why and How to test and ends with `Closes #N`, squash-merged. Kyle's own AI agent does the typing; the checklist says what to ask for and what to check before merging. Pastes verify main is clean and in sync, the squash commit's title is a Conventional Commit, and no secret file is tracked; the description and linked issue are a checklist item Kyle checks on GitHub, since no paste shows a PR's body. Later: the sanitized public alpha repo, issues for the next 3 features, v0.1.0 with notes. |
 | 5 | Add tests and CI to the alpha (self-hosted runner). CI badge in README. Secret scanning on. |
 | 6 | Architecture diagram and a one-command setup doc a stranger can follow. |
 | 7 | Turn the Tidepool concept into a real eval suite. Prompt-injection hardening on one agent tool. |
@@ -220,7 +220,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 Every Act is playable today, each entered through its Campus portal (section 4). They're taught two ways:
 - **Acts 1 and 2 are simulated.** Act 1 runs Otto's real PowerShell on the simulated laptop and its machine island; Act 2 runs the git engine in the Git World. Act 1 is in early access (directed Missions 1.1 to 1.4, the laptop sandbox, then 1.5, 1.6 and its final as lessons, because the laptop doesn't simulate npm or processes yet; its Field Mission isn't built); Act 2 is complete.
-- **Acts 3 to 8 are lessons** (section 5, Lessons): four lessons each and a timed final in place of the boss, answered by clicking, never typing. They teach judgment about git, GitHub, CI, systems and directing AI agents rather than syntax. Their Field Missions aren't built yet.
+- **Acts 3 to 8 are lessons** (section 5, Lessons): four lessons each and a timed final in place of the boss, answered by clicking, never typing. They teach judgment about git, GitHub, CI, systems and directing AI agents rather than syntax. Act 4 also has its placement test and Field Mission; the other lesson Acts' aren't built yet.
 
 ### Act 1: The Machine (directed, then lessons; early access)
 The principles every engineer who directs AI agents needs about the machine they run on, learned by getting the Quillwork API running on Kyle's laptop with Otto. Kyle directs; Otto's real PowerShell runs through the laptop engine and animates the machine island. It is the starting Act, and ships in early access until its Field Mission is built.
@@ -264,6 +264,8 @@ Set at Quillwork, a small startup, with Sage, Dex, Marco, Priya and Otto, the te
 - 4.4 **Releases and Versions**: MINOR, MAJOR, big is not breaking, briefing a changelog, what a tag is, briefing release prep, never moving a published tag, the release steps
 
 Final (the boss): **"Rejected Push"** at 5pm on release day, 6:00 for 8 cards: a protected-branch rejection, briefing a tight hotfix, a fetch-first rejection, an agent's diff that drops a CODEOWNERS line, a red check called flaky, briefing a conflict resolution, the hotfix version, shipping it.
+
+Placement test: 12 cards, three from each lesson (none from the final), on a 7:00 clock; 85% tests out of the four lessons and leaves the final to play. Field Mission: **"Ship It Through a Pull Request"** (section 8). The Act is complete once every lesson, the final and the Field Mission are done, or once the placement test is passed.
 
 ### Act 5: Quality Gates (lessons)
 Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.
