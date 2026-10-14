@@ -3,6 +3,7 @@ import { repo, windows } from '../../engine/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { snapshotMachine } from '../../engine/machine/snapshot';
+import { saveWorkbench } from '../../engine/workbench';
 import { DriverError } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
 import {
@@ -21,6 +22,7 @@ import {
   playAction,
   playContent,
   replay,
+  restoredLog,
   sceneLog,
   startLog,
   withEntry,
@@ -114,6 +116,17 @@ describe('replay', () => {
     }
     expect(stateOf(replay(log, testDeps()).shell)).toEqual(stateOf(live));
     expect(stateOf(live).commits).toHaveLength(2);
+  });
+
+  it('starts a log from a saved Workbench, commit ids and all, for a resumed mission', () => {
+    const live = createSandbox(repo().commit('init', { 'app.ts': 'v1\n' }).toSpec(), testDeps());
+    const log = withEntry(restoredLog(saveWorkbench(live)), {
+      kind: 'action',
+      action: { do: 'run', line: 'git rm app.ts' },
+    });
+    const { shell } = replay(log, testDeps());
+    expect(shell.ws.repo?.headCommit()?.id).toBe(live.repo?.headCommit()?.id);
+    expect(gitQueries(shell.ws).stagedPaths()).toEqual(['app.ts']);
   });
 
   it('refuses a log where a line comes while a question is still open', () => {
