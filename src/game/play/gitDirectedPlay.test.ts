@@ -132,7 +132,7 @@ describe('directing Otto on a git project', () => {
     if (gate?.at !== 'gate') throw new Error('Otto should be waiting at a gate.');
     expect(gate.gate).toMatchObject({ kind: 'line', line: 'git reset --hard', harmful: true });
     expect(describeChanges(gate.gate.changes, (path) => path)).toEqual([
-      'Throws away the unsaved edits to app.ts',
+      'Throws away the unstaged edits to app.ts',
     ]);
 
     decide(false);

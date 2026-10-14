@@ -93,7 +93,7 @@ describe('a directed mission on a git project', () => {
     expect(dry.harmful).toBe(true);
     expect(dry.broken).toEqual(['Your app.ts edit survives']);
     expect(describeChanges(dry.changes, (path) => path)).toEqual([
-      'Throws away the unsaved edits to app.ts',
+      'Throws away the unstaged edits to app.ts',
     ]);
   });
 

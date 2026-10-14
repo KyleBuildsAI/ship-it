@@ -81,6 +81,12 @@ export type Predicate =
   | { kind: 'commitChanged'; ref?: string; paths: string[]; only?: boolean; label?: string }
   | { kind: 'reflogContains'; pattern: string; flags?: string; label?: string }
   /**
+   * HEAD is back on the commit it left at the oldest reflog entry matching the pattern:
+   * "the drill was undone", whatever commit that was. The oldest, so a second matching
+   * move can't move the goal to wherever the first one landed.
+   */
+  | { kind: 'headBeforeReflog'; pattern: string; flags?: string; label?: string }
+  /**
    * HEAD is on the commit with this message. Used to check "you went back to X" after a
    * reset. Comparing with a reflog position like HEAD@{2} would not work, because every
    * command the player runs shifts those positions.
@@ -193,6 +199,14 @@ function allMessagesMatch(q: GitQueries, pattern: string, flags?: string, last?:
   return checked.every((commit) => matches(commit.message, pattern, flags));
 }
 
+function headBeforeReflog(q: GitQueries, pattern: string, flags?: string): boolean {
+  // reflog() is newest first, so the last match is the oldest move.
+  const moved = q.reflog().filter((entry) => matches(entry.message, pattern, flags));
+  const first = moved.at(-1);
+  const head = q.headCommit();
+  return first?.from != null && head !== null && head.id === first.from;
+}
+
 /** Is the predicate true of the sandbox right now? */
 export function evaluate(predicate: Predicate, q: SandboxQueries): boolean {
   if (isMachinePredicate(predicate)) return evaluateMachine(predicate, requireMachine(q.machine));
@@ -239,6 +253,8 @@ export function evaluate(predicate: Predicate, q: SandboxQueries): boolean {
       return commitChanged(q, predicate.ref ?? 'HEAD', predicate.paths, predicate.only === true);
     case 'reflogContains':
       return q.reflog().some((entry) => matches(entry.message, predicate.pattern, predicate.flags));
+    case 'headBeforeReflog':
+      return headBeforeReflog(q, predicate.pattern, predicate.flags);
     case 'headMessageIs':
       // Trimmed so a trailing newline from an editor doesn't fail an otherwise exact match.
       return q.headCommit()?.message.trim() === predicate.message.trim();
@@ -350,6 +366,8 @@ export function describe(
       return `${commitName(predicate.ref)} changes ${predicate.only === true ? 'only ' : ''}${listFormat.format(predicate.paths)}`;
     case 'reflogContains':
       return `The reflog has an entry matching ${regexText(predicate.pattern, predicate.flags)}`;
+    case 'headBeforeReflog':
+      return `HEAD is back where it was before ${regexText(predicate.pattern, predicate.flags)}`;
     case 'headMessageIs':
       return `HEAD is on the commit "${predicate.message}"`;
     case 'secretShown':

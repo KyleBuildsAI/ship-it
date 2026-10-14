@@ -69,7 +69,7 @@ describe('git changes, in Workbench, Loading Dock and Vault terms', () => {
     ]);
   });
 
-  it('git restore throws away unsaved edits, but not ones the dock still holds', () => {
+  it('git restore throws away unstaged edits, but not ones the dock still holds', () => {
     const edited = repo().commit('first', { 'app.ts': 'v1\n' }).write('app.ts', 'v2\n');
     expect(changesOf(edited, ['restore', 'app.ts'])).toEqual([
       { kind: 'workbench', path: 'app.ts', how: 'changed', unsaved: true },

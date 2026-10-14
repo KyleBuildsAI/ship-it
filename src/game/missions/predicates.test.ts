@@ -179,6 +179,21 @@ describe('history', () => {
     expect(holds(ws, { kind: 'headMessageIs', message: 'feat: add readme' })).toBe(true);
   });
 
+  it('knows when HEAD is back where it stood before a move in the reflog', () => {
+    const ws = project();
+    const drill = { kind: 'headBeforeReflog', pattern: '^reset: moving to HEAD~1$' } as const;
+    // No reset yet: there is no "before" to be back at.
+    expect(holds(ws, drill)).toBe(false);
+    git(ws, ['reset', '--hard', 'HEAD~1']);
+    expect(holds(ws, drill)).toBe(false);
+    // A second reset matches too, but the goal stays where HEAD stood before the first.
+    git(ws, ['commit', '--allow-empty', '-m', 'chore: again']);
+    git(ws, ['reset', '--hard', 'HEAD~1']);
+    git(ws, ['reset', '--hard', 'HEAD@{3}']);
+    expect(holds(ws, drill)).toBe(true);
+    expect(holds(ws, { kind: 'headMessageIs', message: 'feat: add readme' })).toBe(true);
+  });
+
   it('knows which commit HEAD is on by its message', () => {
     const ws = project();
     expect(holds(ws, { kind: 'headMessageIs', message: 'feat: add readme' })).toBe(true);
@@ -400,6 +415,10 @@ describe('describe', () => {
     [{ kind: 'commitChanged', ref: 'HEAD~1', paths: ['a'] }, 'Commit HEAD~1 changes a'],
     [{ kind: 'reflogContains', pattern: 'reset' }, 'The reflog has an entry matching /reset/'],
     [{ kind: 'headMessageIs', message: 'feat: login' }, 'HEAD is on the commit "feat: login"'],
+    [
+      { kind: 'headBeforeReflog', pattern: '^reset: ' },
+      'HEAD is back where it was before /^reset: /',
+    ],
     [{ kind: 'all', of: [{ kind: 'clean' }] }, 'All of these are true'],
     [{ kind: 'any', of: [{ kind: 'clean' }] }, 'At least one of these is true'],
     [{ kind: 'not', predicate: { kind: 'clean' } }, 'Not true: Working tree is clean'],

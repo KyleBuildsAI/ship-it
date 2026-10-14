@@ -290,17 +290,21 @@ function describeDock(how: DockGroup['how'], what: string, pronoun: 'it' | 'them
   }
 }
 
+/**
+ * The edits are saved on disk, so "unsaved" would be wrong: what they lack is a copy on
+ * the Loading Dock or in a commit, which is what git calls unstaged.
+ */
 function describeWorkbench(change: Extract<GitChange, { kind: 'workbench' }>): string {
   switch (change.how) {
     case 'created':
       return `Puts ${change.path} on the Workbench`;
     case 'changed':
       return change.unsaved
-        ? `Throws away the unsaved edits to ${change.path}`
+        ? `Throws away the unstaged edits to ${change.path}`
         : `Rewrites ${change.path} on the Workbench`;
     case 'deleted':
       return change.unsaved
-        ? `Deletes ${change.path} and its unsaved edits`
+        ? `Deletes ${change.path} and its unstaged edits`
         : `Deletes ${change.path} from the Workbench`;
   }
 }
