@@ -10,7 +10,9 @@ import {
   type JudgmentDrill,
 } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import { act2, act2Missions } from '../index';
+import { completeLesson, recordPlacement } from '../../game/play/saveRules';
+import { createDefaultSave } from '../../game/save/schema';
+import { act2, act2Lessons, act2Missions } from '../index';
 import { act2Input, act2MissionInputs } from './act';
 
 /** Every way to pick up to `limit` candidates, including picking none. */
@@ -39,16 +41,17 @@ describe('Act 2 content', () => {
   });
 
   it('passes validateAct with no issues', () => {
-    expect(validateAct(act2, act2Missions)).toEqual([]);
+    expect(validateAct(act2, act2Missions, act2Lessons)).toEqual([]);
   });
 
-  it('lists the five missions from DESIGN.md section 11, in order', () => {
+  it('lists the five missions from DESIGN.md section 11, in order, then the final', () => {
     expect(act2.missionIds).toEqual([
       'three-rooms',
       'reading-history',
       'good-commits',
       'ignore-list',
       'undo-everything',
+      'dirty-tree',
     ]);
     expect(act2Missions.map((mission) => mission.act)).toEqual([2, 2, 2, 2, 2]);
   });
@@ -74,7 +77,7 @@ describe('Act 2 content', () => {
       act2Missions.flatMap((mission) => mission.drills.map((drill) => [drill.id, mission.id])),
     );
     const covered = new Set(act2.placementTest.drillIds.map((id) => missionOf.get(id)));
-    expect([...covered].sort()).toEqual([...act2.missionIds].sort());
+    expect([...covered].sort()).toEqual(act2Missions.map((mission) => mission.id).sort());
   });
 
   it('tests out by clicking: every placement drill is a judgment drill, of mixed kinds', () => {
@@ -96,10 +99,47 @@ describe('Act 2 content', () => {
     expect(approveKeys).toContain('allow');
     expect(approveKeys).toContain('deny');
   });
+});
 
-  it('gives the boss 3:00 on the clock and its twist at 1:00', () => {
-    expect(act2.boss.timeLimitSeconds).toBe(180);
-    expect(act2.boss.twists.map((twist) => twist.atSecondsRemaining)).toEqual([60]);
+describe("Act 2's final, The Dirty Tree", () => {
+  const NOW = new Date('2026-10-14T12:00:00.000Z');
+  const [final] = act2Lessons;
+
+  it('is the one lesson, a timed final played last, in place of a boss fight', () => {
+    expect(act2Lessons).toHaveLength(1);
+    expect(final?.kind).toBe('final');
+    expect(act2.finalLessonId).toBe(final?.id);
+    expect(act2.missionIds.at(-1)).toBe(final?.id);
+    expect(act2.boss).toBeUndefined();
+    // The clock is a challenge, not a sprint: at least 40 seconds for every card.
+    const seconds = final?.timeLimitSeconds ?? 0;
+    expect(seconds / (final?.cards.length ?? 1)).toBeGreaterThanOrEqual(40);
+  });
+
+  it('asks what Kyle tells Otto more than once, and ends with an order card', () => {
+    const cards = final?.cards ?? [];
+    expect(cards.filter((card) => card.kind === 'prompt').length).toBeGreaterThanOrEqual(2);
+    expect(cards.at(-1)?.kind).toBe('order');
+  });
+
+  it('records the boss as beaten when it is finished', () => {
+    if (final === undefined) throw new Error('Act 2 has no final.');
+    const save = completeLesson(createDefaultSave(NOW), act2, final, 100, NOW);
+    expect(save.acts['2']?.bossCompletedAt).toBe(NOW.toISOString());
+  });
+
+  it('still completes the Act at once when the drill placement test is passed', () => {
+    // A drill test proves every mission, so it skips the final and the Field Mission, as
+    // Act 2's placement always has. Only a card test leaves the Field Mission to do.
+    const passed = recordPlacement(
+      createDefaultSave(NOW),
+      act2,
+      act2Missions,
+      { percent: 100, testedOut: true },
+      NOW,
+    );
+    expect(passed.acts['2']?.completedAt).toBe(NOW.toISOString());
+    expect(passed.missions['dirty-tree']).toBeUndefined();
   });
 });
 
