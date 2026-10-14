@@ -32,8 +32,9 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
       </header>
       <p className="play-panel__eyebrow">On your real {field.repoName} repo</p>
       <p className="play-panel__muted">
-        No GitHub token or API key needed: run each command in your own PowerShell and paste what it
-        prints. The game checks it on this computer.
+        No GitHub token or API key needed: run each command in your own PowerShell, or ask your AI
+        agent to run it and show you the exact output, then paste what it prints. The game checks it
+        on this computer.
       </p>
       {field.briefing.map((line) => (
         <p key={line} className="play-panel__instruction">
