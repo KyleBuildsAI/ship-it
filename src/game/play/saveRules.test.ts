@@ -28,6 +28,7 @@ import {
   recordReview,
   recordSteps,
   startMissionProgress,
+  tickFieldTask,
 } from './saveRules';
 
 const NOW = new Date('2026-09-27T12:00:00.000Z');
@@ -234,6 +235,24 @@ describe('act milestones', () => {
     const entry = partial.fieldMissions[sampleAct.fieldMission.id];
     expect(entry?.checklist[first.id]).toBe(true);
     expect(entry?.verifiedAt).toBe(rest.length === 0 ? NOW.toISOString() : null);
+  });
+
+  it('saves a ticked task, unticks it, and never completes the mission by ticks alone', () => {
+    const field = sampleAct.fieldMission;
+    const [task] = field.checklist;
+    if (task === undefined) throw new Error('need a checklist task');
+    let save = fresh();
+    for (const item of field.checklist) save = tickFieldTask(save, sampleAct, item.id, true);
+    expect(save.fieldMissions[field.id]?.checklist[task.id]).toBe(true);
+    expect(save.fieldMissions[field.id]?.verifiedAt).toBeNull();
+    expect(save.acts[String(sampleAct.act)]?.fieldMissionCompletedAt ?? null).toBeNull();
+    save = tickFieldTask(save, sampleAct, task.id, false);
+    expect(save.fieldMissions[field.id]?.checklist[task.id]).toBe(false);
+  });
+
+  it('ignores a tick for a task the Field Mission doesn’t have', () => {
+    const save = fresh();
+    expect(tickFieldTask(save, sampleAct, 'no-such-task', true)).toBe(save);
   });
 });
 

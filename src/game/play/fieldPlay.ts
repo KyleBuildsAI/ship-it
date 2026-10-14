@@ -5,7 +5,7 @@ import { saveProgressNow } from '../progress';
 import { getAct } from './catalog';
 import { verifyPaste, type FieldVerdict } from './fieldCheck';
 import { play } from './playStore';
-import { recordFieldMission } from './saveRules';
+import { recordFieldMission, tickFieldTask } from './saveRules';
 
 /**
  * The Field Mission happens outside the game, on Kyle's real repo, in any Act that has
@@ -42,4 +42,12 @@ export function submitFieldPaste(
   if (verdict.passed)
     saveProgressNow((save) => recordFieldMission(save, act, [verification.id], now));
   return verdict;
+}
+
+/** Ticks or unticks a checklist task of the open Field Mission, saved at once. */
+export function setFieldTaskDone(taskId: string, done: boolean): void {
+  const current = play.get().activity;
+  if (current?.kind !== 'field') return;
+  const { act } = getAct(current.act);
+  saveProgressNow((save) => tickFieldTask(save, act, taskId, done));
 }
