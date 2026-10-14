@@ -2197,3 +2197,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/156
 3. They taught typing a command and toggling the terminal, which a vibe coder doesn't need to get started.
 
 </details>
+
+---
+
+## #157 feat: every act is complete, with placement tests, finals and field missions
+
+https://github.com/KyleBuildsAI/ship-it/pull/157
+
+1. Act 3 wrote `upToDate: true` and Act 4 wrote `upstream: 'up-to-date'`. Why keep only one?
+2. Why can a test-out complete Act 2 at once, but not a lesson-taught Act with a Field Mission?
+3. Act 1's placement test passed every test on its own branch. Why did it fail after the merge?
+
+<details><summary>Answers</summary>
+
+1. They check the same thing: the branch matches GitHub. Two names means two code paths that can drift apart, and a mission author has to guess. One name, one path, one set of advice.
+2. Act 2's placement test covers every typed mission, so passing it proves the skills. Lesson cards can be guessed, and the Field Mission is the one part done on a real repo, so a card test can't stand in for it.
+3. Act 8 added a validator rule that fails a placement test when one length rule picks the right option on more than half the cards. Act 1's right answer was the longest on all nine, so the new rule caught a weakness that was already there.
+
+</details>
