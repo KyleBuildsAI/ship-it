@@ -7,6 +7,7 @@ import {
   firstTracked,
   isCleanStatus,
   isConventionalSubject,
+  isGreenRun,
   isSquashMergedSubject,
   isTypedBranchName,
   newestWrittenCommit,
@@ -14,6 +15,7 @@ import {
   parseLogGraph,
   parseLogOneline,
   parsePathList,
+  parseRunList,
   parseStatusLong,
   parseStatusShort,
   readTopMerge,
@@ -46,6 +48,13 @@ const PARSER_NAMES = {
 
 function fail(message: string): FieldVerdict {
   return { passed: false, message };
+}
+
+/** True when `path` is one of `patterns`, or sits inside one that names a folder (`dist/`). */
+function matchesAny(path: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) =>
+    pattern.endsWith('/') ? path.startsWith(pattern) : path === pattern,
+  );
 }
 
 function parseStatus(text: string): ParsedStatus | null {
@@ -230,9 +239,32 @@ function checkTrackedFiles(verification: Verification, text: string): FieldVerdi
       : { passed: true, message: `Git tracks ${found}.` };
   }
   const secrets = trackedSecretPaths(paths);
-  return secrets.length === 0
-    ? { passed: true, message: 'No secret files are tracked.' }
-    : fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
+  if (secrets.length > 0) {
+    return fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
+  }
+  if (check.kind === 'tracksPath') {
+    // Any other file on the list, even an older workflow, doesn't prove the new one exists.
+    return paths.some((path) => matchesAny(path, check.patterns))
+      ? { passed: true, message: `Git tracks ${check.patterns.join(' or ')}.` }
+      : fail(
+          `${check.patterns.join(' or ')} isn't on that list yet. Commit it, then run ${verification.command} again.`,
+        );
+  }
+  return { passed: true, message: 'No secret files are tracked.' };
+}
+
+/** Checks a `gh run list` paste: GitHub's own word on whether the newest CI run went green. */
+function checkRunList(verification: Verification, text: string): FieldVerdict {
+  const [newest] = parseRunList(text);
+  if (newest === undefined) {
+    return fail(`No run in that paste. Push the workflow first, then run ${verification.command}.`);
+  }
+  if (isGreenRun(newest)) return { passed: true, message: 'Green on GitHub. The gate is live.' };
+  return newest.status === 'completed'
+    ? fail(
+        `The newest run didn't go green (${newest.conclusion || 'no result'}). Open it in the Actions tab, copy the first error, and brief your agent to fix the cause.`,
+      )
+    : fail('That run is still going. Give it a minute, then run the command again.');
 }
 
 /** Checks a `git log --oneline` paste, with `--graph` for a merge check. */
@@ -251,8 +283,17 @@ function checkLog(verification: Verification, text: string): FieldVerdict {
     case 'squashMergedPr':
       return verifySquashMerge(commits[0]?.subject ?? '');
     case 'conventionalRatio': {
-      const ratio = conventionalRatio(commits.slice(0, check.last));
+      const ratio = conventionalRatio(commits.slice(0, check.last), check.types);
       const percent = Math.round(ratio * 100);
+      if (check.types !== undefined) {
+        // A typed check is about one kind of change, so it speaks of that type, not a share.
+        const wanted = check.types.map((type) => `${type}:`).join(' or ');
+        return ratio >= check.min
+          ? { passed: true, message: `Pushed, with a ${wanted} message.` }
+          : fail(
+              `That commit doesn't start with ${wanted}. Make sure your change is the newest one on GitHub's main.`,
+            );
+      }
       return ratio >= check.min
         ? { passed: true, message: `${String(percent)}% of recent commits are Conventional.` }
         : fail(
@@ -296,6 +337,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
   }
   if (verification.parser === 'ls-files') return checkTrackedFiles(verification, text);
   if (verification.parser === 'log-oneline') return checkLog(verification, text);
+  if (verification.parser === 'gh-run-list') return checkRunList(verification, text);
 
   const { check } = verification;
   const status = parseStatus(text);

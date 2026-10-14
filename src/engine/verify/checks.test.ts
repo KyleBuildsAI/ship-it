@@ -144,6 +144,13 @@ describe('conventionalRatio', () => {
     expect(conventionalRatio([])).toBe(0);
     expect(conventionalRatio([{ subject: "Merge branch 'x'" }])).toBe(0);
   });
+
+  it('counts only the named types when given some', () => {
+    const commits = [{ subject: 'ci: scan for secrets (#4)' }, { subject: 'fix: calibrate' }];
+    expect(conventionalRatio(commits, ['ci'])).toBe(1 / 2);
+    expect(conventionalRatio([{ subject: 'ci(gitleaks): add' }], ['ci'])).toBe(1);
+    expect(conventionalRatio([{ subject: 'add gitleaks' }], ['ci'])).toBe(0);
+  });
 });
 
 describe('isCleanStatus', () => {

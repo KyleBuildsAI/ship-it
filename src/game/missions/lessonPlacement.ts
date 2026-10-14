@@ -44,6 +44,14 @@ function forAttempt(card: LessonCard, attempt: number): LessonCard {
   return { ...card, options: shuffledBy(card.options, `${card.id}:${String(attempt)}`) };
 }
 
+/**
+ * How many of `total` cards a pass needs. A percent rounds up to whole cards, so 85% of
+ * 12 is 11, not 10: saying the count keeps "85%" from promising two misses.
+ */
+export function cardsToPass(total: number, passPercent: number): number {
+  return Math.ceil((total * passPercent) / 100);
+}
+
 /** The id of an Act's placement run. It's never saved as a lesson, only as a placement. */
 export function placementLessonId(act: number): string {
   return `placement-act-${String(act)}`;
@@ -75,7 +83,7 @@ export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 
     kind: 'final',
     briefing: [
       test.pitch,
-      `${String(test.passPercent)}% right tests out of the lessons these cards come from. Each card takes one answer, and you see your score at the end. No hints.`,
+      `Get ${String(cardsToPass(cards.length, test.passPercent))} of ${String(cards.length)} right (${String(test.passPercent)}%) to test out of the lessons these cards come from. Each card takes one answer, and you see your score at the end. No hints.`,
     ],
     cards,
     // A placement pays the test-out XP from its lessons, never XP of its own.

@@ -346,7 +346,15 @@ const BossSchema = z
   });
 
 // ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
-export const FIELD_PARSERS = ['status-short', 'status-long', 'log-oneline', 'ls-files'] as const;
+// gh-run-list is GitHub's own word on a CI run, read through the player's gh login, so
+// the game never needs a token to see a green check.
+export const FIELD_PARSERS = [
+  'status-short',
+  'status-long',
+  'log-oneline',
+  'ls-files',
+  'gh-run-list',
+] as const;
 export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
@@ -363,13 +371,21 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
     pushed: z.literal(true).optional(),
     upstream: z.literal('up-to-date').optional(),
   }),
-  /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
+  /**
+   * At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages,
+   * and only of these `types` when it's given, like ['ci'].
+   */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
     min: z.number().min(0).max(1),
     last: z.int().positive(),
+    types: z.array(z.enum(CONVENTIONAL_TYPES)).min(1).optional(),
   }),
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
+  /** Git tracks a file matching one of `patterns` (a path, or a folder ending in /), and no secret. */
+  z.strictObject({ kind: z.literal('tracksPath'), patterns: z.array(NameSchema).min(1) }),
+  /** The newest run in a `gh run list` paste finished green. */
+  z.strictObject({ kind: z.literal('latestRunGreen') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
   /**
    * The newest commit is a merge (not a squash or a rebase) of a typed branch like
@@ -401,6 +417,8 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   clean: ['status-short', 'status-long'],
   ignores: ['status-short', 'status-long'],
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
+  tracksPath: ['ls-files'],
+  latestRunGreen: ['gh-run-list'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
   newestCommitType: ['log-oneline'],

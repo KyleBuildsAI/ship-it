@@ -66,6 +66,13 @@ describe('the roadmap', () => {
       expect(entry?.status).not.toContain('Not built yet');
     }
   });
+
+  it('says Act 5 has its placement test and its Field Mission on SandCastles', () => {
+    const act5 = roadmapAct(5);
+    expect(act5?.status).toContain('placement test');
+    expect(act5?.status).toContain('Field Mission');
+    expect(act5?.fieldMission?.title).toBe('Green on Every Push');
+  });
 });
 
 describe('RoadmapSchema', () => {

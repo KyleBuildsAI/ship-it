@@ -83,11 +83,20 @@ export function isSquashMergedSubject(subject: string): boolean {
  * The share of commits, from 0 to 1, whose subject follows Conventional Commits.
  * Subjects git generated don't count either way, since nobody typed them. With no
  * commits left to judge, the answer is 0: no evidence earns no credit.
+ *
+ * With `types`, only those types count, so a check can insist on `ci:` for a change that
+ * only touched CI, and an older `fix:` on the same files doesn't pass for it.
  */
-export function conventionalRatio(commits: readonly { readonly subject: string }[]): number {
+export function conventionalRatio(
+  commits: readonly { readonly subject: string }[],
+  types?: readonly ConventionalType[],
+): number {
   const written = commits.filter((commit) => !isGeneratedSubject(commit.subject));
   if (written.length === 0) return 0;
-  const conventional = written.filter((commit) => isConventionalSubject(commit.subject));
+  const conventional = written.filter((commit) => {
+    const type = commitType(commit.subject);
+    return type !== null && (types === undefined || types.includes(type));
+  });
   return conventional.length / written.length;
 }
 

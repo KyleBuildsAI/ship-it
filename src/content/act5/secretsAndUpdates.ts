@@ -22,13 +22,14 @@ export const secretsAndUpdates = {
       options: [
         {
           id: 'in-yaml',
-          text: 'Put the key in deploy.yml so the workflow can read it.',
+          text: 'Put the key straight into deploy.yml as an env value. The repo is private, so only the team and the workflow can read it.',
           correct: false,
-          feedback: 'Everyone who can read the repo, and its history, has the key forever.',
+          feedback:
+            'Everyone who can read the repo, and its history, has the key forever. Private repos get cloned, shared and opened up.',
         },
         {
           id: 'in-chat',
-          text: 'I’ll paste the key here in chat. Hardcode it in the deploy script.',
+          text: 'I’ll paste the key here in chat. Hardcode it in the deploy script, have the workflow run that script, and never print it.',
           correct: false,
           feedback: 'Keys never go in chats or code. Both get copied and logged.',
         },
@@ -40,7 +41,7 @@ export const secretsAndUpdates = {
         },
         {
           id: 'env-committed',
-          text: 'Commit a .env file with the key. CI can load it from there.',
+          text: 'Commit a .env file with PAYMENTS_KEY in it, load it in the deploy step, and add a comment telling everyone never to print it.',
           correct: false,
           feedback: 'A committed .env is the most common way keys leak.',
         },
@@ -64,7 +65,7 @@ export const secretsAndUpdates = {
       options: [
         {
           id: 'delete-file',
-          text: 'Delete .env in a new commit. Then it’s gone.',
+          text: 'Delete .env in a new commit and push it. Then the keys are gone from the repo, and nobody new can copy them.',
           correct: false,
           feedback: 'It’s still in the earlier commit, and anyone may have copied it already.',
         },
@@ -76,13 +77,13 @@ export const secretsAndUpdates = {
         },
         {
           id: 'force-push',
-          text: 'Force push the branch without that commit, and nobody will ever see it.',
+          text: 'Force push the branch without that commit, so the keys vanish from every page on GitHub and nobody will ever see them.',
           correct: false,
           feedback: 'It was public for an hour. Clones, forks and caches don’t forget.',
         },
         {
           id: 'private',
-          text: 'Make the repo private.',
+          text: 'Make the repo private right now, so only the 12 collaborators can see it.',
           correct: false,
           feedback: '12 people, their machines, and every tool connected can still read it.',
         },

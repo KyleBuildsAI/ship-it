@@ -41,6 +41,7 @@ export { parseLogGraph, parseLogOneline, type GraphCommit, type OnelineCommit } 
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';
 export { findSecretLike, type SecretKind } from './secretGuard';
+export { isGreenRun, parseRunList, type WorkflowRun } from './runList';
 export {
   parseStatusLong,
   type ChangeKind,
