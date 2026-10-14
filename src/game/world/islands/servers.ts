@@ -1,32 +1,398 @@
 import * as THREE from 'three/webgpu';
-import { NO_BEATS, part, type Palette, type Props } from './kit';
+import { phase, type Beat } from '../beatPlayer';
+import type { BeatId } from '../beats';
+import {
+  createStage,
+  part,
+  popIn,
+  remember,
+  slide,
+  type Palette,
+  type Props,
+  type Stage,
+} from './kit';
 
-/** Act 6: racks of servers joined by pipes, and a database drum where the pipes end. */
+/*
+ * Act 6's island: racks of servers joined by a pipe to a database drum, and a client
+ * screen out front where a writer sits. Its beats act out the Act's lesson cards with
+ * glowing packets: a request travels in and a response travels back, a gate checks who's
+ * asking, a query runs down the pipe, a cache answers early, jobs wait in a queue, a log
+ * scrolls to its one red line, and a bad release is rolled back.
+ */
+
+const PACKET = new THREE.BoxGeometry(0.34, 0.34, 0.34);
+const SMALL_PACKET = new THREE.BoxGeometry(0.24, 0.24, 0.24);
+/** The pass a signed-in request carries: a flat tag riding on its packet. */
+const BADGE = new THREE.BoxGeometry(0.22, 0.08, 0.22);
+const GATE_POST = new THREE.BoxGeometry(0.14, 2.4, 0.14);
+const GATE_BAR = new THREE.BoxGeometry(1.74, 0.16, 0.16);
+const CACHE_BOX = new THREE.BoxGeometry(0.8, 0.6, 0.7);
+const BELT = new THREE.BoxGeometry(3.4, 0.1, 0.6);
+const LOG_LINE = new THREE.BoxGeometry(1.8, 0.14, 0.05);
+const MARKER = new THREE.ConeGeometry(0.15, 0.4, 12);
+/** A release, sitting on top of the rack that runs it. */
+const CRATE = new THREE.BoxGeometry(1, 0.5, 0.8);
+const SCREEN = new THREE.BoxGeometry(1.4, 0.9, 0.08);
+const STAND = new THREE.BoxGeometry(0.1, 0.6, 0.1);
+const FOOT = new THREE.BoxGeometry(0.6, 0.05, 0.4);
+const RACK = new THREE.BoxGeometry(1.2, 2.6, 1);
+const STRIP = new THREE.BoxGeometry(0.9, 0.06, 0.02);
+const PIPE = new THREE.CylinderGeometry(0.15, 0.15, 9, 12);
+const PIPE_DROP = new THREE.CylinderGeometry(0.15, 0.15, 2, 12);
+const DRUM = new THREE.CylinderGeometry(1, 1, 0.55, 32);
+
+const point = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+
+/** Where packets leave and reach the writer's screen: just over its top edge. */
+const CLIENT = point(2.5, 1.9, 4.4);
+/** The front of the rack (x = 2) that answers requests. */
+const RACK_DOOR = point(2, 1.4, -1.2);
+/** A query's way to the database: down to the pipe, along it, and along the drop. */
+const RACK_FOOT = point(2, 0.5, -0.8);
+const PIPE_BEND = point(5, 0.5, -0.8);
+const DRUM_EDGE = point(5, 0.5, 0.8);
+const TO_DATABASE = [RACK_FOOT, PIPE_BEND, DRUM_EDGE];
+const FROM_DATABASE = [DRUM_EDGE, PIPE_BEND, RACK_FOOT];
+/** The gate stands across the request's path, halfway between screen and rack. */
+const GATE = point(2.25, 0, 1.6);
+const GATE_FRONT = point(2.25, 1.65, 2.3);
+const CACHE_SPOT = point(3.3, 0.3, -0.2);
+const CACHE_TOP = point(3.3, 0.8, -0.2);
+/** The rack (x = -2) that works through the queue, and the belt's slots, nearest first. */
+const WORKER_DOOR = point(-2, 0.6, -1.2);
+const QUEUE_SLOTS = [point(-1, 0.3, 0.9), point(-0.2, 0.3, 0.9), point(0.6, 0.3, 0.9)];
+/** The log hangs to the right of the drum: lines stacked upward from LOG_BASE. */
+const LOG_X = 7;
+const LOG_BASE_Y = 0.4;
+const LOG_STEP = 0.32;
+const LOG_Z = -1;
+/** How much of a full line each log line fills, so the log looks like ragged text. */
+const LOG_WIDTHS = [1, 0.7, 0.9, 0.6, 0.85, 0.75, 0.95];
+/** Which line of the log is the error. */
+const ERROR_LINE = 4;
+/** Where a release sits, on top of the middle rack (x = 0). */
+const CRATE_SPOT = point(0, 2.85, -2);
+
+/** The parts of the idle island that beats move or recolour. */
+interface ServerParts {
+  /** The racks, left to right (x = -4, -2, 0, 2). */
+  readonly racks: readonly THREE.Mesh[];
+  readonly blinkers: readonly THREE.Mesh[];
+  /** The database's three drums, bottom first. */
+  readonly drums: readonly THREE.Mesh[];
+  readonly screen: THREE.Mesh;
+}
+
+/**
+ * Moves an object along a path of points by `amount` (0 to 1) of its whole length, with an
+ * optional hop over the middle, so a packet can follow the pipe round its corners.
+ */
+function travel(
+  object: THREE.Object3D,
+  points: readonly THREE.Vector3[],
+  amount: number,
+  hop = 0,
+): void {
+  const lengths = points.slice(1).map((to, index) => to.distanceTo(points[index] ?? to));
+  const total = lengths.reduce((sum, length) => sum + length, 0);
+  let left = Math.min(1, Math.max(0, amount)) * total;
+  for (const [index, length] of lengths.entries()) {
+    const from = points[index];
+    const to = points[index + 1];
+    if (from === undefined || to === undefined) break;
+    if (left <= length || index === lengths.length - 1) {
+      slide(object, from, to, length === 0 ? 1 : Math.min(1, left / length));
+      break;
+    }
+    left -= length;
+  }
+  object.position.y += Math.sin(Math.min(1, Math.max(0, amount)) * Math.PI) * hop;
+}
+
+/** A beat's run that, on reset, clears the stage and puts the moved parts back. */
+function run(
+  stage: Stage,
+  moved: readonly THREE.Mesh[],
+  frame: (progress: number) => void,
+): ReturnType<Beat['start']> {
+  const restores = moved.map(remember);
+  return {
+    frame,
+    reset: () => {
+      stage.clear();
+      restores.forEach((restore) => {
+        restore();
+      });
+    },
+  };
+}
+
+function rackAt(parts: ServerParts, index: number): THREE.Mesh {
+  const rack = parts.racks[index];
+  if (rack === undefined) throw new Error(`The servers island has no rack ${String(index)}.`);
+  return rack;
+}
+
+function act6Beats(
+  stage: Stage,
+  parts: ServerParts,
+  colors: Palette,
+): Record<BeatId<'act6'>, Beat> {
+  /** A packet added to the stage, hidden until its beat pops it in. */
+  const packet = (material: THREE.Material, geometry: THREE.BufferGeometry = PACKET) => {
+    const mesh = part(geometry, material, CLIENT.x, CLIENT.y, CLIENT.z);
+    mesh.visible = false;
+    stage.add(mesh);
+    return mesh;
+  };
+  const answering = rackAt(parts, 3);
+  const worker = rackAt(parts, 1);
+  const { screen } = parts;
+
+  return {
+    // A request leaves the writer's screen, the server works on it, and a response comes
+    // back: the screen lights up with the answer.
+    'request-response': {
+      seconds: 2.4,
+      start: () => {
+        const request = packet(colors.glow);
+        const response = packet(colors.light);
+        return run(stage, [answering, screen], (progress) => {
+          popIn(request, phase(progress, 0, 0.08) - phase(progress, 0.4, 0.48));
+          travel(request, [CLIENT, RACK_DOOR], phase(progress, 0.05, 0.4), 0.5);
+          answering.material = progress >= 0.4 && progress < 0.6 ? colors.base : colors.dark;
+          popIn(response, phase(progress, 0.5, 0.58));
+          travel(response, [RACK_DOOR, CLIENT], phase(progress, 0.55, 0.9), 0.5);
+          screen.material = progress >= 0.9 ? colors.glow : colors.light;
+        });
+      },
+    },
+    // A gate checks who's asking. A request with no pass is turned back red (401); one
+    // carrying its session's pass gets a green gate and goes through to the server.
+    'auth-gate': {
+      seconds: 2.8,
+      start: () => {
+        const gate = new THREE.Group();
+        const bar = part(GATE_BAR, colors.base, 0, 2.4, 0);
+        gate.add(
+          part(GATE_POST, colors.light, -0.8, 1.2, 0),
+          part(GATE_POST, colors.light, 0.8, 1.2, 0),
+          bar,
+        );
+        gate.position.copy(GATE);
+        gate.visible = false;
+        const stranger = packet(colors.glow);
+        const member = new THREE.Group();
+        member.add(part(PACKET, colors.glow, 0, 0, 0), part(BADGE, colors.light, 0, 0.24, 0));
+        member.visible = false;
+        stage.add(gate, member);
+        return run(stage, [], (progress) => {
+          popIn(gate, phase(progress, 0, 0.15));
+          popIn(stranger, phase(progress, 0.08, 0.15) - phase(progress, 0.52, 0.58));
+          const turnedBack = progress >= 0.35;
+          stranger.material = turnedBack ? colors.alert : colors.glow;
+          if (turnedBack) {
+            travel(stranger, [GATE_FRONT, CLIENT], phase(progress, 0.38, 0.55));
+          } else {
+            travel(stranger, [CLIENT, GATE_FRONT], phase(progress, 0.1, 0.33));
+          }
+          popIn(member, phase(progress, 0.55, 0.62));
+          travel(member, [CLIENT, RACK_DOOR], phase(progress, 0.6, 0.95));
+          const refusing = progress >= 0.33 && progress < 0.58;
+          const letIn = progress >= 0.68;
+          bar.material = refusing ? colors.alert : letIn ? colors.glow : colors.base;
+        });
+      },
+    },
+    // The server asks the database: a query runs down the pipe, the drums light up while
+    // it reads, and the rows come back up and out to the writer as the response.
+    'database-query': {
+      seconds: 3,
+      start: () => {
+        const request = packet(colors.glow);
+        const query = packet(colors.glow, SMALL_PACKET);
+        const rows = packet(colors.light, SMALL_PACKET);
+        const response = packet(colors.light);
+        // The middle drum always glows; the outer two light up while the query reads.
+        const lit = parts.drums.filter((_, index) => index !== 1);
+        return run(stage, [screen, ...lit], (progress) => {
+          popIn(request, phase(progress, 0, 0.05) - phase(progress, 0.22, 0.27));
+          travel(request, [CLIENT, RACK_DOOR], phase(progress, 0, 0.22), 0.4);
+          popIn(query, phase(progress, 0.24, 0.3) - phase(progress, 0.5, 0.55));
+          travel(query, TO_DATABASE, phase(progress, 0.25, 0.5));
+          const reading = progress >= 0.5 && progress < 0.65;
+          lit.forEach((drum) => {
+            drum.material = reading ? colors.glow : colors.light;
+          });
+          popIn(rows, phase(progress, 0.6, 0.65) - phase(progress, 0.8, 0.84));
+          travel(rows, FROM_DATABASE, phase(progress, 0.62, 0.8));
+          popIn(response, phase(progress, 0.8, 0.85));
+          travel(response, [RACK_DOOR, CLIENT], phase(progress, 0.82, 0.98), 0.4);
+          screen.material = progress >= 0.98 ? colors.glow : colors.light;
+        });
+      },
+    },
+    // The first read pays the slow trip to the database and keeps a copy in a cache box by
+    // the rack. The next request is answered from that copy, without touching the database.
+    'cache-hit': {
+      seconds: 3,
+      start: () => {
+        const query = packet(colors.glow, SMALL_PACKET);
+        const cache = part(CACHE_BOX, colors.glow, CACHE_SPOT.x, CACHE_SPOT.y, CACHE_SPOT.z);
+        cache.visible = false;
+        stage.add(cache);
+        const request = packet(colors.glow);
+        const response = packet(colors.light);
+        return run(stage, [screen], (progress) => {
+          popIn(query, phase(progress, 0, 0.04) - phase(progress, 0.38, 0.42));
+          travel(query, [...TO_DATABASE, PIPE_BEND, RACK_FOOT], phase(progress, 0, 0.4));
+          popIn(cache, phase(progress, 0.38, 0.5));
+          popIn(request, phase(progress, 0.5, 0.55) - phase(progress, 0.72, 0.76));
+          travel(request, [CLIENT, RACK_DOOR, CACHE_TOP], phase(progress, 0.5, 0.74));
+          const hit = progress >= 0.72 && progress < 0.82;
+          cache.material = hit ? colors.light : colors.glow;
+          popIn(response, phase(progress, 0.76, 0.8));
+          travel(response, [CACHE_TOP, CLIENT], phase(progress, 0.78, 0.95), 0.6);
+          screen.material = progress >= 0.95 ? colors.glow : colors.light;
+        });
+      },
+    },
+    // Slow work leaves the request: jobs drop onto a belt and the screen hears back at
+    // once, then a worker server takes the jobs one at a time at its own pace.
+    'queue-worker': {
+      seconds: 3,
+      start: () => {
+        const belt = part(BELT, colors.base, 0.2, 0.05, 0.9);
+        belt.visible = false;
+        stage.add(belt);
+        const jobs = QUEUE_SLOTS.map(() => packet(colors.glow));
+        return run(stage, [worker, screen], (progress) => {
+          popIn(belt, phase(progress, 0, 0.1));
+          jobs.forEach((job, index) => {
+            const slot = QUEUE_SLOTS[index] ?? CLIENT;
+            const queuedAt = 0.04 + index * 0.08;
+            const takenAt = 0.4 + index * 0.18;
+            const taken = phase(progress, takenAt, takenAt + 0.12);
+            const done = phase(progress, takenAt + 0.12, takenAt + 0.18);
+            popIn(job, phase(progress, queuedAt, queuedAt + 0.06) - done, 0.8);
+            if (progress >= takenAt) {
+              travel(job, [slot, WORKER_DOOR], taken, 0.4);
+            } else {
+              travel(job, [CLIENT, slot], phase(progress, queuedAt, queuedAt + 0.16), 0.8);
+            }
+          });
+          // The worker lights up while it has a job inside.
+          const working = jobs.some((_, index) => {
+            const inside = 0.48 + index * 0.18;
+            return progress >= inside && progress < inside + 0.1;
+          });
+          worker.material = working ? colors.base : colors.dark;
+          screen.material = progress >= 0.2 ? colors.glow : colors.light;
+        });
+      },
+    },
+    // The log writes itself line by line; one line is red. A marker points at it and the
+    // rest dims: the system already wrote down what went wrong.
+    'log-trail': {
+      seconds: 2.6,
+      start: () => {
+        const lines = LOG_WIDTHS.map((width, index) => {
+          const line = part(
+            LOG_LINE,
+            index === ERROR_LINE ? colors.alert : colors.light,
+            // Left-aligned like text: a shorter line keeps its left edge.
+            LOG_X - (1 - width) * 0.9,
+            LOG_BASE_Y + index * LOG_STEP,
+            LOG_Z,
+          );
+          line.visible = false;
+          return line;
+        });
+        const errorY = LOG_BASE_Y + ERROR_LINE * LOG_STEP;
+        const marker = part(MARKER, colors.light, 5.6, errorY, LOG_Z);
+        // The cone points along +x, at the line.
+        marker.rotation.z = -Math.PI / 2;
+        marker.visible = false;
+        stage.add(...lines, marker);
+        const markerFrom = point(5.1, errorY, LOG_Z);
+        const markerTo = point(5.8, errorY, LOG_Z);
+        return run(stage, [], (progress) => {
+          const focused = progress >= 0.72;
+          lines.forEach((line, index) => {
+            const start = index * 0.06;
+            popIn(line, phase(progress, start, start + 0.12));
+            line.scale.x *= LOG_WIDTHS[index] ?? 1;
+            if (index !== ERROR_LINE) line.material = focused ? colors.dark : colors.light;
+          });
+          popIn(marker, phase(progress, 0.55, 0.7));
+          slide(marker, markerFrom, markerTo, phase(progress, 0.55, 0.8));
+        });
+      },
+    },
+    // A bad release breaks things: every light turns red and the writer's screen errors.
+    // The release is lifted off, the last good one goes back on, and the lights recover.
+    'incident-rollback': {
+      seconds: 3,
+      start: () => {
+        const bad = part(CRATE, colors.alert, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
+        const good = part(CRATE, colors.light, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
+        good.visible = false;
+        stage.add(bad, good);
+        const liftedTo = point(1.6, 4.2, -2);
+        const comesFrom = point(-1.6, 4.2, -2);
+        const { blinkers } = parts;
+        return run(stage, [...blinkers, screen], (progress) => {
+          popIn(bad, 1 - phase(progress, 0.45, 0.58));
+          slide(bad, CRATE_SPOT, liftedTo, phase(progress, 0.35, 0.55));
+          popIn(good, phase(progress, 0.5, 0.6));
+          slide(good, comesFrom, CRATE_SPOT, phase(progress, 0.5, 0.72));
+          blinkers.forEach((light, index) => {
+            const share = index / blinkers.length;
+            const broken = progress >= 0.25 * share && progress < 0.74 + 0.24 * share;
+            light.material = broken ? colors.alert : colors.glow;
+          });
+          screen.material = progress >= 0.12 && progress < 0.8 ? colors.alert : colors.light;
+        });
+      },
+    },
+  };
+}
+
+/** Act 6: racks of servers joined by pipes, a database drum, and a writer's screen. */
 export function servers(colors: Palette): Props {
   const group = new THREE.Group();
-  const rack = new THREE.BoxGeometry(1.2, 2.6, 1);
-  const strip = new THREE.BoxGeometry(0.9, 0.06, 0.02);
+  const racks: THREE.Mesh[] = [];
   const blinkers: THREE.Mesh[] = [];
   [-4, -2, 0, 2].forEach((x) => {
-    group.add(part(rack, colors.dark, x, 1.3, -2));
+    const rack = part(RACK, colors.dark, x, 1.3, -2);
+    racks.push(rack);
+    group.add(rack);
     for (let level = 0; level < 5; level++) {
-      const light = part(strip, colors.glow, x, 0.5 + level * 0.45, -1.49);
+      const light = part(STRIP, colors.glow, x, 0.5 + level * 0.45, -1.49);
       blinkers.push(light);
       group.add(light);
     }
   });
   // The pipe runs along the racks' feet to the database.
-  const pipe = new THREE.CylinderGeometry(0.15, 0.15, 9, 12);
-  const run = part(pipe, colors.base, 0.5, 0.2, -0.8);
-  run.rotation.z = Math.PI / 2;
-  group.add(run);
-  const drop = part(new THREE.CylinderGeometry(0.15, 0.15, 2, 12), colors.base, 5, 0.2, 0.2);
+  const pipe = part(PIPE, colors.base, 0.5, 0.2, -0.8);
+  pipe.rotation.z = Math.PI / 2;
+  group.add(pipe);
+  const drop = part(PIPE_DROP, colors.base, 5, 0.2, 0.2);
   drop.rotation.x = Math.PI / 2;
   group.add(drop);
-  const drum = new THREE.CylinderGeometry(1, 1, 0.55, 32);
-  [0, 1, 2].forEach((level) => {
-    group.add(part(drum, level === 1 ? colors.glow : colors.light, 5, 0.3 + level * 0.6, 1.8));
+  const drums = [0, 1, 2].map((level) => {
+    const drum = part(DRUM, level === 1 ? colors.glow : colors.light, 5, 0.3 + level * 0.6, 1.8);
+    group.add(drum);
+    return drum;
   });
+  // The writer's screen out front: where requests start and responses land.
+  const screen = part(SCREEN, colors.light, CLIENT.x, 1.1, CLIENT.z + 0.6);
+  group.add(
+    screen,
+    part(STAND, colors.base, CLIENT.x, 0.35, CLIENT.z + 0.55),
+    part(FOOT, colors.base, CLIENT.x, 0.03, CLIENT.z + 0.55),
+  );
+  const stage = createStage(group);
   return {
     group,
     animate: (elapsed) => {
@@ -34,6 +400,6 @@ export function servers(colors: Palette): Props {
         light.visible = Math.sin(elapsed * 3 + index * 1.7) > -0.4;
       });
     },
-    beats: NO_BEATS,
+    beats: act6Beats(stage, { racks, blinkers, drums, screen }, colors),
   };
 }
