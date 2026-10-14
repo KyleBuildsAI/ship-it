@@ -413,6 +413,14 @@ function gateLine(action: QueuedAction): string {
 }
 
 /**
+ * A file path as Kyle reads it: a Windows path on the laptop, and on a git project the
+ * project path the Git World's crates already show.
+ */
+function shownPath(path: string): string {
+  return sandbox.get().shell.ws.machine === null ? path : display(path);
+}
+
+/**
  * The run log's words for an action Otto doesn't type: his file tool, or a terminal tab.
  * Null for a line or an answer, whose row shows what he typed.
  */
@@ -422,9 +430,9 @@ function untypedLabel(action: QueuedAction): string | null {
     case 'answer':
       return null;
     case 'write':
-      return `Wrote ${display(action.path)}`;
+      return `Wrote ${shownPath(action.path)}`;
     case 'edit':
-      return `Edited ${display(action.path)}`;
+      return `Edited ${shownPath(action.path)}`;
     case 'newTerminal':
       return 'Opened a new terminal';
     case 'useTerminal':

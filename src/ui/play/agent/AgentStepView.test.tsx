@@ -175,7 +175,7 @@ describe('the directing panel', () => {
     const run = { do: 'run', line: 'Get-Content .env', onDeny: [] } as const;
     const text = shown(atGate(run, { kind: 'line', line: run.line, changes: [], harmful: false }));
     expect(text).toContain('Otto wants to run:Get-Content .env');
-    expect(text).toContain('The laptop shows no change, but Otto asked first.');
+    expect(text).toContain('The dry run shows no change, but Otto asked first.');
   });
 
   it('tells an edit of one piece apart from a write of the whole file', () => {
