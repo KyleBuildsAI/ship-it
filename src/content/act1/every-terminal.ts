@@ -153,7 +153,7 @@ export const everyTerminal: MissionInput = {
           options: [
             {
               id: 'fresh',
-              text: `Yes: it ends with ${NODE_DIR}`,
+              text: `Yes: it lists ${NODE_DIR}`,
               truth: { kind: 'all', of: [NODE_ON_PATH, NODE_INSTALLED] },
               feedback: 'Right: a terminal opened after the install copied the new PATH.',
             },
