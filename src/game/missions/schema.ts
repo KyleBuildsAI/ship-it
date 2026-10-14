@@ -350,7 +350,16 @@ export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('clean') }),
+  /**
+   * Nothing to commit. A clean tree alone can't prove a PR landed (a feature branch is clean
+   * too), so a check can also require the branch, and that it matches its upstream, which
+   * `git status` only knows after a fetch.
+   */
+  z.strictObject({
+    kind: z.literal('clean'),
+    branch: NameSchema.optional(),
+    upstream: z.literal('up-to-date').optional(),
+  }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
@@ -359,6 +368,13 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
+  /** The newest commit is a squash-merged PR: a Conventional title ending in " (#N)". */
+  z.strictObject({ kind: z.literal('squashMergedPr') }),
+  /**
+   * No commit on any branch ever touched `path`: `git log --all --oneline -- <path>`
+   * printed nothing. Pushing publishes history, so a file removed later still leaks.
+   */
+  z.strictObject({ kind: z.literal('noCommits'), path: NameSchema }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
@@ -374,6 +390,8 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
+  squashMergedPr: ['log-oneline'],
+  noCommits: ['log-oneline'],
 };
 
 const VerificationSchema = z
@@ -405,6 +423,18 @@ const FieldMissionSchema = z
     briefing: CaptionsSchema,
     checklist: z.array(z.strictObject({ id: IdSchema, text: ScreenTextSchema })).min(1),
     verifications: z.array(VerificationSchema).min(1),
+    /**
+     * An opt-in check through GitHub's API (DESIGN.md section 8), beside the paste checks
+     * and never instead of them: they alone finish the mission. It reads the newest PR
+     * merged into main, needs the description to have these section headings, and needs
+     * no token, since a public repo's PRs are readable by anyone.
+     */
+    github: z
+      .strictObject({
+        instruction: ScreenTextSchema,
+        sections: z.array(NameSchema).min(1),
+      })
+      .optional(),
   })
   .superRefine((field, ctx) => {
     checkUniqueIds(field.checklist, 'checklist', ctx);
