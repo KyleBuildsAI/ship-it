@@ -1,4 +1,5 @@
 import { testDeps } from '../../engine/git/testDeps';
+import { drive as driveOutsideTranscript } from '../../engine/shell/driver';
 import {
   dryRun,
   dryRunRefused,
@@ -15,15 +16,18 @@ import {
   choosePlan,
   confirmAsked,
   decideGate,
+  doYourPart,
   failedUnplanned,
   finishScript,
   nextAction,
   openGate,
   outcomeHolds,
+  partPending,
   pausesBefore,
   REFUSAL,
   stopScript,
   toDriverAction,
+  yourPartAction,
   type AgentStepState,
   type QueuedAction,
 } from '../../game/missions/agentRunner';
@@ -152,6 +156,13 @@ export function playCard(
     const next = nextAction(state);
     if (next === null) {
       state = finishScript(state);
+      // Kyle does his own part as soon as Otto claims, as play asks before the check.
+      if (state.stage.at === 'check' && partPending(state, step)) {
+        const part = yourPartAction(step);
+        driveOutsideTranscript(live.shell, part);
+        log = withEntry(log, { kind: 'kyle', action: part });
+        state = doYourPart(state, step);
+      }
       break;
     }
     state = next.state;

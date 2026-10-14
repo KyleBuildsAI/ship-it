@@ -21,6 +21,7 @@ import {
   completeAgentStep,
   confirmAsked,
   decideGate,
+  doYourPart,
   echoPlan,
   failedUnplanned,
   finishScript,
@@ -30,12 +31,14 @@ import {
   openFixRound,
   openGate,
   outcomeHolds,
+  partPending,
   rewindStep,
   starXp,
   stars,
   stepPasses,
   stopScript,
   toDriverAction,
+  yourPartAction,
   type AgentStepState,
   type AnswerAction,
   type Gate,
@@ -58,6 +61,11 @@ import { MissionSchema, type MissionStep } from './schema';
  * runs `cd api` from home, which fails; its strong card uses the full path.
  */
 const step = requireStep(directedMission.steps[0]);
+
+function requireAgent(found: MissionStep) {
+  if (found.agent === undefined) throw new Error('The sample step is not directed.');
+  return found.agent;
+}
 
 function requireStep(found: MissionStep | undefined): MissionStep {
   if (found === undefined) throw new Error('The sample mission lost its step.');
@@ -116,6 +124,7 @@ describe('beginAgentStep', () => {
       verdicts: [],
       rewound: false,
       hintRung3: false,
+      partDone: false,
     });
     const typed = requireStep(sampleMission.steps[0]);
     expect(() => beginAgentStep(typed)).toThrow(MissionRunError);
@@ -282,6 +291,41 @@ describe('fix rounds and rewind', () => {
     expect(rewindStep(echoPlan(start, step, 'guess'))).toEqual(start);
     const perfect = playCard(rewindStep(start), 'full-path', 'api', inTheApi);
     expect(stars(perfect).plan).toBe(true);
+  });
+});
+
+describe("Kyle's own part", () => {
+  const PART = { label: 'Write the notes', path: 'Users/kyle/a.txt', find: 'x', replace: 'y' };
+  const withPart: MissionStep = {
+    ...step,
+    agent: { ...requireAgent(step), yourPart: PART },
+  };
+  const claimed = runToEnd(choosePlan(beginAgentStep(withPart), withPart, 'full-path')).state;
+
+  it('comes before the check, as an edit, and only once Otto claims', () => {
+    expect(partPending(claimed, withPart)).toBe(true);
+    expect(() => answerCheck(claimed, withPart, 'api', inTheApi)).toThrow(/your part/);
+    expect(() => doYourPart(beginAgentStep(withPart), withPart)).toThrow(MissionRunError);
+    expect(yourPartAction(withPart)).toEqual({
+      do: 'edit',
+      path: PART.path,
+      find: 'x',
+      replace: 'y',
+    });
+  });
+
+  it('opens the check once done, keeps through a fix round, and goes with a rewind', () => {
+    const done = doYourPart(claimed, withPart);
+    expect(partPending(done, withPart)).toBe(false);
+    expect(() => doYourPart(done, withPart)).toThrow(/no part left/);
+    const missed = answerCheck(done, withPart, 'home', atHome);
+    expect(openFixRound(missed).partDone).toBe(true);
+    expect(rewindStep(missed).partDone).toBe(false);
+  });
+
+  it('is never asked of a step without one', () => {
+    expect(partPending(claimed, step)).toBe(false);
+    expect(() => yourPartAction(step)).toThrow(/no part for Kyle/);
   });
 });
 

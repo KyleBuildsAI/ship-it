@@ -65,7 +65,7 @@ export function AgentStepView({
           action={stage.action}
         />
       ) : null}
-      {stage.at === 'check' ? <CheckCard task={task} /> : null}
+      {stage.at === 'check' ? <CheckCard task={task} partDone={agent.partDone} /> : null}
       {stage.at === 'result' ? (
         <ResultCard
           task={task}

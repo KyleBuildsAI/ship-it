@@ -201,6 +201,25 @@ describe('the directing panel', () => {
     );
   });
 
+  it("asks for Kyle's own part first, and opens the answers once it's done", () => {
+    const task = step.agent;
+    if (task === undefined) throw new Error('the notes sample is directed');
+    const part = { label: 'Paste the key', path: 'Users/kyle/a.txt', find: 'x', replace: 'y' };
+    const withPart: MissionStep = { ...step, agent: { ...task, yourPart: part } };
+    const checking: AgentStepState = { ...start, stage: { at: 'check', planId: 'bare-name' } };
+    const markup = (agent: AgentStepState) =>
+      renderToStaticMarkup(
+        <AgentStepView activity={activity(agent)} step={withPart} hintLevel={0} checklist={[]} />,
+      );
+    // Every button waits to arm; the answers also wait for the part.
+    const pending = markup(checking);
+    expect(pending).toContain('Your part');
+    expect(pending).toContain('Paste the key');
+    const done = markup({ ...checking, partDone: true });
+    expect(done).not.toContain('Your part');
+    expect(done).toContain('Where did notes land?');
+  });
+
   /** A result for the weak card, Kyle having answered `optionId`. */
   function result(
     verdict: Verdict,

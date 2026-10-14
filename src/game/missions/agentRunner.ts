@@ -133,6 +133,11 @@ export interface AgentStepState {
   readonly rewound: boolean;
   /** Kyle saw the hint that names the card, which costs the Plan star. */
   readonly hintRung3: boolean;
+  /**
+   * Kyle did the step's own part (the task's `yourPart`) on the laptop as it is now. Once
+   * per attempt: a fix round keeps what he did, and only Rewind takes it back.
+   */
+  readonly partDone: boolean;
 }
 
 /** The three skills a step rewards: directing well, approving well, checking well. */
@@ -184,6 +189,7 @@ export function beginAgentStep(step: MissionStep): AgentStepState {
     verdicts: [],
     rewound: false,
     hintRung3: false,
+    partDone: false,
   };
 }
 
@@ -431,6 +437,32 @@ export function finishScript(state: AgentStepState): AgentStepState {
   return { ...state, stage: { at: 'check', planId } };
 }
 
+/**
+ * Whether Kyle must still do his own part before he can answer the check. The check asks
+ * about the finished work, and the work isn't finished until his part is in.
+ */
+export function partPending(state: AgentStepState, step: MissionStep): boolean {
+  return agentTask(step).yourPart !== undefined && !state.partDone;
+}
+
+/** Kyle's part as the edit play drives: only what the machine needs. */
+export function yourPartAction(step: MissionStep): DriverAction {
+  const part = agentTask(step).yourPart;
+  if (part === undefined) throw new MissionRunError(`Step "${step.id}" has no part for Kyle.`);
+  return { do: 'edit', path: part.path, find: part.find, replace: part.replace };
+}
+
+/**
+ * Kyle did his part, at the check. Play drives yourPartAction outside Otto's transcript;
+ * whether it changed anything is for the check and the step's success to find out.
+ */
+export function doYourPart(state: AgentStepState, step: MissionStep): AgentStepState {
+  expectStep(state, step);
+  expectStage(state, 'check', 'do your part');
+  if (!partPending(state, step)) throw new MissionRunError('There is no part left for Kyle.');
+  return { ...state, partDone: true };
+}
+
 /** The step is done when its success and every guard hold (section 1.4). */
 export function stepPasses(step: MissionStep, queries: SandboxQueries): boolean {
   const { guards } = agentTask(step);
@@ -449,6 +481,7 @@ export function answerCheck(
 ): AgentStepState {
   const task = expectStep(state, step);
   const { planId } = expectStage(state, 'check', "check Otto's claim");
+  if (partPending(state, step)) throw new MissionRunError('Do your part before the check.');
   const option = task.check.options.find((candidate) => candidate.id === optionId);
   if (option === undefined) throw new MissionRunError(`There is no check option "${optionId}".`);
   const passed = stepPasses(step, queries);
@@ -487,7 +520,8 @@ export function rewindStep(state: AgentStepState): AgentStepState {
   }
   const start: AgentStage = { at: 'direct', round: 'start' };
   if (state.tried.length === 0) return { ...state, stage: start };
-  return { ...state, rewound: true, stage: start };
+  // The laptop goes back to the step's start, so whatever Kyle did on it goes too.
+  return { ...state, rewound: true, partDone: false, stage: start };
 }
 
 /** Kyle saw hint rung 3, which names the card to pick. */

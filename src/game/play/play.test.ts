@@ -4,10 +4,12 @@ import { onTerminalFeed } from '../agent/terminalFeed';
 import { evaluate, type Predicate } from '../missions/predicates';
 import {
   directedMission,
+  directedMissionInput,
   earlySampleAct,
   notesMission,
   otherSampleAct,
   sampleAct,
+  sampleAgentTaskInput,
   sampleMission,
   secondMission,
   thirdMission,
@@ -35,6 +37,7 @@ import {
   checkClaim,
   decide,
   directFix,
+  doPart,
   nextStep,
   ottoRun,
   pickCard,
@@ -446,6 +449,63 @@ function finishAfterTheSim(entry: Mission): void {
   }
   submitQuestionRound(['when-lost'], '', T0 + 2_000_000);
 }
+
+describe("Kyle's own part of a step", () => {
+  const SECRET = 'dev-secret-for-the-test';
+  const partMission = MissionSchema.parse({
+    ...directedMissionInput,
+    id: 'sample-your-part',
+    steps: directedMissionInput.steps.map((entry) => ({
+      ...entry,
+      agent: {
+        ...sampleAgentTaskInput,
+        yourPart: {
+          label: 'Paste the secret',
+          path: `${API}/package.json`,
+          find: '{}',
+          replace: `{ "key": "${SECRET}" }`,
+        },
+      },
+    })),
+  });
+
+  beforeEach(() => {
+    directedCatalog(partMission);
+    startMission(partMission.id);
+    endBriefing();
+  });
+
+  it('waits for the part before the check, and keeps it out of what Otto saw', () => {
+    pickCard('full-path');
+    ottoWaits();
+    expect(stage()).toBe('check');
+    // The answers are shut until Kyle has done his part.
+    checkClaim('api');
+    expect(stage()).toBe('check');
+
+    doPart();
+    ottoWaits();
+    const pasted = { kind: 'driveFile', path: `${API}/package.json`, contains: SECRET } as const;
+    expect(holds(pasted)).toBe(true);
+    expect(holds({ kind: 'secretShown', secret: SECRET })).toBe(false);
+    expect(mission().agent?.partDone).toBe(true);
+    // Done once: a second press does nothing.
+    doPart();
+    expect(mission().agent?.partDone).toBe(true);
+
+    checkClaim('api');
+    expect(mission().agent?.stage).toMatchObject({ at: 'result', verdict: 'confirmed' });
+  });
+
+  it('is taken back by Rewind, with the laptop', () => {
+    pickCard('full-path');
+    ottoWaits();
+    doPart();
+    rewind();
+    expect(mission().agent?.partDone).toBe(false);
+    expect(holds({ kind: 'driveFile', path: `${API}/package.json`, equals: '{}\n' })).toBe(true);
+  });
+});
 
 describe('directing Otto through a step', () => {
   beforeEach(() => {

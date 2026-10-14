@@ -22,6 +22,7 @@ import {
   completeAgentStep,
   confirmAsked,
   decideGate,
+  doYourPart,
   echoPlan,
   failedUnplanned,
   finishScript,
@@ -29,12 +30,14 @@ import {
   openFixRound,
   openGate,
   outcomeHolds,
+  partPending,
   pausesBefore,
   REFUSAL,
   rewindStep,
   stars,
   stopScript,
   toDriverAction,
+  yourPartAction,
   type AgentStepState,
   type QueuedAction,
 } from '../missions/agentRunner';
@@ -52,6 +55,7 @@ import {
   currentQueries,
   dryRunNow,
   recordAction,
+  recordKyleAction,
   rewindTo,
 } from './sandboxControl';
 import { recordSteps } from './saveRules';
@@ -531,12 +535,27 @@ export function runLook(lookId: string): void {
 }
 
 /**
+ * Kyle's own part, at the check, like pasting a key into .env. It changes the live
+ * sandbox and the log, but never Otto's transcript. The terminal shows it as Kyle's, under
+ * the part's label, since a file edit types no line.
+ */
+export function doPart(): void {
+  const now = live();
+  if (now?.agent.stage.at !== 'check' || !partPending(now.agent, now.step)) return;
+  const step = recordKyleAction(yourPartAction(now.step));
+  const fed = feedAction(now.playback.feed, step, 'kyle', now.task.yourPart?.label);
+  appendBeats(fed.beats, fed.state);
+  saveAgent(doYourPart(now.agent, now.step));
+}
+
+/**
  * Kyle's answer to "is Otto right?". The verdict comes from the live sandbox. A step that
  * passed keeps its stars, which pay XP when the mission is completed.
  */
 export function checkClaim(optionId: string): void {
   const now = live();
   if (now?.agent.stage.at !== 'check') return;
+  if (partPending(now.agent, now.step)) return;
   const { planId } = now.agent.stage;
   const agent = answerCheck(now.agent, now.step, optionId, currentQueries());
   if (agent.stage.at !== 'result') return;

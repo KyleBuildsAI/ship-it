@@ -41,7 +41,12 @@ export type LogEntry =
   /** Setup steps applied to the live sandbox, like a step's `before` or a boss twist. */
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
   /** One of Otto's actions, exactly as it was passed to drive(). */
-  | { readonly kind: 'action'; readonly action: LoggedAction };
+  | { readonly kind: 'action'; readonly action: LoggedAction }
+  /**
+   * Kyle's own action, like pasting a key into .env. It is driven the same way, but it
+   * never enters Otto's transcript: a secret Kyle handles himself is one Otto never saw.
+   */
+  | { readonly kind: 'kyle'; readonly action: LoggedAction };
 
 export interface SandboxLog {
   readonly setup: readonly FixtureStep[];
@@ -150,6 +155,7 @@ export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
   const transcript: TranscriptEntry[] = [];
   for (const entry of log.entries) {
     if (entry.kind === 'steps') applySteps(shell.ws, entry.steps);
+    else if (entry.kind === 'kyle') drive(shell, entry.action);
     else playAction(shell, transcript, entry.action);
   }
   return { shell, transcript };

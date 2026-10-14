@@ -1,6 +1,6 @@
 import { defaultDeps, type FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
-import type { ConfirmLetter, DriverStep } from '../../engine/shell/driver';
+import { drive, type ConfirmLetter, type DriverStep } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
 import type { Workspace } from '../../engine/workspace';
 import {
@@ -105,6 +105,17 @@ export function recordAction(action: LoggedAction): DriverStep {
   const live = liveRecording();
   const step = playAction(sandbox.get().shell, live.transcript, action);
   live.log = withEntry(live.log, { kind: 'action', action });
+  return step;
+}
+
+/**
+ * Kyle takes one action of his own in the live sandbox. It is logged so a dry run or a
+ * rewind replays it, but it stays out of Otto's transcript: Otto never saw it.
+ */
+export function recordKyleAction(action: LoggedAction): DriverStep {
+  const live = liveRecording();
+  const step = drive(sandbox.get().shell, action);
+  live.log = withEntry(live.log, { kind: 'kyle', action });
   return step;
 }
 
