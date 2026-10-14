@@ -75,7 +75,7 @@ export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 
     kind: 'final',
     briefing: [
       test.pitch,
-      `${String(test.passPercent)}% right tests out of every lesson. Each card takes one answer, and you see your score at the end. No hints.`,
+      `${String(test.passPercent)}% right tests out of the lessons these cards come from. Each card takes one answer, and you see your score at the end. No hints.`,
     ],
     cards,
     // A placement pays the test-out XP from its lessons, never XP of its own.

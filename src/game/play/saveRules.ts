@@ -311,8 +311,20 @@ export function missionDone(save: SaveData, missionId: string): boolean {
 }
 
 /**
+ * Whether every part a placement can skip is done or tested out: all but a lesson Act's
+ * final, which is its boss. A placement that only borrows from some parts (Act 1's tests
+ * lessons 1.5 and 1.6, not its directed missions) can't complete the Act by itself.
+ */
+function partsDone(save: SaveData, target: Act): boolean {
+  return target.missionIds
+    .filter((id) => id !== target.finalLessonId)
+    .every((id) => missionDone(save, id));
+}
+
+/**
  * Stamps the Act complete once every mission is done (or tested out), the boss is beaten,
- * and the Field Mission is verified. A placement pass alone also completes it (section 5).
+ * and the Field Mission is verified. A placement pass also completes it (section 5), once
+ * every part it could skip is done or tested out, so it never skips untested missions.
  * An early-access Act never completes: finishing what's built so far isn't the whole Act.
  *
  * A lesson Act's final is listed in missionIds and stands in for the boss, so finishing
@@ -326,6 +338,6 @@ function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   const fieldDone = target.fieldMission === undefined || current.fieldMissionCompletedAt !== null;
   const everything =
     target.missionIds.every((id) => missionDone(save, id)) && bossBeaten && fieldDone;
-  if (!everything && !current.placement.testedOut) return save;
+  if (!everything && !(current.placement.testedOut && partsDone(save, target))) return save;
   return withAct(save, target.act, { ...current, completedAt: now.toISOString() });
 }

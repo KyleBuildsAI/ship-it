@@ -125,7 +125,7 @@ describe("Act 1's placement test", () => {
     expect(test.passPercent).toBe(85);
   });
 
-  it('tests out of 1.5 and 1.6 at half XP and completes the Act, leaving the final to play', () => {
+  it('tests out of 1.5 and 1.6 at half XP, never Missions 1.1 to 1.4 or the final', () => {
     // lessonPlay saves a placement with the Act's lessons, exactly like this.
     const save = recordPlacement(
       createDefaultSave(NOW),
@@ -138,7 +138,46 @@ describe("Act 1's placement test", () => {
     expect(save.missions[lesson16.id]?.status).toBe('tested-out');
     expect(save.missions[final.id]).toBeUndefined();
     expect(save.profile.xp).toBe(lesson15.xp / 2 + lesson16.xp / 2);
-    expect(save.acts['1']?.completedAt).toBe(NOW.toISOString());
+    for (const mission of act1Missions) expect(save.missions[mission.id]).toBeUndefined();
+    // No card asks about folders, deletes, secrets or terminals, so the Act stays open.
+    expect(save.acts['1']?.completedAt).toBeNull();
+  });
+
+  it('completes the Act once Missions 1.1 to 1.4 are played, leaving the final to play', () => {
+    const tested = recordPlacement(
+      createDefaultSave(NOW),
+      act1,
+      act1Lessons,
+      { percent: 90, testedOut: true },
+      NOW,
+    );
+    const [last, ...first] = [...act1Missions].reverse();
+    if (last === undefined) throw new Error('Act 1 has directed missions');
+    const result = { drillPercent: 100, questionXp: 0, directingXp: 0 };
+    const almost = first.reduce(
+      (next, mission) => completeMission(next, act1, mission, result, NOW),
+      tested,
+    );
+    expect(almost.acts['1']?.completedAt).toBeNull();
+    const done = completeMission(almost, act1, last, result, NOW);
+    expect(done.acts['1']?.completedAt).toBe(NOW.toISOString());
+    expect(done.missions[final.id]).toBeUndefined();
+  });
+
+  it('leaves out who-holds-it, whose answer big-hammer names', () => {
+    // big-hammer's right option says "Stop only PID 8712", the answer to who-holds-it.
+    expect(act1PlacementCardIds).toContain('big-hammer');
+    expect(act1PlacementCardIds).not.toContain('who-holds-it');
+  });
+
+  it('has a single order card, so one misplaced step is the only miss it can cost', () => {
+    expect(played.cards.filter((card) => card.kind === 'order')).toHaveLength(1);
+  });
+
+  it('says it covers lessons 1.5 and 1.6, not the whole Act', () => {
+    expect(test.pitch).toContain('lessons 1.5 and 1.6');
+    expect(test.pitch).toContain('Missions 1.1 to 1.4 still need playing');
+    expect(played.briefing.join(' ')).toContain('tests out of the lessons these cards come from');
   });
 
   it('records a miss as an attempt without testing out', () => {
