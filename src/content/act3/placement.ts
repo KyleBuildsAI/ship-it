@@ -13,7 +13,7 @@ import type { LessonPlacementInput } from '../../game/missions/schema';
  */
 export const act3Placement = {
   pitch:
-    'Already branch, merge and resolve conflicts with an agent? 85% tests out. The Field Mission is still worth doing: it lands a real branch on SandCastles.',
+    'Already branch, merge and resolve conflicts with an agent? 85% tests out of the lessons. The Field Mission still needs doing: it lands a real branch on SandCastles.',
   cardIds: [
     // 3.1 Branches Are Pointers
     'what-a-branch-is',

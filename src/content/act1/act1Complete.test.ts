@@ -180,7 +180,7 @@ describe("Act 1's placement test", () => {
 
   it('says it covers lessons 1.5 and 1.6, not the whole Act', () => {
     expect(test.pitch).toContain('lessons 1.5 and 1.6');
-    expect(test.pitch).toContain('Missions 1.1 to 1.4 still need playing');
+    expect(test.pitch).toContain('Missions 1.1 to 1.4 and the Field Mission still need doing');
     expect(played.briefing.join(' ')).toContain('to test out of the lessons these cards come from');
   });
 

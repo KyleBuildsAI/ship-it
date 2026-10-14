@@ -168,6 +168,14 @@ describe('the placement run', () => {
     expect(lesson.briefing[1]).toContain(`Get ${String(need)} of ${String(lesson.cards.length)}`);
   });
 
+  it('says the Field Mission still needs doing, only when the Act has one', () => {
+    const fieldLine = lesson.briefing[2] ?? '';
+    expect(fieldLine).toContain('Field Mission');
+    expect(fieldLine).toContain('still needs doing');
+    const withoutField = { ...full.act, fieldMission: undefined };
+    expect(placementLesson(withoutField, full.lessons).briefing).toHaveLength(2);
+  });
+
   it('says how many cards a pass needs, rounding the percent up to whole cards', () => {
     expect(cardsToPass(12, 85)).toBe(11);
     expect(cardsToPass(20, 85)).toBe(17);

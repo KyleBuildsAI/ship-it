@@ -40,7 +40,7 @@ export const act1PlacementCardIds = [
 
 export const act1Placement = {
   pitch:
-    'Already install packages safely and free a busy port? 85% tests out of lessons 1.5 and 1.6. Missions 1.1 to 1.4 still need playing.',
+    'Already install packages safely and free a busy port? 85% tests out of lessons 1.5 and 1.6. Missions 1.1 to 1.4 and the Field Mission still need doing.',
   cardIds: [...act1PlacementCardIds],
   // 36 seconds a card: brisker than the final's 40, still time to read an artifact.
   timeLimitSeconds: 360,

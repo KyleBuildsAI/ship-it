@@ -133,6 +133,12 @@ export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 
     briefing: [
       test.pitch,
       `Get ${String(cardsToPass(cards.length, test.passPercent))} of ${String(cards.length)} right (${String(test.passPercent)}%), so ${missesAllowed(cards.length, test.passPercent)}, to test out of the lessons these cards come from. Each card takes one answer, and you see your score at the end. No hints.`,
+      // Cards can be guessed and a Field Mission can't, so testing out never skips it.
+      ...(act.fieldMission === undefined
+        ? []
+        : [
+            `The Field Mission, "${act.fieldMission.title}", still needs doing on your real repo before the Act is complete.`,
+          ]),
     ],
     cards,
     // A placement pays the test-out XP from its lessons, never XP of its own.
