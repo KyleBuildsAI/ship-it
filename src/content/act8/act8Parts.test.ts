@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placementLesson } from '../../game/missions/lessonPlacement';
+import { bestLengthStrategy, placementLesson } from '../../game/missions/lessonPlacement';
 import {
   requireFieldMission,
   requireLessonPlacement,
@@ -7,7 +7,7 @@ import {
 } from '../../game/missions/schema';
 import { verifyPaste } from '../../game/play/fieldCheck';
 import { roadmapAct } from '../roadmap';
-import { STORY_HEADINGS, STORY_PATH } from './fieldMission';
+import { STORY_FILES, STORY_HEADINGS, STORY_PATH } from './fieldMission';
 import { act8 } from './index';
 import { act8PlacementCards } from './placement';
 
@@ -27,7 +27,7 @@ function verification(id: string): FieldMission['verifications'][number] {
 function fieldText(): string {
   return [
     ...field.briefing,
-    ...field.checklist.map((item) => item.text),
+    ...field.checklist.flatMap((item) => [item.text, item.prompt ?? '']),
     ...field.verifications.flatMap((check) => [check.instruction, check.command]),
   ].join(' ');
 }
@@ -86,6 +86,22 @@ describe('Act 8 placement test', () => {
     }
   });
 
+  it('can’t be passed by picking options by their length', () => {
+    // A placement shows no feedback, so length is the only clue left. The best rule that
+    // never reads a card must stay far below the 85% that tests out.
+    const run = placementLesson(act, lessons);
+    const best = bestLengthStrategy(run.cards);
+    expect(best?.right ?? 0).toBeLessThanOrEqual(Math.floor(run.cards.length / 3));
+  });
+
+  it('asks only cards that make sense without the lesson card before them', () => {
+    // draft-reply answers with Brightline's log and its 5,000 calls, which only the card
+    // before it shows, and an order card's one locked try punishes a defensible order.
+    expect(placement.cardIds).not.toContain('draft-reply');
+    const run = placementLesson(act, lessons);
+    expect(run.cards.map((card) => card.kind)).not.toContain('order');
+  });
+
   it('plays as one clocked run at the final’s pace of 40 seconds a card', () => {
     const run = placementLesson(act, lessons);
     expect(run.cards.map((card) => card.id)).toEqual(placement.cardIds);
@@ -101,7 +117,7 @@ describe('Act 8 Field Mission: Tell the SandCastles Story', () => {
     const text = fieldText();
     expect(text).toContain(STORY_PATH);
     expect(text).toMatch(/AI agent/);
-    const brief = field.checklist.find((item) => item.id === 'brief-your-agent')?.text ?? '';
+    const brief = field.checklist.find((item) => item.id === 'brief-your-agent')?.prompt ?? '';
     // The headings are listed in STAR order, so what Kyle asks for is what he checks.
     const places = STORY_HEADINGS.map((heading) => brief.indexOf(heading));
     expect(places.every((place) => place >= 0)).toBe(true);
@@ -136,23 +152,59 @@ describe('Act 8 Field Mission: Tell the SandCastles Story', () => {
     expect(verifyPaste(check, 'a1b2c3d update files').passed).toBe(false);
   });
 
-  it('passes only on a clean tree, so nothing the agent wrote is left behind', () => {
-    const check = verification('story-tree-clean');
-    const clean = [
-      'On branch main',
-      "Your branch is up to date with 'origin/main'.",
-      '',
-      'nothing to commit, working tree clean',
-    ].join('\n');
-    const dirty = [
-      'On branch main',
-      'Untracked files:',
-      '  (use "git add <file>..." to include in what will be committed)',
-      '\tdocs/story.md',
-      '',
-      'nothing added to commit but untracked files present (use "git add" to track)',
-    ].join('\n');
-    expect(verifyPaste(check, clean).passed).toBe(true);
-    expect(verifyPaste(check, dirty).passed).toBe(false);
+  it('says what an empty log means: nothing has committed the story yet', () => {
+    const verdict = verifyPaste(verification('story-committed'), '');
+    expect(verdict.message).toContain('no commit has touched docs/story.md');
+    expect(verification('story-committed').instruction).toContain('Any Conventional message');
+  });
+
+  it('reads the committed story’s headings and wants all five, in STAR order', () => {
+    const check = verification('story-headings');
+    expect(check.command).toBe("git show HEAD:docs/story.md | Select-String '^## '");
+    const star = ['', ...STORY_HEADINGS.map((heading) => `## ${heading}`), ''].join('\r\n');
+    expect(verifyPaste(check, star).passed).toBe(true);
+    const shuffled = ['## Situation', '## Action', '## Task', '## Result'].join('\n');
+    expect(verifyPaste(check, shuffled).passed).toBe(false);
+    const missing = verifyPaste(check, ['## Situation', '## Task'].join('\n'));
+    expect(missing.message).toContain('Missing: Action, Result, What I would do differently');
+    const notCommitted = "fatal: path 'docs/story.md' does not exist in 'HEAD'";
+    expect(verifyPaste(check, notCommitted).passed).toBe(false);
+  });
+
+  it('checks the story and README are tracked, and no secret is, in what may be public', () => {
+    const check = verification('story-tracked');
+    const files = ['.gitignore', 'README.md', 'docs/story.md', 'src/main.ts'];
+    expect(verifyPaste(check, files.join('\n')).passed).toBe(true);
+    const noStory = verifyPaste(check, ['README.md', 'src/main.ts'].join('\n'));
+    expect(noStory.passed).toBe(false);
+    expect(noStory.message).toContain('docs/story.md');
+    const withEnv = verifyPaste(check, [...files, '.env'].join('\n'));
+    expect(withEnv.passed).toBe(false);
+    expect(withEnv.message).toContain('.env');
+  });
+
+  it('looks only at the story and README, so other work in progress is left alone', () => {
+    const check = verification('story-files-clean');
+    expect(check.command).toBe(`git status --short ${STORY_FILES.join(' ')}`);
+    // Scoped to two committed files, git prints nothing, and nothing is the clean answer.
+    expect(verifyPaste(check, '').passed).toBe(true);
+    expect(verifyPaste(check, `PS C:\\SandCastles> ${check.command}`).passed).toBe(true);
+    // Run unscoped by mistake, other files' changes still don't count against the story.
+    expect(verifyPaste(check, ' M src/app.ts\n?? notes.txt').passed).toBe(true);
+    const dirty = verifyPaste(check, ' M README.md\n?? docs/story.md');
+    expect(dirty.passed).toBe(false);
+    expect(dirty.message).toContain('README.md, docs/story.md');
+  });
+
+  it('warns that the story may be public, and keeps the agent off other files', () => {
+    const tasks = field.checklist.map((item) => `${item.text} ${item.prompt ?? ''}`).join(' ');
+    expect(tasks).toMatch(/public/);
+    expect(tasks).toMatch(/passwords/);
+    const commit = field.checklist.find((item) => item.id === 'commit-it');
+    expect(commit?.prompt).toMatch(/Commit only those two files/);
+    expect(commit?.prompt).toMatch(/stash/);
+    // The workflow Act 3 taught: a branch and a squash-merged pull request.
+    expect(commit?.prompt).toMatch(/branch called docs\/story/);
+    expect(commit?.prompt).toMatch(/squash-merge/);
   });
 });
