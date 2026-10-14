@@ -49,7 +49,7 @@ export const sampleLessonInput = {
         },
         {
           id: 'rewrite',
-          text: 'Close the PR and write the fix yourself.',
+          text: 'Close the PR, delete the agent’s branch and write the whole session timeout fix yourself.',
           correct: false,
           feedback:
             'You could, but directing a correction is faster and teaches the agent the rule.',
@@ -130,7 +130,7 @@ export const sampleLessonInput = {
         },
         {
           id: 'bad-test',
-          text: 'The test is wrong. Delete it.',
+          text: 'The test is wrong: 15 minutes is too strict. Delete it.',
           correct: false,
           feedback:
             'The test expects 15 minutes, which is the requirement. Deleting it hides the bug.',
@@ -180,7 +180,7 @@ export const sampleLessonInput = {
       options: [
         {
           id: 'none',
-          text: 'Nothing. The app needs that value.',
+          text: 'Nothing. The app needs that value at startup, and the file only lives on your own machine.',
           correct: false,
           feedback: 'It needs it on the machine, not in the repo where everyone can read it.',
         },

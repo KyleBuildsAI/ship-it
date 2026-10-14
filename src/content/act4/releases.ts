@@ -131,10 +131,11 @@ export const releasesAndVersions = {
           feedback: 'Users can’t tell whether they need to change anything.',
         },
         {
-          id: 'everything',
-          text: 'List every file that changed, so nothing is left out.',
+          id: 'upbeat',
+          text: 'Write the 3.0.0 entry from the merged PRs, grouped as Added, Fixed and Changed, each explained in a user’s words. Keep it upbeat: no need to dwell on /v1/export.',
           correct: false,
-          feedback: 'Complete, but useless to a user. They care about behaviour, not files.',
+          feedback:
+            'Well grouped, but the partner apps get no warning and no upgrade steps. Breaking changes go first, with what to do.',
         },
         {
           id: 'grouped',
@@ -202,6 +203,13 @@ export const releasesAndVersions = {
           feedback: 'No version bump and no changelog, so users can’t tell what changed.',
         },
         {
+          id: 'pr-then-publish',
+          text: 'Open a PR that bumps the version to 3.0.0 and adds the CHANGELOG entry. Once it merges and main’s CI is green, tag v3.0.0 and publish the GitHub release.',
+          correct: false,
+          feedback:
+            'Good prep, but tagging and publishing can’t be taken back, and nobody looks first. Keep that last step for a person.',
+        },
+        {
           id: 'pr-then-wait',
           text: 'Open a PR that bumps the version to 3.0.0 and adds the CHANGELOG entry. Don’t tag or publish; I’ll do that after it merges and main’s CI is green.',
           correct: true,
@@ -220,13 +228,13 @@ export const releasesAndVersions = {
       options: [
         {
           id: 'move',
-          text: 'Move the tag. It’s only a typo.',
+          text: 'Move the tag to the fixed commit with git tag -f and push it again. It’s only a typo, so nobody will notice.',
           correct: false,
           feedback: 'People already downloaded 3.0.0. Now one name means two different things.',
         },
         {
           id: 'delete',
-          text: 'Delete the 3.0.0 release and publish it again.',
+          text: 'Delete the v3.0.0 tag and release, then publish 3.0.0 again from the fixed commit so users get it.',
           correct: false,
           feedback: 'Same problem: users have the old 3.0.0 and can’t tell it apart.',
         },

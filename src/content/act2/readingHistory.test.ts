@@ -59,9 +59,6 @@ describeDirectedMission(mission, {
     'restore-tax': {
       'blame-newest > restore-before-tidy': { passed: true, check: 'fixed' },
       'blame-newest > show-then-restore': { passed: true, check: 'fixed' },
-      // After the rewind, HEAD~2 is the first commit, which has no tax.ts, so git
-      // restore removes it to match: the bad rate is gone, but so is the file.
-      'rewind > restore-before-tidy': { passed: false, check: 'file-gone' },
     },
     'clear-dock': {
       'wrong-diff > unstage-checkout': { passed: true, check: 'empty-kept' },
@@ -92,12 +89,15 @@ describeDirectedMission(mission, {
     // After the rewind, HEAD~1 already holds 0.08, so blame-newest's restore changes
     // nothing and never pauses; restoring from HEAD~2 deletes tax.ts, which breaks a guard.
     'restore-tax > rewind > show-then-restore > git restore --source=HEAD~2 src/tax.ts': true,
-    'restore-tax > rewind > restore-before-tidy > git restore --source=HEAD~2 src/tax.ts': true,
+    // restore-before-tidy is not offered after the rewind: its HEAD~2 no longer holds tax.ts.
+    // Denied, the history is whole, so restoring from HEAD~2 is safe again.
+    'restore-tax > rewind (denied) > show-then-restore > git restore --source=HEAD~2 src/tax.ts': false,
+    'restore-tax > rewind (denied) > restore-before-tidy > git restore --source=HEAD~2 src/tax.ts': false,
     'clear-dock > discard > git restore src/checkout.ts': true,
     'clear-dock > wrong-diff > discard > git restore src/checkout.ts': true,
     'commit-real-change > misread-diff > undo-debug-commit > git reset HEAD~1': false,
-    // With no debug commit to take back, the same line would take the tax fix off main.
-    'commit-real-change > stage-cart > undo-debug-commit > git reset HEAD~1': true,
+    // With no debug commit to take back, undo-debug-commit is not offered: its reset would
+    // take the tax fix off main instead.
   },
 });
 

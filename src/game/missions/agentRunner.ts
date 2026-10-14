@@ -192,8 +192,8 @@ export function beginAgentStep(step: MissionStep): AgentStepState {
   };
 }
 
-/** The cards on screen: the start plans, or in a fix round the fixes and untried plans. */
-export function offeredPlans(state: AgentStepState, step: MissionStep): readonly Plan[] {
+/** The round's cards before any fix's `when` is weighed: what a pick is checked against. */
+function roundCards(state: AgentStepState, step: MissionStep): readonly Plan[] {
   const task = expectStep(state, step);
   const { stage } = state;
   if (stage.at !== 'direct' && stage.at !== 'echo') return [];
@@ -201,8 +201,26 @@ export function offeredPlans(state: AgentStepState, step: MissionStep): readonly
   return [...task.fixes, ...task.plans.filter((plan) => !state.tried.includes(plan.id))];
 }
 
+/**
+ * The cards on screen: the start plans, or in a fix round the untried plans and the fixes
+ * whose `when` holds on the sandbox now. It is read while Kyle decides, when nothing runs.
+ */
+export function offeredPlans(
+  state: AgentStepState,
+  step: MissionStep,
+  queries: SandboxQueries,
+): readonly Plan[] {
+  return roundCards(state, step).filter(
+    (plan) => plan.when === undefined || evaluate(plan.when, queries),
+  );
+}
+
+/**
+ * A pick is checked against the round, not the sandbox: this module never reads one. Play
+ * only shows offeredPlans, and ignores a pick that isn't among them.
+ */
 function offeredPlan(state: AgentStepState, step: MissionStep, planId: string): Plan {
-  const plan = offeredPlans(state, step).find((offered) => offered.id === planId);
+  const plan = roundCards(state, step).find((offered) => offered.id === planId);
   if (plan === undefined) throw new MissionRunError(`Card "${planId}" isn't on offer now.`);
   return plan;
 }

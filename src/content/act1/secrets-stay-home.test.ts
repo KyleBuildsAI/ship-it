@@ -68,13 +68,9 @@ describeDirectedMission(missionById('secrets-stay-home'), {
       'fill-the-template > start-over': { passed: true, check: 'filled' },
       'copy-then-set > start-over': { passed: true, check: 'filled' },
       'copy-then-set > copy-then-edit': { passed: true, check: 'filled' },
-      // Allowed, the copy carries the filled template's PORT=3000, so the edit, which only
-      // fills a blank PORT line, finds nothing and Otto stops rather than writing
-      // PORT=30003000. Denied, the template is untouched and the card works.
-      'fill-the-template > copy-then-edit': {
-        'allow-all': 'direct',
-        'deny-harmful': { passed: true, check: 'filled' },
-      },
+      // The copy carries the filled template's PORT=3000, so the edit, which only fills a
+      // blank PORT line, finds nothing and Otto stops rather than writing PORT=30003000.
+      'fill-the-template > copy-then-edit': 'direct',
     },
     'keep-it-out-of-git': {
       'trust-it > add-the-rule': { passed: true, check: 'ignored' },
@@ -83,14 +79,10 @@ describeDirectedMission(missionById('secrets-stay-home'), {
     },
     'the-api-key': {
       'copy-key-file > remove-copy': { passed: true, check: 'home-only' },
-      // Allowed, Otto has seen the key: no card can make him forget it. Denied, he never
-      // read it, and naming it works.
-      'otto-reads-it > name-it': {
-        'allow-all': { passed: false, check: 'seen' },
-        'deny-harmful': { passed: true, check: 'home-only' },
-      },
-      // There is no copy to remove, so Otto stops rather than claim he removed one.
-      'otto-reads-it > remove-copy': 'direct',
+      // Otto has seen the key: no card can make him forget it.
+      'otto-reads-it > name-it': { passed: false, check: 'seen' },
+      // Denied, Otto never saw it, so naming the key passes.
+      'otto-reads-it (denied) > name-it': { passed: true, check: 'home-only' },
     },
   },
   // Allowed, Otto has read the key: only Rewind can help, and on a real machine, revoking it.
@@ -110,23 +102,20 @@ describeDirectedMission(missionById('secrets-stay-home'), {
     "make-the-env > copy-then-set > fill-the-template > Set-Content .env.example 'PORT=3000'": true,
     'make-the-env > copy-then-set > start-over > Copy-Item .env.example .env': false,
     [`make-the-env > copy-then-set > start-over > ${EDIT_ENV}`]: false,
-    // Allowed, the template was filled, so copying it is harmful, and the edit after it
-    // never pauses: on the filled copy it changes nothing, so it fails. Denied, the
-    // template still holds only names, and the same cards are safe until they overwrite.
-    [`make-the-env > fill-the-template > copy-then-edit > ${COPY_TEMPLATE}`]: {
-      'allow-all': true,
-      'deny-harmful': false,
-    },
-    [`make-the-env > fill-the-template > copy-then-edit > ${EDIT_ENV}`]: false,
-    'make-the-env > fill-the-template > copy-then-set > Copy-Item .env.example .env': {
-      'allow-all': true,
-      'deny-harmful': false,
-    },
-    "make-the-env > fill-the-template > copy-then-set > Set-Content .env 'PORT=3000'": true,
-    [`make-the-env > fill-the-template > copy-then-set > ${EDIT_ENV}`]: false,
+    [`make-the-env > fill-the-template > copy-then-edit > ${COPY_TEMPLATE}`]: true,
+    // No pause for the edit after it: on the filled copy it changes nothing, so it fails.
+    'make-the-env > fill-the-template > copy-then-set > Copy-Item .env.example .env': true,
     [`make-the-env > fill-the-template > start-over > ${WRITE_EXAMPLE}`]: false,
     'make-the-env > fill-the-template > start-over > Copy-Item .env.example .env': false,
     [`make-the-env > fill-the-template > start-over > ${EDIT_ENV}`]: false,
+    // Denied, the template was never filled, so copying it is safe again.
+    [`make-the-env > fill-the-template (denied) > copy-then-edit > ${COPY_TEMPLATE}`]: false,
+    [`make-the-env > fill-the-template (denied) > copy-then-edit > ${EDIT_ENV}`]: false,
+    'make-the-env > fill-the-template (denied) > copy-then-set > Copy-Item .env.example .env': false,
+    "make-the-env > fill-the-template (denied) > copy-then-set > Set-Content .env 'PORT=3000'": true,
+    [`make-the-env > fill-the-template (denied) > copy-then-set > ${EDIT_ENV}`]: false,
+    'make-the-env > fill-the-template (denied) > start-over > Copy-Item .env.example .env': false,
+    [`make-the-env > fill-the-template (denied) > start-over > ${EDIT_ENV}`]: false,
     // Step 2: only replacing .gitignore loses rules. Every append is safe.
     [`keep-it-out-of-git > append-and-show > ${APPEND_ENV_RULE}`]: false,
     'keep-it-out-of-git > replace-it > Set-Content .gitignore .env': true,
@@ -167,6 +156,14 @@ describeDirectedMission(missionById('secrets-stay-home'), {
     'the-api-key > copy-key-file > remove-copy > Remove-Item .\\quill-dev.txt': false,
     [`the-api-key > names-only > ${FULL_NAME_IN_TEMPLATE}`]: false,
     [`the-api-key > names-only > ${FULL_NAME_IN_ENV}`]: false,
+    // Denied, Otto never read the key, so the cards weigh as they do from the start.
+    [`the-api-key > otto-reads-it (denied) > copy-key-file > ${NAME_IN_ENV}`]: false,
+    [`the-api-key > otto-reads-it (denied) > copy-key-file > ${NAME_IN_TEMPLATE}`]: false,
+    [`the-api-key > otto-reads-it (denied) > copy-key-file > ${COPY_KEY}`]: true,
+    [`the-api-key > otto-reads-it (denied) > name-it > ${NAME_IN_ENV}`]: false,
+    [`the-api-key > otto-reads-it (denied) > name-it > ${NAME_IN_TEMPLATE}`]: false,
+    [`the-api-key > otto-reads-it (denied) > names-only > ${FULL_NAME_IN_ENV}`]: false,
+    [`the-api-key > otto-reads-it (denied) > names-only > ${FULL_NAME_IN_TEMPLATE}`]: false,
   },
 });
 

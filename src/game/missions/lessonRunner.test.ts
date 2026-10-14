@@ -187,6 +187,39 @@ describe('an order card', () => {
   });
 });
 
+describe('a locked run (a placement test)', () => {
+  const locked = () => finishLessonBriefing(startLessonRun(sampleLesson, { locked: true }), T0);
+
+  it('is unlocked for a lesson, so a wrong pick can be tried again', () => {
+    expect(cards().locked).toBe(false);
+    const wrong = pickOption(cards(), sampleLesson, wrongOption(cards()));
+    expect(wrong.card.solved).toBe(false);
+  });
+
+  it('ends a pick card on its first answer, right or wrong', () => {
+    const run = locked();
+    const missed = pickOption(run, sampleLesson, wrongOption(run));
+    expect(missed.card).toMatchObject({ solved: true, picked: [wrongOption(run)] });
+    expect(missed.firstTry).toEqual([false]);
+    // Nothing can be picked after that, so the right answer is never confirmed.
+    expect(pickOption(missed, sampleLesson, rightOption(run))).toBe(missed);
+    const hit = pickOption(run, sampleLesson, rightOption(run));
+    expect(hit.firstTry).toEqual([true]);
+  });
+
+  it('ends an order card on its first check, in order or not', () => {
+    let run = locked();
+    for (let index = 0; index < 2; index++) {
+      run = nextCard(pickOption(run, sampleLesson, rightOption(run)), sampleLesson);
+    }
+    const wrong = checkOrder(run, sampleLesson);
+    expect(wrong.card).toMatchObject({ solved: true, wrongOrders: 0 });
+    expect(wrong.firstTry).toEqual([true, true, false]);
+    const right = checkOrder(sortSteps(run), sampleLesson);
+    expect(right.firstTry).toEqual([true, true, true]);
+  });
+});
+
 describe("a final's shared clock", () => {
   it('has no clock on a plain lesson', () => {
     expect(lessonSecondsLeft(cards(), sampleLesson, T0 + 999_000)).toBeNull();

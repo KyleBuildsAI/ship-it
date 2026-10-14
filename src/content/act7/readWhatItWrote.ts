@@ -82,13 +82,13 @@ export const readWhatItWrote = {
         },
         {
           id: 'owner',
-          text: 'Admins and the owner, same as before.',
+          text: 'Admins and the document’s owner, same as before; the line was just shortened.',
           correct: false,
           feedback: 'Read it again: it no longer compares user.id to anything.',
         },
         {
           id: 'admins',
-          text: 'Only admins.',
+          text: 'Only admins, since the comparison with the owner was taken out of the check.',
           correct: false,
           feedback: 'Boolean(doc.ownerId) is true for almost every document.',
         },
@@ -122,9 +122,10 @@ export const readWhatItWrote = {
       options: [
         {
           id: 'merge',
-          text: 'Merge it. Extra cleanup is free.',
+          text: 'Merge it. The extra cleanup is a bonus, and CI passed, so the other files must be fine.',
           correct: false,
-          feedback: 'It isn’t free: 30 files of changes nobody asked for, and nobody reviewed.',
+          feedback:
+            'Passing CI isn’t a review: 30 files of changes nobody asked for, and nobody read.',
         },
         {
           id: 'split',
@@ -134,7 +135,7 @@ export const readWhatItWrote = {
         },
         {
           id: 'check-one',
-          text: 'Check the pricing file and approve.',
+          text: 'Review the pricing file closely, since that’s the change you asked for, then approve the PR.',
           correct: false,
           feedback: 'Then billing changes reach main unread.',
         },
@@ -150,15 +151,15 @@ export const readWhatItWrote = {
       options: [
         {
           id: 'thanks',
-          text: 'Great, thanks Otto!',
+          text: 'Great, thanks Otto! Write a short summary of everything you changed for the PR description.',
           correct: false,
-          feedback: '“Works” is a claim. Nothing was proved.',
+          feedback: '“Works” is a claim, and a summary is more claims. Nothing was proved.',
         },
         {
           id: 'sure',
-          text: 'Are you sure?',
+          text: 'Are you sure? Double-check everything once more and tell me again whether every test really passed.',
           correct: false,
-          feedback: 'He’ll say yes. Ask for output, not confidence.',
+          feedback: 'He’ll check and say yes again. Ask for output, not confidence.',
         },
         {
           id: 'proof',

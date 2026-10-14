@@ -33,6 +33,9 @@ describe('Act 5: Quality Gates content', () => {
     expect(validateAct(act5.act, [], lessons)).toEqual([]);
     expect(act5.act.missionIds).toEqual(lessons.map((lesson) => lesson.id));
     expect(act5.act.finalLessonId).toBe('red-ci');
+    // Every part a finished Act has: the final stands in for the boss.
+    expect(act5.act.placementTest).toBeDefined();
+    expect(act5.act.fieldMission?.title).toBe('Green on Every Push');
   });
 
   it('has four lessons of 7 to 9 cards, then one timed final of 8 to 10', () => {

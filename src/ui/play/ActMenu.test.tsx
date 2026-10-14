@@ -15,6 +15,7 @@ import {
   sampleLessonAct,
   sampleSecondLesson,
 } from '../../game/missions/sample.test-lesson';
+import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { ActSchema } from '../../game/missions/schema';
 import { setCatalog, type ActContent } from '../../game/play/catalog';
 import { startLesson } from '../../game/play/lessonPlay';
@@ -263,6 +264,7 @@ describe('the Act menu in preview mode', () => {
       '3.3 Conflicts Without Panic · Not built yet',
       '3.4 Tools for Bad Days · Not built yet',
       'Boss: Conflict Storm · Not built yet',
+      'Field Mission: Land a Real Branch · Not built yet',
     ]);
     expect(markup.match(/<button/g)).toHaveLength(8);
   });
@@ -309,5 +311,39 @@ describe('an Act made of lessons', () => {
     const current = play.get().activity;
     expect(current?.kind === 'lesson' ? current.lesson.id : null).toBe(sampleLesson.id);
     leavePlay();
+  });
+});
+
+describe('a lesson Act with every part', () => {
+  const full = fullSampleLessonAct();
+  const [first, second, final] = full.lessons;
+
+  it('offers its placement test first and its Field Mission last, around the lessons', () => {
+    expect(rows(menuFor(full))).toEqual([
+      'Placement test · Know PR review already? 85% tests out. [Take]',
+      `6.1 ${first?.title ?? ''} · 6 cards [Play]`,
+      `6.2 ${second?.title ?? ''} · 6 cards [Play]`,
+      `6.3 Final: ${final?.title ?? ''} · Timed final challenge [Play]`,
+      'Field Mission: Land a Real Branch (sample) · Real work on your SandCastles repo [Open]',
+    ]);
+  });
+
+  it('shows tested-out lessons, and the Act complete, after testing out', () => {
+    const testedOut = { ...createMissionProgress(), status: 'tested-out' as const };
+    const save: SaveData = {
+      ...newSave,
+      missions: { [first?.id ?? '']: testedOut },
+      acts: {
+        '6': {
+          ...createActProgress(),
+          placement: { attempts: 1, bestPercent: 100, testedOut: true },
+          completedAt: TEST_NOW.toISOString(),
+        },
+      },
+    };
+    const markup = menuFor(full, save);
+    expect(rows(markup)[0]).toBe('Placement test · Tested out [Take]');
+    expect(rows(markup)[1]).toBe(`6.1 ${first?.title ?? ''} · Tested out · 6 cards [Replay]`);
+    expect(text(markup)).toContain('Act complete');
   });
 });

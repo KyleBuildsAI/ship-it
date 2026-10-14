@@ -155,6 +155,7 @@ Speed (`game/agent/pace.ts`):
 | `big-hammer`: reinstall everything, kill every node | 1.4, 1.6, boss |
 | `invented-fact`: a lookalike or made-up package | 1.5 |
 | `moved-goalposts`: changed the goal (another port) instead of fixing it | 1.6 |
+| `wrong-label`: a commit message with no type, or the wrong one | 2.3 |
 
 ### 1.3 One step, screen by screen
 
@@ -728,22 +729,24 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
   - variable names
   - "never print or read .env"
   - "deletes and installs need approval"
-- `handoff`: in a fresh clone, have your agent set SandCastles up using only that section, then fix whatever it had to guess (not verified)
-- `commit`: commit with a `docs:` message
+- `handoff`: clone into a new, empty folder (never the working one), have your agent set SandCastles up using only that section, asking before it creates or overwrites any `.env`, then fix whatever it had to guess (not verified)
+- `stage`: stage only the brief by name (`git add CLAUDE.md`, never `git add .` or `-A`) and read `git status` first; if `.env` shows anywhere, add it to `.gitignore` before anything is committed
+- `commit`: commit with a `docs:` message and push
 
 **Verifications.** Two stages, so real-world transfer starts early.
 
 | When | id | Parser → check |
 |---|---|---|
 | **v1, B4 (existing parsers)** | `no-secrets-tracked` | `git ls-files` → `ls-files` → `noTrackedSecrets` |
-| | `clean-tree` | `git status --short` → `status-short` → `clean` |
-| | `docs-commit` | `git log --oneline -3` → `log-oneline` → `conventionalRatio {min: 1, last: 1}` |
+| | `brief-tracked` | `git ls-files` → `ls-files` → `tracksAny {paths: [CLAUDE.md, AGENTS.md]}` |
+| | `brief-pushed` | `git status -sb -- CLAUDE.md AGENTS.md` → `status-short` → `clean {pushed: true}` (only the brief: a dirty tree is Act 2's starting point) |
+| | `docs-commit` | `git log --oneline -3` → `log-oneline` → `newestCommitType {type: docs}` |
 | **v2, G5** | `tools-found` | `get-command` → `toolsFound {min: 2}` |
 | | `ports-listening` | `listening-ports` → `listeningPorts {min: 1}` |
 | | `env-example-names` | `env-names` → `envNamesOnly {min: 1}` |
 | | `agent-brief` | `agent-brief` → `docEnvironment {minPorts: 1, minNames: 1}` (heading, a port, a name, a never-read-.env line, and no `NAME=value`) |
 
-- A secret guard (`findSecretLike`) runs before every parser. It returns only the kind of secret found, clears the paste, and says "rotate it".
+- A secret guard (`findSecretLike`, `src/engine/verify/secretGuard.ts`) runs before every parser. It returns only the kind of secret found, clears the paste, and says "rotate it".
 - Pastes stay in React state; only the pass flags are saved.
 
 ---
@@ -805,7 +808,8 @@ They live in `src/game/world/machine/` and read `MachineQueries`, which gains `l
 export const ANATOMY = ['goal', 'place', 'limits', 'check'] as const;
 export type AnatomyPart = (typeof ANATOMY)[number];
 export const SLIPS = ['wrong-place', 'overclaim', 'too-broad', 'wrong-verb', 'leak',
-  'stale-terminal', 'shell-mixup', 'big-hammer', 'invented-fact', 'moved-goalposts'] as const;
+  'stale-terminal', 'shell-mixup', 'big-hammer', 'invented-fact', 'moved-goalposts',
+  'wrong-label'] as const;
 
 /** A PowerShell line Otto types. It is code, so it doesn't count toward the screen-word limit. */
 const CommandLineSchema = z.string().trim().min(1).max(200);
@@ -893,6 +897,8 @@ export const PlanSchema = z.strictObject({
   /** Why this direction worked or didn't. At most 25 words. */
   lesson: ScreenTextSchema,
   slip: z.enum(SLIPS).optional(),
+  /** A fix only: offered while this holds on the sandbox (e.g. there is a commit to undo). */
+  when: PredicateSchema.optional(),
 });
 
 const CheckOptionSchema = z.strictObject({

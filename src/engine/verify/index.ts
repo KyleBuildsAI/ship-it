@@ -5,19 +5,53 @@
  */
 export {
   buildOutputToIgnore,
+  commitType,
+  CONVENTIONAL_TYPES,
   conventionalRatio,
+  firstTracked,
   isCleanStatus,
   isConventionalSubject,
   isGeneratedSubject,
+  isPullRequestSubject,
   isSecretPath,
+  isSquashMergedSubject,
+  isTypedBranchName,
+  matchesPathPattern,
+  mergedBranchName,
+  newestWrittenCommit,
+  readTopMerge,
+  searchesAllHistoryFor,
+  statusPosition,
   trackedSecretPaths,
+  unpushedCommits,
+  type ConventionalType,
   type ParsedStatus,
   type PathSource,
+  type StatusPosition,
+  type TopMerge,
 } from './checks';
 export { detectPasteKind, type PasteKind } from './detect';
-export { parseLogOneline, type OnelineCommit } from './logOneline';
+export {
+  latestMergedPull,
+  linkedIssueNumber,
+  parseRepoSlug,
+  pullRequestProblems,
+  type PullRequestSummary,
+  type RepoSlug,
+} from './github';
+export { headingProblems, parseMarkdownHeadings, type HeadingProblems } from './headings';
+export { parseLogGraph, parseLogOneline, type GraphCommit, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';
+export { findSecretLike, type SecretKind } from './secretGuard';
+export { isGreenRun, parseRunList, type WorkflowRun } from './runList';
+export {
+  documentedRequest,
+  isFromFile,
+  parseSelectString,
+  type DocumentedRequest,
+  type SelectStringMatch,
+} from './selectString';
 export {
   parseStatusLong,
   type ChangeKind,

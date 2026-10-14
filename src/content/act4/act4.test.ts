@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LessonSchema, type LessonCard } from '../../game/missions/lessonSchema';
+import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
-import { completeLesson } from '../../game/play/saveRules';
+import { requireFieldMission } from '../../game/missions/schema';
+import { completeLesson, recordFieldMission } from '../../game/play/saveRules';
 import { createDefaultSave } from '../../game/save/schema';
 import { act4, act4Lessons } from '.';
 
@@ -9,6 +11,21 @@ const NOW = new Date('2026-10-03T12:00:00.000Z');
 const { act, lessons } = act4;
 const regular = lessons.filter((lesson) => lesson.kind === 'lesson');
 const final = lessons.at(-1);
+
+type PickCard = Exclude<LessonCard, { kind: 'order' }>;
+
+function isPickCard(card: LessonCard): card is PickCard {
+  return card.kind !== 'order';
+}
+
+/** The right option's length in words, and the longest wrong option's. */
+function lengths(card: PickCard): { right: number; longestWrong: number } {
+  const right = countWords(card.options.find((option) => option.correct)?.text ?? '');
+  const longestWrong = Math.max(
+    ...card.options.filter((option) => !option.correct).map((option) => countWords(option.text)),
+  );
+  return { right, longestWrong };
+}
 
 function cardsOfKind(cards: readonly LessonCard[], kind: LessonCard['kind']): LessonCard[] {
   return cards.filter((card) => card.kind === kind);
@@ -21,9 +38,11 @@ describe('Act 4: GitHub Team Flow', () => {
     }
   });
 
-  it('is a complete lesson Act that validates', () => {
+  it('is a finished lesson Act with every part, and validates', () => {
     expect(act.title).toBe('GitHub Team Flow');
     expect(act.earlyAccess).toBe(false);
+    expect(act.placementTest).toBeDefined();
+    expect(act.fieldMission).toBeDefined();
     expect(validateAct(act, [], lessons)).toEqual([]);
   });
 
@@ -84,6 +103,22 @@ describe('Act 4: GitHub Team Flow', () => {
     }
   });
 
+  it('never lets the longest option give the answer away', () => {
+    // Act 3's rule (DESIGN.md section 5): if the right option were usually the most
+    // detailed, picking the longest would pass without judging anything. So every prompt
+    // card has a detailed but flawed brief nearly as long as the right one, and the right
+    // answer is the longest on at most half the pick cards.
+    const pickCards = lessons.flatMap((lesson) => lesson.cards).filter(isPickCard);
+    let rightIsLongest = 0;
+    for (const card of pickCards) {
+      const { right, longestWrong } = lengths(card);
+      if (right > longestWrong) rightIsLongest++;
+      if (card.kind === 'prompt')
+        expect(longestWrong / right, card.id).toBeGreaterThanOrEqual(0.75);
+    }
+    expect(rightIsLongest / pickCards.length).toBeLessThanOrEqual(0.5);
+  });
+
   it('shows an artifact to read on at least a third of its cards', () => {
     // Real situations come with something to read: a diff, a log, an agent's message.
     const cards = lessons.flatMap((lesson) => lesson.cards);
@@ -91,13 +126,25 @@ describe('Act 4: GitHub Team Flow', () => {
     expect(withArtifact.length / cards.length).toBeGreaterThanOrEqual(1 / 3);
   });
 
-  it('pays XP once per lesson and completes the Act when every lesson is played', () => {
-    const save = lessons.reduce(
+  it('pays XP once per lesson, and completes the Act once the Field Mission is verified too', () => {
+    const played = lessons.reduce(
       (next, lesson) => completeLesson(next, act, lesson, 100, NOW),
       createDefaultSave(NOW),
     );
-    expect(save.acts['4']).toMatchObject({ completedAt: NOW.toISOString() });
+    // The final is the boss, so it's beaten, but a finished Act needs its real-world work.
+    expect(played.acts['4']).toMatchObject({
+      bossCompletedAt: NOW.toISOString(),
+      completedAt: null,
+    });
     const xp = lessons.reduce((total, lesson) => total + lesson.xp, 0);
-    expect(save.profile.xp).toBe(xp);
+    expect(played.profile.xp).toBe(xp);
+    const field = requireFieldMission(act);
+    const verified = recordFieldMission(
+      played,
+      act,
+      field.verifications.map((check) => check.id),
+      NOW,
+    );
+    expect(verified.acts['4']).toMatchObject({ completedAt: NOW.toISOString() });
   });
 });

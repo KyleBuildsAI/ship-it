@@ -7,9 +7,10 @@ import {
   type JudgmentAnswer,
   type JudgmentGrade,
 } from '../missions/judgment';
+import { closeTerminal, openTerminal } from '../hud';
 import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
-import { isJudgmentDrill, requirePlacement } from '../missions/schema';
+import { isJudgmentDrill, requireDrillPlacement } from '../missions/schema';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
@@ -18,7 +19,7 @@ import { allMissions, findDrill, getAct } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
 import { beginScene, endScene, frameScene } from './scenePlay';
-import { recordDrill, recordPlacement, recordReview } from './saveRules';
+import { countPlacementAttempt, recordDrill, recordPlacement, recordReview } from './saveRules';
 
 /*
  * A series of timed drills with no hints and no Sage (DESIGN.md pillar 4): the Act's
@@ -47,10 +48,15 @@ function begin(
 ): void {
   endDrill();
   endScene();
+  const drills = drillIds.map(findDrill);
+  // Act 2's drills are typed, so the terminal opens for them; a judgment drill is answered
+  // in the panel, so a set of only those keeps it put away (DESIGN.md, First-run tutorial).
+  if (drills.some((drill) => !isJudgmentDrill(drill))) openTerminal();
+  else closeTerminal();
   setActivity({
     kind,
     act,
-    drills: drillIds.map(findDrill),
+    drills,
     active: null,
     results: [],
     placement: null,
@@ -58,9 +64,12 @@ function begin(
   });
 }
 
-/** An Act's placement test: 85% or better tests out of the whole Act. */
+/**
+ * An Act's placement test of drills: 85% or better tests out of the whole Act. A lesson
+ * Act's placement test is cards instead, played as a lesson (lessonPlay.ts).
+ */
 export function startPlacement(act: number): void {
-  begin('placement', act, requirePlacement(getAct(act).act).drillIds);
+  begin('placement', act, requireDrillPlacement(getAct(act).act).drillIds);
 }
 
 /**
@@ -104,6 +113,11 @@ export function startNextSeriesDrill(nowMs: number = Date.now()): void {
   const drill = current.drills[index];
   if (drill === undefined) return;
   const label = current.kind === 'placement' ? 'Placement test' : 'Review';
+  // A placement attempt counts from its first drill, so leaving a bad run isn't a free one.
+  const placementAct = current.kind === 'placement' ? current.act : null;
+  if (index === 0 && placementAct !== null) {
+    saveProgressNow((save) => countPlacementAttempt(save, placementAct));
+  }
   loadSandbox(
     drill.setup,
     `${label} ${String(index + 1)} of ${String(current.drills.length)}. No hints, no Sage.`,
@@ -164,7 +178,7 @@ function finish(current: SeriesActivity, nowMs: number, graded: JudgmentGrade | 
   let placement = current.placement;
   if (done && current.kind === 'placement' && current.act !== null) {
     const { act, missions } = getAct(current.act);
-    placement = placementResult(results, requirePlacement(act).passPercent);
+    placement = placementResult(results, requireDrillPlacement(act).passPercent);
     const result = placement;
     saveProgressNow((save) => recordPlacement(save, act, missions, result, now));
   }

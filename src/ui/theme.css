@@ -413,7 +413,12 @@ body {
   position: absolute;
   top: 140px;
   left: 16px;
-  max-height: calc(100vh - 156px);
+  /*
+   * Stops 64px above the bottom: the Terminal button and the HUD menu sit in that strip
+   * (16px up, about 32px tall), and with the terminal closed by default the button is how
+   * a player finds it. 140 top + 64 bottom = 204.
+   */
+  max-height: calc(100vh - 204px);
   box-sizing: border-box;
   width: min(400px, 34vw);
   padding: 14px 16px;
@@ -1034,6 +1039,10 @@ body {
   background: rgba(126, 226, 168, 0.12);
 }
 
+.lesson-option--chosen {
+  border-color: var(--accent);
+}
+
 .lesson-option--wrong {
   border-color: rgba(255, 123, 123, 0.6);
   color: var(--text-muted);
@@ -1091,8 +1100,72 @@ body {
 }
 
 .field-tasks {
-  padding-left: 18px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
   color: var(--text-muted);
+}
+
+.field-task {
+  margin: 8px 0;
+}
+
+.field-task__label {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  align-items: start;
+  cursor: pointer;
+}
+
+.field-task__label input {
+  margin: 3px 0 0;
+  accent-color: var(--ok);
+}
+
+/* A ticked task fades, so the eye lands on what's left to do. */
+.field-task--done .field-task__label span {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* The brief to give an agent, set apart so it reads as words to copy, not instructions. */
+.field-task__prompt {
+  margin: 6px 0 0 24px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+}
+
+.field-task__prompt p {
+  margin: 0 0 6px;
+  font: 13px var(--font-mono);
+}
+
+.field-check__run {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.play-button--small {
+  padding: 3px 10px;
+  font-size: 13px;
+}
+
+.copy-button__status {
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .field-check {
@@ -1103,7 +1176,7 @@ body {
 
 .field-check__command {
   display: inline-block;
-  margin-bottom: 6px;
+  overflow-wrap: anywhere;
   padding: 2px 6px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.35);
@@ -1112,7 +1185,8 @@ body {
   user-select: all;
 }
 
-.field-check textarea {
+.field-check textarea,
+.field-check__repo {
   box-sizing: border-box;
   width: 100%;
   padding: 6px 8px;

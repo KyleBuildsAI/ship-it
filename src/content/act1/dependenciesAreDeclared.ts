@@ -46,7 +46,7 @@ export const dependenciesAreDeclared = {
       options: [
         {
           id: 'the-code',
-          text: 'It holds the code of express and dotenv, copied into the project.',
+          text: 'It holds the full source of express and dotenv, copied into the project so the API can run without the internet.',
           correct: false,
           feedback:
             'It holds only names and version ranges. The code arrives when npm install runs.',
@@ -190,7 +190,7 @@ export const dependenciesAreDeclared = {
         },
         {
           id: 'self-update',
-          text: 'express updates itself inside node_modules.',
+          text: 'express updates itself inside node_modules whenever a newer version comes out, even if nobody runs npm install.',
           correct: false,
           feedback: 'Packages never update themselves. Only an install changes node_modules.',
         },

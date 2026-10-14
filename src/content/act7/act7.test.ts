@@ -5,8 +5,14 @@ import {
   type Lesson,
   type LessonCard,
 } from '../../game/missions/lessonSchema';
+import { placementLesson } from '../../game/missions/lessonPlacement';
+import { LESSON_PLACEMENT_SECONDS_PER_CARD } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import { act7, act7Lessons } from '.';
+import { verifyPaste, type Verification } from '../../game/play/fieldCheck';
+import { completeLesson, recordFieldMission, recordPlacement } from '../../game/play/saveRules';
+import { placementTestOutXp } from '../../game/progression/xp';
+import { createDefaultSave } from '../../game/save/schema';
+import { act7, act7Lessons, act7Placement, specThenShip } from '.';
 
 const { act, lessons } = act7;
 const regular = lessons.filter((lesson) => lesson.kind === 'lesson');
@@ -125,5 +131,213 @@ describe('Act 7: AI-Native Engineering', () => {
   it('starts with the lesson the Act 7 island points to', () => {
     // src/game/world/zones.ts tells the player to start with 7.1 Brief the Agent.
     expect(lessons[0]?.title).toBe('Brief the Agent');
+  });
+});
+
+const NOW = new Date('2026-10-13T12:00:00.000Z');
+
+describe('Act 7 placement test', () => {
+  it('is a finished Act with its placement test and Field Mission, not early access', () => {
+    expect(act.earlyAccess).toBe(false);
+    expect(act.placementTest).toBeDefined();
+    expect(act.fieldMission?.id).toBe(specThenShip.id);
+  });
+
+  it('borrows two or three cards from every lesson, and none from the final', () => {
+    for (const lesson of regular) {
+      const ids = new Set(lesson.cards.map((card) => card.id));
+      const lent = act7Placement.cardIds.filter((id) => ids.has(id)).length;
+      expect(lent, lesson.id).toBeGreaterThanOrEqual(2);
+      expect(lent, lesson.id).toBeLessThanOrEqual(3);
+    }
+    const finalIds = new Set(final?.cards.map((card) => card.id));
+    expect(act7Placement.cardIds.filter((id) => finalIds.has(id))).toEqual([]);
+  });
+
+  it('gives every card at least the placement minimum on its clock', () => {
+    const perCard = act7Placement.timeLimitSeconds / act7Placement.cardIds.length;
+    expect(perCard).toBeGreaterThanOrEqual(LESSON_PLACEMENT_SECONDS_PER_CARD);
+  });
+
+  it('cannot be passed by always picking the longest answer', () => {
+    // A placement shows no feedback, so length is the only tell a guesser has. Each card
+    // needs a wrong option close in length to the right one, and across the test, the
+    // longest option must be wrong often enough that picking it fails.
+    const cards = placementLesson(act, lessons).cards.filter(isPickCard);
+    let longestRight = 0;
+    for (const card of cards) {
+      const right = card.options.find((option) => option.correct)?.text.length ?? 0;
+      const longestWrong = Math.max(
+        ...card.options.filter((option) => !option.correct).map((option) => option.text.length),
+      );
+      expect(right, card.id).toBeLessThanOrEqual(longestWrong * 1.3);
+      if (right > longestWrong) longestRight += 1;
+    }
+    expect(cards.length).toBe(act7Placement.cardIds.length);
+    expect(longestRight).toBeLessThanOrEqual(cards.length / 2);
+  });
+
+  it('says in misses, not just percent, how strict the pass mark is', () => {
+    // 85% of 12 is 11 right, so one miss: stricter than "85%" sounds.
+    const run = placementLesson(act, lessons);
+    expect(run.briefing.join(' ')).toContain('miss at most one of 12');
+    expect(act7Placement.pitch).toContain('Miss at most one');
+  });
+
+  it('plays as one clocked run of the borrowed cards, in the order listed', () => {
+    const run = placementLesson(act, lessons);
+    expect(run.cards.map((card) => card.id)).toEqual(act7Placement.cardIds);
+    expect(run.timeLimitSeconds).toBe(act7Placement.timeLimitSeconds);
+  });
+
+  it('tests out of every lesson at half XP, and leaves the final and Field Mission open', () => {
+    const save = recordPlacement(
+      createDefaultSave(NOW),
+      act,
+      lessons,
+      { percent: 100, testedOut: true },
+      NOW,
+    );
+    for (const lesson of regular) expect(save.missions[lesson.id]?.status).toBe('tested-out');
+    expect(save.missions[final?.id ?? '']).toBeUndefined();
+    // Cards can be guessed; the Field Mission is the real agent practice, so it still counts.
+    expect(save.acts['7']?.completedAt).toBeNull();
+    const half = regular.reduce((total, lesson) => total + placementTestOutXp([lesson.xp]), 0);
+    expect(save.profile.xp).toBe(half);
+    const ids = act.fieldMission?.verifications.map((check) => check.id) ?? [];
+    const verified = recordFieldMission(save, act, ids, NOW);
+    expect(verified.acts['7']?.completedAt).toBe(NOW.toISOString());
+  });
+});
+
+/** Genuine-shaped PowerShell output for each check, as Kyle would paste it after a squash merge. */
+const PASSING_PASTES: Record<string, string> = {
+  'spec-on-main': 'docs/specs/tide-alerts.md',
+  'spec-landed-by-pr': 'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts (#14)',
+  'agent-commits-conventional': 'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts (#14)',
+  'nothing-left-behind': [
+    'On branch main',
+    "Your branch is up to date with 'origin/main'.",
+    '',
+    'nothing to commit, working tree clean',
+  ].join('\n'),
+  'agent-kept-secrets-out': ['.env.example', '.gitignore', 'docs/specs/tide-alerts.md'].join('\n'),
+};
+
+function verificationOf(id: string): Verification {
+  const found = act.fieldMission?.verifications.find((entry) => entry.id === id);
+  if (found === undefined) throw new Error(`No check ${id}`);
+  return found;
+}
+
+describe('Act 7 Field Mission: Spec It, Then Ship It', () => {
+  const field = act.fieldMission;
+
+  it('happens on SandCastles, with a spec that has the four parts an agent needs', () => {
+    expect(field?.repoName).toBe('SandCastles');
+    const spec = field?.checklist.find((item) => item.id === 'spec')?.text ?? '';
+    for (const part of ['docs/specs/', 'Goal', 'Constraints', 'Done means', 'How to verify']) {
+      expect(spec, part).toContain(part);
+    }
+  });
+
+  it('tells Kyle the game sees commits, not the PR page, so linking the spec is his job', () => {
+    // The panel itself says no token is needed (FieldView), so the briefing doesn't repeat it.
+    const briefing = field?.briefing.join(' ') ?? '';
+    expect(briefing).toContain('not the PR page');
+    expect(field?.checklist.some((item) => item.text.includes('PR'))).toBe(true);
+  });
+
+  it('passes every check on output from a merged spec PR', () => {
+    for (const verification of field?.verifications ?? []) {
+      const verdict = verifyPaste(verification, PASSING_PASTES[verification.id] ?? '');
+      expect(verdict, verification.id).toMatchObject({ passed: true });
+    }
+  });
+
+  it('passes a merge commit too: first-parent history shows GitHub’s merge', () => {
+    const merged = 'f00ba47 (HEAD -> main) Merge pull request #14 from kyle/feat-tide-alerts';
+    expect(verifyPaste(verificationOf('spec-landed-by-pr'), merged).passed).toBe(true);
+    // Without --first-parent, git shows the agent's own commit on the branch.
+    const branchCommit = '9f8e7d6 docs: add tide alerts spec';
+    expect(verifyPaste(verificationOf('agent-commits-conventional'), branchCommit).passed).toBe(
+      true,
+    );
+  });
+
+  it('says no spec is on main yet, not "paste it first", when a spec log prints nothing', () => {
+    for (const id of ['spec-on-main', 'spec-landed-by-pr', 'agent-commits-conventional']) {
+      const verdict = verifyPaste(verificationOf(id), '');
+      expect(verdict.passed, id).toBe(false);
+      expect(verdict.message, id).toContain('no spec is on main yet');
+      expect(verdict.message, id).toContain('git pull');
+    }
+  });
+
+  it('fails a spec pushed straight to main, without a PR', () => {
+    const direct = 'a1b2c3d (HEAD -> main) docs: add tide alerts spec';
+    const verdict = verifyPaste(verificationOf('spec-landed-by-pr'), direct);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('through a PR');
+  });
+
+  it('fails a squash merge with a plain PR title, and says to fix the next title', () => {
+    const plain = 'a1b2c3d (HEAD -> main) Add tide alerts (#14)';
+    const verdict = verifyPaste(verificationOf('agent-commits-conventional'), plain);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('next PR’s title');
+    expect(verdict.message).not.toContain('keep going');
+    const pr = field?.checklist.find((item) => item.id === 'pr')?.text ?? '';
+    expect(pr).toContain('Conventional title');
+  });
+
+  it('judges only the spec’s own commit, so old history neither passes nor fails it', () => {
+    const conventional = verificationOf('agent-commits-conventional');
+    expect(conventional.command).toContain('-1 -- docs/specs');
+    expect(conventional.check).toEqual({ kind: 'conventionalRatio', min: 1, last: 1 });
+  });
+
+  it('asks for the test first, so the spec’s check fails before the agent builds', () => {
+    const steps = field?.checklist.map((item) => item.id) ?? [];
+    expect(steps.indexOf('test-first')).toBeLessThan(steps.indexOf('brief'));
+    const text = field?.checklist.find((item) => item.id === 'test-first')?.text ?? '';
+    expect(text).toContain('failing');
+  });
+
+  it('says what “its checks pass” means for a repo with no CI', () => {
+    const pr = field?.checklist.find((item) => item.id === 'pr')?.text ?? '';
+    expect(pr).toContain('if it has none');
+  });
+
+  it('says to roll a leaked key before untracking it, since the PR pushed it', () => {
+    const verdict = verifyPaste(verificationOf('agent-kept-secrets-out'), '.env\nsrc/app.ts');
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toMatch(/^Still tracked: \.env\. Roll \(revoke and replace\)/);
+    expect(verdict.message).toContain('git rm --cached');
+  });
+
+  it('fails when the agent left stray files or tracked a .env', () => {
+    const stray = [
+      'On branch main',
+      'Untracked files:',
+      '  (use "git add <file>..." to include in what will be committed)',
+      '\tscratch.ts',
+      '',
+      'nothing added to commit but untracked files present (use "git add" to track)',
+    ].join('\n');
+    expect(verifyPaste(verificationOf('nothing-left-behind'), stray).passed).toBe(false);
+    const leaked = ['.env', '.gitignore', 'src/app.ts'].join('\n');
+    expect(verifyPaste(verificationOf('agent-kept-secrets-out'), leaked).passed).toBe(false);
+  });
+
+  it('is needed to complete the Act: lessons alone are not enough', () => {
+    const played = lessons.reduce(
+      (save, lesson) => completeLesson(save, act, lesson, 100, NOW),
+      createDefaultSave(NOW),
+    );
+    expect(played.acts['7']?.completedAt).toBeNull();
+    const ids = field?.verifications.map((check) => check.id) ?? [];
+    const finished = recordFieldMission(played, act, ids, NOW);
+    expect(finished.acts['7']?.completedAt).toBe(NOW.toISOString());
   });
 });

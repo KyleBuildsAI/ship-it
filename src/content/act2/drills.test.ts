@@ -11,28 +11,6 @@ import { enter, sandboxShell } from './play.test-helpers';
  * pass. Some drills have a second answer, to prove any valid path to the state counts.
  */
 const ANSWERS: Record<string, string[][]> = {
-  // 2.3 Good Commits
-  'commits-type-fix': [['git commit -m "fix: round cart totals to the cent"']],
-  'commits-scope': [['git commit -m "docs(readme): fix install command"']],
-  'commits-split-two': [
-    [
-      'git add README.md',
-      'git commit -m "docs: fix install typo"',
-      'git add src/api.ts',
-      'git commit -m "fix: raise api timeout"',
-    ],
-    [
-      'git add src/api.ts',
-      'git commit -m "fix: raise api timeout"',
-      'git commit -am "docs: fix install typo"',
-    ],
-  ],
-  'commits-leave-debug': [['git add src/search.ts', 'git commit -m "feat: split search terms"']],
-  'commits-am-tracked': [['git commit -am "chore: bump version to 1.1.0"']],
-  'commits-am-trap': [
-    ['git add src/app.ts src/theme.ts', 'git commit -m "feat: add dark mode"'],
-    ['git add src/theme.ts', 'git commit -am "feat: add dark mode"'],
-  ],
   // 2.4 The Ignore List
   'ignore-dist-folder': [['echo "dist/" > .gitignore'], ['echo "/dist" > .gitignore']],
   'ignore-logs-anywhere': [['echo "*.log" > .gitignore']],
@@ -73,8 +51,6 @@ const ANSWERS: Record<string, string[][]> = {
 
 /** Answers that reach the wrong state, to prove the drill really checks what it says. */
 const WRONG_ANSWERS: Record<string, string[]> = {
-  'commits-type-fix': ['git commit -m "feat: round cart totals"'],
-  'commits-am-trap': ['git commit -am "feat: add dark mode"'],
   'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
   'ignore-untrack-env': ['git rm .env', 'git commit -m "chore: remove .env"'],
   'undo-revert-shared': ['git reset --hard HEAD~2'],

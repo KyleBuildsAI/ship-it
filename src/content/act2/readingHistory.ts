@@ -198,6 +198,9 @@ const restoreTaxTask = {
       script: [{ do: 'run', line: `git restore --source=HEAD~2 ${TAX}` }],
       claim: 'Fixed: tax.ts has the rate from before the tidy.',
       lesson: 'The commit before "chore: tidy tax config" is HEAD~2. Its tax.ts has 0.08.',
+      // After an allowed rewind HEAD~2 is older than tax.ts, so this restore would delete
+      // it: the card only makes sense while every commit is still there.
+      when: historyKept,
     },
   ],
   hintPlan: 'show-then-restore',
@@ -556,6 +559,9 @@ const commitFeatureTask = {
       ],
       claim: 'Fixed: the feature is committed, the debug line is not.',
       lesson: 'reset HEAD~1 took the debug commit back and kept every edit on the Workbench.',
+      // "That commit" is the debug one. When the newest commit is the tax fix (Otto only
+      // staged cart.ts), reset HEAD~1 would take the fix off main instead.
+      when: { kind: 'commitChanged', paths: [CHECKOUT_TS] },
     },
   ],
   hintPlan: 'read-diff',

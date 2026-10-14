@@ -113,6 +113,14 @@ export interface FieldActivity {
   readonly act: number;
 }
 
+/** A lesson Act's placement test, played as a lesson: its Act, and its score once over. */
+export interface LessonPlacementState {
+  readonly act: number;
+  readonly passPercent: number;
+  /** Null until the run finishes or its clock runs out. */
+  readonly result: PlacementResult | null;
+}
+
 /** A lesson: cards answered by clicking. A final's shared clock lives in its run. */
 export interface LessonActivity {
   readonly kind: 'lesson';
@@ -120,6 +128,11 @@ export interface LessonActivity {
   readonly run: LessonRun;
   /** XP this run paid into the save: the lesson's XP the first time, 0 on a replay. */
   readonly xpEarned: number;
+  /**
+   * Set when this run is a lesson Act's placement test rather than one of its lessons:
+   * the cards are borrowed, and the run is scored as a placement, not saved as a lesson.
+   */
+  readonly placement?: LessonPlacementState;
 }
 
 export type Activity =

@@ -92,7 +92,7 @@ export const requestsAndResponses = {
         },
         {
           id: 'forbidden',
-          text: 'Marco isn’t allowed to edit this document.',
+          text: 'Marco isn’t allowed to edit this document any more: someone removed his edit permission, so the server refuses every save he makes.',
           correct: false,
           feedback:
             'That’s 403 Forbidden: the server knows who you are and says no. 401 means it doesn’t know who you are.',
@@ -247,7 +247,7 @@ export const requestsAndResponses = {
         },
         {
           id: 'retry-all',
-          text: 'Retry every failed request three times.',
+          text: 'Retry every failed request three times, the document load and the charge alike, waiting a little longer each time so the server can recover.',
           correct: false,
           feedback:
             'If the charge reached the provider but the reply got lost, a retry charges the customer twice.',

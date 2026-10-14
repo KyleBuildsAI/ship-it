@@ -193,6 +193,18 @@ describe('AgentTaskSchema', () => {
     ]);
   });
 
+  it('lets only a fix carry a `when`, since start cards are always offered', () => {
+    const [api] = sampleAgentTaskInput.check.options;
+    const when = api?.truth;
+    expect(task({ fixes: [{ ...fix, when }] }).success).toBe(true);
+    expect(issues(task({ plans: [{ ...guess, when }, fullPath] }))).toEqual([
+      {
+        path: ['plans', 0, 'when'],
+        message: 'Only a fix has `when`: the start cards are always offered.',
+      },
+    ]);
+  });
+
   it('asks one check with 2 to 4 options, each graded by its own truth', () => {
     const [api, home] = sampleAgentTaskInput.check.options;
     const withOptions = (options: unknown[]) =>

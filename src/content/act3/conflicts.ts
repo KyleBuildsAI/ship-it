@@ -195,7 +195,7 @@ export const conflictsWithoutPanic = {
       options: [
         {
           id: 'commit',
-          text: 'Commit it. He said it’s resolved, and the build and tests will catch anything that’s still wrong after that.',
+          text: 'Commit it. He said it’s resolved, and the build and the full test suite will catch anything that’s still wrong after that.',
           correct: false,
           feedback:
             'The markers are still in the file. It won’t even compile, and you could see that by reading.',

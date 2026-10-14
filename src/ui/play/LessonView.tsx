@@ -15,6 +15,7 @@ import type {
   PickCard,
 } from '../../game/missions/lessonSchema';
 import { formatClock } from '../../game/play/bossPlay';
+import { getAct } from '../../game/play/catalog';
 import {
   answerLesson,
   checkLessonOrder,
@@ -22,6 +23,7 @@ import {
   moveLessonStep,
   nextLessonCard,
   startLesson,
+  startLessonPlacement,
 } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
@@ -48,15 +50,19 @@ const CARD_EYEBROWS = {
   order: 'Put it in order',
 } as const;
 
+/** What the briefing's eyebrow calls this run. */
+function briefingEyebrow(lesson: Lesson, placement: boolean): string {
+  if (placement) return 'Placement test';
+  return lesson.kind === 'final' ? 'Final challenge' : 'Briefing';
+}
+
 /** The briefing: a few captions, read at the player's own pace. */
-function Briefing({ lesson }: { lesson: Lesson }) {
+function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean }) {
   const [index, setIndex] = useState(0);
   const last = index + 1 >= lesson.briefing.length;
   return (
     <div className="briefing">
-      <p className="play-panel__eyebrow">
-        {lesson.kind === 'final' ? 'Final challenge' : 'Briefing'}
-      </p>
+      <p className="play-panel__eyebrow">{briefingEyebrow(lesson, placement)}</p>
       <p className="briefing__caption" key={index} aria-live="polite">
         {lesson.briefing[index]}
       </p>
@@ -107,14 +113,40 @@ function ArtifactBlock({ artifact }: { artifact: Artifact }) {
   );
 }
 
-function optionClass(picked: readonly string[], id: string, correct: boolean): string {
+function optionClass(
+  picked: readonly string[],
+  id: string,
+  correct: boolean,
+  locked: boolean,
+): string {
   if (!picked.includes(id)) return 'lesson-option';
+  // A test never colours an answer: right or wrong is only told in the final score.
+  if (locked) return 'lesson-option lesson-option--chosen';
   return correct ? 'lesson-option lesson-option--right' : 'lesson-option lesson-option--wrong';
 }
 
+/** What a test card says once answered: that it's in, never whether it's right. */
+function LockedNote({ last }: { last: boolean }) {
+  return (
+    <p className="drill-result" aria-live="polite">
+      <strong>Answer locked in.</strong>{' '}
+      {last ? 'Finish to see your score.' : 'Your score comes at the end.'}
+    </p>
+  );
+}
+
 /** A choose or prompt card: options as buttons, and the latest pick's feedback. */
-function PickOptions({ card, activity }: { card: PickCard; activity: LessonActivity }) {
+function PickOptions({
+  card,
+  activity,
+  last,
+}: {
+  card: PickCard;
+  activity: LessonActivity;
+  last: boolean;
+}) {
   const { picked, solved } = activity.run.card;
+  const { locked } = activity.run;
   const latest = card.options.find((option) => option.id === picked.at(-1));
   return (
     <>
@@ -123,7 +155,7 @@ function PickOptions({ card, activity }: { card: PickCard; activity: LessonActiv
           <li key={option.id}>
             <button
               type="button"
-              className={optionClass(picked, option.id, option.correct)}
+              className={optionClass(picked, option.id, option.correct, locked)}
               disabled={solved || picked.includes(option.id)}
               onClick={() => {
                 answerLesson(option.id);
@@ -134,7 +166,8 @@ function PickOptions({ card, activity }: { card: PickCard; activity: LessonActiv
           </li>
         ))}
       </ol>
-      {latest === undefined ? null : (
+      {latest !== undefined && locked ? <LockedNote last={last} /> : null}
+      {latest === undefined || locked ? null : (
         <p
           className={latest.correct ? 'drill-result drill-result--pass' : 'drill-result'}
           aria-live="polite"
@@ -149,8 +182,17 @@ function PickOptions({ card, activity }: { card: PickCard; activity: LessonActiv
 }
 
 /** An order card: the steps with up and down buttons, then "Check order". */
-function OrderSteps({ card, activity }: { card: OrderCard; activity: LessonActivity }) {
+function OrderSteps({
+  card,
+  activity,
+  last,
+}: {
+  card: OrderCard;
+  activity: LessonActivity;
+  last: boolean;
+}) {
   const { order, solved, wrongOrders } = activity.run.card;
+  const { locked } = activity.run;
   const text = new Map(card.steps.map((step) => [step.id, step.text]));
   return (
     <>
@@ -185,11 +227,13 @@ function OrderSteps({ card, activity }: { card: OrderCard; activity: LessonActiv
           </li>
         ))}
       </ol>
-      {solved ? (
+      {solved && locked ? <LockedNote last={last} /> : null}
+      {solved && !locked ? (
         <p className="drill-result drill-result--pass" aria-live="polite">
           <strong>Right order.</strong>
         </p>
-      ) : (
+      ) : null}
+      {solved ? null : (
         <>
           {wrongOrders > 0 ? (
             <p className="drill-result" aria-live="polite">
@@ -205,7 +249,7 @@ function OrderSteps({ card, activity }: { card: OrderCard; activity: LessonActiv
                 checkLessonOrder();
               }}
             >
-              Check order
+              {locked ? 'Lock in this order' : 'Check order'}
             </button>
           </div>
         </>
@@ -226,14 +270,19 @@ function CardScreen({ activity }: { activity: LessonActivity }) {
       {card.artifact === undefined ? null : <ArtifactBlock artifact={card.artifact} />}
       <p className="lesson-card__question">{card.question}</p>
       {card.kind === 'order' ? (
-        <OrderSteps card={card} activity={activity} />
+        <OrderSteps card={card} activity={activity} last={last} />
       ) : (
-        <PickOptions card={card} activity={activity} />
+        <PickOptions card={card} activity={activity} last={last} />
       )}
       {run.card.solved ? (
-        <div className="hint">
-          <p className="hint__source">Why</p>
-          <p>{card.explanation}</p>
+        <div className={run.locked ? undefined : 'hint'}>
+          {/* The why would give a test's answer away, so a test moves straight on. */}
+          {run.locked ? null : (
+            <>
+              <p className="hint__source">Why</p>
+              <p>{card.explanation}</p>
+            </>
+          )}
           <div className="play-panel__actions">
             <button
               type="button"
@@ -247,6 +296,79 @@ function CardScreen({ activity }: { activity: LessonActivity }) {
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** The buttons under a Done screen: go again, or back to the Act's menu. */
+function DoneActions({
+  primary,
+  label,
+  onAgain,
+  act,
+}: {
+  primary: boolean;
+  label: string;
+  onAgain: () => void;
+  act: number;
+}) {
+  return (
+    <div className="play-panel__actions">
+      <button
+        type="button"
+        className={primary ? 'play-button play-button--primary' : 'play-button'}
+        onClick={onAgain}
+      >
+        {label}
+      </button>
+      <button type="button" className="play-button" onClick={leavePlay}>
+        Back to Act {act}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * What a test-out leaves to play. A lesson Act's Field Mission isn't skipped by a test-out
+ * (the Act completes only once it's verified), so the Done screen names it.
+ */
+function stillToDo(actNumber: number): string {
+  return getAct(actNumber).act.fieldMission === undefined
+    ? 'the final is still yours to play.'
+    : 'the final and the Field Mission are still yours to do, and the Act completes once the Field Mission is verified.';
+}
+
+/**
+ * A placement test's Done screen: the score, and whether it tested out. A miss isn't a
+ * failure: the lessons are still there to play, and the test can be taken again.
+ */
+function PlacementDone({ activity }: { activity: LessonActivity }) {
+  const { lesson, run, placement } = activity;
+  const result = placement?.result;
+  if (placement === undefined || result == null) return null;
+  const timedOut = run.outcome === 'timed-out';
+  return (
+    <div>
+      <p className={result.testedOut ? 'drill-result drill-result--pass' : 'drill-result'}>
+        {result.percent}% right
+        {timedOut
+          ? ` before time ran out (${String(run.firstTry.length)} of ${String(lesson.cards.length)} answered)`
+          : ''}
+        .
+      </p>
+      <p className="play-panel__muted">
+        {result.testedOut
+          ? `Tested out. Every lesson in Act ${String(lesson.act)} is marked done; ${stillToDo(lesson.act)}`
+          : `${String(placement.passPercent)}% tests out. Play the lessons, or try again.`}
+      </p>
+      <DoneActions
+        primary={!result.testedOut}
+        label="Try again"
+        act={lesson.act}
+        onAgain={() => {
+          startLessonPlacement(placement.act);
+        }}
+      />
     </div>
   );
 }
@@ -278,20 +400,14 @@ function Done({ activity }: { activity: LessonActivity }) {
           </p>
         </>
       )}
-      <div className="play-panel__actions">
-        <button
-          type="button"
-          className={timedOut ? 'play-button play-button--primary' : 'play-button'}
-          onClick={() => {
-            startLesson(lesson.id);
-          }}
-        >
-          {timedOut ? 'Try again' : 'Replay'}
-        </button>
-        <button type="button" className="play-button" onClick={leavePlay}>
-          Back to Act {lesson.act}
-        </button>
-      </div>
+      <DoneActions
+        primary={timedOut}
+        label={timedOut ? 'Try again' : 'Replay'}
+        act={lesson.act}
+        onAgain={() => {
+          startLesson(lesson.id);
+        }}
+      />
     </div>
   );
 }
@@ -330,9 +446,16 @@ export function LessonView({ activity }: { activity: LessonActivity }) {
           )}
         </p>
       ) : null}
-      {run.phase === 'briefing' ? <Briefing lesson={lesson} /> : null}
+      {run.phase === 'briefing' ? (
+        <Briefing lesson={lesson} placement={activity.placement !== undefined} />
+      ) : null}
       {run.phase === 'cards' ? <CardScreen activity={activity} /> : null}
-      {run.phase === 'done' ? <Done activity={activity} /> : null}
+      {run.phase === 'done' && activity.placement !== undefined ? (
+        <PlacementDone activity={activity} />
+      ) : null}
+      {run.phase === 'done' && activity.placement === undefined ? (
+        <Done activity={activity} />
+      ) : null}
     </>
   );
 }

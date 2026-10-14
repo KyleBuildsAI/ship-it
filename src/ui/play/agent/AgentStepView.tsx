@@ -1,8 +1,8 @@
 import type { RunRow } from '../../../game/agent/runLog';
-import { offeredPlans, type AgentStage } from '../../../game/missions/agentRunner';
+import type { AgentStage } from '../../../game/missions/agentRunner';
 import type { CheckRow } from '../../../game/missions/predicates';
 import type { MissionStep } from '../../../game/missions/schema';
-import { ottoRun, trueCheckOptions } from '../../../game/play/agentPlay';
+import { cardsOnOffer, ottoRun, trueCheckOptions } from '../../../game/play/agentPlay';
 import type { MissionActivity } from '../../../game/play/playStore';
 import { useStore } from '../../useStore';
 import { CheckCard } from './CheckCard';
@@ -48,10 +48,7 @@ export function AgentStepView({
       {task.note === undefined ? null : <p className="play-panel__muted">{task.note}</p>}
       <OttoBubble line={line} mood={moodOf(stage, rows)} flash={rows.length} />
       {stage.at === 'direct' ? (
-        <PlanCards
-          plans={offeredPlans(agent, step)}
-          hinted={hintLevel === 3 ? task.hintPlan : null}
-        />
+        <PlanCards plans={cardsOnOffer(activity)} hinted={hintLevel === 3 ? task.hintPlan : null} />
       ) : null}
       {stage.at === 'echo' ? <EchoChoice planId={stage.planId} /> : null}
       {/* Keyed by how many decisions came before, so each new card mounts unarmed. */}

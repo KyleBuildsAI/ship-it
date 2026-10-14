@@ -34,7 +34,7 @@ export const reviewingPullRequests = {
       options: [
         {
           id: 'approve',
-          text: 'Approve. CI is green and Otto says it’s fixed.',
+          text: 'Approve. CI is green, every check passed, and Otto says in the PR that the flaky test is fixed now.',
           correct: false,
           feedback: 'CI is green because the test that catches the bug no longer runs.',
         },
@@ -49,6 +49,13 @@ export const reviewingPullRequests = {
           text: 'Approve, then fix the test yourself later.',
           correct: false,
           feedback: '“Later” usually means never, and the bug ships meanwhile.',
+        },
+        {
+          id: 'follow-up',
+          text: 'Approve with a comment asking Otto to re-enable the test in a follow-up PR, since CI is green.',
+          correct: false,
+          feedback:
+            'The bug merges with its alarm switched off. Follow-ups slip, and green only proves the tests that ran.',
         },
       ],
       explanation:
@@ -74,9 +81,10 @@ export const reviewingPullRequests = {
         },
         {
           id: 'longer-timeout',
-          text: 'Raise the test’s wait from 2 to 10 seconds so it passes.',
+          text: 'Unskip the test, find why autosave misses the 2 second window and fix it. If that’s too fiddly, raise the wait to 5 seconds so CI passes.',
           correct: false,
-          feedback: 'That changes the promise to users instead of keeping it.',
+          feedback:
+            'The escape hatch is the easy path, so Otto takes it. Never let an agent loosen the test it has to pass.',
         },
         {
           id: 'root-cause',
@@ -107,7 +115,7 @@ export const reviewingPullRequests = {
       options: [
         {
           id: 'harsh',
-          text: 'This is wrong. Did you even test it?',
+          text: 'This is wrong and breaks billing for every customer. Did you even run it before asking for review? Please be more careful.',
           correct: false,
           feedback: 'Right worry, but it attacks Dex and doesn’t say what’s wrong.',
         },
@@ -185,10 +193,11 @@ export const reviewingPullRequests = {
             'Rank isn’t the issue: the error says changes must come through a pull request.',
         },
         {
-          id: 'size',
-          text: 'Pushes to main must be bigger than one line.',
+          id: 'behind',
+          text: 'Priya’s main is behind GitHub’s, so she has to pull before pushing.',
           correct: false,
-          feedback: 'Size has nothing to do with it. Read the second error line.',
+          feedback:
+            'A behind branch is rejected with “fetch first”. This one says changes need a pull request.',
         },
         {
           id: 'protected',
@@ -253,6 +262,13 @@ export const reviewingPullRequests = {
           text: 'Review your own diff like a sceptical senior: list risky changes, anything untested, and anything outside the issue’s scope. Don’t change code yet; report back.',
           correct: true,
           feedback: 'A self-review catches the obvious, so Priya spends time on the hard parts.',
+        },
+        {
+          id: 'fix-all',
+          text: 'Review your own diff like a sceptical senior: list risky changes, anything untested, and anything outside the issue’s scope, then fix everything you find and request Priya’s review.',
+          correct: false,
+          feedback:
+            'You never see the list, and unreviewed fixes widen the diff Priya gets. Report first; you decide what to fix.',
         },
         {
           id: 'confirm',
