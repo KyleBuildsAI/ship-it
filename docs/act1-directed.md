@@ -473,6 +473,15 @@ Rubric: *pins an exact absolute path for the source or destination, or the machi
 - okay: exact path; audit date; who else uses it
 - weak: use Explorer; who made the mess; delete everything
 
+**As built.** `src/content/act1/deletes-are-forever.ts` follows the table above, with these changes, each forced by a test in `deletes-are-forever.test.ts` that plays every card through `agentRunner` under both gate policies, two fix rounds deep:
+- The laptop is Mission 1.1's plus `api\tmp` (3 junk files), `api\logs` (3 `.log` files and `incident-2026-09.md`) and `api\config.json` (port, timeout, retries). Each step starts with `before: [cd API]`.
+- `clear-tmp`: `whole-tmp` runs `Remove-Item …\tmp -Recurse`, `mkdir …\tmp`, then lists the API. Its only fix is `just-tmp` (`Remove-Item .\tmp\* -Recurse`). The check has two options, "Everything but tmp's junk" and "the whole project went": nothing else is reachable at a check.
+- `the-confirm-question`: the weak card is `Remove-Item logs -Recurse -Force`, which never asks. `logs-folder` predicts the Confirm question before it runs; denying Otto's A makes him type L, then run `Remove-Item logs\*.log`. Its check has two options for the same reason.
+- `backup-first`: the write tool writes whole files, so a card that "changes only the port" carries every setting in its text. Success therefore asks for the backup too (config on port 3000 with every setting, and `config.backup.json` holding the old ones), so no fix can stand in for a backup that was never made. The guard is `any[config keeps retries, backup keeps retries]`: the lossy write is harmful with no backup and safe beside one, and the strong card's `Copy-Item` is harmful when it would overwrite the only good backup with the lossy file. The okay card `backup-then-edit` makes the slip recoverably; fixes `restore-and-edit` (passes) and `restore-only` (back on port 8080).
+- Allowing a harmful line wrecks a step for good: no card can bring the files back, and Rewind is offered first (D8). The tests excuse only those paths from "a fix passes" and "no line fails unless marked".
+- Drills (8): `daf-approve-wildcard` (deny), `daf-approve-dist` (allow), `daf-predict-confirm`, `daf-predict-wildcard` (`Remove-Item *.log` in the API deletes nothing), `daf-diagnose-moved`, `daf-fix-restore` (copy back passes; moving the backup back uses it up), `daf-approve-diff` (deny) and `daf-approve-backed-up` (the same write, allowed because a backup exists). `daf-predict-hidden` and `daf-order-backup` wait for the hidden-file capture and order drills.
+- The card-by-card test suite now lives in `directed.test-helpers.ts`, shared by 1.1 and 1.2. Each mission's test passes its own tables; gate keys name the cards played before the line, because one line can be safe or harmful depending on them.
+
 ---
 
 ### Mission 1.3: Secrets Stay Home (`secrets-stay-home`), approvals `changes`
