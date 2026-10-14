@@ -67,6 +67,31 @@ test('a mission step is graded by state and survives a reload', async ({ page })
   expect(problems).toEqual([]);
 });
 
+test("Act 2's placement test is answered by clicking, with the terminal closed", async ({
+  page,
+}) => {
+  test.slow();
+  const problems = collectConsoleProblems(page);
+  await page.goto('./');
+  await expect(page.getByLabel('Developer status')).toContainText('saved');
+
+  await openAct2(page);
+  await page
+    .getByRole('region', { name: 'Missions' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Placement test' })
+    .getByRole('button', { name: 'Take' })
+    .click();
+  // Every drill it borrows is a judgment drill: Kyle picks an answer, nothing is typed.
+  await expect(page.getByRole('group', { name: 'Judgment drill' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Your answer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  expect(problems).toEqual([]);
+});
+
 test('an exported save imports back after starting over', async ({ page }) => {
   test.slow();
   const problems = collectConsoleProblems(page);
