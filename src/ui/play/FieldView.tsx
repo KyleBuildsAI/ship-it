@@ -9,8 +9,10 @@ import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
 
 /**
- * The Field Mission (DESIGN.md section 8): a checklist of real work on SandCastles, then
- * paste checks that verify it. Passed checks are saved, so it can be done over days.
+ * The Field Mission (DESIGN.md section 8): a checklist of real work on one of Kyle's real
+ * repos, then paste checks that verify it. Any Act can have one. Passed checks are saved,
+ * so it can be done over days. Checking a paste happens here in the browser, so it needs
+ * no GitHub token or API key, and the panel says so before anyone goes looking for one.
  */
 export function FieldView({ activity }: { activity: FieldActivity }) {
   const field = requireFieldMission(getAct(activity.act).act);
@@ -28,6 +30,10 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
         </button>
       </header>
       <p className="play-panel__eyebrow">On your real {field.repoName} repo</p>
+      <p className="play-panel__muted">
+        No GitHub token or API key needed: run each command in your own PowerShell and paste what it
+        prints. The game checks it on this computer.
+      </p>
       {field.briefing.map((line) => (
         <p key={line} className="play-panel__instruction">
           {line}

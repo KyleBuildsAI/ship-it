@@ -1,4 +1,5 @@
 import { endDrill } from '../../mentor/drillGuard';
+import { closeTerminal } from '../hud';
 import { requireFieldMission } from '../missions/schema';
 import { saveProgressNow } from '../progress';
 import { getAct } from './catalog';
@@ -7,13 +8,16 @@ import { play } from './playStore';
 import { recordFieldMission } from './saveRules';
 
 /**
- * The Field Mission happens outside the game, on Kyle's real repo. The game only reads
- * what he pastes back, so there is no sandbox to load here.
+ * The Field Mission happens outside the game, on Kyle's real repo, in any Act that has
+ * one. The game only reads what he pastes back, so there is no sandbox to load, and no
+ * GitHub token or API key is needed. The work happens in his own PowerShell, so the
+ * game's terminal closes and the checklist gets the room.
  */
 export function startFieldMission(act: number): void {
   // Throws before anything changes when this Act's Field Mission isn't built yet.
   requireFieldMission(getAct(act).act);
   endDrill();
+  closeTerminal();
   play.update({ activity: { kind: 'field', act }, checklist: [] });
 }
 
