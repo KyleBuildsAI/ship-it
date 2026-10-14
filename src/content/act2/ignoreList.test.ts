@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
 import { describeChanges } from '../../game/agent/effects';
 import { dryRun } from '../../game/agent/replay';
-import { beginAgentStep } from '../../game/missions/agentRunner';
+import { answerCheck, beginAgentStep, openFixRound } from '../../game/missions/agentRunner';
 import { validateAct } from '../../game/missions/validateAct';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
-import { canonicalStart, playCard, queriesOf } from '../act1/play.test-helpers';
+import { canonicalStart, playCard, queriesOf, trueChecks } from '../act1/play.test-helpers';
 import { act2, act2Missions } from './index';
 
 /*
@@ -120,6 +120,62 @@ describe('The Ignore List, directed', () => {
     expect(played.predicts).toEqual([
       { question: 'Before Otto runs it: where does .env end up?', trueOptions: ['on-disk'] },
     ]);
+  });
+
+  it('words git rm --cached as a removal the next commit makes, never as loading the dock', () => {
+    const dryLines = (upTo: number, line: string) =>
+      describeChanges(
+        dryRun(canonicalStart(mission, upTo), { do: 'run', line }, { guards: [] }, testDeps())
+          .changes,
+        (path) => path,
+      );
+    expect(dryLines(1, 'git rm --cached .env')).toEqual([
+      'Marks .env for removal: the next commit drops it',
+    ]);
+    const quiet = playCard(
+      mission,
+      ignoreNoise,
+      { log: canonicalStart(mission, 0), state: beginAgentStep(ignoreNoise) },
+      'quiet-status',
+      'deny-harmful',
+    );
+    const emptied = dryRun(
+      quiet.log,
+      { do: 'run', line: 'git rm -r --cached .' },
+      { guards: [] },
+      testDeps(),
+    );
+    expect(describeChanges(emptied.changes, (path) => path)).toEqual([
+      'Marks 8 files for removal: the next commit drops them',
+    ]);
+  });
+
+  it('tells the truth in the step 2 check: git status still lists .env, as a staged removal', () => {
+    const q = queriesOf(canonicalStart(mission, 2));
+    expect(q.status().staged).toEqual([{ kind: 'deleted', path: '.env' }]);
+    const safe = untrackEnv.agent?.check.options.find((option) => option.id === 'safe');
+    expect(safe?.feedback).toContain('only as a removal for the next commit');
+  });
+
+  it('grades the step 1 check by the last commit, since an older one may still hold the noise', () => {
+    const quiet = playCard(
+      mission,
+      ignoreNoise,
+      { log: canonicalStart(mission, 0), state: beginAgentStep(ignoreNoise) },
+      'quiet-status',
+      'deny-harmful',
+    );
+    // Kyle answers truthfully that it's sealed, which opens the fix round.
+    const checked = answerCheck(quiet.state, ignoreNoise, 'committed', queriesOf(quiet.log));
+    const round = { log: quiet.log, state: openFixRound(checked) };
+    const fixed = playCard(mission, ignoreNoise, round, 'reload-dock', 'deny-harmful');
+    expect(trueChecks(ignoreNoise, fixed.log)).toEqual(['hidden']);
+    const q = queriesOf(fixed.log);
+    expect(q.fileAt('HEAD', 'dist/app.js')).toBeNull();
+    expect(q.fileAt('HEAD~1', 'dist/app.js')).not.toBeNull();
+    const hidden = ignoreNoise.agent?.check.options.find((option) => option.id === 'hidden');
+    expect(hidden?.text).toBe('Hidden from git, not in the last commit');
+    expect(hidden?.text).not.toContain('never');
   });
 
   it("commits the build output when Otto only makes git status quiet, and Kyle's check catches it", () => {

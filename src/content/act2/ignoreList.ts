@@ -162,8 +162,10 @@ const ignoreNoiseTask = {
         { do: 'run', line: 'git commit -m "chore: stop tracking build output and logs"' },
       ],
       claim: 'Fixed: dist/ and the logs are untracked and ignored.',
+      // True on both paths it fixes: after quiet-status the noise was tracked, after
+      // ignore-debug only the *.log rule was missing.
       lesson:
-        'Rules skip files git already tracks. Emptying the dock, then git add ., applied them.',
+        '*.log catches logs in every folder. Rules skip tracked files, so emptying the dock untracks any already committed.',
     },
   ],
   hintPlan: 'ignore-rules',
@@ -173,13 +175,15 @@ const ignoreNoiseTask = {
     options: [
       {
         id: 'hidden',
-        text: 'Hidden from git, never committed',
+        // "Not in the last commit", not "never committed": after quiet-status, an older
+        // commit still holds them, and step 3 teaches that history keeps what it got.
+        text: 'Hidden from git, not in the last commit',
         truth: { kind: 'all', of: [{ kind: 'not', predicate: noiseCommitted }, noiseIgnored] },
-        feedback: 'git status lists none of them, and the Vault holds none of them.',
+        feedback: 'git status lists none of them, and the last commit holds none of them.',
       },
       {
         id: 'committed',
-        text: 'Sealed in the Vault',
+        text: 'Sealed in the last commit',
         truth: noiseCommitted,
         feedback: 'git log shows the commit that took them. Every clone gets them now.',
       },
@@ -295,7 +299,9 @@ const untrackEnvTask = {
         id: 'safe',
         text: 'On your disk, hidden from git',
         truth: envIgnored,
-        feedback: 'git status no longer lists .env, and the file is still there.',
+        // Step 2 doesn't commit, so git status still shows .env: as a staged deletion.
+        feedback:
+          'git status lists .env only as a removal for the next commit. The file is still there.',
       },
       {
         id: 'exposed',
