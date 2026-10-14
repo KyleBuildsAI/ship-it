@@ -226,7 +226,7 @@ describe('dryRun', () => {
     expect(dryRun(addedA, addB, { guards: [untracked] }, testDeps()).harmful).toBe(true);
   });
 
-  it('tries a line in an Act 2 sandbox too, where no laptop can change', () => {
+  it('tries a line in an Act 2 sandbox too, and says what moves in the Git World', () => {
     const act2 = repo().commit('init', { 'app.ts': 'v1\n' }).toSpec();
     const guard: Predicate = { kind: 'workingFile', path: 'app.ts' };
     const dry = dryRun(
@@ -235,8 +235,22 @@ describe('dryRun', () => {
       { guards: [guard] },
       testDeps(),
     );
-    expect(dry.changes).toEqual([]);
+    expect(dry.changes).toEqual([
+      { kind: 'dock', path: 'app.ts', how: 'loaded' },
+      { kind: 'workbench', path: 'app.ts', how: 'deleted', unsaved: false },
+    ]);
     expect(dry.broken).toEqual(['app.ts exists']);
+  });
+
+  it("lists a laptop's file once, from the drive, not again as a Workbench change", () => {
+    const laptop = windows().session().init().cd('Users/kyle/quillwork/app').toSpec();
+    const made = dryRun(
+      startLog(laptop),
+      { do: 'write', path: 'Users/kyle/quillwork/app/notes.md', content: 'x\n' },
+      { guards: [] },
+      testDeps(),
+    );
+    expect(made.changes.map((change) => change.kind)).toEqual(['created']);
   });
 });
 

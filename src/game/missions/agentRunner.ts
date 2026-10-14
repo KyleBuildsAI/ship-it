@@ -1,7 +1,6 @@
 import type { OutputLine } from '../../engine/git/cli/output';
-import type { MachineChange } from '../../engine/machine/snapshot';
 import type { ConfirmLetter, DriverAction } from '../../engine/shell/driver';
-import { isConsequential } from '../agent/effects';
+import { isConsequential, type SandboxChange } from '../agent/effects';
 import { driverAction } from '../agent/replay';
 import type {
   AgentAction,
@@ -41,7 +40,7 @@ export interface Gate {
   /** A line Otto wants to run, or his answer to PowerShell's Confirm question. */
   readonly kind: 'line' | 'confirm';
   readonly line: string;
-  readonly changes: readonly MachineChange[];
+  readonly changes: readonly SandboxChange[];
   /** The dry run broke a guard: denying is right exactly when this is true. */
   readonly harmful: boolean;
 }
@@ -356,7 +355,7 @@ function refuse(answer: AnswerAction): AnswerAction {
  */
 export function pausesBefore(
   action: QueuedAction,
-  changes: readonly MachineChange[],
+  changes: readonly SandboxChange[],
   mode: ApprovalMode,
 ): boolean {
   if (action.do === 'answer' && action.refusal) return false;

@@ -1,6 +1,7 @@
 import type { FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
-import { diffSnapshots, snapshotMachine, type MachineChange } from '../../engine/machine/snapshot';
+import { diffGitSnapshots, snapshotGit } from '../../engine/git/snapshot';
+import { diffSnapshots, snapshotMachine } from '../../engine/machine/snapshot';
 import {
   drive,
   type ConfirmLetter,
@@ -11,6 +12,7 @@ import { Shell } from '../../engine/shell/shell';
 import type { EngineEvent, Workspace } from '../../engine/workspace';
 import { describe, evaluate, type Predicate, type SandboxQueries } from '../missions/predicates';
 import { applySteps, createSandbox, DISPLAY_ROOT, sandboxQueries } from '../missions/sandbox';
+import type { SandboxChange } from './effects';
 import { transcriptEntry, transcriptQueries, type TranscriptEntry } from './transcript';
 
 /*
@@ -165,8 +167,11 @@ export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
 export interface DryRun {
   /** What the terminal showed, as if it had run for real. */
   readonly step: DriverStep;
-  /** What changed on the laptop, by name only: the effects a gate lists. */
-  readonly changes: readonly MachineChange[];
+  /**
+   * What changed, by name only: the effects a gate lists. On a laptop, its files, folders,
+   * variables and terminals; in any sandbox with a project, git's three areas too.
+   */
+  readonly changes: readonly SandboxChange[];
   /** Questions about the scratch copy as the action left it, transcript included. */
   readonly queries: SandboxQueries;
   /** The guards the action broke, as the checklist words them. */
@@ -271,13 +276,19 @@ function guardParts(guard: Predicate): Predicate[] {
 }
 
 /**
- * Snapshots the laptop now, and returns how to ask what changed since. The action's own
- * events say which items moved where, which two snapshots alone can't tell. An Act 2
- * sandbox has no laptop, so nothing on one can change.
+ * Snapshots the sandbox now, and returns how to ask what changed since. On a laptop, the
+ * action's own events say which items moved where, which two snapshots alone can't tell.
+ * Git's side is snapshotted everywhere: on a laptop without its files, which the
+ * machine's snapshot already compares, so one change is never listed twice.
  */
-function watchChanges(ws: Workspace): (events: readonly EngineEvent[]) => MachineChange[] {
+function watchChanges(ws: Workspace): (events: readonly EngineEvent[]) => SandboxChange[] {
   const machine = ws.machine;
-  if (machine === null) return () => [];
-  const before = snapshotMachine(machine);
-  return (events) => diffSnapshots(before, snapshotMachine(machine), events);
+  const onLaptop = machine !== null;
+  const gitBefore = snapshotGit(ws, !onLaptop);
+  const machineBefore = onLaptop ? snapshotMachine(machine) : null;
+  return (events) => {
+    const git = diffGitSnapshots(gitBefore, snapshotGit(ws, !onLaptop));
+    if (machine === null || machineBefore === null) return git;
+    return [...diffSnapshots(machineBefore, snapshotMachine(machine), events), ...git];
+  };
 }

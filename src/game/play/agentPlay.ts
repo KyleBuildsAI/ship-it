@@ -7,8 +7,8 @@ import {
   type FeedBeat,
   type FeedState,
 } from '../agent/feed';
-import type { MachineChange } from '../../engine/machine/snapshot';
 import { display } from '../../engine/machine/winPath';
+import type { SandboxChange } from '../agent/effects';
 import { advance, NORMAL_PACE, START, type Pace, type Playhead } from '../agent/pace';
 import type { SandboxLog } from '../agent/replay';
 import { EMPTY_RUN_LOG, logDenied, logReveals, type RunLog, type RunRow } from '../agent/runLog';
@@ -93,7 +93,7 @@ interface Playback {
    * After Kyle predicts, what the line will change, shown as a ghost before it runs. The
    * line waits until `heldMs` reaches the ghost's time at Otto's pace (ghostMs).
    */
-  ghost: { readonly changes: readonly MachineChange[]; heldMs: number } | null;
+  ghost: { readonly changes: readonly SandboxChange[]; heldMs: number } | null;
   /** The run log as far as the terminal has shown, the line being typed included. */
   runLog: RunLog;
 }
@@ -472,7 +472,7 @@ export function predict(optionId: string): void {
 }
 
 /** The ghost of the predicted line, while it shows: for the world's ghost tiles (A26). */
-export function predictionGhost(): readonly MachineChange[] {
+export function predictionGhost(): readonly SandboxChange[] {
   return live()?.playback.ghost?.changes ?? [];
 }
 
