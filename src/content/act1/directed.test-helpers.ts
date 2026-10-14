@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
+import { diffGitSnapshots, snapshotGit } from '../../engine/git/snapshot';
 import { snapshotMachine } from '../../engine/machine/snapshot';
 import { drive } from '../../engine/shell/driver';
 import { replay, type SandboxLog } from '../../game/agent/replay';
@@ -341,16 +342,18 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         }
       });
 
-      it('has looks that only look: no events, and the laptop unchanged', () => {
+      it('has looks that only look: no events, and nothing changed', () => {
         for (const path of checked) {
           for (const look of task.looks) {
             const { shell } = replay(path.played.log, testDeps());
+            // A laptop is compared whole; a git project by its three areas.
             const machine = shell.ws.machine;
-            if (machine === null) throw new Error('Act 1 plays on a laptop.');
-            const before = snapshotMachine(machine);
+            const before = machine === null ? null : snapshotMachine(machine);
+            const gitBefore = snapshotGit(shell.ws);
             const looked = drive(shell, { do: 'run', line: look.line });
             expect(looked.events, look.line).toEqual([]);
-            expect(snapshotMachine(machine), look.line).toEqual(before);
+            expect(diffGitSnapshots(gitBefore, snapshotGit(shell.ws)), look.line).toEqual([]);
+            if (machine !== null) expect(snapshotMachine(machine), look.line).toEqual(before);
           }
         }
       });
