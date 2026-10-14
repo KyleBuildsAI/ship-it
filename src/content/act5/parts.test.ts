@@ -81,41 +81,89 @@ describe('Act 5 placement test', () => {
 });
 
 describe('Act 5 Field Mission: Green on Every Push', () => {
-  it('happens on SandCastles and has the player brief an agent, not write YAML', () => {
+  const text = () => [...field.briefing, ...field.checklist.map((item) => item.text)].join(' ');
+
+  it('builds on the coverage gate SandCastles already has, with a gate it lacks', () => {
     expect(field.repoName).toBe('SandCastles');
-    const checklist = field.checklist.map((item) => item.text).join(' ');
-    expect(checklist).toContain('.github/workflows/ci.yml');
-    expect(checklist).toContain('Brief it');
-    expect(checklist).toContain('Actions tab');
-    expect(checklist).toContain('continue-on-error');
+    expect(field.briefing.join(' ')).toContain('already has one gate: coverage.yml');
+    expect(text()).toContain('.github/workflows/gitleaks.yml');
+    expect(text()).toContain('Brief it');
   });
 
-  it('passes a tracked workflow file, with the prompt copied too', () => {
-    const paste =
-      'PS C:\\code\\SandCastles> git ls-files .github/workflows\n.github/workflows/ci.yml\n';
+  it('rules out every way an agent could buy green by weakening a gate', () => {
+    for (const rule of [
+      'Don’t touch coverage.yml or scripts/coverage.sh',
+      'permissions: contents: read',
+      'Never use pull_request_target',
+      'continue-on-error',
+      '|| true',
+    ]) {
+      expect(text(), rule).toContain(rule);
+    }
+  });
+
+  it('merges through a pull request from a branch, never straight to main', () => {
+    expect(text()).toContain('On a branch named ci/secret-scan');
+    expect(text()).toContain('open a pull request. Not straight to main');
+    expect(text()).toContain('squash-merge');
+  });
+
+  it('lets the player have their agent run every command', () => {
+    for (const check of field.verifications) {
+      expect(check.instruction, check.id).toMatch(/your agent/);
+    }
+  });
+
+  it('passes a tracked gitleaks.yml, with the prompt copied too', () => {
+    const paste = [
+      'PS C:\\code\\sandcastles> git ls-files .github/workflows',
+      '.github/workflows/coverage.yml',
+      '.github/workflows/gitleaks.yml',
+    ].join('\n');
     expect(verifyPaste(verification('workflow-tracked'), paste).passed).toBe(true);
   });
 
-  it('fails when no workflow is committed yet, since git ls-files prints nothing', () => {
-    const verdict = verifyPaste(
-      verification('workflow-tracked'),
-      'PS C:\\code\\SandCastles> git ls-files .github/workflows\n',
-    );
-    expect(verdict.passed).toBe(false);
+  it('fails a list without gitleaks.yml, even though coverage.yml is tracked', () => {
+    const tracked = verification('workflow-tracked');
+    const before = verifyPaste(tracked, '.github/workflows/coverage.yml\n');
+    expect(before.passed).toBe(false);
+    expect(before.message).toContain('gitleaks.yml');
+    expect(verifyPaste(tracked, 'README.md\n').passed).toBe(false);
+    expect(
+      verifyPaste(tracked, 'PS C:\\code\\sandcastles> git ls-files .github/workflows\n').passed,
+    ).toBe(false);
   });
 
-  it("passes a pushed ci: commit on GitHub's main, and fails a vague message", () => {
+  it("passes a merged ci: commit on GitHub's main, and fails any other type", () => {
     const pushed = verification('workflow-pushed');
-    const good = '4f2a9c1 (origin/main, origin/HEAD) ci: run tests on every push\n';
-    expect(verifyPaste(pushed, good).passed).toBe(true);
+    const squashed = '4f2a9c1 (origin/main, origin/HEAD) ci: scan every push for secrets (#7)\n';
+    expect(verifyPaste(pushed, squashed).passed).toBe(true);
+    // The commit that last touched coverage.yml is Conventional, but it isn't this work.
+    const older = '9b1d2e3 fix: calibrate the coverage gate with per-system floors\n';
+    expect(verifyPaste(pushed, older).passed).toBe(false);
     expect(verifyPaste(pushed, '4f2a9c1 (origin/main) add workflow\n').passed).toBe(false);
   });
 
   it('fails when nothing was pushed, because the log prints no line at all', () => {
     const pushed = verification('workflow-pushed');
     const empty =
-      'PS C:\\code\\SandCastles> git log --oneline -1 origin/main -- .github/workflows\n';
+      'PS C:\\code\\sandcastles> git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml\n';
     expect(verifyPaste(pushed, empty).passed).toBe(false);
+  });
+
+  it('proves the run went green with gh, and says what to do when it did not', () => {
+    const run = verification('run-green');
+    const green = '[{"conclusion":"success","headBranch":"main","status":"completed"}]';
+    expect(verifyPaste(run, green)).toEqual({
+      passed: true,
+      message: 'Green on GitHub. The gate is live.',
+    });
+    const red = verifyPaste(run, '[{"conclusion":"failure","status":"completed"}]');
+    expect(red.passed).toBe(false);
+    expect(red.message).toContain('fix the cause');
+    const running = verifyPaste(run, '[{"conclusion":"","status":"in_progress"}]');
+    expect(running.message).toContain('still going');
+    expect(verifyPaste(run, '[]').message).toContain('No run');
   });
 
   it('completes the Act once every lesson and both checks are done', () => {
