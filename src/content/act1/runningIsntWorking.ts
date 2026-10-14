@@ -54,7 +54,7 @@ export const runningIsntWorking = {
           text: 'The firewall is blocking port 3000.',
           correct: false,
           feedback:
-            'A firewall blocks traffic from outside. This is about who listens on the port.',
+            'A firewall drops connections. It never stops a program from listening, and EADDRINUSE is about who already listens.',
         },
         {
           id: 'taken',
@@ -121,10 +121,54 @@ export const runningIsntWorking = {
         'A name like node can belong to many programs at once. The process ID, or PID, is unique while it runs. Ask the port for its owning PID, then act on that one number.',
     },
     {
+      id: 'moved-goalposts',
+      kind: 'choose',
+      situation:
+        'Meanwhile, Otto tries another way in a second terminal. Marco’s web app on port 5173 still calls http://localhost:3000.',
+      artifact: {
+        kind: 'terminal',
+        label: 'PS 2',
+        text: [
+          "PS C:\\Users\\kyle\\quillwork\\api> $env:PORT = '3001'; npm start",
+          '',
+          '> quillwork-api@1.0.0 start',
+          '> node server.js',
+          '',
+          'API listening on :3001',
+          '',
+          'otto › Done: the API is up.',
+        ].join('\n'),
+      },
+      question: 'Is the job done?',
+      options: [
+        {
+          id: 'moved',
+          text: 'No. He moved the goal: the web app still calls 3000 and will fail. Stop the 3001 copy and free port 3000.',
+          correct: true,
+          feedback: 'Yes. The task was the API on 3000, not the API somewhere.',
+        },
+        {
+          id: 'yes',
+          text: 'Yes. It’s listening, so it’s up.',
+          correct: false,
+          feedback: 'Up on a port nobody calls. Marco’s app still gets no answer.',
+        },
+        {
+          id: 'tell-marco',
+          text: 'Yes. Just ask Marco to change his app to 3001.',
+          correct: false,
+          feedback:
+            'That spreads your laptop’s problem into his code, and to everyone else’s laptop.',
+        },
+      ],
+      explanation:
+        'Agents sometimes “succeed” by quietly changing the goal: another port, a skipped test, a smaller task. Check the claim against what you actually asked for.',
+    },
+    {
       id: 'big-hammer',
       kind: 'prompt',
       situation:
-        'PID 7004 is Marco’s web preview, and 7020 is Otto’s own agent process. Otto proposes a quick fix.',
+        'PID 7004 is Marco’s web preview, 7020 is Otto’s own agent process, and 8712 is an old mock server Otto started yesterday. Otto proposes a quick fix.',
       artifact: {
         kind: 'agent-message',
         label: 'Otto',
@@ -141,7 +185,7 @@ export const runningIsntWorking = {
           text: 'Approve. It’s only dev stuff.',
           correct: false,
           feedback:
-            'That stops all three: Marco’s preview, the old mock, and Otto himself, mid-task.',
+            'That stops every node process: Marco’s preview, the old mock, and Otto himself, mid-task.',
         },
         {
           id: 'other-port',
@@ -167,57 +211,13 @@ export const runningIsntWorking = {
         'Stopping by name hits every process with that name, including ones you need, and possibly your agent. Stop by PID, the one you checked, and confirm the result.',
     },
     {
-      id: 'moved-goalposts',
-      kind: 'choose',
-      situation:
-        'Before you stepped in, Otto had tried another way. Marco’s web app on port 5173 still calls http://localhost:3000.',
-      artifact: {
-        kind: 'terminal',
-        label: 'PS 2',
-        text: [
-          "PS C:\\Users\\kyle\\quillwork\\api> $env:PORT = '3001'; npm start",
-          '',
-          '> quillwork-api@1.0.0 start',
-          '> node server.js',
-          '',
-          'API listening on :3001',
-          '',
-          'otto › Done: the API is up.',
-        ].join('\n'),
-      },
-      question: 'Is the job done?',
-      options: [
-        {
-          id: 'moved',
-          text: 'No. He moved the goal: the web app still calls 3000 and will fail. Free port 3000 instead.',
-          correct: true,
-          feedback: 'Yes. The task was the API on 3000, not the API somewhere.',
-        },
-        {
-          id: 'yes',
-          text: 'Yes. It’s listening, so it’s up.',
-          correct: false,
-          feedback: 'Up on a port nobody calls. Marco’s app still gets no answer.',
-        },
-        {
-          id: 'tell-marco',
-          text: 'Yes. Just ask Marco to change his app to 3001.',
-          correct: false,
-          feedback:
-            'That spreads your laptop’s problem into his code, and to everyone else’s laptop.',
-        },
-      ],
-      explanation:
-        'Agents sometimes “succeed” by quietly changing the goal: another port, a skipped test, a smaller task. Check the claim against what you actually asked for.',
-    },
-    {
       id: 'prove-it',
       kind: 'choose',
       situation:
-        'The old mock is stopped and the API starts on 3000. Otto says “Done: the API works.” You ask him to prove it from a second terminal.',
+        'The old mock and the 3001 copy are stopped, and the API starts on 3000. Otto says “Done: the API works.” You ask him to prove it from a third terminal.',
       artifact: {
         kind: 'response',
-        label: 'PS 2',
+        label: 'PS 3',
         text: [
           'PS C:\\Users\\kyle> curl.exe -i http://localhost:3000/health',
           'HTTP/1.1 503 Service Unavailable',
