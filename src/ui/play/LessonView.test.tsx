@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   checkOrder,
   finishLessonBriefing,
@@ -15,6 +15,7 @@ import { placementLesson } from '../../game/missions/lessonPlacement';
 import { isPickCard, type Lesson } from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
+import { setCatalog } from '../../game/play/catalog';
 import { LessonView } from './LessonView';
 
 const T0 = Date.now();
@@ -123,6 +124,9 @@ describe('the lesson view', () => {
 describe('a lesson Act’s placement test in the lesson view', () => {
   const full = fullSampleLessonAct();
   const lesson = placementLesson(full.act, full.lessons);
+  beforeEach(() => {
+    setCatalog({ acts: [full] });
+  });
   const placementView = (run: LessonRun, result: PlacementResult | null) =>
     renderToStaticMarkup(
       <LessonView
@@ -147,6 +151,8 @@ describe('a lesson Act’s placement test in the lesson view', () => {
     const passed = text(placementView(done, { percent: 100, testedOut: true }));
     expect(passed).toContain('100% right.');
     expect(passed).toContain('Tested out. Every lesson in Act 6 is marked done');
+    // The sample Act has a Field Mission, which a test-out doesn't skip.
+    expect(passed).toContain('the final and the Field Mission are still yours to do');
     expect(passed).not.toContain('★');
     const missed = text(placementView(done, { percent: 67, testedOut: false }));
     expect(missed).toContain('85% tests out. Play the lessons, or try again.');

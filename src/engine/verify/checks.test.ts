@@ -7,9 +7,11 @@ import {
   isCleanStatus,
   isConventionalSubject,
   isGeneratedSubject,
+  isPullRequestSubject,
   isSecretPath,
   isSquashMergedSubject,
   isTypedBranchName,
+  matchesPathPattern,
   mergedBranchName,
   newestWrittenCommit,
   readTopMerge,
@@ -127,6 +129,32 @@ describe('isGeneratedSubject', () => {
   it('leaves subjects a person wrote alone', () => {
     expect(isGeneratedSubject('merge the two configs')).toBe(false);
     expect(isGeneratedSubject('revert: undo the cache')).toBe(false);
+  });
+});
+
+describe('isPullRequestSubject', () => {
+  it('recognizes what GitHub writes for a squash merge and a merge commit', () => {
+    expect(isPullRequestSubject('feat: add tide alerts (#14)')).toBe(true);
+    expect(isPullRequestSubject('Merge pull request #14 from kyle/feat-tide-alerts')).toBe(true);
+  });
+
+  it('rejects commits pushed straight to main, or that only mention an issue', () => {
+    expect(isPullRequestSubject('feat: add tide alerts')).toBe(false);
+    expect(isPullRequestSubject('fix: closes #14 for good')).toBe(false);
+    expect(isPullRequestSubject("Merge branch 'feat-tide-alerts'")).toBe(false);
+  });
+});
+
+describe('matchesPathPattern', () => {
+  it('lets * stand for any name inside one folder', () => {
+    expect(matchesPathPattern('docs/specs/tide-alerts.md', 'docs/specs/*.md')).toBe(true);
+    expect(matchesPathPattern('src/tide.test.ts', 'src/*.test.*')).toBe(true);
+  });
+
+  it('stays inside the folder and the extension it names', () => {
+    expect(matchesPathPattern('docs/specs/old/tide.md', 'docs/specs/*.md')).toBe(false);
+    expect(matchesPathPattern('docs/specs/tide.txt', 'docs/specs/*.md')).toBe(false);
+    expect(matchesPathPattern('docs/specsXmd', 'docs/specs.md')).toBe(false);
   });
 });
 

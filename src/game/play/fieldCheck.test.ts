@@ -205,6 +205,63 @@ describe('verifyPaste', () => {
     );
   });
 
+  it('finds a tracked file by pattern in a git ls-files paste', () => {
+    const check = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'tracksPath', patterns: ['docs/specs/*.md'] },
+    });
+    const found = verifyPaste(check, 'README.md\ndocs/specs/tide-alerts.md\n');
+    expect(found).toEqual({ passed: true, message: 'Git tracks docs/specs/tide-alerts.md.' });
+    const missing = verifyPaste(check, 'README.md\ndocs/notes.md\n');
+    expect(missing.passed).toBe(false);
+    expect(missing.message).toContain('docs/specs/*.md');
+    expect(verifyPaste(check, '\n\n').message).toContain('Paste the output');
+  });
+
+  it('tells a PR merge from a commit pushed straight to main', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline --first-parent -1',
+      check: { kind: 'viaPullRequest' },
+    });
+    expect(verifyPaste(check, 'a1b2c3d feat: add tide alerts (#14)').passed).toBe(true);
+    expect(verifyPaste(check, 'a1b2c3d Merge pull request #14 from kyle/tide').passed).toBe(true);
+    const direct = verifyPaste(check, 'a1b2c3d feat: add tide alerts');
+    expect(direct.passed).toBe(false);
+    expect(direct.message).toContain('PR');
+  });
+
+  it('uses a mission’s own words for an empty paste and for advice, when it has them', () => {
+    const empty = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -- docs/specs',
+      check: { kind: 'minCommits', count: 1 },
+      whenEmpty: 'It printed nothing: no spec is on main yet.',
+    });
+    expect(verifyPaste(empty, '  \n').message).toBe('It printed nothing: no spec is on main yet.');
+    const secrets = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'noTrackedSecrets' },
+      advice: 'Roll that key first.',
+    });
+    expect(verifyPaste(secrets, '.env\n').message).toBe(
+      'Still tracked: .env. Roll that key first.',
+    );
+    const status = { ...secrets, parser: 'status-short', command: 'git status --short' } as const;
+    expect(verifyPaste(status, 'A  .env\n').message).toContain('Roll that key first.');
+    const titles = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1',
+      check: { kind: 'conventionalRatio', min: 1, last: 1 },
+      advice: 'Fix it in your next PR title.',
+    });
+    expect(verifyPaste(titles, 'a1b2c3d Add tide alerts (#14)').message).toContain(
+      'Fix it in your next PR title.',
+    );
+  });
+
   it('checks that build output and secrets are ignored', () => {
     const check = verification({
       parser: 'status-short',

@@ -285,7 +285,8 @@ describe('playing Act 4’s new parts', () => {
       expect(after.missions[taughtLesson.id]?.status).toBe('tested-out');
     }
     expect(after.missions[act.finalLessonId ?? '']).toBeUndefined();
-    expect(after.acts['4']?.completedAt).toBe(NOW.toISOString());
+    // The Field Mission is real work on a real repo, so a card test never skips it.
+    expect(after.acts['4']?.completedAt).toBeNull();
   });
 
   it('opens the Field Mission with the terminal closed, and completes it from pastes', () => {

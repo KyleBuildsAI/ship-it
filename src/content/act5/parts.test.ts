@@ -93,7 +93,7 @@ describe('Act 5 placement test', () => {
     expect(placement.passPercent).toBe(85);
   });
 
-  it('tests out of every lesson at half XP, completes the Act, and leaves Red CI open', () => {
+  it('tests out of every lesson at half XP, leaves Red CI open, and waits for the Field Mission', () => {
     const save = recordPlacement(
       createDefaultSave(NOW),
       act,
@@ -105,8 +105,12 @@ describe('Act 5 placement test', () => {
       expect(save.missions[lesson.id]?.status, lesson.id).toBe('tested-out');
     }
     expect(save.missions[act.finalLessonId ?? '']?.status ?? 'not-started').not.toBe('tested-out');
-    expect(save.acts['5']?.completedAt).toBe(NOW.toISOString());
-    expect(completedActNumbers(save.acts)).toContain(5);
+    // The Field Mission is real work on a real repo, so a card test never skips it.
+    expect(save.acts['5']?.completedAt).toBeNull();
+    const checks = field.verifications.map((check) => check.id);
+    const done = recordFieldMission(save, act, checks, NOW);
+    expect(done.acts['5']?.completedAt).toBe(NOW.toISOString());
+    expect(completedActNumbers(done.acts)).toContain(5);
     const half = teaching.reduce((total, lesson) => total + placementTestOutXp([lesson.xp]), 0);
     expect(save.profile.xp).toBe(half);
   });

@@ -10,8 +10,10 @@ import {
   isConventionalSubject,
   isFromFile,
   isGreenRun,
+  isPullRequestSubject,
   isSquashMergedSubject,
   isTypedBranchName,
+  matchesPathPattern,
   newestWrittenCommit,
   normalizePaste,
   parseLogGraph,
@@ -57,7 +59,7 @@ function fail(message: string): FieldVerdict {
 /** True when `path` is one of `patterns`, or sits inside one that names a folder (`dist/`). */
 function matchesAny(path: string, patterns: readonly string[]): boolean {
   return patterns.some((pattern) =>
-    pattern.endsWith('/') ? path.startsWith(pattern) : path === pattern,
+    pattern.endsWith('/') ? path.startsWith(pattern) : matchesPathPattern(path, pattern),
   );
 }
 
@@ -260,12 +262,15 @@ function checkTrackedFiles(verification: Verification, text: string): FieldVerdi
   }
   const secrets = trackedSecretPaths(paths);
   if (secrets.length > 0) {
-    return fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
+    return fail(
+      `Still tracked: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack with git rm --cached, then commit.'}`,
+    );
   }
   if (check.kind === 'tracksPath') {
     // Any other file on the list, even an older workflow, doesn't prove the new one exists.
-    return paths.some((path) => matchesAny(path, check.patterns))
-      ? { passed: true, message: `Git tracks ${check.patterns.join(' or ')}.` }
+    const found = paths.filter((path) => matchesAny(path, check.patterns));
+    return found.length > 0
+      ? { passed: true, message: `Git tracks ${found.join(', ')}.` }
       : fail(
           `${check.patterns.join(' or ')} isn't on that list yet. Commit it, then run ${verification.command} again.`,
         );
@@ -317,8 +322,18 @@ function checkLog(verification: Verification, text: string): FieldVerdict {
       return ratio >= check.min
         ? { passed: true, message: `${String(percent)}% of recent commits are Conventional.` }
         : fail(
-            `${String(percent)}% are Conventional Commits; aim for ${String(Math.round(check.min * 100))}%. New commits count, so keep going.`,
+            `${String(percent)}% are Conventional Commits; aim for ${String(Math.round(check.min * 100))}%. ${verification.advice ?? 'New commits count, so keep going.'}`,
           );
+    }
+    case 'viaPullRequest': {
+      const newest = commits[0];
+      if (newest !== undefined && isPullRequestSubject(newest.subject)) {
+        return { passed: true, message: 'It landed through a pull request.' };
+      }
+      return fail(
+        verification.advice ??
+          'That commit doesn’t show a PR number, so it looks pushed straight to main. Land the next change through a PR.',
+      );
     }
     case 'newestCommitType': {
       const newest = newestWrittenCommit(commits);
@@ -357,7 +372,8 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
     return verifyNoCommits(verification, verification.check.path, text);
   }
   if (text.trim() === '' && verification.parser !== 'status-short') {
-    return fail(`Paste the output of ${verification.command} first.`);
+    // Some commands print nothing until the work exists, so a mission can say so itself.
+    return fail(verification.whenEmpty ?? `Paste the output of ${verification.command} first.`);
   }
   if (verification.parser === 'ls-files') return checkTrackedFiles(verification, text);
   if (verification.parser === 'log-oneline') return checkLog(verification, text);
@@ -379,7 +395,9 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0
         ? { passed: true, message: 'No secret files show up as tracked.' }
-        : fail(`Tracked secrets: ${secrets.join(', ')}. Untrack them with git rm --cached.`);
+        : fail(
+            `Tracked secrets: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack them with git rm --cached.'}`,
+          );
     }
     case 'ignores': {
       const visible = [...unignored(status, check.patterns), ...buildOutputToIgnore(status)];

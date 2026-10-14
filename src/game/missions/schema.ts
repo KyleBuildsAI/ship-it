@@ -412,6 +412,8 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('tracksAny'), paths: z.array(NameSchema).min(1) }),
   /** The newest commit someone wrote has this Conventional type, e.g. `docs`. */
   z.strictObject({ kind: z.literal('newestCommitType'), type: z.enum(CONVENTIONAL_TYPES) }),
+  /** The newest commit listed is GitHub's merge of a pull request, squashed or not. */
+  z.strictObject({ kind: z.literal('viaPullRequest') }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
 
@@ -435,6 +437,7 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   mergeCommit: ['log-oneline'],
   squashMergedPr: ['log-oneline'],
   noCommits: ['log-oneline'],
+  viaPullRequest: ['log-oneline'],
 };
 
 const VerificationSchema = z
@@ -445,6 +448,14 @@ const VerificationSchema = z
     command: NameSchema,
     parser: z.enum(FIELD_PARSERS),
     check: FieldCheckSchema,
+    /**
+     * What to say when the command printed nothing. Some commands, like
+     * `git log -- docs/specs`, print nothing until the work exists, so "paste it first"
+     * would wrongly suggest Kyle forgot to paste.
+     */
+    whenEmpty: ScreenTextSchema.optional(),
+    /** What to do about a failure, in place of the general advice, when this mission needs other advice. */
+    advice: ScreenTextSchema.optional(),
   })
   .superRefine((verification, ctx) => {
     const usable = PARSERS_FOR_CHECK[verification.check.kind];

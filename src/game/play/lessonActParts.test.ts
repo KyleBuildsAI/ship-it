@@ -113,7 +113,7 @@ describe("a lesson Act's placement test", () => {
     expect(save().missions[placementLessonId(act.act)]).toBeUndefined();
   });
 
-  it('tests out at 85%: its lessons are tested out, the final stays, the Act completes', () => {
+  it('tests out at 85%: its lessons are tested out, the final and Field Mission stay', () => {
     startLessonPlacement(act.act);
     playThrough();
     expect(lesson().placement?.result).toEqual({ percent: 100, testedOut: true });
@@ -122,12 +122,34 @@ describe("a lesson Act's placement test", () => {
     expect(after.missions[firstLesson.id]?.status).toBe('tested-out');
     expect(after.missions[secondLesson.id]?.status).toBe('tested-out');
     expect(after.missions[finalLesson.id]).toBeUndefined();
+    // Cards can be guessed, so a test-out doesn't skip the work on a real repo.
     expect(after.acts['6']).toMatchObject({
       placement: { attempts: 1, bestPercent: 100, testedOut: true },
-      completedAt: NOW.toISOString(),
+      completedAt: null,
     });
+    expect(recommendedAct(after)).toBe(act.act);
     // Half the tested-out lessons' XP, and none for the final.
     expect(after.profile.xp).toBe((firstLesson.xp + secondLesson.xp) / 2);
+    const verified = recordFieldMission(
+      after,
+      act,
+      ['sample-full-clean', 'sample-full-history'],
+      NOW,
+    );
+    expect(verified.acts['6']?.completedAt).toBe(NOW.toISOString());
+  });
+
+  it('completes at once on a test-out when the lesson Act has no Field Mission', () => {
+    const noField: typeof act = { ...act };
+    delete noField.fieldMission;
+    const tested = recordPlacement(
+      createDefaultSave(NOW),
+      noField,
+      full.lessons,
+      { percent: 100, testedOut: true },
+      NOW,
+    );
+    expect(tested.acts['6']?.completedAt).toBe(NOW.toISOString());
   });
 
   it('saves a miss as an attempt, and leaves the lessons to play', () => {

@@ -143,7 +143,7 @@ describe("Act 1's placement test", () => {
     expect(save.acts['1']?.completedAt).toBeNull();
   });
 
-  it('completes the Act once Missions 1.1 to 1.4 are played, leaving the final to play', () => {
+  it('completes the Act once Missions 1.1 to 1.4 and the Field Mission are done, leaving the final to play', () => {
     const tested = recordPlacement(
       createDefaultSave(NOW),
       act1,
@@ -159,7 +159,11 @@ describe("Act 1's placement test", () => {
       tested,
     );
     expect(almost.acts['1']?.completedAt).toBeNull();
-    const done = completeMission(almost, act1, last, result, NOW);
+    const played = completeMission(almost, act1, last, result, NOW);
+    // The Field Mission is real work on a real repo, so a card test never skips it.
+    expect(played.acts['1']?.completedAt).toBeNull();
+    const checks = act1.fieldMission?.verifications.map((check) => check.id) ?? [];
+    const done = recordFieldMission(played, act1, checks, NOW);
     expect(done.acts['1']?.completedAt).toBe(NOW.toISOString());
     expect(done.missions[final.id]).toBeUndefined();
   });

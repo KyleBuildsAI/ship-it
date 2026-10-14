@@ -113,6 +113,33 @@ export function searchesAllHistoryFor(command: string, path: string): boolean {
   return program === 'git' && subcommand === 'log' && args.includes('--all') && args.includes(path);
 }
 
+// GitHub writes these subjects when it merges a PR: a squash merge adds " (#12)" to the PR
+// title, and a merge commit starts "Merge pull request #12 from ...". Either proves the
+// change went through a PR, which a commit pushed straight to main never shows.
+const SQUASHED_PR_SUBJECT = /\(#\d+\)$/;
+const MERGED_PR_SUBJECT = /^Merge pull request #\d+ /;
+
+/** True for a commit subject GitHub wrote while merging a pull request. */
+export function isPullRequestSubject(subject: string): boolean {
+  const trimmed = subject.trim();
+  return SQUASHED_PR_SUBJECT.test(trimmed) || MERGED_PR_SUBJECT.test(trimmed);
+}
+
+// ---- Tracked paths ---------------------------------------------------------------------
+
+/**
+ * True when a path matches a simple pattern where `*` stands for any run of characters
+ * inside one folder, like `docs/specs/*.md`. Field Missions only need that much, so this
+ * isn't a full glob: no `**`, `?` or character classes.
+ */
+export function matchesPathPattern(path: string, pattern: string): boolean {
+  const escaped = pattern
+    .split('*')
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+    .join('[^/]*');
+  return new RegExp(`^${escaped}$`).test(path);
+}
+
 // ---- Working tree ----------------------------------------------------------------------
 
 /**

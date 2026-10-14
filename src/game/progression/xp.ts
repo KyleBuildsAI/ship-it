@@ -86,8 +86,9 @@ export function nextRank(
 
 /**
  * The Act numbers the player has completed, in order. Only completedAt counts: a placement
- * pass stamps it when it skips the whole Act, but Act 1's covers only its lessons, so
- * passing it alone mustn't count the Act (saveRules' refreshAct decides).
+ * pass stamps it when it skips the whole Act, but Act 1's covers only its lessons, and a
+ * lesson Act's open Field Mission still waits, so passing alone mustn't count the Act
+ * (saveRules' refreshAct decides).
  */
 export function completedActNumbers(acts: SaveData['acts']): number[] {
   return Object.entries(acts)

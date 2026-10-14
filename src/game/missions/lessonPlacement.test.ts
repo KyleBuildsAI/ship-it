@@ -4,6 +4,7 @@ import { isPickCard, type Lesson } from './lessonSchema';
 import {
   cardsToPass,
   lessonPlacementResult,
+  missesAllowed,
   placementLesson,
   placementLessonId,
   shuffledBy,
@@ -14,6 +15,7 @@ import { sampleAct } from './sample.test-mission';
 import {
   ContentError,
   isLessonPlacement,
+  PLACEMENT_PASS_PERCENT,
   requireComplete,
   requireDrillPlacement,
   requireLessonPlacement,
@@ -137,6 +139,14 @@ describe("a lesson placement's cards", () => {
   });
 });
 
+describe('missesAllowed', () => {
+  it('turns the pass percent into misses, rounding down so it never allows one too many', () => {
+    expect(missesAllowed(12, 85)).toBe('miss at most one of 12');
+    expect(missesAllowed(14, 85)).toBe('miss at most 2 of 14');
+    expect(missesAllowed(4, 85)).toBe('answer all 4 right');
+  });
+});
+
 describe('the placement run', () => {
   const lesson = placementLesson(full.act, full.lessons);
 
@@ -150,6 +160,9 @@ describe('the placement run', () => {
     });
     expect(lesson.cards.map((card) => card.id)).toEqual(fullSamplePlacement.cardIds);
     expect(lesson.briefing[0]).toBe(fullSamplePlacement.pitch);
+    expect(lesson.briefing[1]).toContain(
+      missesAllowed(fullSamplePlacement.cardIds.length, PLACEMENT_PASS_PERCENT),
+    );
     const need = cardsToPass(lesson.cards.length, 85);
     expect(lesson.briefing[1]).toContain(`Get ${String(need)} of ${String(lesson.cards.length)}`);
   });

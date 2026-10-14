@@ -15,6 +15,7 @@ import type {
   PickCard,
 } from '../../game/missions/lessonSchema';
 import { formatClock } from '../../game/play/bossPlay';
+import { getAct } from '../../game/play/catalog';
 import {
   answerLesson,
   checkLessonOrder,
@@ -328,6 +329,16 @@ function DoneActions({
 }
 
 /**
+ * What a test-out leaves to play. A lesson Act's Field Mission isn't skipped by a test-out
+ * (the Act completes only once it's verified), so the Done screen names it.
+ */
+function stillToDo(actNumber: number): string {
+  return getAct(actNumber).act.fieldMission === undefined
+    ? 'the final is still yours to play.'
+    : 'the final and the Field Mission are still yours to do, and the Act completes once the Field Mission is verified.';
+}
+
+/**
  * A placement test's Done screen: the score, and whether it tested out. A miss isn't a
  * failure: the lessons are still there to play, and the test can be taken again.
  */
@@ -347,7 +358,7 @@ function PlacementDone({ activity }: { activity: LessonActivity }) {
       </p>
       <p className="play-panel__muted">
         {result.testedOut
-          ? `Tested out. Every lesson in Act ${String(lesson.act)} is marked done; the final is still yours to play.`
+          ? `Tested out. Every lesson in Act ${String(lesson.act)} is marked done; ${stillToDo(lesson.act)}`
           : `${String(placement.passPercent)}% tests out. Play the lessons, or try again.`}
       </p>
       <DoneActions
