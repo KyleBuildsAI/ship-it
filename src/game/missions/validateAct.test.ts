@@ -374,10 +374,6 @@ describe('validateAct on a directed mission', () => {
     const onGit = { ...directedMission, initialRepoState: sampleMission.initialRepoState };
     expect(validateAct(directedAct, [onGit])).toEqual([
       {
-        where: `${mission} > initialRepoState`,
-        problem: 'Otto works on the laptop, so start with windows().',
-      },
-      {
         where: at,
         problem: `"currentDirectory" checks the laptop, so the mission's initialRepoState must start with windows().`,
       },

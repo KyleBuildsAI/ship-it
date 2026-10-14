@@ -211,6 +211,29 @@ const QuestionRoundSchema = z
     }
   });
 
+/** Just enough of a directed step to find Otto's terminal tab actions. */
+interface TabbedTask {
+  readonly plans: readonly { readonly script: readonly TabbedAction[] }[];
+  readonly fixes: readonly { readonly script: readonly TabbedAction[] }[];
+}
+type TabbedAction = { readonly do: string } & {
+  readonly onDeny?: readonly { readonly do: string }[];
+};
+
+const TAB_ACTIONS: readonly string[] = ['newTerminal', 'useTerminal'];
+
+/** Whether any card of a step, or any plan B in it, opens or switches a terminal tab. */
+function usesTabs(step: { readonly agent?: TabbedTask | undefined }): boolean {
+  const cards = [...(step.agent?.plans ?? []), ...(step.agent?.fixes ?? [])];
+  return cards.some(({ script }) =>
+    script.some(
+      (action) =>
+        TAB_ACTIONS.includes(action.do) ||
+        (action.onDeny ?? []).some((planB) => TAB_ACTIONS.includes(planB.do)),
+    ),
+  );
+}
+
 /** A rule a mission breaks about being directed: the field it's about, and why. */
 export interface DirectedProblem {
   readonly field: 'steps' | 'approvals' | 'initialRepoState' | 'drills';
@@ -218,14 +241,15 @@ export interface DirectedProblem {
 }
 
 /**
- * A mission is directed (Kyle directs Otto) or typed (Kyle types, as in Act 2), never a
- * mix: the approval mode covers the whole sim, and Otto only works on the laptop. Its
+ * A mission is directed (Kyle directs Otto) or typed (Kyle types), never a mix: the
+ * approval mode covers the whole sim. Otto works on the laptop (Act 1) or on a git project
+ * (Act 2's Workbench), where there is one terminal, so he can't open or switch tabs. Its
  * drills match: judgment drills when directed, typed drills when typed. MissionSchema
  * reports these as it parses, and validateAct reports them again for content built
  * without parsing.
  */
 export function directedProblems(mission: {
-  readonly steps: readonly { readonly agent?: unknown }[];
+  readonly steps: readonly { readonly agent?: TabbedTask | undefined }[];
   readonly approvals?: string | undefined;
   readonly initialRepoState: readonly FixtureStep[];
   readonly drills: readonly (SandboxDrill | JudgmentDrill)[];
@@ -251,8 +275,11 @@ export function directedProblems(mission: {
   if (mission.approvals === undefined) {
     problem('approvals', 'A directed mission sets approvals: "changes" or "destructive".');
   }
-  if (mission.initialRepoState[0]?.op !== 'windows') {
-    problem('initialRepoState', 'Otto works on the laptop, so start with windows().');
+  if (mission.initialRepoState[0]?.op !== 'windows' && mission.steps.some(usesTabs)) {
+    problem(
+      'initialRepoState',
+      'Terminal tabs belong to a laptop: start with windows(), or keep Otto in one terminal.',
+    );
   }
   if (judgmentDrills < mission.drills.length) {
     problem('drills', 'A directed mission has judgment drills: give every drill a kind.');
