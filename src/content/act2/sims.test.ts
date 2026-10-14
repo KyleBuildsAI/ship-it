@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gitQueries } from '../../engine/git/queries';
 import type { Shell } from '../../engine/shell/shell';
-import { evaluate } from '../../game/missions/predicates';
+import { evaluate, explain } from '../../game/missions/predicates';
 import { checkStep, finishBriefing, startRun, type MissionRun } from '../../game/missions/runner';
 import type { Mission } from '../../game/missions/schema';
 import { act2Missions } from './index';
@@ -222,6 +222,21 @@ describe('Act 2 sims accept other valid paths', () => {
       'git rm .env',
     ]);
     expect(deleted.stepIndex).toBe(2);
+  });
+
+  it('ignore-list: a > that wipes the dist/ rule leaves step 2 open, and says why', () => {
+    const mission = missionById('ignore-list');
+    const { run, shell } = startSim(mission);
+    const overwritten = play(mission, run, shell, [
+      'echo "dist/" > .gitignore',
+      'echo "*.log" > .gitignore',
+    ]);
+    expect(overwritten.stepIndex).toBe(1);
+    const step = mission.steps[1];
+    if (step === undefined) throw new Error('ignore-list has a second step');
+    expect(explain(step.success, gitQueries(shell.ws))).toContainEqual(
+      expect.objectContaining({ label: 'dist/ is still ignored', passed: false }),
+    );
   });
 
   it('undo-everything: reset --mixed then re-add, and recover by the id from git reflog', () => {
