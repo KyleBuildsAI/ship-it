@@ -52,7 +52,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on your real repo.',
     missions: [
       { title: 'Branches Are Pointers' },
       { title: 'Two Ways to Merge' },
@@ -60,6 +61,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Tools for Bad Days' },
     ],
     boss: { title: 'Conflict Storm' },
+    fieldMission: { title: 'Land a Real Branch' },
   },
   {
     act: 4,

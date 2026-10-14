@@ -255,6 +255,10 @@ Every card happens at Quillwork with Otto and the team, and each lesson has at l
 
 Final (the boss): **"Conflict Storm"**, 6:00, 8 cards on release day: a fast-forward, a real conflict, Otto's conflicts under time pressure, a shared rebase gone wrong, a cherry-picked fix, bisect's arithmetic, the release steps with a tag, and a hotfix with stash.
 
+Placement test: 12 cards, three from each lesson (one on what git does, one on what to tell Otto, and an order card where the lesson has one), on a 7:00 clock. Only cards that make sense on their own are borrowed.
+
+Field Mission: **"Land a Real Branch"** on SandCastles. Kyle has his own AI agent make one small change on a `feat/` branch with a Conventional Commit, then merge it into main with a merge commit (`git merge --no-ff`, or a pull request merged with "Create a merge commit") and push. The checklist says what to ask the agent for and what to check in its answer. After `git switch main` and `git pull`, three pastes verify it with no token: `git log --oneline --merges -1` shows a merge commit, `git log --oneline --no-merges -1` shows a Conventional Commit, and `git status` is clean. Act 3 is complete once the lessons, the final and the Field Mission are done, or once the placement test is passed.
+
 ### Act 4: GitHub Team Flow (lessons)
 Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.
 Set at Quillwork, a small startup, with Sage, Dex, Marco, Priya and Otto, the team's AI agent. Each lesson has its own file in `src/content/act4/`.
