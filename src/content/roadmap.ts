@@ -35,7 +35,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     title: 'Git Core',
     topics: 'Three areas, status, add, commit, log, diff, .gitignore, commit hygiene, undo.',
     stage: 'playable',
-    status: 'Playable: the placement test, every mission, the boss and the Field Mission.',
+    status:
+      'Playable: the placement test and directed Missions 2.1 to 2.5, where Otto runs git while you plan and check, all by clicking; the typed boss; and the Field Mission.',
     missions: [
       { title: 'Three Rooms' },
       { title: 'Reading History' },

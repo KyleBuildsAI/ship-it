@@ -56,6 +56,12 @@ describe('the roadmap', () => {
     expect(act1?.status).not.toMatch(/Early access|not built/i);
   });
 
+  it('says Act 2 is directed, and that its boss is still typed', () => {
+    const act2 = roadmapAct(2);
+    expect(act2?.status).toContain('directed Missions 2.1 to 2.5');
+    expect(act2?.status).toContain('typed boss');
+  });
+
   it('says plainly that Acts 3 to 8 are played by clicking, with their finals as bosses', () => {
     for (const number of [3, 4, 5, 6, 7, 8]) {
       const entry = roadmapAct(number);
