@@ -728,22 +728,24 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
   - variable names
   - "never print or read .env"
   - "deletes and installs need approval"
-- `handoff`: in a fresh clone, have your agent set SandCastles up using only that section, then fix whatever it had to guess (not verified)
-- `commit`: commit with a `docs:` message
+- `handoff`: clone into a new, empty folder (never the working one), have your agent set SandCastles up using only that section, asking before it creates or overwrites any `.env`, then fix whatever it had to guess (not verified)
+- `stage`: stage only the brief by name (`git add CLAUDE.md`, never `git add .` or `-A`) and read `git status` first; if `.env` shows anywhere, add it to `.gitignore` before anything is committed
+- `commit`: commit with a `docs:` message and push
 
 **Verifications.** Two stages, so real-world transfer starts early.
 
 | When | id | Parser → check |
 |---|---|---|
 | **v1, B4 (existing parsers)** | `no-secrets-tracked` | `git ls-files` → `ls-files` → `noTrackedSecrets` |
-| | `clean-tree` | `git status --short` → `status-short` → `clean` |
-| | `docs-commit` | `git log --oneline -3` → `log-oneline` → `conventionalRatio {min: 1, last: 1}` |
+| | `brief-tracked` | `git ls-files` → `ls-files` → `tracksAny {paths: [CLAUDE.md, AGENTS.md]}` |
+| | `brief-pushed` | `git status -sb -- CLAUDE.md AGENTS.md` → `status-short` → `clean {pushed: true}` (only the brief: a dirty tree is Act 2's starting point) |
+| | `docs-commit` | `git log --oneline -3` → `log-oneline` → `newestCommitType {type: docs}` |
 | **v2, G5** | `tools-found` | `get-command` → `toolsFound {min: 2}` |
 | | `ports-listening` | `listening-ports` → `listeningPorts {min: 1}` |
 | | `env-example-names` | `env-names` → `envNamesOnly {min: 1}` |
 | | `agent-brief` | `agent-brief` → `docEnvironment {minPorts: 1, minNames: 1}` (heading, a port, a name, a never-read-.env line, and no `NAME=value`) |
 
-- A secret guard (`findSecretLike`) runs before every parser. It returns only the kind of secret found, clears the paste, and says "rotate it".
+- A secret guard (`findSecretLike`, `src/engine/verify/secretGuard.ts`) runs before every parser. It returns only the kind of secret found, clears the paste, and says "rotate it".
 - Pastes stay in React state; only the pass flags are saved.
 
 ---

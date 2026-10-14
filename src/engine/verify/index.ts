@@ -5,12 +5,18 @@
  */
 export {
   buildOutputToIgnore,
+  commitType,
+  CONVENTIONAL_TYPES,
   conventionalRatio,
+  firstTracked,
   isCleanStatus,
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  newestWrittenCommit,
   trackedSecretPaths,
+  unpushedCommits,
+  type ConventionalType,
   type ParsedStatus,
   type PathSource,
 } from './checks';
@@ -18,6 +24,7 @@ export { detectPasteKind, type PasteKind } from './detect';
 export { parseLogOneline, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';
+export { findSecretLike, type SecretKind } from './secretGuard';
 export {
   parseStatusLong,
   type ChangeKind,

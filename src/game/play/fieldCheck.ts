@@ -1,13 +1,18 @@
 import {
   buildOutputToIgnore,
+  commitType,
   conventionalRatio,
   detectPasteKind,
+  findSecretLike,
+  firstTracked,
   isCleanStatus,
+  newestWrittenCommit,
   parseLogOneline,
   parsePathList,
   parseStatusLong,
   parseStatusShort,
   trackedSecretPaths,
+  unpushedCommits,
   type ParsedStatus,
 } from '../../engine/verify';
 import type { FieldMission } from '../missions/schema';
@@ -19,6 +24,8 @@ export interface FieldVerdict {
   readonly passed: boolean;
   /** What the game tells the player, pass or fail, in plain words. */
   readonly message: string;
+  /** True when the paste held something secret-like, so the view must clear it. */
+  readonly clearPaste?: boolean;
 }
 
 const PARSER_NAMES = {
@@ -55,37 +62,55 @@ function unignored(status: ParsedStatus, patterns: readonly string[]): string[] 
   );
 }
 
-/**
- * Checks one pasted output against a Field Mission verification. Never throws: a paste
- * that isn't what was asked for gets a message saying which command to run instead.
- */
-export function verifyPaste(verification: Verification, text: string): FieldVerdict {
-  if (text.trim() === '' && verification.parser !== 'status-short') {
-    return fail(`Paste the output of ${verification.command} first.`);
+/** Whether a status paste passes a `clean` check, with its upstream when `pushed` asks. */
+function checkClean(status: ParsedStatus, pushed: boolean): FieldVerdict {
+  if (!isCleanStatus(status)) {
+    return fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
   }
+  if (!pushed) return { passed: true, message: 'Clean: nothing left to commit.' };
+  const waiting = unpushedCommits(status);
+  if (waiting === null) {
+    return fail(
+      'Committed, but this paste can’t show the push. Run the command exactly as shown, with -sb, on a branch that tracks GitHub.',
+    );
+  }
+  return waiting === 0
+    ? { passed: true, message: 'Committed and pushed: GitHub has it.' }
+    : fail(
+        `Committed, not pushed: ${String(waiting)} commit${waiting === 1 ? '' : 's'} still only on this computer. Ask your agent to push.`,
+      );
+}
+
+/** Checks a `git ls-files` paste, which lists every tracked file. */
+function checkTrackedFiles(verification: Verification, text: string): FieldVerdict {
+  const paths = parsePathList(text);
+  if (paths.length === 0) return fail(`That paste lists no files. Run ${verification.command}.`);
   const { check } = verification;
-
-  if (verification.parser === 'ls-files') {
-    const paths = parsePathList(text);
-    if (paths.length === 0) return fail(`That paste lists no files. Run ${verification.command}.`);
-    const secrets = trackedSecretPaths(paths);
-    return secrets.length === 0
-      ? { passed: true, message: 'No secret files are tracked.' }
-      : fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
+  if (check.kind === 'tracksAny') {
+    const found = firstTracked(paths, check.paths);
+    return found === null
+      ? fail(`Git doesn’t track ${check.paths.join(' or ')} yet. Commit it first.`)
+      : { passed: true, message: `Git tracks ${found}.` };
   }
+  const secrets = trackedSecretPaths(paths);
+  return secrets.length === 0
+    ? { passed: true, message: 'No secret files are tracked.' }
+    : fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
+}
 
-  if (verification.parser === 'log-oneline') {
-    const kind = detectPasteKind(text);
-    if (kind !== 'log-oneline') {
-      return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
-    }
-    const commits = parseLogOneline(text);
-    if (check.kind === 'minCommits') {
+/** Checks a `git log --oneline` paste. */
+function checkLog(verification: Verification, text: string): FieldVerdict {
+  if (detectPasteKind(text) !== 'log-oneline') {
+    return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
+  }
+  const commits = parseLogOneline(text);
+  const { check } = verification;
+  switch (check.kind) {
+    case 'minCommits':
       return commits.length >= check.count
         ? { passed: true, message: `${String(commits.length)} commits. Nice.` }
         : fail(`Only ${String(commits.length)} commits; this needs ${String(check.count)}.`);
-    }
-    if (check.kind === 'conventionalRatio') {
+    case 'conventionalRatio': {
       const ratio = conventionalRatio(commits.slice(0, check.last));
       const percent = Math.round(ratio * 100);
       return ratio >= check.min
@@ -94,9 +119,41 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
             `${String(percent)}% are Conventional Commits; aim for ${String(Math.round(check.min * 100))}%. New commits count, so keep going.`,
           );
     }
-    return fail(`Run ${verification.command} and paste that.`);
+    case 'newestCommitType': {
+      const newest = newestWrittenCommit(commits);
+      const type = newest === null ? null : commitType(newest.subject);
+      return type === check.type
+        ? { passed: true, message: `Your newest commit is a ${check.type}: commit.` }
+        : fail(
+            `Your newest commit should start with ${check.type}:, like "${check.type}: add environment setup for agents".`,
+          );
+    }
+    default:
+      return fail(`Run ${verification.command} and paste that.`);
   }
+}
 
+/**
+ * Checks one pasted output against a Field Mission verification. Never throws: a paste
+ * that isn't what was asked for gets a message saying which command to run instead.
+ * A paste that looks like it holds a secret is never parsed, only reported by kind.
+ */
+export function verifyPaste(verification: Verification, text: string): FieldVerdict {
+  const secret = findSecretLike(text);
+  if (secret !== null) {
+    return {
+      passed: false,
+      clearPaste: true,
+      message: `That paste looked like it held a ${secret}, so it was cleared and not checked. Treat it as leaked: rotate it (make a new one and delete the old), then paste only what the command prints.`,
+    };
+  }
+  if (text.trim() === '' && verification.parser !== 'status-short') {
+    return fail(`Paste the output of ${verification.command} first.`);
+  }
+  if (verification.parser === 'ls-files') return checkTrackedFiles(verification, text);
+  if (verification.parser === 'log-oneline') return checkLog(verification, text);
+
+  const { check } = verification;
   const status = parseStatus(text);
   if (status === null) {
     // A clean short status prints nothing, so only the copied command line shows what ran.
@@ -106,9 +163,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
   }
   switch (check.kind) {
     case 'clean':
-      return isCleanStatus(status)
-        ? { passed: true, message: 'Clean: nothing left to commit.' }
-        : fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
+      return checkClean(status, check.pushed === true);
     case 'noTrackedSecrets': {
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0

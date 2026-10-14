@@ -11,8 +11,8 @@ if (mission === undefined) throw new Error('Act 1 has no mission');
 
 describe('Act 1', () => {
   it('parses, ships 1.1 to 1.4, then 1.5, 1.6 and the final, and passes validateAct', () => {
-    // Still early access: the Field Mission isn't built, so the Act can't complete yet.
-    expect(act1.earlyAccess).toBe(true);
+    // Finished: its placement test and Field Mission are built (act1Complete.test.ts).
+    expect(act1.earlyAccess).toBe(false);
     expect(act1.missionIds).toEqual([
       'where-things-live',
       'deletes-are-forever',

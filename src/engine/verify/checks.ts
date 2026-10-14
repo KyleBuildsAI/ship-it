@@ -13,10 +13,27 @@ export type PathSource = ParsedStatus | readonly string[];
 
 // ---- Commit messages -------------------------------------------------------------------
 
+/** The Conventional Commit types, as the convention writes them: lowercase. */
+export const CONVENTIONAL_TYPES = [
+  'feat',
+  'fix',
+  'docs',
+  'style',
+  'refactor',
+  'perf',
+  'test',
+  'build',
+  'ci',
+  'chore',
+  'revert',
+] as const;
+export type ConventionalType = (typeof CONVENTIONAL_TYPES)[number];
+
 // type, an optional (scope), an optional "!" marking a breaking change, then ": " and a
 // description that starts right away. Types are lowercase, as the convention writes them.
-const CONVENTIONAL_SUBJECT =
-  /^(?:feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(?:\([^()\s][^()]*\))?!?: \S/;
+const CONVENTIONAL_SUBJECT = new RegExp(
+  `^(${CONVENTIONAL_TYPES.join('|')})(?:\\([^()\\s][^()]*\\))?!?: \\S`,
+);
 
 // Subjects git or GitHub write on their own: merges, and `git revert`'s default message.
 const GENERATED_SUBJECT =
@@ -25,6 +42,22 @@ const GENERATED_SUBJECT =
 /** True for a Conventional Commit subject like `feat(parser): read quoted paths`. */
 export function isConventionalSubject(subject: string): boolean {
   return CONVENTIONAL_SUBJECT.test(subject);
+}
+
+/** The type of a Conventional Commit subject, like `docs`, or null for any other subject. */
+export function commitType(subject: string): ConventionalType | null {
+  const type = CONVENTIONAL_SUBJECT.exec(subject)?.[1];
+  return CONVENTIONAL_TYPES.find((known) => known === type) ?? null;
+}
+
+/**
+ * The newest commit someone wrote, skipping merges and reverts git named itself, so
+ * pulling a merged pull request doesn't hide the commit underneath it.
+ */
+export function newestWrittenCommit<T extends { readonly subject: string }>(
+  commits: readonly T[],
+): T | null {
+  return commits.find((commit) => !isGeneratedSubject(commit.subject)) ?? null;
 }
 
 /** True for a subject git wrote itself, like `Merge branch 'feature'`. */
@@ -52,6 +85,21 @@ export function conventionalRatio(commits: readonly { readonly subject: string }
  */
 export function isCleanStatus(status: ParsedStatus): boolean {
   return status.clean;
+}
+
+/**
+ * How many local commits haven't reached the remote branch yet, as of the last push or
+ * fetch. Null when the paste can't say: no upstream is set, it was deleted, or a short
+ * status was run without -b, which leaves the branch line out.
+ */
+export function unpushedCommits(status: ParsedStatus): number | null {
+  if (status.format === 'short') {
+    const { branch } = status;
+    if (branch?.upstream === undefined || branch.upstreamGone === true) return null;
+    return branch.ahead ?? 0;
+  }
+  if (status.upstream === null || status.upstream.state === 'gone') return null;
+  return status.upstream.ahead;
 }
 
 /** A conflict in short format: a U in either column, or AA / DD (both added or deleted). */
@@ -90,6 +138,15 @@ function visiblePaths(source: PathSource): string[] {
       .map((entry) => entry.path);
   }
   return [...trackedPaths(source), ...source.untracked];
+}
+
+/**
+ * The first of `wanted` that a `git ls-files` list tracks, or null. Windows treats
+ * CLAUDE.md and claude.md as one file, so case doesn't matter.
+ */
+export function firstTracked(paths: readonly string[], wanted: readonly string[]): string | null {
+  const tracked = new Set(paths.map((path) => path.toLowerCase()));
+  return wanted.find((path) => tracked.has(path.toLowerCase())) ?? null;
 }
 
 // ---- Secrets ---------------------------------------------------------------------------

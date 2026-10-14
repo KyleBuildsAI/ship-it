@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildOutputToIgnore,
+  commitType,
   conventionalRatio,
+  firstTracked,
   isCleanStatus,
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  newestWrittenCommit,
   trackedSecretPaths,
+  unpushedCommits,
 } from './checks';
 import logDecorate from './fixtures/log-oneline-decorate.txt?raw';
 import longAheadClean from './fixtures/status-long-ahead-clean.txt?raw';
@@ -235,5 +239,78 @@ describe('buildOutputToIgnore', () => {
   it('does not mistake a file named like a build folder for the folder', () => {
     expect(buildOutputToIgnore(['scripts/build', 'src/dist.ts', 'coverage.md'])).toEqual([]);
     expect(buildOutputToIgnore(['node_modules/react/index.js'])).toEqual(['node_modules/']);
+  });
+});
+
+describe('commitType', () => {
+  it('names the type of a Conventional subject, scope and ! included', () => {
+    expect(commitType('docs: add environment setup for agents')).toBe('docs');
+    expect(commitType('feat(parser)!: drop the old format')).toBe('feat');
+  });
+
+  it('is null for anything else', () => {
+    expect(commitType('added claude file')).toBeNull();
+    expect(commitType('Docs: capital type')).toBeNull();
+    expect(commitType('docs:no space')).toBeNull();
+  });
+});
+
+describe('newestWrittenCommit', () => {
+  it('skips subjects git wrote itself, so a pulled merge does not hide the commit under it', () => {
+    const commits = [
+      { subject: 'Merge pull request #4 from kyle/brief' },
+      { subject: 'docs: add environment setup for agents' },
+    ];
+    expect(newestWrittenCommit(commits)?.subject).toBe('docs: add environment setup for agents');
+  });
+
+  it('is null when nobody wrote any of them', () => {
+    expect(newestWrittenCommit([{ subject: "Merge branch 'main'" }])).toBeNull();
+    expect(newestWrittenCommit([])).toBeNull();
+  });
+});
+
+describe('unpushedCommits', () => {
+  it('reads a long status: level is 0, ahead counts, no upstream is unknown', () => {
+    const level = [
+      'On branch main',
+      "Your branch is up to date with 'origin/main'.",
+      '',
+      'nothing to commit, working tree clean',
+    ].join('\n');
+    expect(unpushedCommits(parseStatusLong(level))).toBe(0);
+    expect(unpushedCommits(parseStatusLong(longAheadClean))).toBe(2);
+    expect(unpushedCommits(parseStatusLong(longClean))).toBeNull();
+  });
+
+  it('reads the ## line of a short status, and is unknown without one', () => {
+    expect(unpushedCommits(parseStatusShort('## main...origin/main'))).toBe(0);
+    expect(unpushedCommits(parseStatusShort('## main...origin/main [ahead 1]'))).toBe(1);
+    expect(unpushedCommits(parseStatusShort('## main...origin/main [behind 3]'))).toBe(0);
+    expect(unpushedCommits(parseStatusShort('## main...origin/main [gone]'))).toBeNull();
+    expect(unpushedCommits(parseStatusShort(sbClean))).toBeNull();
+    expect(unpushedCommits(parseStatusShort(shortClean))).toBeNull();
+  });
+
+  it('counts the ahead side of a long status that has diverged', () => {
+    const diverged = [
+      'On branch main',
+      "Your branch and 'origin/main' have diverged,",
+      'and have 2 and 1 different commits each, respectively.',
+      '',
+      'nothing to commit, working tree clean',
+    ].join('\n');
+    expect(unpushedCommits(parseStatusLong(diverged))).toBe(2);
+  });
+});
+
+describe('firstTracked', () => {
+  it('finds the first wanted file, ignoring case as Windows does', () => {
+    expect(firstTracked(['README.md', 'claude.md'], ['CLAUDE.md', 'AGENTS.md'])).toBe('CLAUDE.md');
+    expect(firstTracked(['AGENTS.md'], ['CLAUDE.md', 'AGENTS.md'])).toBe('AGENTS.md');
+  });
+
+  it('wants the file itself, not one deeper in the repo', () => {
+    expect(firstTracked(['docs/CLAUDE.md', 'src/index.ts'], ['CLAUDE.md'])).toBeNull();
   });
 });

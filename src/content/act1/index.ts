@@ -13,7 +13,7 @@ export const act1Lessons: readonly Lesson[] = act1LessonInputs.map((input) =>
   LessonSchema.parse(input),
 );
 
-/** Act 1 is in early access: its Field Mission isn't built yet. */
+/** Act 1, finished: its placement test, missions, lessons, final and Field Mission. */
 export const act1: Act = ActSchema.parse(act1Input);
 
 export { act1LessonInputs };

@@ -18,7 +18,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       'What every engineer who directs AI agents needs to know about the machine they run on, learned with Otto on a laptop.',
     stage: 'playable',
     status:
-      'Early access: Missions 1.1 to 1.4 are directed, 1.5, 1.6 and the timed final are lessons answered by clicking, and the laptop sandbox is open. The Field Mission is not built yet.',
+      'Playable: the placement test, directed Missions 1.1 to 1.4, lessons 1.5 and 1.6 and the timed final answered by clicking, the laptop sandbox, and the Field Mission.',
     missions: [
       { title: 'Where Things Live' },
       { title: 'Deletes Are Forever' },
