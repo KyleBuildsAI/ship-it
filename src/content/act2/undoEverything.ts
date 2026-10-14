@@ -942,7 +942,7 @@ export const undoEverything: MissionInput = {
       },
       hints: [
         'Which undo works on one Workbench file, and leaves everything else alone?',
-        'git restore <file> copies a file back from the dock. Unsaved edits are gone for good.',
+        'git restore <file> copies a file back from the dock. Unstaged edits are gone for good.',
         'Pick the card that restores only style.css.',
       ],
       agent: discardEditTask,

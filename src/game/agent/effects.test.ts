@@ -411,7 +411,7 @@ describe('effects of a git line in the Git World', () => {
     expect(effects.destructive).toBe(true);
     expect(effects.lines).toEqual([
       'Takes the commit "add login" off main',
-      'Throws away the unsaved edits to app.ts',
+      'Throws away the unstaged edits to app.ts',
       'Deletes login.ts from the Workbench',
     ]);
   });
@@ -440,7 +440,7 @@ describe('effects of a git line in the Git World', () => {
     ]);
     const unsavedNew = twoCommits.write('login.ts', 'mine\n');
     expect(effectsOf(unsavedNew, 'git rm -f login.ts').lines).toEqual([
-      'Deletes login.ts and its unsaved edits',
+      'Deletes login.ts and its unstaged edits',
       'Moves login.ts onto the Loading Dock',
     ]);
     const stagedThenRestored = twoCommits.write('app.ts', 'v2\n').stage('app.ts');

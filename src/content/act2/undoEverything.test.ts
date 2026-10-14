@@ -175,7 +175,7 @@ describe("Mission 2.5's gates say, in plain words, what each undo costs", () => 
       harmful: true,
       broken: ['Your notes.txt survives'],
       effects: [
-        'Throws away the unsaved edits to style.css',
+        'Throws away the unstaged edits to style.css',
         'Deletes notes.txt from the Workbench',
         'Takes notes.txt off the Loading Dock',
       ],
@@ -186,7 +186,7 @@ describe("Mission 2.5's gates say, in plain words, what each undo costs", () => 
     expect(gateFor(0, 'git restore style.css')).toEqual({
       harmful: false,
       broken: [],
-      effects: ['Throws away the unsaved edits to style.css'],
+      effects: ['Throws away the unstaged edits to style.css'],
     });
   });
 
