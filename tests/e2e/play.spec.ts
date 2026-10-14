@@ -82,6 +82,7 @@ test("Act 2's placement test is answered by clicking, with the terminal closed",
     .filter({ hasText: 'Placement test' })
     .getByRole('button', { name: 'Take' })
     .click();
+  await page.getByRole('button', { name: 'Start 1 of 12' }).click();
   // Every drill it borrows is a judgment drill: Kyle picks an answer, nothing is typed.
   await expect(page.getByRole('group', { name: 'Judgment drill' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'Your answer' })).toBeVisible();
