@@ -85,7 +85,24 @@ const KEY_IN_NO_SHARED_FILE: Predicate = {
   ...not({ kind: 'any', of: [has(EXAMPLE, KEY), has(README, KEY)] }),
   label: 'The key is in no shared file',
 };
-const KEY_NAMED = [has(EXAMPLE, 'QUILL_API_KEY='), has(ENV, 'QUILL_API_KEY=')] as const;
+/**
+ * Step 3 is done when the template names the key and .env holds its value. Only Kyle's
+ * own part (`yourPart`) puts the value there without Otto seeing it; the guards fail
+ * every other way.
+ */
+const KEY_WIRED: Predicate = {
+  kind: 'all',
+  of: [has(EXAMPLE, 'QUILL_API_KEY='), has(ENV, `QUILL_API_KEY=${KEY}`)],
+  label: 'The template names the key; .env holds it',
+};
+
+/** Kyle pastes the key into the blank line Otto left for it in .env. */
+const PASTE_KEY = {
+  label: 'Paste the key into .env yourself',
+  path: ENV,
+  find: 'QUILL_API_KEY=\n',
+  replace: `QUILL_API_KEY=${KEY}\n`,
+} as const;
 
 /**
  * Kyle's laptop for this mission: the API is a git repository with its template and
@@ -388,11 +405,7 @@ export const secretsStayHome: MissionInput = {
       id: 'the-api-key',
       instruction:
         "The API now needs QUILL_API_KEY. Sage's dev key is in Documents\\keys. Wire it in.",
-      success: {
-        kind: 'all',
-        of: [...KEY_NAMED],
-        label: 'QUILL_API_KEY is named in both env files',
-      },
+      success: KEY_WIRED,
       hints: [
         'Once Otto reads a secret, it is in his context. Who should handle the key?',
         'Otto can add the name; the value is yours to paste in.',
@@ -499,7 +512,7 @@ export const secretsStayHome: MissionInput = {
           options: [
             {
               id: 'home-only',
-              text: 'Only in Documents\\keys, and Otto never saw it',
+              text: 'Only in Documents\\keys and .env, and Otto never saw it',
               truth: { kind: 'all', of: [KEY_UNSEEN, KEY_OFF_GIT] },
               feedback: 'List the API: no key file there, and Otto only read the names.',
             },
@@ -519,6 +532,8 @@ export const secretsStayHome: MissionInput = {
           ],
         },
         guards: [KEY_UNSEEN, KEY_OFF_GIT, KEY_IN_NO_SHARED_FILE],
+        // Kyle pastes the key himself, outside Otto's transcript: the skill this step teaches.
+        yourPart: PASTE_KEY,
         looks: [
           {
             id: 'example',

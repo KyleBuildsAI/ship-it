@@ -177,4 +177,27 @@ describe('secrets-stay-home grading', () => {
     // What an unanchored edit made of a .env copied from a filled template.
     expect(stepPasses(makeEnv, withEnv('PORT=30003000\nDATABASE_URL=\n'))).toBe(false);
   });
+
+  it('passes step 3 only once the key is in .env, put there by Kyle, not Otto', () => {
+    const apiKey = mission.steps[2];
+    const part = apiKey?.agent?.yourPart;
+    if (apiKey === undefined || part === undefined) throw new Error('Step 3 lost its paste.');
+    // The laptop as Otto's strong card leaves it: both files name the key, blank.
+    const named = withEntry(startLog(mission.initialRepoState), {
+      kind: 'steps',
+      steps: [
+        { op: 'append', path: 'Users/kyle/quillwork/api/.env.example', text: 'QUILL_API_KEY=\n' },
+        { op: 'write', path: 'Users/kyle/quillwork/api/.env', content: 'QUILL_API_KEY=\n' },
+      ],
+    });
+    const paste = { do: 'edit', path: part.path, find: part.find, replace: part.replace } as const;
+    expect(stepPasses(apiKey, queriesOf(named))).toBe(false);
+    expect(stepPasses(apiKey, queriesOf(withEntry(named, { kind: 'kyle', action: paste })))).toBe(
+      true,
+    );
+    // The same edit by Otto puts the key through his hands.
+    expect(stepPasses(apiKey, queriesOf(withEntry(named, { kind: 'action', action: paste })))).toBe(
+      false,
+    );
+  });
 });
