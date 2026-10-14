@@ -106,7 +106,7 @@ describeJudgmentDrills(mission, {
   'history-deleted-doc': { key: ['back'], wrong: 'error' },
   'history-staged-surprise': { key: ['deny'], wrong: 'allow' },
   'history-debug-print': { key: ['debug-rode'], wrong: 'only-cart' },
-  'history-misread-log': { key: ['first-commit'], wrong: 'right' },
+  'history-save-log': { key: ['first-commit'], wrong: 'right' },
   'history-staged-vs-unstaged': { key: ['allow'], wrong: 'deny' },
   'history-reset-to-read': { key: ['deny'], wrong: 'allow' },
 });
@@ -125,6 +125,20 @@ describe('Reading History, directed', () => {
     // stage-all claims a commit that never happened; misread-diff commits the wrong file.
     expect(slipOf(2, 'stage-all')).toBe('overclaim');
     expect(slipOf(3, 'misread-diff')).toBe('wrong-place');
+  });
+
+  it('keeps every drill id the typed mission had, so saved review items still play', () => {
+    const ids = mission.drills.map((drill) => drill.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'history-old-port',
+        'history-deleted-doc',
+        'history-staged-surprise',
+        'history-debug-print',
+        'history-save-log',
+        'history-staged-vs-unstaged',
+      ]),
+    );
   });
 
   it("names the harm of Otto's rewind in the Git World's words, Priya's edit included", () => {

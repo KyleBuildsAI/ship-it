@@ -727,7 +727,9 @@ const drills = [
   },
   {
     kind: 'diagnose',
-    id: 'history-misread-log',
+    // The id of the typed log drill this replaces, on the same history: saved review
+    // items name drills by id, and an unknown id is dropped from the queue for good.
+    id: 'history-save-log',
     prompt: 'You asked Otto which commit added src/login.ts. Is he right?',
     concept: 'log',
     setup: loginHistory().toSpec(),
