@@ -82,7 +82,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission.',
     missions: [
       { title: 'Tests Are Guardrails' },
       { title: 'Lint and Types' },
@@ -90,6 +91,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Secrets and Updates' },
     ],
     boss: { title: 'Red CI' },
+    fieldMission: { title: 'Green on Every Push' },
   },
   {
     act: 6,
