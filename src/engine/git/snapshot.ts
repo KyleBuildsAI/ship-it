@@ -23,8 +23,12 @@ export type GitChange =
   | {
       readonly kind: 'dock';
       readonly path: string;
-      /** loaded: the path's change now waits on the dock; unloaded: it left without a commit. */
-      readonly how: 'loaded' | 'unloaded';
+      /**
+       * loaded: the path's change now waits on the dock. unloaded: it left without a commit,
+       * and the Workbench or a commit still holds that version. discarded: it left, and
+       * nothing does any more, like a staged edit under `git reset --hard`: it is lost.
+       */
+      readonly how: 'loaded' | 'unloaded' | 'discarded';
     }
   /** A new commit sealed into the Vault. */
   | {
@@ -60,6 +64,11 @@ export interface GitSnapshot {
   readonly history: readonly Commit[];
   /** Every commit in the Vault, so a new one can be told from an old one HEAD returned to. */
   readonly known: ReadonlySet<ObjectId>;
+  /**
+   * Every file version git can still hand back: on the dock, in any commit, or on the
+   * Workbench at a tracked path. A version that left the dock and isn't here was lost.
+   */
+  readonly held: ReadonlySet<ObjectId>;
 }
 
 /**
@@ -80,6 +89,7 @@ export function snapshotGit(ws: Workspace, withFiles = true): GitSnapshot {
       branch: null,
       history: [],
       known: new Set(),
+      held: new Set(),
     };
   }
   const index = repo.indexEntries();
@@ -87,6 +97,7 @@ export function snapshotGit(ws: Workspace, withFiles = true): GitSnapshot {
   const unsaved = [...files]
     .filter(([path, content]) => !holds(repo.idFor(content), path, index, head))
     .map(([path]) => path);
+  const known = new Set(repo.allCommitIds());
   return {
     repo: true,
     files,
@@ -94,8 +105,29 @@ export function snapshotGit(ws: Workspace, withFiles = true): GitSnapshot {
     staged: stagedEntries(index, head),
     branch: repo.currentBranch(),
     history: firstParents(repo.headCommit(), (id) => repo.getCommit(id)),
-    known: new Set(repo.allCommitIds()),
+    known,
+    held: heldVersions(ws, index, known),
   };
+}
+
+/**
+ * The versions git can still give back. The Workbench is read even when `files` was left
+ * out: a crate taken off the dock is safe if its file still holds that version, tracked
+ * or not, as a new file after `git restore --staged` is.
+ */
+function heldVersions(
+  ws: Workspace,
+  index: FileSnapshot,
+  commits: ReadonlySet<ObjectId>,
+): Set<ObjectId> {
+  const held = new Set<ObjectId>(index.values());
+  const repo = ws.repo;
+  if (repo === null) return held;
+  for (const id of commits) {
+    for (const blob of repo.getCommit(id)?.files.values() ?? []) held.add(blob);
+  }
+  for (const path of ws.fs.allFiles()) held.add(repo.idFor(ws.fs.readFile(path)));
+  return held;
 }
 
 /** Whether the dock or the last commit already holds this exact content for the path. */
@@ -170,8 +202,9 @@ function changedPaths(older: FileSnapshot, newer: FileSnapshot): number {
 /**
  * A path is loaded when its change is waiting on the dock now and wasn't, or a different
  * version of it is. It is unloaded when it left the dock because the dock itself changed,
- * as `git restore --staged` does. A commit also empties the dock, but there the dock is
- * untouched and HEAD caught up, so those paths went into the Vault, not back.
+ * as `git restore --staged` does, and discarded when the version it held went nowhere.
+ * A commit also empties the dock, but there the dock is untouched and HEAD caught up, so
+ * those paths went into the Vault, not back.
  */
 function dockChanges(before: GitSnapshot, after: GitSnapshot): GitChange[] {
   const changes: GitChange[] = [];
@@ -183,7 +216,10 @@ function dockChanges(before: GitSnapshot, after: GitSnapshot): GitChange[] {
   for (const [path, entry] of before.staged) {
     if (after.staged.has(path)) continue;
     const sealedAsIs = after.history[0]?.files.get(path) === (entry ?? undefined);
-    if (!sealedAsIs) changes.push({ kind: 'dock', path, how: 'unloaded' });
+    if (sealedAsIs) continue;
+    // A staged delete holds no version, so taking it off the dock can't lose one.
+    const lost = entry !== null && !after.held.has(entry);
+    changes.push({ kind: 'dock', path, how: lost ? 'discarded' : 'unloaded' });
   }
   return changes;
 }

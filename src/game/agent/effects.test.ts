@@ -416,6 +416,27 @@ describe('effects of a git line in the Git World', () => {
     ]);
   });
 
+  it('names a staged-only edit that reset --hard loses, and lists it first', () => {
+    // 'two' was on the dock and the Workbench only: after the reset, git holds it nowhere.
+    const staged = repo().commit('init', { 'a.ts': 'one' }).write('a.ts', 'two').stage('a.ts');
+    const effects = effectsOf(staged, 'git reset --hard');
+    expect(effects.destructive).toBe(true);
+    expect(effects.lines).toEqual([
+      'Throws away the staged edits to a.ts',
+      'Rewrites a.ts on the Workbench',
+    ]);
+    // Two discarded crates keep a line each, never folded into "Takes 2 files off".
+    const both = twoCommits
+      .write('app.ts', 'v2\n')
+      .write('login.ts', 'l2\n')
+      .stage('app.ts', 'login.ts');
+    expect(effectsOf(both, 'git reset --hard').lines).toEqual([
+      'Throws away the staged edits to app.ts',
+      'Throws away the staged edits to login.ts',
+      'And 2 more changes',
+    ]);
+  });
+
   it('pauses git rm, which deletes the file and loads its removal', () => {
     const effects = effectsOf(twoCommits, 'git rm login.ts');
     expect(effects.destructive).toBe(true);
@@ -446,7 +467,7 @@ describe('effects of a git line in the Git World', () => {
     const stagedThenRestored = twoCommits.write('app.ts', 'v2\n').stage('app.ts');
     expect(
       effectsOf(stagedThenRestored, 'git restore --source HEAD --staged --worktree app.ts').lines,
-    ).toEqual(['Rewrites app.ts on the Workbench', 'Takes app.ts off the Loading Dock']);
+    ).toEqual(['Throws away the staged edits to app.ts', 'Rewrites app.ts on the Workbench']);
     const deletedOnBench = twoCommits.delete('login.ts');
     expect(effectsOf(deletedOnBench, 'git restore login.ts').lines).toEqual([
       'Puts login.ts on the Workbench',
@@ -456,6 +477,7 @@ describe('effects of a git line in the Git World', () => {
   it('weighs a dropped commit as destructive and a dock move as additive', () => {
     expect(weighChange({ kind: 'dropped', branch: null, commits: [] })).toBe('destructive');
     expect(weighChange({ kind: 'dock', path: 'a.ts', how: 'unloaded' })).toBe('additive');
+    expect(weighChange({ kind: 'dock', path: 'a.ts', how: 'discarded' })).toBe('destructive');
     expect(
       describeChanges(
         [{ kind: 'dropped', branch: null, commits: [{ id: 'x', message: 'm' }] }],
