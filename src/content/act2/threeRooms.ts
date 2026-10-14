@@ -44,6 +44,17 @@ const todoKept: Predicate = {
   path: 'todo.txt',
   label: 'Your todo.txt survives',
 };
+/**
+ * No commit ever held it. A later commit that drops todo.txt leaves it in the older one,
+ * where git log and git show still print it, so only Rewind undoes a commit that sealed
+ * it. As a guard, it makes the commit after an allowed git add . harmful too: denying
+ * that commit is the last chance to keep the list out of history.
+ */
+const todoNeverCommitted: Predicate = {
+  kind: 'not',
+  predicate: { kind: 'inHistory', path: 'todo.txt' },
+  label: 'No commit ever holds todo.txt',
+};
 const todoAtHead: Predicate = { kind: 'fileAtHead', path: 'todo.txt' };
 const projectAtHead: Predicate = {
   kind: 'all',
@@ -186,7 +197,8 @@ const firstCommit: AgentTaskInput = {
         { do: 'run', line: 'git commit -m "first version"' },
       ],
       claim: 'Done: first commit made, project saved.',
-      lesson: 'git add . loaded todo.txt too, so your personal list went into the Vault.',
+      lesson:
+        'git add . loaded todo.txt, and the commit sealed it into history. Only Rewind takes that back.',
       slip: 'too-broad',
     },
     {
@@ -213,7 +225,9 @@ const firstCommit: AgentTaskInput = {
           line: 'git add README.md src',
           predict: {
             question: 'Before Otto runs it: which crates go onto the dock?',
-            // Split by one question: does todo.txt ride along?
+            // Each option says what is on the dock, never "not the other one": played as a
+            // fix after everything was committed, nothing is staged, and a negation would
+            // call "todo.txt too" right.
             options: [
               {
                 id: 'three',
@@ -223,12 +237,12 @@ const firstCommit: AgentTaskInput = {
               {
                 id: 'four',
                 text: 'All four, todo.txt too',
-                outcome: {
-                  state: {
-                    kind: 'not',
-                    predicate: { kind: 'staged', paths: PROJECT_FILES, exact: true },
-                  },
-                },
+                outcome: { state: { kind: 'staged', paths: ['todo.txt'] } },
+              },
+              {
+                id: 'none',
+                text: 'None: they are all committed already',
+                outcome: { state: { kind: 'notStaged', paths: [...PROJECT_FILES, 'todo.txt'] } },
               },
             ],
           },
@@ -243,33 +257,26 @@ const firstCommit: AgentTaskInput = {
   ],
   fixes: [
     {
-      id: 'commit-dock',
-      text: 'Commit what is on the dock as feat: add notes app.',
-      quality: 'strong',
-      covers: ['goal', 'check'],
-      intents: ['commit what is on the dock', 'commit the staged files'],
-      script: [
-        { do: 'run', line: 'git status' },
-        { do: 'run', line: 'git commit -m "feat: add notes app"' },
-      ],
-      claim: 'Fixed: the first commit is made.',
-      lesson: 'Staging packs the dock. Only git commit seals it into the Vault.',
-    },
-    {
-      // Works after either miss: it empties the dock whether or not todo.txt was committed.
-      id: 'restage',
-      text: 'Take every file out of git, then commit only README.md and src.',
+      // Works from every state a fix round can start in: after the okay card (the
+      // project on the dock), after a denied git add . (an empty dock), and after an
+      // allowed git add . whose commit was denied (todo.txt on the dock too). git reset
+      // with no options only empties the dock, even before the first commit, and never
+      // touches the Workbench. After an allowed commit nothing helps but Rewind.
+      id: 'clear-dock',
+      text: 'Empty the dock, then commit only README.md and src.',
       quality: 'strong',
       covers: ['goal', 'limits'],
-      intents: ['take every file out of git', 'untrack everything and commit only the project'],
+      intents: [
+        'empty the dock then commit readme and src',
+        'unstage everything, commit the project',
+      ],
       script: [
-        { do: 'run', line: 'git rm --cached -r .', say: 'Untracking everything, files kept.' },
+        { do: 'run', line: 'git reset', say: 'Emptying the dock. Your files stay put.' },
         { do: 'run', line: 'git add README.md src' },
         { do: 'run', line: 'git commit -m "feat: add notes app"' },
       ],
-      claim: 'Fixed: the latest commit holds only README.md and src.',
-      lesson:
-        'rm --cached took every crate out of git and kept the files. Only the project went back.',
+      claim: 'Fixed: the first commit holds only README.md and src.',
+      lesson: 'git reset only empties the dock. Then only the project went on, and into the Vault.',
     },
   ],
   hintPlan: 'status-first',
@@ -303,7 +310,7 @@ const firstCommit: AgentTaskInput = {
       },
     ],
   },
-  guards: [todoOut, todoKept],
+  guards: [todoOut, todoNeverCommitted, todoKept],
   looks: gitLooks,
 };
 
@@ -326,7 +333,8 @@ const commitEdit: AgentTaskInput = {
         { do: 'run', line: 'git commit -m "update"' },
       ],
       claim: 'Done: all your changes are committed.',
-      lesson: 'git add . loaded todo.txt again. Everything on the Workbench rode into the commit.',
+      lesson:
+        'git add . loaded todo.txt again, and the commit sealed it into history. Only Rewind takes that back.',
       slip: 'too-broad',
     },
     {
@@ -375,20 +383,20 @@ const commitEdit: AgentTaskInput = {
       lesson: 'An edit has to be loaded onto the dock again before a commit can seal it.',
     },
     {
-      // Works after either miss, like step 2's restage: README.md goes back in either way.
-      id: 'restage-readme',
-      text: 'Take every file out of git, then commit only README.md and src.',
+      // For a dock that holds todo.txt: git add . allowed, its commit denied. git reset
+      // only empties the dock, so after any other miss it changes nothing.
+      id: 'clear-dock-readme',
+      text: 'Empty the dock, then commit only README.md.',
       quality: 'strong',
       covers: ['goal', 'limits'],
-      intents: ['take every file out of git again', 'untrack everything, commit readme and src'],
+      intents: ['empty the dock then commit readme', 'unstage everything, commit readme'],
       script: [
-        { do: 'run', line: 'git rm --cached -r .', say: 'Untracking everything, files kept.' },
-        { do: 'run', line: 'git add README.md src' },
+        { do: 'run', line: 'git reset', say: 'Emptying the dock. Your files stay put.' },
+        { do: 'run', line: 'git add README.md' },
         { do: 'run', line: 'git commit -m "docs: explain how to run the app"' },
       ],
       claim: 'Fixed: your README edit is committed, todo.txt is not.',
-      lesson:
-        'rm --cached took every crate out of git and kept the files. Only the project went back.',
+      lesson: 'git reset only empties the dock. Then README.md alone went on, and into the Vault.',
     },
   ],
   hintPlan: 'add-readme',
@@ -416,7 +424,7 @@ const commitEdit: AgentTaskInput = {
       },
     ],
   },
-  guards: [todoOut, todoKept],
+  guards: [todoOut, todoNeverCommitted, todoKept],
   looks: gitLooks,
 };
 
@@ -661,7 +669,7 @@ export const threeRooms: MissionInput = {
         'Make the first commit: README.md and everything in src/. todo.txt is your personal list, so it stays out.',
       success: {
         kind: 'all',
-        of: [projectAtHead, todoOut],
+        of: [projectAtHead, todoOut, todoNeverCommitted],
         label: 'README.md and src are committed, todo.txt is not',
       },
       hints: [
@@ -676,7 +684,7 @@ export const threeRooms: MissionInput = {
       instruction: 'Get your README.md edit into a new commit. todo.txt still stays out.',
       success: {
         kind: 'all',
-        of: [readmeEditAtHead, todoOut, { kind: 'commitCount', min: 2 }],
+        of: [readmeEditAtHead, todoOut, todoNeverCommitted, { kind: 'commitCount', min: 2 }],
         label: 'The README.md edit is committed, todo.txt is not',
       },
       hints: [

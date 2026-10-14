@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
+import { drive } from '../../engine/shell/driver';
 import type { EngineEvent } from '../../engine/workspace';
 import { describeChanges } from '../../game/agent/effects';
 import { INSTANT_PACE } from '../../game/agent/pace';
-import { dryRun } from '../../game/agent/replay';
+import { dryRun, replay, withEntry } from '../../game/agent/replay';
 import { hud } from '../../game/hud';
-import { beginAgentStep } from '../../game/missions/agentRunner';
+import {
+  answerCheck,
+  beginAgentStep,
+  openFixRound,
+  stepPasses,
+} from '../../game/missions/agentRunner';
 import { evaluate, type Predicate } from '../../game/missions/predicates';
 import type { Mission } from '../../game/missions/schema';
 import { checkClaim, decide, nextStep, pickCard, predict } from '../../game/play/agentPlay';
@@ -18,7 +24,7 @@ import { flushProgress, progress, startProgress, type ProgressStorage } from '..
 import { sandbox } from '../../game/sandbox';
 import { createDefaultSave, type SaveData } from '../../game/save/schema';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
-import { beginStep, canonicalStart, playCard } from '../act1/play.test-helpers';
+import { beginStep, canonicalStart, playCard, queriesOf } from '../act1/play.test-helpers';
 import { act2, act2Missions } from './index';
 
 /*
@@ -27,8 +33,9 @@ import { act2, act2Missions } from './index';
  * each card and drill is meant to do; the engine works out every answer by running them.
  *
  * The mission pauses on every change (`changes`), so git init, each git add, each commit
- * and each unstage asks first. The only harmful lines load todo.txt into git: Kyle denies
- * those, and Otto, with no plan B, stops for new directions ('direct').
+ * and each unstage asks first. The only harmful lines put todo.txt into git: git add .
+ * loads it, and the commit after seals it into history. Kyle denies those, and Otto,
+ * with no plan B, stops for new directions ('direct'), where every strong card works.
  */
 
 function threeRooms(): Mission {
@@ -40,10 +47,10 @@ function threeRooms(): Mission {
 const mission = threeRooms();
 
 const ADD_PROJECT = 'git add README.md src';
-const UNTRACK_ALL = 'git rm --cached -r .';
 const FIRST_VERSION = 'git commit -m "first version"';
 const COMMIT_APP = 'git commit -m "feat: add notes app"';
 const COMMIT_DOCS = 'git commit -m "docs: explain how to run the app"';
+const UPDATE = 'git commit -m "update"';
 
 describeDirectedMission(mission, {
   start: {
@@ -75,23 +82,48 @@ describeDirectedMission(mission, {
       'save-it > init-status': { passed: true, check: 'four-new' },
     },
     'first-commit': {
-      'stage-project > commit-dock': { passed: true, check: 'project' },
+      'stage-project > clear-dock': { passed: true, check: 'project' },
       'stage-project > status-first': { passed: true, check: 'project' },
-      'stage-project > restage': { passed: true, check: 'project' },
-      'commit-all > restage': { passed: true, check: 'project' },
-      // Everything is already committed, so the commit finds an empty dock: Otto stops.
-      'commit-all > commit-dock': 'direct',
+      // Denied at git add ., the dock is empty and every strong card still works. Allowed,
+      // todo.txt is in a commit: their commits find nothing new and Otto stops (Rewind).
+      'commit-all > clear-dock': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'project' },
+      },
+      'commit-all > status-first': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'project' },
+      },
+      'commit-all > stage-project': {
+        'allow-all': { passed: false, check: 'todo-too' },
+        'deny-harmful': { passed: false, check: 'empty' },
+      },
     },
     'commit-edit': {
       'just-commit > stage-readme': { passed: true, check: 'committed' },
       'just-commit > add-readme': { passed: true, check: 'committed' },
-      'just-commit > restage-readme': { passed: true, check: 'committed' },
-      'commit-changes > restage-readme': { passed: true, check: 'committed' },
-      'commit-changes > stage-readme': 'direct',
+      'just-commit > clear-dock-readme': { passed: true, check: 'committed' },
+      'commit-changes > stage-readme': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'committed' },
+      },
+      'commit-changes > clear-dock-readme': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'committed' },
+      },
+      'commit-changes > add-readme': {
+        'allow-all': 'direct',
+        'deny-harmful': { passed: true, check: 'committed' },
+      },
     },
   },
+  // Allowed, todo.txt is sealed into a commit. A later commit can drop it, but the older
+  // one still holds it (git show prints it), and git here has no amend: only Rewind.
+  rewindOnly: ['first-commit > commit-all', 'commit-edit > commit-changes'],
   // Every line that pauses in `changes` mode, and whether a dry run finds it harmful.
-  // Only git add . is: it loads todo.txt. The commit after it seals harm already done.
+  // git add . is: it loads todo.txt. So is the commit after it, which seals todo.txt into
+  // history, the step a later commit can't undo. git reset pauses only when the dock
+  // holds something to take off.
   gates: {
     'start-tracking > init-only > git init': false,
     'start-tracking > init-status > git init': false,
@@ -100,17 +132,18 @@ describeDirectedMission(mission, {
     'start-tracking > save-it > init-status > git init': false,
 
     'first-commit > commit-all > git add .': true,
-    [`first-commit > commit-all > ${FIRST_VERSION}`]: false,
-    [`first-commit > commit-all > restage > ${UNTRACK_ALL}`]: false,
-    [`first-commit > commit-all > restage > ${ADD_PROJECT}`]: false,
-    [`first-commit > commit-all > restage > ${COMMIT_APP}`]: false,
+    [`first-commit > commit-all > ${FIRST_VERSION}`]: true,
+    [`first-commit > commit-all > clear-dock > ${ADD_PROJECT}`]: false,
+    [`first-commit > commit-all > clear-dock > ${COMMIT_APP}`]: false,
+    [`first-commit > commit-all > stage-project > ${ADD_PROJECT}`]: false,
+    [`first-commit > commit-all > status-first > ${ADD_PROJECT}`]: false,
+    [`first-commit > commit-all > status-first > ${COMMIT_APP}`]: false,
     [`first-commit > stage-project > ${ADD_PROJECT}`]: false,
+    'first-commit > stage-project > clear-dock > git reset': false,
+    [`first-commit > stage-project > clear-dock > ${ADD_PROJECT}`]: false,
+    [`first-commit > stage-project > clear-dock > ${COMMIT_APP}`]: false,
     'first-commit > stage-project > commit-all > git add .': true,
-    [`first-commit > stage-project > commit-all > ${FIRST_VERSION}`]: false,
-    [`first-commit > stage-project > commit-dock > ${COMMIT_APP}`]: false,
-    [`first-commit > stage-project > restage > ${UNTRACK_ALL}`]: false,
-    [`first-commit > stage-project > restage > ${ADD_PROJECT}`]: false,
-    [`first-commit > stage-project > restage > ${COMMIT_APP}`]: false,
+    [`first-commit > stage-project > commit-all > ${FIRST_VERSION}`]: true,
     [`first-commit > stage-project > status-first > ${COMMIT_APP}`]: false,
     [`first-commit > status-first > ${ADD_PROJECT}`]: false,
     [`first-commit > status-first > ${COMMIT_APP}`]: false,
@@ -118,17 +151,19 @@ describeDirectedMission(mission, {
     'commit-edit > add-readme > git add README.md': false,
     [`commit-edit > add-readme > ${COMMIT_DOCS}`]: false,
     'commit-edit > commit-changes > git add .': true,
-    'commit-edit > commit-changes > git commit -m "update"': false,
-    [`commit-edit > commit-changes > restage-readme > ${UNTRACK_ALL}`]: false,
-    [`commit-edit > commit-changes > restage-readme > ${ADD_PROJECT}`]: false,
-    [`commit-edit > commit-changes > restage-readme > ${COMMIT_DOCS}`]: false,
+    [`commit-edit > commit-changes > ${UPDATE}`]: true,
+    'commit-edit > commit-changes > add-readme > git add README.md': false,
+    [`commit-edit > commit-changes > add-readme > ${COMMIT_DOCS}`]: false,
+    'commit-edit > commit-changes > clear-dock-readme > git add README.md': false,
+    [`commit-edit > commit-changes > clear-dock-readme > ${COMMIT_DOCS}`]: false,
+    'commit-edit > commit-changes > stage-readme > git add README.md': false,
+    [`commit-edit > commit-changes > stage-readme > ${COMMIT_DOCS}`]: false,
     'commit-edit > just-commit > add-readme > git add README.md': false,
     [`commit-edit > just-commit > add-readme > ${COMMIT_DOCS}`]: false,
+    'commit-edit > just-commit > clear-dock-readme > git add README.md': false,
+    [`commit-edit > just-commit > clear-dock-readme > ${COMMIT_DOCS}`]: false,
     'commit-edit > just-commit > commit-changes > git add .': true,
-    'commit-edit > just-commit > commit-changes > git commit -m "update"': false,
-    [`commit-edit > just-commit > restage-readme > ${UNTRACK_ALL}`]: false,
-    [`commit-edit > just-commit > restage-readme > ${ADD_PROJECT}`]: false,
-    [`commit-edit > just-commit > restage-readme > ${COMMIT_DOCS}`]: false,
+    [`commit-edit > just-commit > commit-changes > ${UPDATE}`]: true,
     'commit-edit > just-commit > stage-readme > git add README.md': false,
     [`commit-edit > just-commit > stage-readme > ${COMMIT_DOCS}`]: false,
   },
@@ -182,6 +217,55 @@ describe('Three Rooms, directed', () => {
     expect(played.predicts).toEqual([
       { question: 'Before Otto runs it: which crates go onto the dock?', trueOptions: ['three'] },
     ]);
+  });
+
+  it('names what git status really prints after git init, where Kyle is told to look', () => {
+    const start = beginStep(canonicalStart(mission, 0), startTracking);
+    const from = { log: start, state: beginAgentStep(startTracking) };
+    const played = playCard(mission, startTracking, from, 'init-status', 'allow-all');
+    const { shell } = replay(played.log, testDeps());
+    const status = drive(shell, { do: 'run', line: 'git status' });
+    // Like real git, a new folder is one line: app.ts and styles.css hide inside src/.
+    const untracked = status.lines
+      .filter((line) => line.tone === 'untracked')
+      .map((line) => line.text.trim());
+    expect(untracked).toEqual(['README.md', 'src/', 'todo.txt']);
+    const feedback = startTracking.agent?.check.options.find((o) => o.id === 'four-new')?.feedback;
+    for (const entry of untracked) expect(feedback).toContain(entry);
+  });
+
+  it('calls the commit after an allowed git add . harmful: it seals todo.txt into history', () => {
+    const start = beginStep(canonicalStart(mission, 1), firstCommit);
+    const loaded = withEntry(start, { kind: 'action', action: { do: 'run', line: 'git add .' } });
+    const guards = firstCommit.agent?.guards ?? [];
+    const commit = { do: 'run', line: FIRST_VERSION } as const;
+    const dry = dryRun(loaded, commit, { guards }, testDeps());
+    expect(dry.harmful).toBe(true);
+    expect(dry.broken).toEqual(['No commit ever holds todo.txt']);
+  });
+
+  it('never lets a later commit pass the step once todo.txt is in history', () => {
+    const start = beginStep(canonicalStart(mission, 1), firstCommit);
+    // A second commit without todo.txt, on top of the one that sealed it.
+    const lines = ['git add .', FIRST_VERSION, 'git rm --cached todo.txt', COMMIT_APP];
+    const log = lines.reduce(
+      (sofar, line) => withEntry(sofar, { kind: 'action', action: { do: 'run', line } }),
+      start,
+    );
+    const q = queriesOf(log);
+    expect(evaluate({ kind: 'fileAtHead', path: 'todo.txt' }, q)).toBe(false);
+    expect(q.fileAt('HEAD~1', 'todo.txt')).toContain('buy coffee');
+    expect(stepPasses(firstCommit, q)).toBe(false);
+  });
+
+  it('predicts an empty dock when the strong card runs after everything was committed', () => {
+    const start = beginStep(canonicalStart(mission, 1), firstCommit);
+    const from = { log: start, state: beginAgentStep(firstCommit) };
+    const all = playCard(mission, firstCommit, from, 'commit-all', 'allow-all');
+    const checked = answerCheck(all.state, firstCommit, 'todo-too', queriesOf(all.log));
+    const round = { log: all.log, state: openFixRound(checked) };
+    const again = playCard(mission, firstCommit, round, 'status-first', 'allow-all');
+    expect(again.predicts.map((seen) => seen.trueOptions)).toEqual([['none']]);
   });
 
   it('starts step 3 with the README edit on the Workbench, unstaged', () => {
@@ -300,6 +384,54 @@ describe('Three Rooms, played in the game', () => {
     expect(current().slips).toEqual([
       { stepId: 'first-commit', planId: 'commit-all', slip: 'too-broad', caught: true },
     ]);
+  });
+
+  it('after a deny at git add ., the strong fix commits the project and leaves todo.txt out', () => {
+    makeTheRepository();
+    pickCard('commit-all');
+    ottoWaits();
+    decide(false);
+    ottoWaits();
+    expect(stage()).toEqual({ at: 'direct', round: 'fix' });
+
+    // The dock is empty, so git reset has nothing to take off and never pauses.
+    pickCard('clear-dock');
+    ottoWaits();
+    allow(ADD_PROJECT);
+    allow(COMMIT_APP);
+    checkClaim('project');
+    expect(stage()).toMatchObject({ at: 'result', verdict: 'confirmed', passed: true });
+    expect(holds({ kind: 'inHistory', path: 'todo.txt' })).toBe(false);
+  });
+
+  it('grades a deny at the commit after git add . as a catch, and todo.txt stays out', () => {
+    makeTheRepository();
+    pickCard('commit-all');
+    ottoWaits();
+    decide(true);
+    ottoWaits();
+    const gate = stage();
+    if (gate?.at !== 'gate') throw new Error('Otto should be waiting at the commit.');
+    expect(gate.gate).toMatchObject({ line: FIRST_VERSION, harmful: true });
+    decide(false);
+    ottoWaits();
+    expect(stage()).toEqual({ at: 'direct', round: 'fix' });
+    expect(holds({ kind: 'staged', paths: ['todo.txt'] })).toBe(true);
+    // Denying a harmful line is the right call, so it counts as catching the slip.
+    expect(current().slips).toEqual([
+      { stepId: 'first-commit', planId: 'commit-all', slip: 'too-broad', caught: true },
+    ]);
+
+    // todo.txt waits on the dock: the fix's git reset pauses to take it off, and is safe.
+    pickCard('clear-dock');
+    ottoWaits();
+    allow('git reset');
+    allow(ADD_PROJECT);
+    allow(COMMIT_APP);
+    checkClaim('project');
+    expect(stage()).toMatchObject({ at: 'result', passed: true });
+    expect(holds({ kind: 'inHistory', path: 'todo.txt' })).toBe(false);
+    expect(holds({ kind: 'untracked', paths: ['todo.txt'] })).toBe(true);
   });
 
   it('picks up at the next step from the save, on the repository step 1 made', async () => {
