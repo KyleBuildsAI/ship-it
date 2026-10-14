@@ -26,11 +26,10 @@ const OLD_LOGS = [
   `${LOGS}/app-2026-09.log`,
 ] as const;
 
-/** config.json as it is, and the two ways Otto can rewrite it for port 3000. */
+/** config.json as it is. */
 const CONFIG_8080 = '{\n  "port": 8080,\n  "timeout": 30,\n  "retries": 3\n}\n';
 /** Otto's lossy rewrite: the whole file replaced, two settings gone. The `wrong-verb` slip. */
 const PORT_ONLY = '{\n  "port": 3000\n}\n';
-const CONFIG_3000 = '{\n  "port": 3000,\n  "timeout": 30,\n  "retries": 3\n}\n';
 
 const file = (path: string) => ({ kind: 'driveFile', path }) as const;
 const missing = (path: string) => ({ kind: 'driveFile', path, exists: false }) as const;
@@ -42,15 +41,32 @@ const CODE_INTACT = { ...file(`${API}/src/routes/notes.js`), label: "The API's c
 const REPORT_SURVIVES = { ...file(INCIDENT), label: "Marco's incident report survived" };
 const KEEPS_SETTINGS = '"retries": 3';
 const PORT_3000 = '"port": 3000';
+/**
+ * The small edit: Otto's edit tool changes the port in config.json as it is now. It never
+ * carries the whole file, so it can't put back settings a lossy write already dropped.
+ */
+const PORT_EDIT = {
+  do: 'edit',
+  path: CONFIG,
+  find: '"port": 8080',
+  replace: PORT_3000,
+  say: 'Changing only the port.',
+} as const;
 /** config.json on port 3000 with nothing lost. */
 const SETTINGS_KEPT = [
   has(CONFIG, PORT_3000),
   has(CONFIG, '"timeout": 30'),
   has(CONFIG, KEEPS_SETTINGS),
 ] as const;
+/** A write that drops settings is harmful, backup or not: stop it and ask for a small edit. */
+const CONFIG_KEEPS: Predicate = {
+  ...has(CONFIG, KEEPS_SETTINGS),
+  label: 'config.json keeps its settings',
+};
 /**
- * The edit is safe while the old settings live somewhere: in config.json, or in a backup.
- * That is the whole lesson of step 3, so a lossy write with a backup beside it is not harmful.
+ * The old settings live somewhere: in config.json, or in a backup. Guarded beside
+ * CONFIG_KEEPS so that, once config.json has lost them, copying over the only good backup
+ * is harmful too.
  */
 const UNDO_POSSIBLE: Predicate = {
   kind: 'any',
@@ -157,18 +173,22 @@ export const deletesAreForever: MissionInput = {
               { do: 'run', line: `Get-ChildItem ${API_PATH}` },
             ],
             claim: 'Done: tmp is empty, and nothing else changed.',
-            lesson: 'A full path to tmp kept the delete small. The gate listed only tmp.',
+            lesson: 'A full path kept the delete small: the gate listed only tmp and its items.',
           },
         ],
         fixes: [
           {
             id: 'just-tmp',
-            text: 'Delete only what is inside tmp: .\\tmp\\*.',
+            text: 'Make sure tmp exists, then delete only .\\tmp\\*.',
             quality: 'strong',
             covers: ['goal', 'place', 'limits'],
-            intents: ['only inside tmp', 'dot tmp star'],
-            script: [{ do: 'run', line: 'Remove-Item .\\tmp\\* -Recurse' }],
-            claim: 'Fixed: tmp is empty.',
+            intents: ['only inside tmp', 'dot tmp star', 'make tmp again'],
+            // -Force makes tmp if a Stop left it deleted, and is fine when tmp is there.
+            script: [
+              { do: 'run', line: 'mkdir .\\tmp -Force' },
+              { do: 'run', line: 'Remove-Item .\\tmp\\* -Recurse' },
+            ],
+            claim: 'Fixed: tmp is there, and empty.',
             lesson: 'Naming tmp in the path limits the wildcard to tmp.',
           },
         ],
@@ -199,8 +219,7 @@ export const deletesAreForever: MissionInput = {
     },
     {
       id: 'the-confirm-question',
-      instruction:
-        "Have Otto delete the old .log files in logs. Marco's incident report in there must stay.",
+      instruction: 'Have Otto delete the old logs.',
       success: {
         kind: 'all',
         of: OLD_LOGS.map(missing),
@@ -328,8 +347,9 @@ export const deletesAreForever: MissionInput = {
     {
       id: 'backup-first',
       instruction: "Otto will set config.json's port to 3000. Make sure you can undo it.",
-      // The goal is an edit you can undo: the new config, and a backup of the old one. A
-      // card that writes every setting back can't stand in for a backup that was never made.
+      // The goal is an edit you can undo: the new config, and a backup of the old one. Every
+      // card that changes only the port uses Otto's edit tool, so a backup made after a lossy
+      // write holds the lossy file, and no card can write the lost settings back from memory.
       success: {
         kind: 'all',
         of: [...SETTINGS_KEPT, has(BACKUP, KEEPS_SETTINGS)],
@@ -377,10 +397,14 @@ export const deletesAreForever: MissionInput = {
                 path: CONFIG,
                 content: PORT_ONLY,
                 say: 'Writing the new config.json.',
+                // Denied, Otto makes the small edit he should have made.
+                onDeny: [PORT_EDIT],
+                denyLine: 'Good stop. Only the port, then.',
               },
             ],
             claim: 'Done: port 3000, and there is a backup.',
-            lesson: 'Otto still dropped two settings, but the backup means you can put them back.',
+            lesson:
+              'Otto still rewrote the whole file. Deny stops the loss; allowed, the backup can undo it.',
             slip: 'wrong-verb',
           },
           {
@@ -394,7 +418,7 @@ export const deletesAreForever: MissionInput = {
                 do: 'run',
                 line: `Copy-Item ${API_PATH}\\config.json ${API_PATH}\\config.backup.json`,
               },
-              { do: 'write', path: CONFIG, content: CONFIG_3000, say: 'Changing only the port.' },
+              PORT_EDIT,
               { do: 'run', line: `Get-Content ${API_PATH}\\config.json` },
             ],
             claim: 'Done: port 3000, settings kept, backup beside it.',
@@ -409,8 +433,9 @@ export const deletesAreForever: MissionInput = {
             covers: ['goal', 'place', 'limits'],
             intents: ['restore the backup then change the port', 'copy the backup back'],
             script: [
+              // With no backup this line fails, and Otto stops there (failedUnplanned).
               { do: 'run', line: 'Copy-Item config.backup.json config.json' },
-              { do: 'write', path: CONFIG, content: CONFIG_3000, say: 'Changing only the port.' },
+              PORT_EDIT,
             ],
             claim: 'Fixed: port 3000, and every setting is back.',
             lesson: 'The backup was your undo. Restore first, then make the small edit.',
@@ -466,7 +491,7 @@ export const deletesAreForever: MissionInput = {
             },
           ],
         },
-        guards: [UNDO_POSSIBLE, API_INTACT],
+        guards: [CONFIG_KEEPS, UNDO_POSSIBLE, API_INTACT],
         looks: [
           { id: 'config', label: 'Show config.json', line: `Get-Content ${API_PATH}\\config.json` },
           { id: 'api', label: 'List the API', line: `Get-ChildItem ${API_PATH}` },
@@ -489,7 +514,7 @@ export const deletesAreForever: MissionInput = {
     {
       kind: 'approve',
       id: 'daf-approve-dist',
-      prompt: 'Otto stands in the web app. Allow?',
+      prompt: 'Otto stands in the web app. dist holds only build output. Allow?',
       concept: 'scope',
       setup: laptop()
         .write(`${WEB}/dist/app.js`, '// built\n')
@@ -582,8 +607,7 @@ export const deletesAreForever: MissionInput = {
     {
       kind: 'fix',
       id: 'daf-fix-restore',
-      prompt:
-        "Otto's edit dropped two settings. Which direction gets them back and keeps the backup?",
+      prompt: "Otto's edit dropped two settings. Which fix gets them back and keeps the backup?",
       concept: 'backups',
       setup: daf().write(BACKUP, CONFIG_8080).write(CONFIG, PORT_ONLY).cd(API).toSpec(),
       goal: has(CONFIG, KEEPS_SETTINGS),
@@ -620,15 +644,14 @@ export const deletesAreForever: MissionInput = {
     },
     {
       kind: 'approve',
-      id: 'daf-approve-backed-up',
-      prompt:
-        'config.backup.json already holds every setting. Otto wants to rewrite config.json. Allow?',
+      id: 'daf-approve-port-edit',
+      prompt: 'config.backup.json holds every setting. Otto edits only the port line. Allow?',
       concept: 'backups',
       setup: daf().write(BACKUP, CONFIG_8080).cd(API).toSpec(),
-      action: { do: 'write', path: CONFIG, content: PORT_ONLY, say: 'Setting the port to 3000.' },
-      guards: [UNDO_POSSIBLE],
+      action: PORT_EDIT,
+      guards: [CONFIG_KEEPS, UNDO_POSSIBLE],
       explain:
-        'The edit is lossy, but the backup holds every setting. Undo is possible, so allow it.',
+        'The edit changes one line, and timeout and retries stay. A backup is beside it, so allow.',
     },
   ],
   questionRound: {

@@ -62,8 +62,17 @@ export type CardResult = Ending | Readonly<Record<GatePolicy, Ending>>;
 export interface DirectedSpec {
   /** What each start card does from the step's start: `step > card`. */
   readonly start: Readonly<Record<string, Readonly<Record<string, CardResult>>>>;
-  /** What a fix does after a start card failed: `step > '<start card> > <fix card>'`. */
-  readonly fixes: Readonly<Record<string, Readonly<Record<string, Expected>>>>;
+  /**
+   * What a fix does after a start card failed: `step > '<start card> > <fix card>'`. A fix
+   * whose line fails unplanned ends at 'direct': Otto stops instead of claiming success.
+   */
+  readonly fixes: Readonly<Record<string, Readonly<Record<string, Ending>>>>;
+  /**
+   * Start cards that, allowed, leave a step no fix can pass: only Rewind can help (D8).
+   * `step > card`. Every other allowed start card that misses must have a passing fix,
+   * and these must have none, so the docs' "only Rewind can help" stays true.
+   */
+  readonly rewindOnly?: readonly string[];
   /**
    * Every line that pauses for approval in the first two rounds, and whether a dry run
    * finds it harmful: `<step> > <cards played> > <line>`. Pinned, so a guard or a setup
@@ -93,9 +102,10 @@ interface Path {
   readonly policy: GatePolicy;
   readonly played: CardPlayed;
   /**
-   * Kyle allowed a line the dry run called harmful, here or on an earlier card. The laptop
-   * is broken in a way no card can mend: Rewind is offered first (D8), and lines Otto runs
-   * afterwards may fail because what they touch is gone.
+   * Kyle allowed a line the dry run called harmful, here or on an earlier card. Rewind is
+   * offered first (D8), and lines Otto runs afterwards may fail because what they touch is
+   * gone. Some wrecks a fix can still mend, like a lossy edit beside a backup; the spec's
+   * `rewindOnly` pins the ones no card can.
    */
   readonly wrecked: boolean;
 }
@@ -218,9 +228,14 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
 
       it('fixes the failed cards the way the spec describes', () => {
         for (const [route, want] of Object.entries(spec.fixes[step.id] ?? {})) {
-          const found = checked.filter((path) => path.cards.join(' > ') === route);
+          const found = paths.filter((path) => path.cards.join(' > ') === route);
           if (found.length === 0) throw new Error(`No path ${route}`);
           for (const path of found) {
+            if (want === 'direct') {
+              expect(path.played.state.stage.at, route).toBe('direct');
+              continue;
+            }
+            expect(path.played.state.stage.at, route).toBe('check');
             expect(passes(step, path.played.log), route).toBe(want.passed);
             expect(trueChecks(step, path.played.log), route).toEqual([want.check]);
           }
@@ -270,16 +285,27 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         }
       });
 
-      it('has a passing card for every end that misses, unless only Rewind can help', () => {
+      it('has a passing fix for every end that misses, except where only Rewind can help', () => {
+        const rewindOnly = (spec.rewindOnly ?? [])
+          .filter((key) => key.startsWith(`${step.id} > `))
+          .map((key) => key.slice(step.id.length + 3));
         for (const path of checked.filter(({ cards }) => cards.length === 1)) {
-          if (passes(step, path.played.log) || path.wrecked) continue;
+          if (passes(step, path.played.log)) continue;
+          const [card = ''] = path.cards;
           const fixed = checked.some(
             (other) =>
+              other.policy === path.policy &&
               other.cards.length === 2 &&
-              other.cards[0] === path.cards[0] &&
+              other.cards[0] === card &&
               passes(step, other.played.log),
           );
-          expect(fixed, path.cards.join(' > ')).toBe(true);
+          // Only an allowed harmful line can leave a step past mending.
+          const hopeless = path.wrecked && rewindOnly.includes(card);
+          expect(fixed, `${card} (${path.policy})`).toBe(!hopeless);
+        }
+        for (const card of rewindOnly) {
+          const wrecked = checked.some((path) => path.wrecked && path.cards.join() === card);
+          expect(wrecked, `${card} is pinned as only Rewind can help`).toBe(true);
         }
       });
 
