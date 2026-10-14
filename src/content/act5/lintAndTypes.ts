@@ -8,6 +8,7 @@ export const lintAndTypes = {
   id: 'lint-and-types',
   act: 5,
   title: 'Lint and Types',
+  briefingBeat: 'gate-blocks',
   briefing: [
     'Before a test even runs, two robots read every change: the type checker and the linter.',
     'Sage: "They never get tired and never skip a file. Your job is to listen to them, and to stop Otto from switching them off."',
@@ -15,6 +16,7 @@ export const lintAndTypes = {
   cards: [
     {
       id: 'type-error',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation: 'The typecheck fails on Otto’s change to team billing.',
       artifact: {
@@ -63,6 +65,7 @@ export const lintAndTypes = {
     },
     {
       id: 'no-ts-ignore',
+      beat: 'gate-bypassed',
       kind: 'prompt',
       situation: 'Otto offers: “I can add // @ts-ignore above line 14 and CI will pass.”',
       question: 'What do you tell him?',
@@ -97,6 +100,7 @@ export const lintAndTypes = {
     },
     {
       id: 'why-lint',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation:
         'Lint fails on Otto’s PR: “no-debugger: Unexpected debugger statement” and “no-unused-vars: oldTotal is defined but never used”.',
@@ -126,6 +130,7 @@ export const lintAndTypes = {
     },
     {
       id: 'eslint-disable',
+      beat: 'gate-bypassed',
       kind: 'choose',
       situation: 'To clear the lint errors, Otto pushes this.',
       artifact: {
@@ -164,6 +169,7 @@ export const lintAndTypes = {
     },
     {
       id: 'formatter',
+      beat: 'change-passes',
       kind: 'choose',
       situation:
         'Priya’s review of Marco’s PR has 41 comments. 38 are about quotes, spacing and trailing commas.',
@@ -199,6 +205,7 @@ export const lintAndTypes = {
     },
     {
       id: 'brief-lint-fix',
+      beat: 'red-to-green',
       kind: 'prompt',
       situation: 'After a large change, lint reports 37 errors across the 6 files Otto touched.',
       question: 'Which instruction?',
@@ -262,6 +269,7 @@ export const lintAndTypes = {
     },
     {
       id: 'local-gates',
+      beat: 'change-passes',
       kind: 'order',
       situation: 'Before opening a PR, you have Otto run every gate locally.',
       question: 'Put them in the order this repo runs them, fastest feedback first.',

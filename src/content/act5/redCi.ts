@@ -13,6 +13,7 @@ export const redCi = {
   kind: 'final',
   timeLimitSeconds: 360,
   xp: 150,
+  briefingBeat: 'gate-blocks',
   briefing: [
     'It’s 3pm on release day. Main is red, nobody can merge, and Dex ships Quillwork 2.0 at 5.',
     'Sage: "Find what broke it, get main green, then fix it properly. Six minutes on one clock. Breathe, then read."',
@@ -20,6 +21,7 @@ export const redCi = {
   cards: [
     {
       id: 'first-red',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation: 'This is the CI history on main, newest at the bottom.',
       artifact: {
@@ -59,6 +61,7 @@ export const redCi = {
     },
     {
       id: 'read-trace',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation: 'This is the failing test from #413’s run.',
       artifact: {
@@ -106,6 +109,7 @@ export const redCi = {
     },
     {
       id: 'revert-or-fix',
+      beat: 'red-to-green',
       kind: 'choose',
       situation:
         '#413 touched 23 files. The right fix isn’t obvious, two teammates are blocked, and the release is in two hours.',
@@ -136,6 +140,7 @@ export const redCi = {
     },
     {
       id: 'brief-revert',
+      beat: 'red-to-green',
       kind: 'prompt',
       situation: 'You ask Otto to do the revert.',
       question: 'Which instruction?',
@@ -173,6 +178,7 @@ export const redCi = {
     },
     {
       id: 'revert-steps',
+      beat: 'change-passes',
       kind: 'order',
       situation: 'Otto’s revert PR is open.',
       question: 'Put the rest of the recovery in order.',
@@ -187,6 +193,7 @@ export const redCi = {
     },
     {
       id: 'fix-forward',
+      beat: 'red-to-green',
       kind: 'choose',
       situation:
         'Main is green again. Then Marco’s new footer component (#417) lands and main goes red: “Cannot find module ./Footer”. The file is footer.tsx. The fix is one import line.',
@@ -216,6 +223,7 @@ export const redCi = {
     },
     {
       id: 'skipped-test',
+      beat: 'gate-bypassed',
       kind: 'choose',
       situation: 'Otto opens a PR redoing the refactor. CI is green. Part of the diff:',
       artifact: {
@@ -255,6 +263,7 @@ export const redCi = {
     },
     {
       id: 'brief-redo',
+      beat: 'change-passes',
       kind: 'prompt',
       situation: 'You send Otto back to redo the cart refactor safely.',
       question: 'Which instruction?',
@@ -283,6 +292,7 @@ export const redCi = {
     },
     {
       id: 'required-checks',
+      beat: 'gate-bypassed',
       kind: 'choose',
       situation:
         'In the retro, you learn #413 merged with red CI because an admin clicked “Merge without waiting for requirements”.',
