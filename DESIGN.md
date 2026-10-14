@@ -217,7 +217,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 ## 11. Curriculum
 
 Every Act is playable today, each entered through its Campus portal (section 4). They're taught two ways:
-- **Acts 1 and 2 are simulated.** Act 1 runs Otto's real PowerShell on the simulated laptop and its machine island; Act 2 runs the git engine in the Git World. Act 1 is in early access (Missions 1.1 to 1.3, and the laptop sandbox); Act 2 is complete.
+- **Acts 1 and 2 are simulated.** Act 1 runs Otto's real PowerShell on the simulated laptop and its machine island; Act 2 runs the git engine in the Git World. Act 1 is in early access (Missions 1.1 to 1.4, and the laptop sandbox); Act 2 is complete.
 - **Acts 3 to 8 are lessons** (section 5, Lessons): four lessons each and a timed final in place of the boss, answered by clicking, never typing. They teach judgment about git, GitHub, CI, systems and directing AI agents rather than syntax. Their Field Missions aren't built yet.
 
 ### Act 1: The Machine (directed, in progress)
@@ -225,7 +225,7 @@ The principles every engineer who directs AI agents needs about the machine they
 - 1.1 **Where Things Live** (playable, directed): every command runs in a folder; bare names versus full paths; a fresh terminal starts at home. Four directed steps, eight judgment drills, and a Question Round.
 - 1.2 **Deletes Are Forever** (playable, directed): terminal deletes skip the Recycle Bin; read the scope before approving; make undo possible first. Three directed steps (a wildcard that is too broad, PowerShell's Confirm question that Otto answers for you, and a whole-file rewrite that drops settings, which Kyle stops or undoes from a backup), eight judgment drills, and a Question Round.
 - 1.3 **Secrets Stay Home** (playable, directed): `.env` holds values and git ignores it; `.env.example` lists names only; anything Otto reads stays in his context, so you handle secrets yourself. Every change pauses for approval. Three directed steps (making `.env` from the template without filling the template or dropping names, a `.gitignore` rule that names `.env` itself, and wiring in a dev key Otto must never see or copy into the repo, which Kyle pastes into .env himself), seven judgment drills, and a Question Round.
-- 1.4 **Every Terminal Is Its Own World**: a terminal copies variables and PATH when it opens; "not recognized" means not on *this* terminal's PATH
+- 1.4 **Every Terminal Is Its Own World** (playable, directed): a terminal copies variables and PATH when it opens; `$env:` changes only that terminal, until it closes; saved changes reach only new terminals; "not recognized" means not on *this* terminal's PATH. Three directed steps (a terminal opened before Node's installer, which needs a fresh one rather than a reinstall; a variable Sage saved, which only a terminal opened since can see; and a `$env:` test made to last in the API's `.env` without replacing the file), eight judgment drills, and a Question Round.
 - 1.5 **Dependencies Are Declared**: `package.json`, `node_modules`, the lockfile, and reading every package name
 - 1.6 **Running Isn't Working**: processes, PIDs and ports; stop exactly the one you mean; prove it works by asking the port
 
