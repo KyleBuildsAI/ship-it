@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hud, toggleTerminal } from './hud';
+import { hud } from './hud';
 import { progress } from './progress';
 import { createDefaultSave } from './save/schema';
 import { TEST_NOW } from './save/testFixtures';
@@ -35,7 +35,6 @@ describe('isStepDone', () => {
     ['walk', { walks: 1 }],
     ['jump', { jumps: 1 }],
     ['look', { looks: 1 }],
-    ['command', { commandsRun: 1 }],
     ['portal', { zone: 'gitworld' }],
     ['portal', { actMenuOpen: true }],
   ] as const)('%s is done once the player does it', (step, change) => {
@@ -48,21 +47,6 @@ describe('isStepDone', () => {
 
     expect(isStepDone('walk', later, later)).toBe(false);
     expect(isStepDone('walk', { ...later, walks: 4 }, later)).toBe(true);
-  });
-
-  it('wants the terminal hidden and shown again, ending open', () => {
-    const hidden = { ...START, terminalToggles: 1, terminalOpen: false };
-    const shownAgain = { ...START, terminalToggles: 2, terminalOpen: true };
-
-    expect(isStepDone('terminal', hidden, START)).toBe(false);
-    expect(isStepDone('terminal', shownAgain, START)).toBe(true);
-  });
-
-  it('accepts a single toggle when the terminal started closed', () => {
-    const closed = { ...START, terminalOpen: false };
-    const opened = { ...closed, terminalToggles: 1, terminalOpen: true };
-
-    expect(isStepDone('terminal', opened, closed)).toBe(true);
   });
 });
 
@@ -81,10 +65,11 @@ describe('advance', () => {
   });
 
   it('passes the portal step at once when the player is already in an Act', () => {
-    const inGitWorld = { ...START, zone: 'gitworld' as const, terminalToggles: 1 };
-    const atToggle = { step: stepIndex('terminal'), atStart: START };
+    const inGitWorld = { ...START, zone: 'gitworld' as const };
+    const atLook = { step: stepIndex('look'), atStart: START };
 
-    expect(advance(atToggle, inGitWorld).step).toBe(TUTORIAL_STEPS.length);
+    // Looking around in the Git World finishes look, and the portal step passes at once.
+    expect(advance(atLook, { ...inGitWorld, looks: 1 }).step).toBe(TUTORIAL_STEPS.length);
   });
 });
 
@@ -137,10 +122,6 @@ describe('the tutorial on screen', () => {
     expect(tutorial.get().step).toBe(stepIndex('jump'));
     worldState.update({ jumps: 1 });
     worldState.update({ looks: 1 });
-    hud.update({ commandsRun: 1 });
-    expect(tutorial.get().step).toBe(stepIndex('terminal'));
-    toggleTerminal();
-    toggleTerminal();
     expect(tutorial.get().step).toBe(stepIndex('portal'));
     expect(completedAt()).toBeNull();
 

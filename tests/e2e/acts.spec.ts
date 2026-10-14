@@ -51,22 +51,24 @@ test('Mission 1.1 is directed: Kyle picks a card for Otto and checks his claim',
     .getByRole('button', { name: 'Play' })
     .click();
   await page.getByRole('button', { name: 'Skip briefing' }).click();
-  await expect(page.getByText('Step 1 of 4')).toBeVisible();
+  await expect(page.getByText('Step 1 of 4', { exact: true })).toBeVisible();
 
-  // No typing: Kyle picks the strong card, Otto runs it (instantly under a test robot),
-  // and Kyle answers the check from what the terminal shows.
+  // No typing, and the terminal stays put away: Kyle picks the strong card, Otto runs it
+  // (instantly under a test robot), and Kyle answers the check from Otto's run log.
   await page
     .getByRole('list', { name: 'Request cards' })
     .getByRole('button', { name: /show where you are/ })
     .click();
-  const terminal = page.locator('.xterm-rows');
-  await expect(terminal).toContainText('PS C:\\Users\\kyle\\quillwork\\api>');
+  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   await page
     .getByRole('group', { name: "Check Otto's claim" })
     .getByRole('button', { name: 'C:\\Users\\kyle\\quillwork\\api', exact: true })
     .click();
   await expect(page.getByText('Confirmed.')).toBeVisible();
   await page.getByRole('button', { name: 'Next step' }).click();
-  await expect(page.getByText('Step 2 of 4')).toBeVisible();
+  await expect(page.getByText('Step 2 of 4', { exact: true })).toBeVisible();
   expect(problems).toEqual([]);
 });

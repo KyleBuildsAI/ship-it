@@ -10,6 +10,9 @@ test('WASD walks the avatar, but typing in the terminal does not', async ({ page
   const title = page.getByRole('heading', { name: 'SHIP IT' });
 
   // Typing "wasd" into the terminal is text, not movement: the big title stays.
+  // The terminal starts put away; open it when it isn't already.
+  const toggle = page.getByRole('button', { name: /Terminal/ });
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   await page.locator('.xterm-helper-textarea').focus();
   await page.keyboard.insertText('wasd');
   await page.keyboard.down('w');

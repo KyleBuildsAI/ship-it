@@ -3,6 +3,9 @@ import { expect, test } from './fixtures';
 import { collectConsoleProblems } from './consoleProblems';
 
 async function run(page: Page, ...commands: string[]): Promise<void> {
+  // The terminal starts put away; open it when it isn't already.
+  const toggle = page.getByRole('button', { name: /Terminal/ });
+  if ((await toggle.getAttribute('aria-pressed')) !== 'true') await toggle.click();
   const input = page.locator('.xterm-helper-textarea');
   await input.focus();
   for (const command of commands) {
@@ -58,16 +61,12 @@ test('edits a file with code and git sees the change', async ({ page }) => {
 
 test('toggles the terminal with Ctrl+backquote', async ({ page }) => {
   await page.goto('./');
-  const panel = page.getByRole('region', { name: 'Terminal' });
-  await expect(panel).toBeVisible();
+  const button = page.getByRole('button', { name: /Terminal/ });
+  // It starts put away: most of the game needs no typing.
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
   await page.keyboard.press('Control+Backquote');
-  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  );
+  await expect(page.getByRole('region', { name: 'Terminal' })).toBeVisible();
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
   await page.keyboard.press('Control+Backquote');
-  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await expect(button).toHaveAttribute('aria-pressed', 'false');
 });
