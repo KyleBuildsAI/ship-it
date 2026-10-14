@@ -193,7 +193,8 @@ export const briefTheAgent = {
           id: 'ping',
           text: 'Let me know when you’re done, with a short summary of what you changed and anything you weren’t sure about.',
           correct: false,
-          feedback: 'A summary is Otto’s opinion of his own work. Done by whose standard? He’ll decide, and say so with confidence.',
+          feedback:
+            'A summary is Otto’s opinion of his own work. Done by whose standard? He’ll decide, and say so with confidence.',
         },
         {
           id: 'done-means',
@@ -205,7 +206,8 @@ export const briefTheAgent = {
           id: 'perfect',
           text: 'Make sure it’s production-ready: handle every edge case you can think of, tidy anything nearby, and keep going until it’s perfect.',
           correct: false,
-          feedback: '“Every case” and “perfect” have no finish line and no way to check them, and “anything nearby” invites scope drift.',
+          feedback:
+            '“Every case” and “perfect” have no finish line and no way to check them, and “anything nearby” invites scope drift.',
         },
       ],
       explanation:

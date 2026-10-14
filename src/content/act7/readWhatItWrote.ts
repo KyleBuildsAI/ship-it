@@ -124,7 +124,8 @@ export const readWhatItWrote = {
           id: 'merge',
           text: 'Merge it. The extra cleanup is a bonus, and CI passed, so the other files must be fine.',
           correct: false,
-          feedback: 'Passing CI isn’t a review: 30 files of changes nobody asked for, and nobody read.',
+          feedback:
+            'Passing CI isn’t a review: 30 files of changes nobody asked for, and nobody read.',
         },
         {
           id: 'split',

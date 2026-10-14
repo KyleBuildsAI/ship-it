@@ -125,7 +125,9 @@ describe('verifyPaste', () => {
       check: { kind: 'noTrackedSecrets' },
       advice: 'Roll that key first.',
     });
-    expect(verifyPaste(secrets, '.env\n').message).toBe('Still tracked: .env. Roll that key first.');
+    expect(verifyPaste(secrets, '.env\n').message).toBe(
+      'Still tracked: .env. Roll that key first.',
+    );
     const status = { ...secrets, parser: 'status-short', command: 'git status --short' } as const;
     expect(verifyPaste(status, 'A  .env\n').message).toContain('Roll that key first.');
     const titles = verification({
