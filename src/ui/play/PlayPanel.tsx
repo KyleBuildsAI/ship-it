@@ -67,6 +67,14 @@ export function PlayPanel() {
     };
   }, [visible]);
 
+  // The menu and every activity share this one scroll box, so a new view would otherwise
+  // open wherever the last one was scrolled: a boss fight opened from a scrolled Act menu
+  // hid its own title and clock. A new Dex message goes back to the top too, where it shows.
+  const scrollKey = activity?.kind === 'boss' ? `boss:${String(activity.messages.length)}` : kind;
+  useLayoutEffect(() => {
+    if (panel.current) panel.current.scrollTop = 0;
+  }, [scrollKey]);
+
   if (!visible) return null;
   return (
     <section ref={panel} className={panelClassName(terminalOpen, activity)} aria-label="Missions">
