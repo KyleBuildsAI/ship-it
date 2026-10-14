@@ -22,14 +22,25 @@ const fail = (message: string, ...hints: string[]): ShellResult => ({
 });
 
 /** Habits from other shells, answered with what to type in PowerShell and this sandbox. */
+const COPY_GUIDANCE =
+  'Copying files is not part of this sandbox. Write the new file with echo "text" > file, or edit it with code.';
+
 const GUIDANCE: Record<string, string> = {
   touch: 'Create an empty file with: echo "" > notes.txt',
   nano: 'Edit files with: code notes.txt',
   vim: 'Edit files with: code notes.txt',
   vi: 'Edit files with: code notes.txt',
   notepad: 'Edit files with: code notes.txt',
-  cp: 'Copying files is not part of this sandbox. Create files with echo, or edit them with code.',
-  copy: 'Copying files is not part of this sandbox. Create files with echo, or edit them with code.',
+  // Act 2's project shell knows echo and redirects, not PowerShell's file cmdlets (Act 1's
+  // laptop has those). Kyle reaches for them first, so each points to the echo form the
+  // mission hints use, rather than a bare "not recognized".
+  'set-content': `Replace a file's text with: echo "text" > notes.txt`,
+  'add-content': 'Add a line to a file with: echo "text" >> notes.txt',
+  'new-item': 'Create a file with: echo "" > notes.txt (or a folder with: mkdir docs)',
+  'out-file': 'Write text to a file with: echo "text" > notes.txt',
+  cp: COPY_GUIDANCE,
+  copy: COPY_GUIDANCE,
+  'copy-item': COPY_GUIDANCE,
   mv: 'Rename tracked files with git mv old.txt new.txt, so git records the rename.',
   move: 'Rename tracked files with git mv old.txt new.txt, so git records the rename.',
   del: 'Delete files with: rm notes.txt',

@@ -28,6 +28,7 @@ import {
   endBriefing,
   missionSandboxChanged,
   missionTick,
+  restartMission,
   startMission,
   startNextDrill,
   submitJudgment,
@@ -173,6 +174,117 @@ describe('playing a mission', () => {
   });
 });
 
+describe('the XP a mission shows', () => {
+  /** Plays the sample mission through, passing the first drill, and returns its Done XP. */
+  function playThrough(at: number): number {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init', 'git add app.ts', 'git commit -m "feat: add app"');
+    missionSandboxChanged(at);
+    startNextDrill(at);
+    run('git init');
+    missionSandboxChanged(at + 5_000);
+    for (let index = 1; index < sampleMission.drills.length; index++) {
+      startNextDrill(at + index * 200_000);
+      missionTick(at + index * 200_000 + 999_000);
+    }
+    submitQuestionRound(['when-lost', 'done-means', 'how-many'], '', at + 2_000_000);
+    return mission().xpEarned;
+  }
+
+  function savedXp(): number {
+    return progress.get().save?.profile.xp ?? 0;
+  }
+
+  it('matches what the save paid, on the first play and on a replay', () => {
+    const first = playThrough(T0);
+    expect(first).toBe(savedXp());
+    // The first play pays drill XP too, which the Done line once left out.
+    expect(first).toBeGreaterThanOrEqual(sampleMission.xp + XP_AWARDS.drillCorrect);
+
+    const beforeReplay = savedXp();
+    const replay = playThrough(T0 + 10_000_000);
+    expect(replay).toBe(savedXp() - beforeReplay);
+    // Steps, the mission and its questions pay once, so a replay shows only the drill.
+    expect(replay).toBe(XP_AWARDS.drillCorrect);
+  });
+});
+
+describe('leaving a mission partway', () => {
+  function gitStatus(): string {
+    return sandbox
+      .get()
+      .shell.run('git status')
+      .lines.map((entry) => entry.text)
+      .join('\n');
+  }
+
+  it('picks up at the step reached, on the sandbox it was left on', () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init');
+    missionSandboxChanged(T0);
+    expect(mission().run.stepIndex).toBe(1);
+
+    leavePlay();
+    startMission(sampleMission.id);
+    expect(mission().run.phase).toBe('sim');
+    expect(mission().run.stepIndex).toBe(1);
+    expect(gitStatus()).not.toContain('not a git repository');
+  });
+
+  it('survives a reload: the save alone brings the attempt back', async () => {
+    let stored = createDefaultSave(NOW);
+    const storage: ProgressStorage = {
+      load: () => Promise.resolve(stored),
+      write: (save) => {
+        stored = save;
+        return Promise.resolve();
+      },
+    };
+    await startProgress(storage, NOW);
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init');
+    missionSandboxChanged(T0);
+    await flushProgress();
+
+    leavePlay();
+    await startProgress(storage, NOW);
+    startMission(sampleMission.id);
+    expect(mission().run.stepIndex).toBe(1);
+    expect(gitStatus()).not.toContain('not a git repository');
+  });
+
+  it('picks up at the next drill, keeping the drills already played', () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init', 'git add app.ts', 'git commit -m "feat: add app"');
+    missionSandboxChanged(T0);
+    startNextDrill(T0);
+    run('git init');
+    missionSandboxChanged(T0 + 5_000);
+
+    leavePlay();
+    startMission(sampleMission.id);
+    expect(mission().run.phase).toBe('drills');
+    expect(mission().run.drillResults).toHaveLength(1);
+  });
+
+  it('starts over from step 1 when Kyle asks', () => {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init');
+    missionSandboxChanged(T0);
+
+    restartMission(sampleMission.id);
+    expect(mission().run.phase).toBe('sim');
+    expect(mission().run.stepIndex).toBe(0);
+    expect(gitStatus()).toContain('not a git repository');
+    expect(progress.get().save?.missions[sampleMission.id]?.resume).toBeNull();
+  });
+});
+
 describe('late Sage replies', () => {
   it('never land on a replay of the same mission', async () => {
     startMission(sampleMission.id);
@@ -257,6 +369,9 @@ describe('the boss', () => {
     run('git add .env', 'git commit -m "chore: oops"');
     bossSandboxChanged(T0 + 1_000);
     expect(boss().outcome).toBe('lost-rule');
+    // The sample's rule has no label, so the ending names it by what it checks.
+    expect(boss().brokenRules).toHaveLength(1);
+    expect(boss().brokenRules[0]).toContain('.env');
   });
 
   it('loses when the clock runs out', () => {

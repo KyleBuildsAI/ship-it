@@ -12,6 +12,7 @@ import {
   missedDrills,
   MissionRunError,
   requestHint,
+  resumeRun,
   secondsRemaining,
   startBoss,
   startDrill,
@@ -269,6 +270,40 @@ describe('judgment drills', () => {
       'Drill "sample-init" is graded by state: use submitDrill.',
     );
     expect(() => submitAnsweredDrill(atDrills(), mission, true, 0)).toThrow('No drill is running.');
+  });
+});
+
+describe('resuming a run', () => {
+  const outcome = (index: number) => ({
+    drillId: mission.drills[index]?.id ?? '',
+    passed: true,
+    seconds: 5,
+    overtime: false,
+  });
+
+  it('skips the briefing and starts at the saved step, with earlier steps done', () => {
+    const run = resumeRun(mission, 1, []);
+    expect(run?.phase).toBe('sim');
+    expect(run?.stepIndex).toBe(1);
+    expect(run?.steps.map((step) => step.completed)).toEqual(
+      mission.steps.map((_, index) => index < 1),
+    );
+  });
+
+  it('starts at the next drill, or the Question Round once every drill is played', () => {
+    const steps = mission.steps.length;
+    const drills = resumeRun(mission, steps, [outcome(0)]);
+    expect(drills?.phase).toBe('drills');
+    expect(drills?.drillResults).toHaveLength(1);
+    const all = mission.drills.map((_, index) => outcome(index));
+    expect(resumeRun(mission, steps, all)?.phase).toBe('question');
+  });
+
+  it('refuses a saved place that no longer fits the mission', () => {
+    expect(resumeRun(mission, mission.steps.length + 1, [])).toBeNull();
+    expect(resumeRun(mission, 0, [outcome(0)])).toBeNull();
+    const wrong = { ...outcome(0), drillId: 'removed-drill' };
+    expect(resumeRun(mission, mission.steps.length, [wrong])).toBeNull();
   });
 });
 

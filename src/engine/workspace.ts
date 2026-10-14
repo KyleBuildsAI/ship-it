@@ -56,6 +56,8 @@ export interface WorkspaceOptions {
   readonly fs?: FileTree;
   /** Act 1's simulated Windows laptop. Act 2's sandboxes have none. */
   readonly machine?: Machine;
+  /** A repository that already exists, as when a saved sandbox comes back (workbench.ts). */
+  readonly repo?: Repository;
 }
 
 /**
@@ -73,6 +75,7 @@ export class Workspace {
     this.deps = deps;
     this.fs = options.fs ?? new VirtualFs();
     this.machine = options.machine ?? null;
+    this.repository = options.repo ?? null;
     // One stream for everything, so the world and grading need no second subscription.
     this.machine?.events.on((event) => {
       this.events.emit(event);

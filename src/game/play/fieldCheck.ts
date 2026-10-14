@@ -118,8 +118,9 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
     case 'ignores': {
       const visible = [...unignored(status, check.patterns), ...buildOutputToIgnore(status)];
       const unique = [...new Set(visible)];
+      // A pass names only what was checked, so a check without .env can't claim secrets are safe.
       return unique.length === 0
-        ? { passed: true, message: 'Build output and secrets are ignored.' }
+        ? { passed: true, message: `Git ignores ${check.patterns.join(', ')}.` }
         : fail(`Git still sees ${unique.join(', ')}. Add them to .gitignore.`);
     }
     default:

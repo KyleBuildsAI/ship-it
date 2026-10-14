@@ -166,3 +166,22 @@ describe('the last drill of a mission', () => {
     expect(text).not.toContain('Not quite');
   });
 });
+
+describe('a typed sim step', () => {
+  const sim = { ...startRun(sampleMission), phase: 'sim' as const };
+
+  it('offers a way to start the mission over, for a step that can no longer be reached', () => {
+    expect(drillsScreen({ mission: sampleMission, run: sim })).toContain('Start mission over');
+  });
+
+  it('names that way out on the top rung of the hint ladder', () => {
+    const hint = { level: 3 as const, text: 'Run: git init', fromSage: false };
+    const text = drillsScreen({ mission: sampleMission, run: sim, hint });
+    expect(text).toContain('Stuck? Start mission over puts the project back');
+  });
+
+  it('is not offered on a directed step, which has Rewind instead', () => {
+    const directed = { ...startRun(directedMission), phase: 'sim' as const };
+    expect(drillsScreen({ run: directed })).not.toContain('Start mission over');
+  });
+});

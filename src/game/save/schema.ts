@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SLIPS } from '../missions/agentSchema';
 
 /**
  * The shape of the save file, checked at runtime.
@@ -46,6 +47,81 @@ export const profileSchema = z.object({
 
 export const missionStatusSchema = z.enum(['available', 'in-progress', 'completed', 'tested-out']);
 
+const objectIdSchema = z.string().regex(/^[0-9a-f]{40}$/, 'expected a 40-character object id');
+const signatureSchema = z.object({ name: z.string(), email: z.string() });
+
+/** A sandbox's repository as data (engine/git/repository.ts RepositoryData). */
+const repositoryDataSchema = z.object({
+  blobs: z.record(objectIdSchema, z.string()),
+  commits: z
+    .array(
+      z.object({
+        id: objectIdSchema,
+        parents: z.array(objectIdSchema).readonly(),
+        message: z.string(),
+        author: signatureSchema,
+        timestamp: z.number(),
+        files: z.record(z.string(), objectIdSchema),
+      }),
+    )
+    .readonly(),
+  branches: z.record(z.string(), objectIdSchema),
+  index: z.record(z.string(), objectIdSchema),
+  reflog: z
+    .array(
+      z.object({
+        from: objectIdSchema.nullable(),
+        to: objectIdSchema,
+        message: z.string(),
+        timestamp: z.number(),
+      }),
+    )
+    .readonly(),
+  head: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('branch'), name: z.string() }),
+    z.object({ kind: z.literal('detached'), commit: objectIdSchema }),
+  ]),
+});
+
+/** An Act 2 sandbox as data (engine/workbench.ts WorkbenchData). */
+export const workbenchSchema = z.object({
+  files: z.record(z.string(), z.string()),
+  dirs: z.array(z.string()).readonly(),
+  repo: repositoryDataSchema.nullable(),
+});
+
+/**
+ * A mission left partway: where its current attempt got to, so Play picks it up there
+ * (DESIGN.md principle 7). Written when a step or drill finishes, cleared when the
+ * mission finishes or Kyle starts it over.
+ */
+export const missionResumeSchema = z.object({
+  /** The step on screen: equal to the step count once the sim is done. */
+  stepIndex: countSchema,
+  /**
+   * The sandbox as that step began. Only Act 2's Workbench is kept; a laptop (Act 1) is
+   * not, so a directed mission left mid-sim starts over, and resumes only at its drills.
+   */
+  workbench: workbenchSchema.nullable(),
+  drillResults: z.array(
+    z.object({
+      drillId: idSchema,
+      passed: z.boolean(),
+      seconds: z.number().nonnegative(),
+      overtime: z.boolean(),
+    }),
+  ),
+  /** The XP this attempt has paid so far, for the Done line. */
+  xpEarned: countSchema,
+  stars: z.record(
+    idSchema,
+    z.object({ plan: z.boolean(), safety: z.boolean(), check: z.boolean() }),
+  ),
+  slips: z.array(
+    z.object({ stepId: idSchema, planId: idSchema, slip: z.enum(SLIPS), caught: z.boolean() }),
+  ),
+});
+
 export const missionProgressSchema = z.object({
   status: missionStatusSchema,
   // Where to resume: the index into the mission's steps list.
@@ -55,6 +131,9 @@ export const missionProgressSchema = z.object({
   bestDrillScore: percentSchema.nullable(),
   completedAt: timestampSchema.nullable(),
   xpEarned: countSchema,
+  // A default, not a new schemaVersion (as with settings.unlockAll): a save written
+  // before resuming existed loads, with nothing to resume.
+  resume: missionResumeSchema.nullable().default(null),
 });
 
 export const actProgressSchema = z.object({
@@ -144,6 +223,7 @@ export type SaveData = z.infer<typeof saveDataSchema>;
 export type Profile = z.infer<typeof profileSchema>;
 export type MissionStatus = z.infer<typeof missionStatusSchema>;
 export type MissionProgress = z.infer<typeof missionProgressSchema>;
+export type MissionResume = z.infer<typeof missionResumeSchema>;
 export type ActProgress = z.infer<typeof actProgressSchema>;
 export type DrillAttempt = z.infer<typeof drillAttemptSchema>;
 export type ReviewItem = z.infer<typeof reviewItemSchema>;
@@ -176,6 +256,7 @@ export function createMissionProgress(): MissionProgress {
     bestDrillScore: null,
     completedAt: null,
     xpEarned: 0,
+    resume: null,
   };
 }
 

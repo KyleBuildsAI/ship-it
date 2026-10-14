@@ -20,22 +20,24 @@ function entry(label: string, path: string, tone: OutputLine['tone']): OutputLin
 
 /**
  * Git shows a brand-new folder as `src/` instead of listing every file in it. A folder
- * collapses when git tracks nothing inside it.
+ * collapses when none of the `others` live inside it: for untracked files, nothing tracked;
+ * for ignored files, nothing tracked or untracked, so `dist/` collapses while an ignored
+ * `src/logger.ts` beside tracked source stays a single file.
  */
-function collapseUntracked(
+function collapse(
   ctx: CommandContext,
-  untracked: readonly string[],
-  tracked: ReadonlySet<string>,
+  paths: readonly string[],
+  others: ReadonlySet<string>,
 ): string[] {
   const shown = new Set<string>();
-  for (const path of untracked) {
+  for (const path of paths) {
     const parts = path.split('/');
     let display = relativePath(ctx.cwd, path);
     for (let depth = 1; depth < parts.length; depth++) {
       const dir = parts.slice(0, depth).join('/');
       // Folders above the current directory can't collapse: git lists from where you stand.
       if (isWithin(ctx.cwd, dir) && ctx.cwd !== dir) continue;
-      if (![...tracked].some((trackedPath) => isWithin(trackedPath, dir))) {
+      if (![...others].some((other) => isWithin(other, dir))) {
         display = `${relativePath(ctx.cwd, dir)}/`;
         break;
       }
@@ -53,7 +55,21 @@ function stagedLine(ctx: CommandContext, change: StagedChange): OutputLine {
   return entry(LABELS[change.kind], path, 'staged');
 }
 
-function longFormat(ws: Workspace, ctx: CommandContext, status: RepoStatus): OutputLine[] {
+/** What `--ignored` adds: every ignored path, folded into folders where git would. */
+function ignoredPaths(
+  ctx: CommandContext,
+  status: RepoStatus,
+  tracked: ReadonlySet<string>,
+): string[] {
+  return collapse(ctx, status.ignored, new Set([...tracked, ...status.untracked]));
+}
+
+function longFormat(
+  ws: Workspace,
+  ctx: CommandContext,
+  status: RepoStatus,
+  showIgnored: boolean,
+): OutputLine[] {
   const repo = ws.requireRepo();
   const head = repo.getHead();
   const unborn = repo.headCommitId() === null;
@@ -94,9 +110,15 @@ function longFormat(ws: Workspace, ctx: CommandContext, status: RepoStatus): Out
     sections.push([
       line('Untracked files:'),
       line('  (use "git add <file>..." to include in what will be committed)'),
-      ...collapseUntracked(ctx, status.untracked, tracked).map((path) =>
-        line(`\t${path}`, 'untracked'),
-      ),
+      ...collapse(ctx, status.untracked, tracked).map((path) => line(`\t${path}`, 'untracked')),
+    ]);
+  }
+  // The answer to "why does git never show this file?": it is ignored, and here is the list.
+  if (showIgnored && status.ignored.length > 0) {
+    sections.push([
+      line('Ignored files:'),
+      line('  (use "git add -f <file>..." to include in what will be committed)'),
+      ...ignoredPaths(ctx, status, tracked).map((path) => line(`\t${path}`, 'meta')),
     ]);
   }
 
@@ -130,11 +152,11 @@ function shortFormat(
   ws: Workspace,
   ctx: CommandContext,
   status: RepoStatus,
-  branch: boolean,
+  options: { branch: boolean; ignored: boolean },
 ): OutputLine[] {
   const repo = ws.requireRepo();
   const out: OutputLine[] = [];
-  if (branch) {
+  if (options.branch) {
     const head = repo.getHead();
     const name = head.kind === 'branch' ? head.name : 'HEAD (no branch)';
     out.push(line(repo.headCommitId() === null ? `## No commits yet on ${name}` : `## ${name}`));
@@ -160,8 +182,11 @@ function shortFormat(
     out.push(line(`${row.x}${row.y} ${row.label}`, row.x === ' ' ? 'unstaged' : 'staged'));
   }
   const tracked = new Set(repo.indexEntries().keys());
-  for (const path of collapseUntracked(ctx, status.untracked, tracked)) {
+  for (const path of collapse(ctx, status.untracked, tracked)) {
     out.push(line(`?? ${path}`, 'untracked'));
+  }
+  if (options.ignored) {
+    for (const path of ignoredPaths(ctx, status, tracked)) out.push(line(`!! ${path}`, 'meta'));
   }
   return out;
 }
@@ -175,11 +200,15 @@ export function statusCommand(
     { names: ['s', 'short'] },
     { names: ['b', 'branch'] },
     { names: ['porcelain'] },
+    { names: ['ignored'] },
   ]);
   if (args.unknown.length > 0) return fatal(`unknown option '${args.unknown[0] ?? ''}'`);
   const status = ws.status();
   const short = args.flags.has('s') || args.flags.has('porcelain');
+  const ignored = args.flags.has('ignored');
   return ok(
-    short ? shortFormat(ws, ctx, status, args.flags.has('b')) : longFormat(ws, ctx, status),
+    short
+      ? shortFormat(ws, ctx, status, { branch: args.flags.has('b'), ignored })
+      : longFormat(ws, ctx, status, ignored),
   );
 }

@@ -63,10 +63,10 @@ export const cleanTheDirtyTree: ActInput['fieldMission'] = {
     {
       id: 'build-output-ignored',
       instruction:
-        'Run git status --short --ignored again and paste the output. dist/ and node_modules/ must show only with !! in front, or not at all.',
+        'Run git status --short --ignored again and paste the output. .env, dist/ and node_modules/ must show only with !! in front, or not at all.',
       command: 'git status --short --ignored',
       parser: 'status-short',
-      check: { kind: 'ignores', patterns: ['dist/', 'node_modules/'] },
+      check: { kind: 'ignores', patterns: ['.env', 'dist/', 'node_modules/'] },
     },
   ],
 };

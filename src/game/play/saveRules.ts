@@ -7,6 +7,7 @@ import {
   createMissionProgress,
   type ActProgress,
   type MissionProgress,
+  type MissionResume,
   type SaveData,
 } from '../save/schema';
 import type { Lesson } from '../missions/lessonSchema';
@@ -42,6 +43,20 @@ export function startMissionProgress(save: SaveData, missionId: string): SaveDat
   const current = mission(save, missionId);
   if (current.status !== 'available') return save;
   return withMission(save, missionId, { ...current, status: 'in-progress' });
+}
+
+/**
+ * Keeps where the current attempt got to, so leaving or reloading picks it up there; null
+ * forgets it, so the next Play starts from the briefing.
+ */
+export function recordResume(
+  save: SaveData,
+  missionId: string,
+  resume: MissionResume | null,
+): SaveData {
+  const current = mission(save, missionId);
+  if (resume === null && current.resume === null) return save;
+  return withMission(save, missionId, { ...current, resume });
 }
 
 /**
@@ -145,6 +160,8 @@ export function completeMission(
     completedAt: current.completedAt ?? now.toISOString(),
     bestDrillScore: Math.max(current.bestDrillScore ?? 0, result.drillPercent),
     xpEarned: current.xpEarned + xp,
+    // A finished attempt has nothing to resume: Play replays it from the start.
+    resume: null,
   };
   return refreshAct(addXp(withMission(save, finished.id, updated), xp), target, now);
 }

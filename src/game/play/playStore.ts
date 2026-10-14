@@ -103,6 +103,8 @@ export interface BossActivity {
   readonly secondsLeft: number;
   /** Dex's messages so far, newest last. */
   readonly messages: readonly string[];
+  /** What a loss by rule broke, by the rule's label. Empty unless the outcome is lost-rule. */
+  readonly brokenRules: readonly string[];
 }
 
 /** The Field Mission: real work on a real repo, verified by pasted PowerShell output. */

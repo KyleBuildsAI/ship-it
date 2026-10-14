@@ -428,6 +428,15 @@ body {
   max-height: calc(62vh - 216px);
 }
 
+/*
+ * The Question Round keeps the panel's full height over the idle terminal (panelLayout.ts).
+ * The terminal and HUD buttons come later in the page, so without this they would paint on
+ * top of it. Overlays (z-index 10) still sit above.
+ */
+.play-panel--over-terminal {
+  z-index: 1;
+}
+
 .play-panel__header {
   display: flex;
   align-items: start;

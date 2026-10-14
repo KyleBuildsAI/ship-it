@@ -66,10 +66,22 @@ export const ignoreList: MissionInput = {
       id: 'ignore-logs',
       instruction:
         'Log files are noise too. Add one line that ignores every .log file, in any folder.',
+      // A single > here replaces the dist/ line instead of adding one, so this step also
+      // checks that the first rule survived: otherwise the slip only shows at the very end.
       success: {
-        kind: 'ignored',
-        paths: ['debug.log', 'server/logs/error.log'],
-        label: 'Every .log file is ignored',
+        kind: 'all',
+        of: [
+          {
+            kind: 'ignored',
+            paths: ['debug.log', 'server/logs/error.log'],
+            label: 'Every .log file is ignored',
+          },
+          {
+            kind: 'ignored',
+            paths: ['dist/index.html', 'dist/app.js'],
+            label: 'dist/ is still ignored',
+          },
+        ],
       },
       hints: [
         'What pattern matches any file name that ends in .log?',
@@ -144,6 +156,12 @@ export const ignoreList: MissionInput = {
           { kind: 'notTracked', paths: ['.env'] },
           { kind: 'tracked', paths: ['.gitignore', '.env.example'] },
           { kind: 'workingFile', path: '.env', exists: true, label: '.env is still on your disk' },
+          // Names the cause when a later > wiped the earlier rules, instead of only "not clean".
+          {
+            kind: 'ignored',
+            paths: ['dist/index.html', 'debug.log'],
+            label: 'dist/ and .log files are still ignored',
+          },
           { kind: 'clean' },
           headIsType('chore'),
         ],

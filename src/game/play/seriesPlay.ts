@@ -66,10 +66,11 @@ export function startPlacement(act: number): void {
 /**
  * Today's Standup Board set, from the review items this build has content for. A save can
  * still list a drill that a later build removed: it can never be played or graded, so it
- * would never leave the queue. Leaving it out here keeps the menu's count and the review
- * itself in step, and keeps it from taking a slot in the day's set.
+ * would never leave the queue. Leaving it out here keeps the menu's count, the Standup
+ * Board's list and the review itself in step, and keeps it from taking a slot in the
+ * day's set.
  */
-function todaysItems(now: Date): ReviewItem[] {
+export function todaysItems(now: Date): ReviewItem[] {
   const save = progress.get().save;
   if (save === null) return [];
   const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));

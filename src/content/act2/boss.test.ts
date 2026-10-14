@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gitQueries } from '../../engine/git/queries';
 import type { Shell } from '../../engine/shell/shell';
 import { evaluate } from '../../game/missions/predicates';
-import { checkBoss, startBoss, tick, type BossRun } from '../../game/missions/runner';
+import { brokenRules, checkBoss, startBoss, tick, type BossRun } from '../../game/missions/runner';
 import { applySteps } from '../../game/missions/sandbox';
 import { HIDDEN_FILE } from './dirtyTree';
 import { act2 } from './index';
@@ -57,6 +57,18 @@ describe('The Dirty Tree boss', () => {
     expect(status.ignored).toEqual([HIDDEN_FILE]);
   });
 
+  it('names every rule that committing everything breaks', () => {
+    const { shell, fight } = startFight();
+    const q = gitQueries(shell.ws);
+    expect(brokenRules(fight, act2, q)).toEqual([]);
+    enterAll(shell, ['git add .', 'git commit -m "chore: commit everything"']);
+    expect(checkBoss(fight, act2, q, seconds(10))).toBe('lost-rule');
+    expect(brokenRules(fight, act2, q)).toEqual([
+      'A secret (.env) was committed',
+      'Build output or node_modules/ was committed',
+    ]);
+  });
+
   it('is not won by the untouched setup', () => {
     const { shell, fight } = startFight();
     const q = gitQueries(shell.ws);
@@ -82,7 +94,10 @@ describe('The Dirty Tree boss', () => {
       applySteps(shell.ws, twist.apply);
     });
 
-    // The sandbox has no `git status --ignored`, so the clue is git add refusing the file.
+    // Dex asks why git status never showed the file. git status --ignored answers it...
+    const ignored = shell.run('git status --short --ignored');
+    expect(ignored.lines.map((line) => line.text)).toContain('!! src/logger.ts');
+    // ...and git add refusing the file says the same.
     const refused = shell.run('git add src/logger.ts');
     expect(refused.exitCode).not.toBe(0);
     expect(refused.lines.map((line) => line.text)).toContain(

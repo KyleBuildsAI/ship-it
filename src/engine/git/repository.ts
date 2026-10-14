@@ -11,6 +11,29 @@ export interface RepositoryDeps {
 
 export const DEFAULT_BRANCH = 'main';
 
+/** A commit as plain JSON: its files as an object instead of a Map. */
+export interface CommitData {
+  readonly id: ObjectId;
+  readonly parents: readonly ObjectId[];
+  readonly message: string;
+  readonly author: Signature;
+  readonly timestamp: number;
+  readonly files: Readonly<Record<string, ObjectId>>;
+}
+
+/**
+ * Everything in a repository as plain JSON, so a sandbox can go into the save and come
+ * back exactly: same commit ids, same reflog, same staging area.
+ */
+export interface RepositoryData {
+  readonly blobs: Readonly<Record<ObjectId, string>>;
+  readonly commits: readonly CommitData[];
+  readonly branches: Readonly<Record<string, ObjectId>>;
+  readonly index: Readonly<Record<string, ObjectId>>;
+  readonly reflog: readonly ReflogEntry[];
+  readonly head: Head;
+}
+
 /**
  * The `.git` folder as data: stored objects, branches, HEAD, the index (staging area),
  * and the HEAD reflog. It knows nothing about the working directory or text output;
@@ -27,6 +50,36 @@ export class Repository implements RevisionContext {
 
   constructor(deps: RepositoryDeps) {
     this.deps = deps;
+  }
+
+  /** The whole repository as plain data (see RepositoryData). */
+  toData(): RepositoryData {
+    return {
+      blobs: Object.fromEntries(this.blobs),
+      commits: [...this.commits.values()].map((commit) => ({
+        ...commit,
+        parents: [...commit.parents],
+        files: Object.fromEntries(commit.files),
+      })),
+      branches: Object.fromEntries(this.branches),
+      index: Object.fromEntries(this.index),
+      reflog: [...this.headLog],
+      head: this.head,
+    };
+  }
+
+  /** Rebuilds a repository from toData's output. New commits use `deps`, as usual. */
+  static fromData(data: RepositoryData, deps: RepositoryDeps): Repository {
+    const repo = new Repository(deps);
+    for (const [id, content] of Object.entries(data.blobs)) repo.blobs.set(id, content);
+    for (const commit of data.commits) {
+      repo.commits.set(commit.id, { ...commit, files: new Map(Object.entries(commit.files)) });
+    }
+    for (const [name, id] of Object.entries(data.branches)) repo.branches.set(name, id);
+    for (const [path, id] of Object.entries(data.index)) repo.index.set(path, id);
+    repo.headLog.push(...data.reflog);
+    repo.head = data.head;
+    return repo;
   }
 
   // ---- Objects -------------------------------------------------------------
