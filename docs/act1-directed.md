@@ -585,7 +585,7 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 
 ---
 
-> **Shipped as lessons for now.** Missions 1.5 and 1.6 and the boss need npm, processes and ports, which the laptop engine doesn't simulate yet (milestones E, F and G). So they ship today as click-through lessons (`src/content/act1/dependenciesAreDeclared.ts`, `runningIsntWorking.ts` and `worksOnMyMachine.ts`, the boss as Act 1's timed final), built from the same principles, slips and real output as the designs below. When those milestones land, a directed version can replace its lesson under the same id.
+> **Shipped as lessons for now.** Missions 1.5 and 1.6 and the boss need npm, processes and ports, which the laptop engine doesn't simulate yet (milestones E, F and G). So they ship today as click-through lessons (`src/content/act1/dependenciesAreDeclared.ts`, `runningIsntWorking.ts` and `worksOnMyMachine.ts`, the boss as Act 1's timed final), built from the same principles, slips and real output as the designs below. When those milestones land, a directed version can replace its lesson under the same id. The final lesson differs from the boss table in 3.7 in three places, to stay consistent with 1.5: the dev script is `nodemon server.js` (1.5 adds nodemon), so missing `node_modules` shows first and old Node shows as a `fetch` crash from a lone Node 16 `node.exe` a build tool put on the system PATH; `DATABASE_URL` arrives by DM with its password, so it is a secret; and the dev database simply hasn't been started, rather than stopped by a restart twist.
 
 ### Mission 1.5: Dependencies Are Declared (`dependencies-are-declared`), approvals `destructive`
 
