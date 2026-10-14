@@ -49,13 +49,11 @@ export function weighChange(change: SandboxChange): ChangeWeight {
     case 'sealed':
       return 'additive';
     case 'workbench':
-      // A git command that rewrites or removes a Workbench file loses that version of it,
-      // like a laptop file being replaced, even when a commit still has an older one.
-      return change.how === 'created' ? 'additive' : 'destructive';
+      return weighWorkbench(change);
     case 'dock':
-      // Loading or unloading a crate changes what the next commit holds, and the version
-      // it carried is still on the Workbench or in a commit. A discarded crate's version
-      // is nowhere now: a staged edit thrown away.
+      // Loading, removing or unloading a crate changes what the next commit holds, and the
+      // version it carried is still on the Workbench or in a commit. A discarded crate's
+      // version is nowhere now: a staged edit thrown away.
       return change.how === 'discarded' ? 'destructive' : 'additive';
     case 'dropped':
       // Commits leave the branch's history: the work in them is off the record.
@@ -78,6 +76,18 @@ export function weighChange(change: SandboxChange): ChangeWeight {
     case 'terminal':
       return 'terminal';
   }
+}
+
+/**
+ * A rewrite pauses only when the old version is gone from git too. When a commit or the
+ * dock still has it, `git restore` brings it back, so nothing is lost; pausing there would
+ * teach Kyle to click Allow. A delete always pauses: the file leaves the project he runs,
+ * which is the loss he'd notice, whatever git still keeps.
+ */
+function weighWorkbench(change: Extract<GitChange, { kind: 'workbench' }>): ChangeWeight {
+  if (change.how === 'created') return 'additive';
+  if (change.how === 'changed' && !change.unsaved) return 'additive';
+  return 'destructive';
 }
 
 /** An action Otto is about to take, and what a dry run of it changed on the laptop. */
@@ -126,7 +136,7 @@ type DeletedChange = Extract<MachineChange, { kind: 'deleted' }>;
  */
 interface DockGroup {
   readonly kind: 'dockGroup';
-  readonly how: 'loaded' | 'unloaded';
+  readonly how: Exclude<Extract<GitChange, { kind: 'dock' }>['how'], 'discarded'>;
   readonly paths: readonly string[];
 }
 
@@ -253,11 +263,11 @@ function describeGitChange(change: Exclude<Shown, MachineChange>): string {
     case 'workbench':
       return describeWorkbench(change);
     case 'dock':
-      return describeDock(change);
+      return change.how === 'discarded'
+        ? `Throws away the staged edits to ${change.path}`
+        : describeDock(change.how, change.path, 'it');
     case 'dockGroup':
-      return change.how === 'loaded'
-        ? `Moves ${counted(change.paths.length, 'file')} onto the Loading Dock`
-        : `Takes ${counted(change.paths.length, 'file')} off the Loading Dock`;
+      return describeDock(change.how, counted(change.paths.length, 'file'), 'them');
     case 'sealed':
       return `Seals ${counted(change.files, 'file')} into a new commit: "${change.message}"`;
     case 'dropped':
@@ -265,14 +275,18 @@ function describeGitChange(change: Exclude<Shown, MachineChange>): string {
   }
 }
 
-function describeDock(change: Extract<GitChange, { kind: 'dock' }>): string {
-  switch (change.how) {
+/**
+ * A staged removal gets its own words: "onto the Loading Dock" would say the file goes into
+ * the next commit, when `git rm --cached` makes that commit drop it.
+ */
+function describeDock(how: DockGroup['how'], what: string, pronoun: 'it' | 'them'): string {
+  switch (how) {
     case 'loaded':
-      return `Moves ${change.path} onto the Loading Dock`;
+      return `Moves ${what} onto the Loading Dock`;
+    case 'removed':
+      return `Marks ${what} for removal: the next commit drops ${pronoun}`;
     case 'unloaded':
-      return `Takes ${change.path} off the Loading Dock`;
-    case 'discarded':
-      return `Throws away the staged edits to ${change.path}`;
+      return `Takes ${what} off the Loading Dock`;
   }
 }
 

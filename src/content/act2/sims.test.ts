@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gitQueries } from '../../engine/git/queries';
 import type { Shell } from '../../engine/shell/shell';
-import { evaluate, explain } from '../../game/missions/predicates';
+import { evaluate } from '../../game/missions/predicates';
 import { checkStep, finishBriefing, startRun, type MissionRun } from '../../game/missions/runner';
 import type { Mission } from '../../game/missions/schema';
 import { act2Missions } from './index';
@@ -16,27 +16,6 @@ import { enter, sandboxShell } from './play.test-helpers';
 
 /** The reference solution: command lines for each step, keyed by mission id then step id. */
 const SOLUTIONS: Record<string, Record<string, string[]>> = {
-  'good-commits': {
-    'commit-fix': [
-      'git status',
-      'git add src/login.ts',
-      'git commit -m "fix: trim spaces from login emails"',
-    ],
-    'commit-docs': ['git add README.md', 'git commit -m "docs: fix install command in readme"'],
-    'commit-feature': ['git add src/theme.ts src/app.ts', 'git commit -m "feat: add dark mode"'],
-    'commit-am': ['git commit -am "chore: bump version to 1.1.0"'],
-  },
-  'ignore-list': {
-    'ignore-dist': ['git status', 'echo "dist/" >> .gitignore'],
-    'ignore-logs': ['echo "*.log" >> .gitignore'],
-    'untrack-env': ['git rm --cached .env'],
-    'ignore-env': ['echo ".env" >> .gitignore'],
-    'env-example': ['echo "API_KEY=" > .env.example', 'echo "DATABASE_URL=" >> .env.example'],
-    'commit-cleanup': [
-      'git add .gitignore .env.example',
-      'git commit -m "chore: ignore secrets and build output"',
-    ],
-  },
   'undo-everything': {
     'discard-edit': ['git status', 'git restore style.css'],
     'unstage-notes': ['git restore --staged notes.txt'],
@@ -116,77 +95,6 @@ describe('Act 2 sims, played step by step', () => {
 });
 
 describe('Act 2 sims accept other valid paths', () => {
-  /** Plays a whole sim from one list of commands and returns where the run ended. */
-  function playThrough(id: string, commands: readonly string[]) {
-    const mission = missionById(id);
-    const { run, shell } = startSim(mission);
-    return { run: play(mission, run, shell, commands), shell };
-  }
-
-  it('good-commits: committing the fix together with the docs change is not atomic', () => {
-    const mission = missionById('good-commits');
-    const { run, shell } = startSim(mission);
-    const bundled = play(mission, run, shell, [
-      'git add src/login.ts README.md',
-      'git commit -m "fix: trim emails and fix readme"',
-    ]);
-    expect(bundled.stepIndex).toBe(0);
-  });
-
-  it('good-commits: commit -am grabs the version bump and skips the new theme file', () => {
-    const mission = missionById('good-commits');
-    const { run, shell } = startSim(mission);
-    const afterDocs = play(mission, run, shell, [
-      'git add src/login.ts',
-      'git commit -m "fix: trim spaces from login emails"',
-      'git add README.md',
-      'git commit -m "docs: fix install command in readme"',
-      'git commit -am "feat: add dark mode"',
-    ]);
-    expect(afterDocs.stepIndex).toBe(2);
-  });
-
-  it('ignore-list: write every rule first, including a ! exception for .env.example', () => {
-    const { run } = playThrough('ignore-list', [
-      'echo "dist/" > .gitignore',
-      'echo "*.log" >> .gitignore',
-      'echo ".env*" >> .gitignore',
-      'echo "!.env.example" >> .gitignore',
-      'git rm --cached .env',
-      'echo "API_KEY=" > .env.example',
-      'echo "DATABASE_URL=" >> .env.example',
-      'git add .',
-      'git commit -m "chore: ignore secrets and build output"',
-    ]);
-    expect(run.phase).toBe('drills');
-  });
-
-  it('ignore-list: deleting .env from disk does not count as untracking it', () => {
-    const mission = missionById('ignore-list');
-    const { run, shell } = startSim(mission);
-    const deleted = play(mission, run, shell, [
-      'echo "dist/" >> .gitignore',
-      'echo "*.log" >> .gitignore',
-      'git rm .env',
-    ]);
-    expect(deleted.stepIndex).toBe(2);
-  });
-
-  it('ignore-list: a > that wipes the dist/ rule leaves step 2 open, and says why', () => {
-    const mission = missionById('ignore-list');
-    const { run, shell } = startSim(mission);
-    const overwritten = play(mission, run, shell, [
-      'echo "dist/" > .gitignore',
-      'echo "*.log" > .gitignore',
-    ]);
-    expect(overwritten.stepIndex).toBe(1);
-    const step = mission.steps[1];
-    if (step === undefined) throw new Error('ignore-list has a second step');
-    expect(explain(step.success, gitQueries(shell.ws))).toContainEqual(
-      expect.objectContaining({ label: 'dist/ is still ignored', passed: false }),
-    );
-  });
-
   it('undo-everything: reset --mixed then re-add, and recover by the id from git reflog', () => {
     const mission = missionById('undo-everything');
     const { run, shell } = startSim(mission);

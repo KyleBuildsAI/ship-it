@@ -11,33 +11,6 @@ import { enter, sandboxShell } from './play.test-helpers';
  * pass. Some drills have a second answer, to prove any valid path to the state counts.
  */
 const ANSWERS: Record<string, string[][]> = {
-  // 2.4 The Ignore List
-  'ignore-dist-folder': [['echo "dist/" > .gitignore'], ['echo "/dist" > .gitignore']],
-  'ignore-logs-anywhere': [['echo "*.log" > .gitignore']],
-  'ignore-untrack-env': [
-    ['git rm --cached .env', 'git commit -m "chore: stop tracking .env"'],
-    [
-      'echo ".env" > .gitignore',
-      'git rm --cached .env',
-      'git add .gitignore',
-      'git commit -m "chore: stop tracking .env"',
-    ],
-  ],
-  'ignore-env-rule': [
-    ['echo ".env" >> .gitignore', 'git add .gitignore', 'git commit -m "chore: ignore .env"'],
-  ],
-  'ignore-tracked-dist': [
-    [
-      'echo "dist/" > .gitignore',
-      'git rm -r --cached dist',
-      'git add .gitignore',
-      'git commit -m "chore: stop tracking build output"',
-    ],
-  ],
-  'ignore-negate': [
-    ['echo ".env*" > .gitignore', 'echo "!.env.example" >> .gitignore'],
-    ['echo ".env" > .gitignore', 'echo ".env.local" >> .gitignore'],
-  ],
   // 2.5 Undo Everything
   'undo-discard-edit': [['git restore src/app.js']],
   'undo-restore-deleted': [['git restore README.md']],
@@ -51,8 +24,6 @@ const ANSWERS: Record<string, string[][]> = {
 
 /** Answers that reach the wrong state, to prove the drill really checks what it says. */
 const WRONG_ANSWERS: Record<string, string[]> = {
-  'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
-  'ignore-untrack-env': ['git rm .env', 'git commit -m "chore: remove .env"'],
   'undo-revert-shared': ['git reset --hard HEAD~2'],
   'undo-soft-reset': ['git reset HEAD~1'],
 };

@@ -80,19 +80,14 @@ describeDirectedMission(mission, {
   },
   rewindOnly: ['restore-tax > rewind', 'clear-dock > discard'],
   gates: {
-    // Restoring a file rewrites the Workbench, so it pauses; no guard breaks.
-    'restore-tax > show-then-restore > git restore --source=HEAD~2 src/tax.ts': false,
-    'restore-tax > blame-newest > show-then-restore > git restore --source=HEAD~2 src/tax.ts': false,
-    'restore-tax > blame-newest > restore-before-tidy > git restore --source=HEAD~2 src/tax.ts': false,
+    // Restoring tax.ts from HEAD~2 rewrites a version the newest commit still holds, so it
+    // loses nothing and never pauses; only the rewind and what follows it do.
     'restore-tax > rewind > git reset --hard HEAD~2': true,
     'restore-tax > blame-newest > rewind > git reset --hard HEAD~2': true,
     // After the rewind, HEAD~1 already holds 0.08, so blame-newest's restore changes
     // nothing and never pauses; restoring from HEAD~2 deletes tax.ts, which breaks a guard.
+    // restore-before-tidy is not offered there: its HEAD~2 no longer holds tax.ts.
     'restore-tax > rewind > show-then-restore > git restore --source=HEAD~2 src/tax.ts': true,
-    // restore-before-tidy is not offered after the rewind: its HEAD~2 no longer holds tax.ts.
-    // Denied, the history is whole, so restoring from HEAD~2 is safe again.
-    'restore-tax > rewind (denied) > show-then-restore > git restore --source=HEAD~2 src/tax.ts': false,
-    'restore-tax > rewind (denied) > restore-before-tidy > git restore --source=HEAD~2 src/tax.ts': false,
     'clear-dock > discard > git restore src/checkout.ts': true,
     'clear-dock > wrong-diff > discard > git restore src/checkout.ts': true,
     'commit-real-change > misread-diff > undo-debug-commit > git reset HEAD~1': false,
@@ -189,11 +184,10 @@ describe('Reading History, directed', () => {
     expect(evaluate(rate, queriesOf(played.log))).toBe(true);
   });
 
-  it('asks before the strong restore, and predicts the good rate', () => {
+  it('runs the strong restore without asking, and predicts the good rate', () => {
     const played = playFromStart(0, 'show-then-restore');
-    expect(played.gates).toEqual([
-      { line: 'git restore --source=HEAD~2 src/tax.ts', harmful: false },
-    ]);
+    // The 0.8 version it replaces is still in the newest commit: nothing is lost.
+    expect(played.gates).toEqual([]);
     expect(played.predicts).toEqual([
       { question: 'Before Otto runs it: what will tax.ts say?', trueOptions: ['good'] },
     ]);

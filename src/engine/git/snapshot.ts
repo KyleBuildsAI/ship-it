@@ -15,8 +15,9 @@ export type GitChange =
       readonly path: string;
       readonly how: 'created' | 'changed' | 'deleted';
       /**
-       * The file held edits that neither the Loading Dock nor the last commit had, and
-       * they are gone now: nothing in git can bring them back.
+       * The version the command replaced or deleted is gone from git too: no commit held
+       * it, and the Loading Dock doesn't now, so nothing can bring it back. False when a
+       * commit or the dock still has it, which is why a rewrite like that loses nothing.
        */
       readonly unsaved: boolean;
     }
@@ -24,11 +25,14 @@ export type GitChange =
       readonly kind: 'dock';
       readonly path: string;
       /**
-       * loaded: the path's change now waits on the dock. unloaded: it left without a commit,
-       * and the Workbench or a commit still holds that version. discarded: it left, and
-       * nothing does any more, like a staged edit under `git reset --hard`: it is lost.
+       * loaded: the path's new content now waits on the dock. removed: its deletion does,
+       * so the next commit drops the file (`git rm`, `git rm --cached`). unloaded: its
+       * change left the dock without a commit, and the Workbench or a commit still holds
+       * that version. discarded: it left, and nothing does any more, like a staged edit
+       * under `git reset --hard`: it is lost. A removal is its own case because "onto the
+       * dock" would tell Kyle the file is going into the next commit, the opposite.
        */
-      readonly how: 'loaded' | 'unloaded' | 'discarded';
+      readonly how: 'loaded' | 'removed' | 'unloaded' | 'discarded';
     }
   /** A new commit sealed into the Vault. */
   | {
@@ -55,8 +59,8 @@ export interface GitSnapshot {
   readonly repo: boolean;
   /** Workbench files and their contents. Empty on a laptop, whose drive is diffed instead. */
   readonly files: ReadonlyMap<string, string>;
-  /** Workbench paths whose content no commit or dock holds: edits git can't bring back. */
-  readonly unsaved: ReadonlySet<string>;
+  /** The object id of every Workbench file's content, to tell whether git still holds it. */
+  readonly ids: ReadonlyMap<string, ObjectId>;
   /** The index entry of every path whose dock differs from HEAD: null for a staged delete. */
   readonly staged: ReadonlyMap<string, ObjectId | null>;
   readonly branch: string | null;
@@ -84,7 +88,8 @@ export function snapshotGit(ws: Workspace, withFiles = true): GitSnapshot {
     return {
       repo: false,
       files,
-      unsaved: new Set(files.keys()),
+      // No repository holds anything, so every Workbench file is unsaved.
+      ids: new Map(),
       staged: new Map(),
       branch: null,
       history: [],
@@ -94,14 +99,12 @@ export function snapshotGit(ws: Workspace, withFiles = true): GitSnapshot {
   }
   const index = repo.indexEntries();
   const head = repo.headFiles();
-  const unsaved = [...files]
-    .filter(([path, content]) => !holds(repo.idFor(content), path, index, head))
-    .map(([path]) => path);
+  const ids = new Map([...files].map(([path, content]) => [path, repo.idFor(content)] as const));
   const known = new Set(repo.allCommitIds());
   return {
     repo: true,
     files,
-    unsaved: new Set(unsaved),
+    ids,
     staged: stagedEntries(index, head),
     branch: repo.currentBranch(),
     history: firstParents(repo.headCommit(), (id) => repo.getCommit(id)),
@@ -128,11 +131,6 @@ function heldVersions(
   }
   for (const path of ws.fs.allFiles()) held.add(repo.idFor(ws.fs.readFile(path)));
   return held;
-}
-
-/** Whether the dock or the last commit already holds this exact content for the path. */
-function holds(id: ObjectId, path: string, index: FileSnapshot, head: FileSnapshot): boolean {
-  return index.get(path) === id || head.get(path) === id;
 }
 
 function stagedEntries(index: FileSnapshot, head: FileSnapshot): Map<string, ObjectId | null> {
@@ -201,16 +199,16 @@ function changedPaths(older: FileSnapshot, newer: FileSnapshot): number {
 
 /**
  * A path is loaded when its change is waiting on the dock now and wasn't, or a different
- * version of it is. It is unloaded when it left the dock because the dock itself changed,
- * as `git restore --staged` does, and discarded when the version it held went nowhere.
- * A commit also empties the dock, but there the dock is untouched and HEAD caught up, so
- * those paths went into the Vault, not back.
+ * version of it is, and removed when that change is its deletion. It is unloaded when it
+ * left the dock because the dock itself changed, as `git restore --staged` does, and
+ * discarded when the version it held went nowhere. A commit also empties the dock, but
+ * there the dock is untouched and HEAD caught up, so those paths went into the Vault.
  */
 function dockChanges(before: GitSnapshot, after: GitSnapshot): GitChange[] {
   const changes: GitChange[] = [];
   for (const [path, entry] of after.staged) {
     if (!before.staged.has(path) || before.staged.get(path) !== entry) {
-      changes.push({ kind: 'dock', path, how: 'loaded' });
+      changes.push({ kind: 'dock', path, how: entry === null ? 'removed' : 'loaded' });
     }
   }
   for (const [path, entry] of before.staged) {
@@ -218,8 +216,8 @@ function dockChanges(before: GitSnapshot, after: GitSnapshot): GitChange[] {
     const sealedAsIs = after.history[0]?.files.get(path) === (entry ?? undefined);
     if (sealedAsIs) continue;
     // A staged delete holds no version, so taking it off the dock can't lose one.
-    const lost = entry !== null && !after.held.has(entry);
-    changes.push({ kind: 'dock', path, how: lost ? 'discarded' : 'unloaded' });
+    const gone = entry !== null && !after.held.has(entry);
+    changes.push({ kind: 'dock', path, how: gone ? 'discarded' : 'unloaded' });
   }
   return changes;
 }
@@ -231,13 +229,47 @@ function workbenchChanges(before: GitSnapshot, after: GitSnapshot): GitChange[] 
     if (old === undefined)
       changes.push({ kind: 'workbench', path, how: 'created', unsaved: false });
     else if (old !== content) {
-      changes.push({ kind: 'workbench', path, how: 'changed', unsaved: before.unsaved.has(path) });
+      changes.push({
+        kind: 'workbench',
+        path,
+        how: 'changed',
+        unsaved: unstaged(path, before, after),
+      });
     }
   }
   for (const path of before.files.keys()) {
     if (!after.files.has(path)) {
-      changes.push({ kind: 'workbench', path, how: 'deleted', unsaved: before.unsaved.has(path) });
+      changes.push({
+        kind: 'workbench',
+        path,
+        how: 'deleted',
+        unsaved: unstaged(path, before, after),
+      });
     }
   }
   return changes;
+}
+
+/**
+ * Whether the Workbench version of a path from before is gone from git after the command.
+ * A commit keeps it for good (even one the command takes off the branch, which the reflog
+ * still reaches), but the dock only while the dock still has it: `git restore --staged
+ * --worktree` wipes a staged edit from both places at once.
+ */
+function lost(path: string, before: GitSnapshot, after: GitSnapshot): boolean {
+  const id = before.ids.get(path);
+  if (id === undefined) return true;
+  const headAfter = after.history[0]?.files.get(path);
+  const dockAfter = after.staged.has(path) ? after.staged.get(path) : headAfter;
+  return id !== before.history[0]?.files.get(path) && id !== dockAfter && id !== headAfter;
+}
+
+/**
+ * A lost Workbench version that was also the one on the dock is a staged edit: the dock's
+ * 'discarded' line already says it is gone, so the Workbench line doesn't say it twice.
+ */
+function unstaged(path: string, before: GitSnapshot, after: GitSnapshot): boolean {
+  const id = before.ids.get(path);
+  const wasStaged = id !== undefined && before.staged.get(path) === id;
+  return lost(path, before, after) && !wasStaged;
 }

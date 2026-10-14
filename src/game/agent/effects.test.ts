@@ -442,8 +442,37 @@ describe('effects of a git line in the Git World', () => {
     expect(effects.destructive).toBe(true);
     expect(effects.lines).toEqual([
       'Deletes login.ts from the Workbench',
-      'Moves login.ts onto the Loading Dock',
+      'Marks login.ts for removal: the next commit drops it',
     ]);
+  });
+
+  it('words git rm --cached as a removal the next commit makes, and lets it through', () => {
+    // Not "onto the Loading Dock": that would say the file goes into the next commit.
+    expect(effectsOf(twoCommits, 'git rm --cached login.ts')).toEqual({
+      lines: ['Marks login.ts for removal: the next commit drops it'],
+      destructive: false,
+      changes: true,
+    });
+    expect(effectsOf(twoCommits, 'git rm -r --cached .').lines).toEqual([
+      'Marks 2 files for removal: the next commit drops them',
+    ]);
+  });
+
+  it('lets a rewrite through when git still has the old version, and pauses when it does not', () => {
+    // The version it replaces is committed: git restore brings it back, so nothing is lost.
+    const edited = twoCommits.commit('edit app', { 'app.ts': 'v2\n' });
+    expect(effectsOf(edited, 'git restore --source HEAD~2 app.ts')).toEqual({
+      lines: ['Rewrites app.ts on the Workbench'],
+      destructive: false,
+      changes: true,
+    });
+    // A staged edit wiped from the dock and the Workbench at once is gone for good.
+    const stagedThenWiped = twoCommits.write('app.ts', 'v2\n').stage('app.ts');
+    const wiped = effectsOf(
+      stagedThenWiped,
+      'git restore --source HEAD --staged --worktree app.ts',
+    );
+    expect(wiped.destructive).toBe(true);
   });
 
   it('words every kind of git change, taking crates off and counting dropped commits', () => {
@@ -462,7 +491,7 @@ describe('effects of a git line in the Git World', () => {
     const unsavedNew = twoCommits.write('login.ts', 'mine\n');
     expect(effectsOf(unsavedNew, 'git rm -f login.ts').lines).toEqual([
       'Deletes login.ts and its unsaved edits',
-      'Moves login.ts onto the Loading Dock',
+      'Marks login.ts for removal: the next commit drops it',
     ]);
     const stagedThenRestored = twoCommits.write('app.ts', 'v2\n').stage('app.ts');
     expect(
@@ -478,6 +507,11 @@ describe('effects of a git line in the Git World', () => {
     expect(weighChange({ kind: 'dropped', branch: null, commits: [] })).toBe('destructive');
     expect(weighChange({ kind: 'dock', path: 'a.ts', how: 'unloaded' })).toBe('additive');
     expect(weighChange({ kind: 'dock', path: 'a.ts', how: 'discarded' })).toBe('destructive');
+    expect(weighChange({ kind: 'dock', path: 'a.ts', how: 'removed' })).toBe('additive');
+    const workbench = { kind: 'workbench', path: 'a.ts' } as const;
+    expect(weighChange({ ...workbench, how: 'changed', unsaved: false })).toBe('additive');
+    expect(weighChange({ ...workbench, how: 'changed', unsaved: true })).toBe('destructive');
+    expect(weighChange({ ...workbench, how: 'deleted', unsaved: false })).toBe('destructive');
     expect(
       describeChanges(
         [{ kind: 'dropped', branch: null, commits: [{ id: 'x', message: 'm' }] }],
