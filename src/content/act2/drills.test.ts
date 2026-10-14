@@ -44,28 +44,6 @@ const ANSWERS: Record<string, string[][]> = {
   'history-staged-vs-unstaged': [
     ['git diff', 'git diff --staged', 'git commit -m "fix: normalize search queries"'],
   ],
-  // 2.3 Good Commits
-  'commits-type-fix': [['git commit -m "fix: round cart totals to the cent"']],
-  'commits-scope': [['git commit -m "docs(readme): fix install command"']],
-  'commits-split-two': [
-    [
-      'git add README.md',
-      'git commit -m "docs: fix install typo"',
-      'git add src/api.ts',
-      'git commit -m "fix: raise api timeout"',
-    ],
-    [
-      'git add src/api.ts',
-      'git commit -m "fix: raise api timeout"',
-      'git commit -am "docs: fix install typo"',
-    ],
-  ],
-  'commits-leave-debug': [['git add src/search.ts', 'git commit -m "feat: split search terms"']],
-  'commits-am-tracked': [['git commit -am "chore: bump version to 1.1.0"']],
-  'commits-am-trap': [
-    ['git add src/app.ts src/theme.ts', 'git commit -m "feat: add dark mode"'],
-    ['git add src/theme.ts', 'git commit -am "feat: add dark mode"'],
-  ],
   // 2.4 The Ignore List
   'ignore-dist-folder': [['echo "dist/" > .gitignore'], ['echo "/dist" > .gitignore']],
   'ignore-logs-anywhere': [['echo "*.log" > .gitignore']],
@@ -109,21 +87,21 @@ const WRONG_ANSWERS: Record<string, string[]> = {
   'rooms-stage-one': ['git add .'],
   'rooms-commit-staged-only': ['git commit -am "docs: add run command"'],
   'history-staged-surprise': ['git restore --staged src/api.ts src/search.ts'],
-  'commits-type-fix': ['git commit -m "feat: round cart totals"'],
-  'commits-am-trap': ['git commit -am "feat: add dark mode"'],
   'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
   'ignore-untrack-env': ['git rm .env', 'git commit -m "chore: remove .env"'],
   'undo-revert-shared': ['git reset --hard HEAD~2'],
   'undo-soft-reset': ['git reset HEAD~1'],
 };
 
-/** Act 2 is typed, so its drills are graded by state; the mission schema refuses any other. */
-function typed(drill: Drill): SandboxDrill {
-  if (isJudgmentDrill(drill)) throw new Error(`Act 2's drill "${drill.id}" should be typed.`);
-  return drill;
+/**
+ * A typed mission's drills are graded by typing. A directed mission's judgment drills
+ * have no typed answer: each one's own test pins the key the engine works out.
+ */
+function typed(drill: Drill): drill is SandboxDrill {
+  return !isJudgmentDrill(drill);
 }
 
-const drills = act2Missions.flatMap((mission) => mission.drills.map(typed));
+const drills = act2Missions.flatMap((mission) => mission.drills.filter(typed));
 
 describe('Act 2 No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {
