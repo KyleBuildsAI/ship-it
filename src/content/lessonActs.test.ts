@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateAct } from '../game/missions/validateAct';
-import { completeLesson } from '../game/play/saveRules';
-import { completedActNumbers, rankFor } from '../game/progression/xp';
+import { completeLesson, recordFieldMission } from '../game/play/saveRules';
+import { completedActNumbers, rankFor, XP_AWARDS } from '../game/progression/xp';
 import { createDefaultSave, type SaveData } from '../game/save/schema';
 import { act3 } from './act3';
 import { act4 } from './act4';
@@ -15,11 +15,29 @@ const NOW = new Date('2026-10-03T12:00:00.000Z');
 const LESSON_ACTS: readonly LessonActContent[] = [act3, act4, act5, act6, act7, act8];
 
 /** Plays every lesson of an Act to the end, the way finishing each one in the menu would. */
-function finishAct(save: SaveData, content: LessonActContent): SaveData {
+function playLessons(save: SaveData, content: LessonActContent): SaveData {
   return content.lessons.reduce(
     (next, lesson) => completeLesson(next, content.act, lesson, 100, NOW),
     save,
   );
+}
+
+/**
+ * Plays every lesson, then passes every Field Mission check if the Act has one: an Act
+ * with a Field Mission isn't complete until it's verified (DESIGN.md section 5).
+ */
+function finishAct(save: SaveData, content: LessonActContent): SaveData {
+  const played = playLessons(save, content);
+  const field = content.act.fieldMission;
+  if (field === undefined) return played;
+  const ids = field.verifications.map((check) => check.id);
+  return recordFieldMission(played, content.act, ids, NOW);
+}
+
+/** The XP of every lesson, plus the Field Mission award when the Act has one. */
+function actXp(content: LessonActContent): number {
+  const lessons = content.lessons.reduce((total, lesson) => total + lesson.xp, 0);
+  return lessons + (content.act.fieldMission === undefined ? 0 : XP_AWARDS.fieldMission);
 }
 
 describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))(
@@ -68,14 +86,19 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
       expect(new Set(places).size).toBeGreaterThanOrEqual(3);
     });
 
-    it('is complete, final and all, once every lesson is played', () => {
+    it('is complete, final and all, once every lesson (and any Field Mission) is done', () => {
       const save = finishAct(createDefaultSave(NOW), content);
       expect(save.acts[String(number)]).toMatchObject({
         bossCompletedAt: NOW.toISOString(),
         completedAt: NOW.toISOString(),
       });
-      const xp = lessons.reduce((total, lesson) => total + lesson.xp, 0);
-      expect(save.profile.xp).toBe(xp);
+      expect(save.profile.xp).toBe(actXp(content));
+    });
+
+    it('waits for its Field Mission, when it has one, before it completes', () => {
+      const lessonsOnly = playLessons(createDefaultSave(NOW), content);
+      const completedAt = content.act.fieldMission === undefined ? NOW.toISOString() : null;
+      expect(lessonsOnly.acts[String(number)]?.completedAt ?? null).toBe(completedAt);
     });
   },
 );
