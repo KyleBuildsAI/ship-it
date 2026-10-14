@@ -58,6 +58,8 @@ const CONFIG = 'src/config.ts';
 
 const not = (predicate: Predicate): Predicate => ({ kind: 'not', predicate });
 const all = (...of: Predicate[]): Predicate => ({ kind: 'all', of });
+/** One checklist row for several checks, the way Act 1 words a step's goal. */
+const labelled = (label: string, ...of: Predicate[]): Predicate => ({ kind: 'all', of, label });
 const changed = (...paths: string[]): Predicate => ({ kind: 'commitChanged', paths });
 const changedOnly = (...paths: string[]): Predicate => ({
   kind: 'commitChanged',
@@ -272,13 +274,13 @@ const commitDocsTask = {
         {
           do: 'run',
           line: 'git commit -m "fix: correct install typo"',
-          say: 'A typo fix, so fix:.',
+          say: 'It fixes a typo, so it is a fix.',
           denyLine: 'Right, it only touches docs. Retyping it.',
           onDeny: [{ do: 'run', line: `git commit -m "${DOCS_MESSAGE}"` }],
         },
       ],
       claim: 'Done: the README fix is committed.',
-      lesson: 'fix: means the code had a bug. A README typo is docs:, whatever it fixes.',
+      lesson: 'The fix: type means the code had a bug. A README typo is a docs: change.',
     },
     {
       id: 'commit-docs',
@@ -778,8 +780,9 @@ export const goodCommits: MissionInput = {
       id: 'commit-fix',
       instruction:
         'Four unrelated changes sit on the Workbench. Get the login fix into its own fix: commit.',
-      success: all(
-        { ...changedOnly(LOGIN), label: 'The commit holds only src/login.ts' },
+      success: labelled(
+        'One fix commit holds just src/login.ts',
+        changedOnly(LOGIN),
         headIsType('fix'),
       ),
       hints: [
@@ -792,8 +795,9 @@ export const goodCommits: MissionInput = {
     {
       id: 'commit-docs',
       instruction: 'Next, the README typo. Get it into a commit of its own, typed docs.',
-      success: all(
-        { ...changedOnly(README), label: 'The commit holds only README.md' },
+      success: labelled(
+        'One docs commit holds just README.md',
+        changedOnly(README),
         headIsType('docs'),
       ),
       hints: [
@@ -807,8 +811,9 @@ export const goodCommits: MissionInput = {
       id: 'commit-feature',
       instruction:
         'Dark mode is one feature in two files: the new src/theme.ts and src/app.ts. Commit them together.',
-      success: all(
-        { ...FEATURE_ALONE, label: 'The commit holds exactly the two files' },
+      success: labelled(
+        'One feat commit holds exactly dark mode',
+        FEATURE_ALONE,
         headIsType('feat'),
       ),
       hints: [
@@ -823,9 +828,10 @@ export const goodCommits: MissionInput = {
       id: 'commit-am',
       instruction:
         'Only the version bump is left: package.json and src/config.ts, both tracked. Commit it in one go.',
-      success: all(
-        { kind: 'clean', label: 'Nothing is left on the Workbench' },
-        { ...BUMP_TOGETHER, label: 'The commit holds both bump files' },
+      success: labelled(
+        'One typed commit holds the whole bump',
+        { kind: 'clean' },
+        BUMP_TOGETHER,
         TYPED,
       ),
       hints: [
