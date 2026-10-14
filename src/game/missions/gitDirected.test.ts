@@ -65,6 +65,10 @@ describeDirectedMission(mission, {
     'drop-login > delete-file > rm login.ts': false,
     'drop-login > go-back > git reset --hard HEAD~2': true,
     'drop-login > delete-file > go-back > git reset --hard HEAD~2': true,
+    // Denied, the history is whole, so each way of removing login.ts is safe.
+    'drop-login > go-back (denied) > delete-file > rm login.ts': false,
+    'drop-login > go-back (denied) > fix-rm > git rm login.ts': false,
+    'drop-login > go-back (denied) > rm-commit > git rm login.ts': false,
   },
 });
 

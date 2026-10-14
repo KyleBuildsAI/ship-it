@@ -83,6 +83,10 @@ describeDirectedMission(missionById('deletes-are-forever'), {
       'just-edit > backup-keep-rest': 'direct',
       // A backup made after the damage holds the damaged file.
       'just-edit > backup-then-edit': { passed: false, check: 'no-backup' },
+      // Denied, the lossy write never ran, so the strong card still passes from here.
+      'just-edit (denied) > backup-keep-rest': { passed: true, check: 'kept' },
+      // With no backup made, the restore fails and Otto stops.
+      'just-edit (denied) > restore-and-edit': 'direct',
     },
   },
   // Allowed, these lose files no card can bring back: only Rewind can help.
@@ -111,6 +115,18 @@ describeDirectedMission(missionById('deletes-are-forever'), {
     'backup-first > backup-then-edit > restore-and-edit > Copy-Item config.backup.json config.json': false,
     [`backup-first > backup-then-edit > restore-and-edit > ${EDIT}`]: false,
     'backup-first > backup-then-edit > restore-only > Copy-Item config.backup.json config.json': false,
+    // After a deny nothing was lost, so each card weighs the same as from the step's start.
+    'clear-tmp > clean-up (denied) > inside-tmp > Remove-Item .\\* -Recurse': true,
+    'clear-tmp > clean-up (denied) > inside-tmp > Remove-Item .\\tmp\\* -Recurse': false,
+    'clear-tmp > clean-up (denied) > just-tmp > Remove-Item .\\tmp\\* -Recurse': false,
+    [`clear-tmp > clean-up (denied) > whole-tmp > Remove-Item ${API}\\tmp -Recurse`]: false,
+    'the-confirm-question > no-questions (denied) > just-log-files > Remove-Item logs\\*.log': false,
+    'the-confirm-question > no-questions (denied) > logs-folder > Remove-Item logs': true,
+    'the-confirm-question > no-questions (denied) > logs-folder > Remove-Item logs\\*.log': false,
+    [`the-confirm-question > no-questions (denied) > only-logs > Remove-Item ${API}\\logs\\*.log`]: false,
+    [`backup-first > just-edit (denied) > backup-keep-rest > ${EDIT}`]: false,
+    [`backup-first > just-edit (denied) > backup-then-edit > ${EDIT}`]: false,
+    [`backup-first > just-edit (denied) > backup-then-edit > ${WRITE}`]: true,
   },
 });
 

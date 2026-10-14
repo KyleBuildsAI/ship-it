@@ -110,11 +110,24 @@ const gitLooks = [
 ];
 
 /*
- * Each step's guard says "if the newest commit holds this change, it holds only this
+ * Each step's first guard says "if the newest commit holds this change, it holds only this
  * change, under the right type". It holds before the change is committed at all, so the
  * only line that breaks it is one that seals the change wrongly: bundled with others, or
  * mislabelled. That is the line Kyle should deny.
+ *
+ * That guard alone misses a bundle that leaves this step's change out, like sealing dark
+ * mode and the bump under docs: once the README fix is already in. So each step also
+ * guards the changes later steps commit: none of them may reach a commit yet.
  */
+
+const README_AT_HEAD: Predicate = { kind: 'fileAtHead', path: README, contains: 'npm install' };
+const APP_AT_HEAD: Predicate = { kind: 'fileAtHead', path: APP, contains: 'applyTheme' };
+const THEME_AT_HEAD: Predicate = { kind: 'fileAtHead', path: THEME_PATH, contains: 'applyTheme' };
+const BUMP_OUT = [
+  not({ kind: 'fileAtHead', path: PACKAGE, contains: '1.1.0' }),
+  not({ kind: 'fileAtHead', path: CONFIG, contains: '1.1.0' }),
+];
+const DARK_MODE_OUT = [not(APP_AT_HEAD), not(THEME_AT_HEAD)];
 
 // Step 1: the login fix.
 const LOGIN_AT_HEAD: Predicate = { kind: 'fileAtHead', path: LOGIN, contains: 'trim()' };
@@ -123,6 +136,12 @@ const FIX_GUARD: Predicate = {
   ...not(all(changed(LOGIN), LOGIN_AT_HEAD, not(FIX_ALONE))),
   label: 'The login fix is its own fix commit',
 };
+const LATER_OUT_1 = labelled(
+  'README, dark mode and the bump stay uncommitted',
+  not(README_AT_HEAD),
+  ...DARK_MODE_OUT,
+  ...BUMP_OUT,
+);
 
 /**
  * Step 1: commit the login fix alone. The weak card only loads every crate and calls
@@ -195,6 +214,8 @@ const commitFixTask = {
       quality: 'strong',
       covers: ['goal', 'limits'],
       intents: ['unload the dock', 'take everything off the dock'],
+      // Once a commit holds the fix there is nothing left to stage, so the card is dead.
+      when: not(LOGIN_AT_HEAD),
       script: [
         { do: 'run', line: 'git restore --staged .', say: 'Unloading the dock. Files stay put.' },
         { do: 'run', line: `git add ${LOGIN}` },
@@ -230,17 +251,21 @@ const commitFixTask = {
       },
     ],
   },
-  guards: [FIX_GUARD],
+  guards: [FIX_GUARD, LATER_OUT_1],
   looks: gitLooks,
 } satisfies AgentTaskInput;
 
 // Step 2: the README typo.
-const README_AT_HEAD: Predicate = { kind: 'fileAtHead', path: README, contains: 'npm install' };
 const DOCS_ALONE = all(changedOnly(README), headIsType('docs'));
 const DOCS_GUARD: Predicate = {
   ...not(all(changed(README), README_AT_HEAD, not(DOCS_ALONE))),
   label: 'The README fix is its own docs commit',
 };
+const LATER_OUT_2 = labelled(
+  'Dark mode and the bump stay uncommitted',
+  ...DARK_MODE_OUT,
+  ...BUMP_OUT,
+);
 
 /**
  * Step 2: commit the README typo as docs. The okay card leaves the type to Otto, who
@@ -301,20 +326,41 @@ const commitDocsTask = {
   fixes: [
     {
       id: 'retype',
-      text: 'Undo that commit, keep it staged, retype it as docs.',
+      text: 'Undo that commit, keep the edits, recommit only README.md as docs.',
       quality: 'strong',
-      covers: ['goal'],
-      intents: ['retype the message', 'undo the commit and keep it staged'],
+      covers: ['goal', 'limits'],
+      intents: ['retype the message', 'undo the commit and keep the edits'],
+      // Only while the newest commit holds the README fix. After a deny, the newest commit
+      // is step 1's good one, and undoing it would be the harm.
+      when: changed(README),
       script: [
+        // Not --soft: that would keep a whole bundle on the dock and reseal all of it.
         {
           do: 'run',
-          line: 'git reset --soft HEAD~1',
-          say: 'Taking the commit back. The dock stays loaded.',
+          line: 'git reset HEAD~1',
+          say: 'Taking the commit back. Every edit stays on the Workbench.',
         },
+        { do: 'run', line: `git add ${README}` },
         { do: 'run', line: `git commit -m "${DOCS_MESSAGE}"` },
       ],
       claim: 'Fixed: the README fix is a docs commit.',
-      lesson: 'reset --soft took the commit back and left its crates on the dock to reseal.',
+      lesson: 'reset HEAD~1 took the commit back and kept every edit. Then only README.md went in.',
+    },
+    {
+      id: 'unload-docs',
+      text: 'Unload the dock, then commit only README.md as docs.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['unload the dock', 'take everything off the dock'],
+      // While no commit holds the README fix: after a denied bundle, the dock is still full.
+      when: not(README_AT_HEAD),
+      script: [
+        { do: 'run', line: 'git restore --staged .', say: 'Unloading the dock. Files stay put.' },
+        { do: 'run', line: `git add ${README}` },
+        { do: 'run', line: `git commit -m "${DOCS_MESSAGE}"` },
+      ],
+      claim: 'Fixed: the README fix is a docs commit.',
+      lesson: 'restore --staged unloaded every crate and kept every edit. Then one file went back.',
     },
   ],
   hintPlan: 'just-docs',
@@ -348,18 +394,18 @@ const commitDocsTask = {
       },
     ],
   },
-  guards: [DOCS_GUARD, historyKeeps(2)],
+  guards: [DOCS_GUARD, historyKeeps(2), LATER_OUT_2],
   looks: gitLooks,
 } satisfies AgentTaskInput;
 
 // Step 3: dark mode, one feature in two files.
-const APP_AT_HEAD: Predicate = { kind: 'fileAtHead', path: APP, contains: 'applyTheme' };
 const THEME_TRACKED: Predicate = { kind: 'tracked', paths: [THEME_PATH] };
 const FEATURE_ALONE = changedOnly(APP, THEME_PATH);
 const FEATURE_GUARD: Predicate = {
   ...not(all(APP_AT_HEAD, not(all(FEATURE_ALONE, headIsType('feat'))))),
   label: 'Dark mode is one feat commit, nothing else',
 };
+const LATER_OUT_3 = labelled('The version bump stays uncommitted', ...BUMP_OUT);
 
 /**
  * Step 3: commit dark mode, the new theme.ts with the app.ts edit that imports it. The
@@ -436,6 +482,8 @@ const commitFeatureTask = {
       quality: 'strong',
       covers: ['goal', 'limits'],
       intents: ['undo that commit and keep the edits', 'recommit both files'],
+      // Only while the newest commit holds app.ts: after a deny, it is step 2's docs commit.
+      when: changed(APP),
       script: [
         { do: 'run', line: 'git reset HEAD~1', say: 'Taking the commit back. Your edits stay.' },
         { do: 'run', line: `git add ${THEME_PATH} ${APP}` },
@@ -470,7 +518,7 @@ const commitFeatureTask = {
       },
     ],
   },
-  guards: [FEATURE_GUARD, historyKeeps(3)],
+  guards: [FEATURE_GUARD, historyKeeps(3), LATER_OUT_3],
   looks: gitLooks,
 } satisfies AgentTaskInput;
 
@@ -531,6 +579,8 @@ const commitBumpTask = {
       quality: 'strong',
       covers: ['goal'],
       intents: ['undo that commit and keep it staged', 'redo the bump commit'],
+      // Only while the newest commit holds the bump: after a deny, it is step 3's feature.
+      when: changed(PACKAGE),
       script: [
         {
           do: 'run',

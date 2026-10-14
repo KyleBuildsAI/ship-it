@@ -6,7 +6,14 @@ import { dryRun } from '../../game/agent/replay';
 import { hud } from '../../game/hud';
 import { evaluate, type Predicate } from '../../game/missions/predicates';
 import { ActSchema, MissionSchema } from '../../game/missions/schema';
-import { checkClaim, decide, nextStep, pickCard, predict } from '../../game/play/agentPlay';
+import {
+  cardsOnOffer,
+  checkClaim,
+  decide,
+  nextStep,
+  pickCard,
+  predict,
+} from '../../game/play/agentPlay';
 import { setCatalog } from '../../game/play/catalog';
 import { endBriefing, startMission } from '../../game/play/missionPlay';
 import { framePlay, leavePlay } from '../../game/play/play';
@@ -73,26 +80,33 @@ describeDirectedMission(mission, {
   fixes: {
     'commit-fix': {
       'save-all > unload-fix': { passed: true, check: 'alone' },
-      // With the fix already sealed in a bundle there is nothing left to commit.
-      'am-fix > unload-fix': 'direct',
+      // Denied, nothing was staged or sealed: unloading an empty dock is harmless.
+      'am-fix (denied) > unload-fix': { passed: true, check: 'alone' },
+      // With the fix already sealed in a bundle, unload-fix is hidden: nothing is left to
+      // commit. Only Rewind can split that commit (rewindOnly).
     },
     'commit-docs': {
       'type-fix > retype': { passed: true, check: 'alone' },
-      // reset --soft keeps the whole bundle on the dock, so retyping reseals all of it.
-      'commit-docs > retype': { passed: false, check: 'bundled' },
+      // A plain reset unstages the whole bundle, so only README.md goes back in.
+      'commit-docs > retype': { passed: true, check: 'alone' },
+      // Denied, every crate is still on the dock: unloading it first is the way on.
+      'commit-docs (denied) > unload-docs': { passed: true, check: 'alone' },
     },
     'commit-feature': {
       'am-feature > split-feature': { passed: true, check: 'feature' },
       'app-only > split-feature': { passed: true, check: 'feature' },
       'am-feature > name-both': { passed: false, check: 'mixed' },
+      'am-feature (denied) > name-both': { passed: true, check: 'feature' },
+      'app-only (denied) > name-both': { passed: true, check: 'feature' },
     },
     'commit-am': {
       'one-file > redo-bump': { passed: true, check: 'both' },
       'quick-bump > redo-bump': { passed: true, check: 'both' },
       'one-file > am-bump': { passed: false, check: 'half' },
+      'quick-bump (denied) > am-bump': { passed: true, check: 'both' },
     },
   },
-  rewindOnly: ['commit-fix > am-fix', 'commit-docs > commit-docs'],
+  rewindOnly: ['commit-fix > am-fix'],
   // Every line that pauses in `changes` mode, and whether a dry run finds it harmful. Only
   // a line that seals a change wrongly (bundled, or under the wrong type) does harm.
   gates: {
@@ -106,6 +120,12 @@ describeDirectedMission(mission, {
     [`commit-fix > save-all > am-fix > ${FIX_AM}`]: true,
     [`commit-fix > am-fix > ${FIX_AM}`]: true,
     'commit-fix > am-fix > save-all > git add .': false,
+    // Denied, the Workbench is as it started, so each card weighs as it does at the start.
+    'commit-fix > am-fix (denied) > just-fix > git add src/login.ts': false,
+    [`commit-fix > am-fix (denied) > just-fix > ${FIX}`]: false,
+    'commit-fix > am-fix (denied) > save-all > git add .': false,
+    'commit-fix > am-fix (denied) > unload-fix > git add src/login.ts': false,
+    [`commit-fix > am-fix (denied) > unload-fix > ${FIX}`]: false,
 
     'commit-docs > just-docs > git add README.md': false,
     [`commit-docs > just-docs > ${DOCS}`]: false,
@@ -113,16 +133,25 @@ describeDirectedMission(mission, {
     'commit-docs > type-fix > git commit -m "fix: correct install typo"': true,
     // Denied, Otto retypes the message: the line he runs instead pauses too, and is safe.
     [`commit-docs > type-fix > ${DOCS}`]: false,
-    'commit-docs > type-fix > retype > git reset --soft HEAD~1': false,
+    'commit-docs > type-fix > retype > git reset HEAD~1': false,
+    'commit-docs > type-fix > retype > git add README.md': false,
     [`commit-docs > type-fix > retype > ${DOCS}`]: false,
     'commit-docs > type-fix > commit-docs > git add .': false,
-    // The README fix is already sealed under fix:, so this bundle breaks no guard that held.
-    'commit-docs > type-fix > commit-docs > git commit -m "docs: update readme"': false,
+    // The README fix is already sealed, but this seals dark mode and the bump under docs:.
+    'commit-docs > type-fix > commit-docs > git commit -m "docs: update readme"': true,
     'commit-docs > commit-docs > git add .': false,
     'commit-docs > commit-docs > git commit -m "docs: update readme"': true,
-    'commit-docs > commit-docs > retype > git reset --soft HEAD~1': false,
-    // The whole bundle is still on the dock, so resealing it does the same harm again.
-    [`commit-docs > commit-docs > retype > ${DOCS}`]: true,
+    // A plain reset takes the bundle off the dock too, so only README.md is resealed.
+    'commit-docs > commit-docs > retype > git reset HEAD~1': false,
+    'commit-docs > commit-docs > retype > git add README.md': false,
+    [`commit-docs > commit-docs > retype > ${DOCS}`]: false,
+    // Denied, the whole Workbench is still on the dock: any commit but unload-docs's seals it.
+    [`commit-docs > commit-docs (denied) > just-docs > ${DOCS}`]: true,
+    'commit-docs > commit-docs (denied) > type-fix > git commit -m "fix: correct install typo"': true,
+    [`commit-docs > commit-docs (denied) > type-fix > ${DOCS}`]: true,
+    'commit-docs > commit-docs (denied) > unload-docs > git restore --staged .': false,
+    'commit-docs > commit-docs (denied) > unload-docs > git add README.md': false,
+    [`commit-docs > commit-docs (denied) > unload-docs > ${DOCS}`]: false,
 
     [`commit-feature > name-both > ${ADD_BOTH}`]: false,
     [`commit-feature > name-both > ${FEAT}`]: false,
@@ -134,12 +163,20 @@ describeDirectedMission(mission, {
     [`commit-feature > am-feature > split-feature > ${FEAT}`]: false,
     'commit-feature > app-only > git add src/app.ts': false,
     [`commit-feature > app-only > ${FEAT}`]: true,
-    [`commit-feature > app-only > am-feature > ${FEAT_AM}`]: false,
+    // app.ts is already sealed alone, but -am would seal the version bump as the feature.
+    [`commit-feature > app-only > am-feature > ${FEAT_AM}`]: true,
     [`commit-feature > app-only > name-both > ${ADD_BOTH}`]: false,
     [`commit-feature > app-only > name-both > ${FEAT}`]: false,
     'commit-feature > app-only > split-feature > git reset HEAD~1': false,
     [`commit-feature > app-only > split-feature > ${ADD_BOTH}`]: false,
     [`commit-feature > app-only > split-feature > ${FEAT}`]: false,
+    'commit-feature > am-feature (denied) > app-only > git add src/app.ts': false,
+    [`commit-feature > am-feature (denied) > app-only > ${FEAT}`]: true,
+    [`commit-feature > am-feature (denied) > name-both > ${ADD_BOTH}`]: false,
+    [`commit-feature > am-feature (denied) > name-both > ${FEAT}`]: false,
+    [`commit-feature > app-only (denied) > am-feature > ${FEAT_AM}`]: true,
+    [`commit-feature > app-only (denied) > name-both > ${ADD_BOTH}`]: false,
+    [`commit-feature > app-only (denied) > name-both > ${FEAT}`]: false,
 
     [`commit-am > am-bump > ${CHORE_AM}`]: false,
     'commit-am > one-file > git add package.json': false,
@@ -151,6 +188,9 @@ describeDirectedMission(mission, {
     'commit-am > quick-bump > git commit -am "bump"': true,
     'commit-am > quick-bump > redo-bump > git reset --soft HEAD~1': false,
     [`commit-am > quick-bump > redo-bump > ${CHORE_AM}`]: false,
+    [`commit-am > quick-bump (denied) > am-bump > ${CHORE_AM}`]: false,
+    'commit-am > quick-bump (denied) > one-file > git add package.json': false,
+    'commit-am > quick-bump (denied) > one-file > git commit -m "chore: bump version to 1.1.0"': false,
   },
 });
 
@@ -178,7 +218,10 @@ describe('Good Commits, directed', () => {
     const line = 'git commit -am "fix: trim spaces from login emails"';
     const dry = dryRun(start, { do: 'run', line }, { guards: step.agent.guards }, testDeps());
     expect(dry.harmful).toBe(true);
-    expect(dry.broken).toEqual(['The login fix is its own fix commit']);
+    expect(dry.broken).toEqual([
+      'The login fix is its own fix commit',
+      'README, dark mode and the bump stay uncommitted',
+    ]);
     expect(describeChanges(dry.changes, (path) => path)).toEqual([
       'Seals 5 files into a new commit: "fix: trim spaces from login emails"',
     ]);
@@ -303,5 +346,36 @@ describe('Good Commits in the game', () => {
     checkClaim('alone');
     expect(stage()).toMatchObject({ at: 'result', verdict: 'confirmed', passed: true });
     expect(holds({ kind: 'headMessage', pattern: '^docs: ' })).toBe(true);
+  });
+
+  it('after a denied docs bundle, offers a way on that keeps step 1, and counts the slip', () => {
+    pickCard('just-fix');
+    untilKyle('dock');
+    checkClaim('alone');
+    nextStep();
+
+    pickCard('commit-docs');
+    untilKyle();
+    const gate = stage();
+    if (gate?.at !== 'gate') throw new Error('Otto should be waiting at a gate.');
+    expect(gate.gate).toMatchObject({ line: 'git commit -m "docs: update readme"', harmful: true });
+    decide(false);
+    untilKyle();
+    expect(stage()).toEqual({ at: 'direct', round: 'fix' });
+    expect(current().slips).toEqual([
+      { stepId: 'commit-docs', planId: 'commit-docs', slip: 'too-broad', caught: true },
+    ]);
+
+    // No commit to undo, so the card that would undo step 1's fix is not on offer.
+    const offered = cardsOnOffer(current()).map((card) => card.id);
+    expect(offered).toEqual(['unload-docs', 'just-docs', 'type-fix']);
+    pickCard('retype');
+    expect(stage()).toEqual({ at: 'direct', round: 'fix' });
+
+    pickCard('unload-docs');
+    untilKyle();
+    checkClaim('alone');
+    expect(stage()).toMatchObject({ at: 'result', verdict: 'confirmed', passed: true });
+    expect(holds({ kind: 'commitCount', equals: 3 })).toBe(true);
   });
 });
