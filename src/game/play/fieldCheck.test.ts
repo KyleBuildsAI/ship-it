@@ -111,4 +111,63 @@ describe('verifyPaste', () => {
     const ignored = verifyPaste(check, '!! .env\n!! dist/\n!! node_modules/\n');
     expect(ignored).toEqual({ passed: true, message: 'Git ignores .env, dist/, node_modules/.' });
   });
+
+  it('refuses a paste that looks like it holds a secret, before any parser reads it', () => {
+    // Built from parts so no whole token-shaped string sits in the repo.
+    const fakeToken = 'ghp_' + 'a'.repeat(36);
+    const leaked = `${CLEAN_LONG}\nGITHUB_TOKEN=${fakeToken}`;
+    const verdict = verifyPaste(verification({}), leaked);
+    expect(verdict).toMatchObject({ passed: false, clearPaste: true });
+    expect(verdict.message).toContain('rotate it');
+    expect(verdict.message).not.toContain('aaaa');
+    // An ordinary paste is never marked for clearing.
+    expect(verifyPaste(verification({}), CLEAN_LONG).clearPaste).toBeUndefined();
+  });
+
+  it('checks a tracked file is on a git ls-files list', () => {
+    const check = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'tracksAny', paths: ['CLAUDE.md', 'AGENTS.md'] },
+    });
+    expect(verifyPaste(check, 'agents.md\nsrc/app.ts\n')).toEqual({
+      passed: true,
+      message: 'Git tracks AGENTS.md.',
+    });
+    expect(verifyPaste(check, 'src/app.ts\n').passed).toBe(false);
+    expect(verifyPaste(check, 'warning: not a list\n').passed).toBe(false);
+  });
+
+  it('checks the newest written commit has the asked-for type, past a pulled merge', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -3',
+      check: { kind: 'newestCommitType', type: 'docs' },
+    });
+    const merged = [
+      'f00ba12 (HEAD -> main, origin/main) Merge pull request #3 from kyle/brief',
+      'a1b2c3d docs: add environment setup for agents',
+    ].join('\n');
+    expect(verifyPaste(check, merged).passed).toBe(true);
+    const verdict = verifyPaste(check, LOG);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('docs:');
+  });
+
+  it('with pushed, needs the branch level with its remote branch', () => {
+    const check = verification({ check: { kind: 'clean', pushed: true } });
+    expect(verifyPaste(check, CLEAN_LONG)).toEqual({
+      passed: true,
+      message: 'Committed and pushed: GitHub has it.',
+    });
+    const ahead = CLEAN_LONG.replace(
+      "Your branch is up to date with 'origin/main'.",
+      "Your branch is ahead of 'origin/main' by 2 commits.",
+    );
+    expect(verifyPaste(check, ahead).message).toContain('2 commits still only on this computer');
+    const local = 'On branch main\nnothing to commit, working tree clean';
+    expect(verifyPaste(check, local).message).toContain('can’t show the push');
+    const dirty = verifyPaste(check, '## main...origin/main\n?? CLAUDE.md');
+    expect(dirty.message).toContain('Not clean');
+  });
 });

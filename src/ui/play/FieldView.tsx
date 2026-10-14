@@ -72,10 +72,10 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
                 type="button"
                 className="play-button"
                 onClick={() => {
-                  setVerdicts({
-                    ...verdicts,
-                    [check.id]: submitFieldPaste(check.id, pastes[check.id] ?? ''),
-                  });
+                  const next = submitFieldPaste(check.id, pastes[check.id] ?? '');
+                  // A secret-like paste is dropped from the page at once, not left to linger.
+                  if (next.clearPaste === true) setPastes({ ...pastes, [check.id]: '' });
+                  setVerdicts({ ...verdicts, [check.id]: next });
                 }}
               >
                 Check

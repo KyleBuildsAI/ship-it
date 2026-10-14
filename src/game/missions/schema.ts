@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { FixtureStep } from '../../engine/fixtures';
 import { isMachineStep } from '../../engine/machine/fixtures';
+import { CONVENTIONAL_TYPES } from '../../engine/verify';
 import {
   AgentTaskSchema,
   APPROVAL_MODES,
@@ -350,7 +351,11 @@ export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('clean') }),
+  /**
+   * Nothing left to commit. With `pushed`, the branch must also be level with its remote
+   * branch, which a long status says in words and `git status -sb` in its `##` line.
+   */
+  z.strictObject({ kind: z.literal('clean'), pushed: z.literal(true).optional() }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
@@ -360,6 +365,10 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
+  /** At least one of these files is tracked, e.g. the CLAUDE.md or AGENTS.md just written. */
+  z.strictObject({ kind: z.literal('tracksAny'), paths: z.array(NameSchema).min(1) }),
+  /** The newest commit someone wrote has this Conventional type, e.g. `docs`. */
+  z.strictObject({ kind: z.literal('newestCommitType'), type: z.enum(CONVENTIONAL_TYPES) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
 
@@ -374,6 +383,9 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
+  newestCommitType: ['log-oneline'],
+  // A status lists only changed files, so only ls-files can show an unchanged one is tracked.
+  tracksAny: ['ls-files'],
 };
 
 const VerificationSchema = z
