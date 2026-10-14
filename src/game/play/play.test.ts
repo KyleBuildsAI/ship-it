@@ -325,6 +325,29 @@ describe('the placement test', () => {
   });
 });
 
+describe('the placement attempt', () => {
+  it('counts once its first drill starts, so leaving partway is still a try', () => {
+    startPlacement(sampleAct.act);
+    leavePlay();
+    // Leaving before any drill showed isn't an attempt: nothing was seen.
+    expect(progress.get().save?.acts['2']?.placement.attempts ?? 0).toBe(0);
+    startPlacement(sampleAct.act);
+    startNextSeriesDrill(T0);
+    leavePlay();
+    expect(progress.get().save?.acts['2']?.placement).toMatchObject({
+      attempts: 1,
+      bestPercent: null,
+      testedOut: false,
+    });
+  });
+
+  it('counts a finished run once, not again when it ends', () => {
+    startPlacement(sampleAct.act);
+    passPlacement();
+    expect(progress.get().save?.acts['2']?.placement.attempts).toBe(1);
+  });
+});
+
 describe('the terminal for the typed parts of an Act', () => {
   it('opens for a typed placement test, a boss and a typed review', async () => {
     closeTerminal();

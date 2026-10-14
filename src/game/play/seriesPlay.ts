@@ -19,7 +19,7 @@ import { allMissions, findDrill, getAct } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
 import { beginScene, endScene, frameScene } from './scenePlay';
-import { recordDrill, recordPlacement, recordReview } from './saveRules';
+import { countPlacementAttempt, recordDrill, recordPlacement, recordReview } from './saveRules';
 
 /*
  * A series of timed drills with no hints and no Sage (DESIGN.md pillar 4): the Act's
@@ -113,6 +113,11 @@ export function startNextSeriesDrill(nowMs: number = Date.now()): void {
   const drill = current.drills[index];
   if (drill === undefined) return;
   const label = current.kind === 'placement' ? 'Placement test' : 'Review';
+  // A placement attempt counts from its first drill, so leaving a bad run isn't a free one.
+  const placementAct = current.kind === 'placement' ? current.act : null;
+  if (index === 0 && placementAct !== null) {
+    saveProgressNow((save) => countPlacementAttempt(save, placementAct));
+  }
   loadSandbox(
     drill.setup,
     `${label} ${String(index + 1)} of ${String(current.drills.length)}. No hints, no Sage.`,

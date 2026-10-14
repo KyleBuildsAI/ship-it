@@ -142,7 +142,8 @@ export function questionXp(picks: readonly { quality: 'strong' | 'okay' | 'weak'
 
 /**
  * Finishes a mission: its completion XP and the Question Round XP (both first time only,
- * so replays practise without farming), plus the best drill score so far.
+ * so replays practise without farming), plus the best drill score so far. A tested-out
+ * mission already paid half its completion XP, so finishing it pays the other half.
  */
 export function completeMission(
   save: SaveData,
@@ -153,7 +154,9 @@ export function completeMission(
 ): SaveData {
   const current = mission(save, finished.id);
   const firstTime = current.completedAt === null;
-  const xp = firstTime ? finished.xp + result.questionXp + result.directingXp : 0;
+  const xp = firstTime
+    ? completionXp(current, finished.xp) + result.questionXp + result.directingXp
+    : 0;
   const updated: MissionProgress = {
     ...current,
     status: 'completed',
@@ -167,7 +170,7 @@ export function completeMission(
 }
 /**
  * Finishes a lesson. Its XP is paid the first time only, like a mission's, so replays
- * practise without farming. The save has no stars field: a lesson's best first-try
+ * practise without farming; after a test-out, only the half not already paid. The save has no stars field: a lesson's best first-try
  * percent goes in bestDrillScore (a lesson has no drills to need it), and the stars are
  * worked out from it, so no save migration is needed.
  */
@@ -179,7 +182,7 @@ export function completeLesson(
   now: Date,
 ): SaveData {
   const current = mission(save, finished.id);
-  const xp = current.completedAt === null ? finished.xp : 0;
+  const xp = completionXp(current, finished.xp);
   const updated: MissionProgress = {
     ...current,
     status: 'completed',
@@ -198,9 +201,24 @@ export function completeLesson(
 }
 
 /**
- * Records a placement test. Testing out marks the Act's missions (or a lesson Act's
- * lessons) tested out at half XP, once. A lesson Act's final is its boss, so like a boss
- * it isn't skipped: it stays there to play, and the Act completes without it.
+ * Counts a placement attempt the moment its first question is on screen, before any
+ * answer. A run left partway, or lost to a reload, still counts: otherwise leaving a bad
+ * run would be a free retry.
+ */
+export function countPlacementAttempt(save: SaveData, actNumber: number): SaveData {
+  const current = act(save, actNumber);
+  const placement = { ...current.placement, attempts: current.placement.attempts + 1 };
+  return withAct(save, actNumber, { ...current, placement });
+}
+
+/**
+ * Records a placement test's result: its best score, and whether it tested out. The
+ * attempt itself was counted when the run began (countPlacementAttempt).
+ *
+ * Testing out marks the Act's unfinished missions (or a lesson Act's unfinished lessons)
+ * tested out at half their XP, once. A part already completed paid its full XP, so it
+ * adds nothing here. A lesson Act's final is its boss, so like a boss it isn't skipped:
+ * it stays there to play, and the Act completes without it.
  */
 export function recordPlacement(
   save: SaveData,
@@ -212,24 +230,46 @@ export function recordPlacement(
   const current = act(save, target.act);
   const alreadyTestedOut = current.placement.testedOut;
   const placement = {
-    attempts: current.placement.attempts + 1,
+    attempts: current.placement.attempts,
     bestPercent: Math.max(current.placement.bestPercent ?? 0, result.percent),
     testedOut: alreadyTestedOut || result.testedOut,
   };
   let next = withAct(save, target.act, { ...current, placement });
   if (result.testedOut && !alreadyTestedOut) {
     const skipped = parts.filter(
-      (entry) => target.missionIds.includes(entry.id) && entry.id !== target.finalLessonId,
+      (entry) =>
+        target.missionIds.includes(entry.id) &&
+        entry.id !== target.finalLessonId &&
+        mission(next, entry.id).status !== 'completed',
     );
-    const xp = placementTestOutXp(skipped.map((entry) => entry.xp));
+    let xp = 0;
     for (const entry of skipped) {
+      const share = testOutShare(entry.xp);
       const progress = mission(next, entry.id);
-      if (progress.status === 'completed') continue;
-      next = withMission(next, entry.id, { ...progress, status: 'tested-out' });
+      next = withMission(next, entry.id, {
+        ...progress,
+        status: 'tested-out',
+        xpEarned: progress.xpEarned + share,
+      });
+      xp += share;
     }
     next = addXp(next, xp);
   }
   return refreshAct(next, target, now);
+}
+
+/** The XP a part pays when it's tested out: half, rounded per part so it adds up exactly. */
+function testOutShare(xp: number): number {
+  return placementTestOutXp([xp]);
+}
+
+/**
+ * The completion XP a part pays the first time it's finished. A tested-out part already
+ * paid its test-out share, so finishing it later pays the rest and never more than once.
+ */
+function completionXp(progress: MissionProgress, xp: number): number {
+  if (progress.completedAt !== null) return 0;
+  return progress.status === 'tested-out' ? xp - testOutShare(xp) : xp;
 }
 
 export function completeBoss(save: SaveData, target: Act, now: Date): SaveData {

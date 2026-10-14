@@ -85,7 +85,7 @@ Each Act contains: placement test, 3-6 missions, a boss, a Field Mission, and re
 4. **Question Round**: Marco hands over a vague ticket. Kyle picks up to 3 of ~8 candidate clarifying questions. Each candidate has a hidden quality tag (strong / okay / weak) and a rationale shown afterward. Optional free-text question graded by Sage.
 
 ### Act-level
-- **Placement test**: 8-12 drill scenarios covering the Act. Score 85%+ = "Tested out": Act marked complete with reduced XP, still replayable.
+- **Placement test**: 8-12 drill scenarios covering the Act. Score 85%+ = "Tested out": Act marked complete with reduced XP, still replayable. An attempt counts the moment its first question shows, so a run left partway (or lost to a reload) is still a try, and the score is recorded when it ends. Testing out pays half the XP of each mission or lesson not already finished; finishing a tested-out one later pays the other half, once.
 - **Boss**: timed, multi-step scenario with a twist.
 - **Field Mission**: real task on a real repo, with a checklist and verification (section 8).
 - **Early access**: an Act can ship before it's finished. It plays the missions built so far, lists the rest as coming soon, and gains its boss and Field Mission as they're built. It has no placement test, because testing out would skip missions that don't exist yet, and it never counts as complete until early access ends.

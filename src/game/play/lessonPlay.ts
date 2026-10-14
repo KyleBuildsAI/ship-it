@@ -16,7 +16,12 @@ import { requireLessonPlacement } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
 import { findLesson, getAct } from './catalog';
 import { play, type LessonActivity } from './playStore';
-import { completeLesson, recordPlacement, startMissionProgress } from './saveRules';
+import {
+  completeLesson,
+  countPlacementAttempt,
+  recordPlacement,
+  startMissionProgress,
+} from './saveRules';
 
 /*
  * Plays one lesson (DESIGN.md section 5.5): briefing, then cards answered by clicking,
@@ -117,7 +122,16 @@ export function startLessonPlacement(act: number): void {
   });
 }
 
+/**
+ * Ends the briefing and shows the first card. For a placement test, that's when the
+ * attempt counts: from here a run left partway, or lost to a reload, is still a try.
+ */
 export function endLessonBriefing(nowMs: number = Date.now()): void {
+  const current = activity();
+  if (current?.placement !== undefined && current.run.phase === 'briefing') {
+    const { act } = current.placement;
+    saveProgressNow((save) => countPlacementAttempt(save, act));
+  }
   update((run) => finishLessonBriefing(run, nowMs), nowMs);
 }
 

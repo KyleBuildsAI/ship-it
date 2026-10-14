@@ -11,6 +11,7 @@ import {
   thirdMission,
 } from '../missions/sample.test-mission';
 import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
+import { placementTestOutXp } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
 import { hasWorkLeft, recommendedAct, setCatalog } from './catalog';
 import { startFieldMission, submitFieldPaste } from './fieldPlay';
@@ -217,7 +218,22 @@ describe('finishing a lesson Act with every part', () => {
     next = recordPlacement(next, act, full.lessons, { percent: 90, testedOut: true }, NOW);
     expect(next.missions[firstLesson.id]?.status).toBe('completed');
     expect(next.missions[secondLesson.id]?.status).toBe('tested-out');
-    // Testing out pays half of every skipped lesson's XP, as Act 2's does for missions.
-    expect(next.profile.xp).toBe(firstLesson.xp + (firstLesson.xp + secondLesson.xp) / 2);
+    // Testing out pays half of every lesson it skips; the finished one already paid in full.
+    expect(next.profile.xp).toBe(firstLesson.xp + placementTestOutXp([secondLesson.xp]));
+  });
+
+  it('pays only the other half for a tested-out lesson played later, then nothing', () => {
+    const testedOut = recordPlacement(
+      createDefaultSave(NOW),
+      act,
+      full.lessons,
+      { percent: 90, testedOut: true },
+      NOW,
+    );
+    const played = completeLesson(testedOut, act, firstLesson, 100, NOW);
+    expect(played.profile.xp - testedOut.profile.xp).toBe(
+      firstLesson.xp - placementTestOutXp([firstLesson.xp]),
+    );
+    expect(completeLesson(played, act, firstLesson, 100, NOW).profile.xp).toBe(played.profile.xp);
   });
 });
