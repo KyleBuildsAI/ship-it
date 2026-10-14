@@ -22,6 +22,7 @@ import {
   moveLessonStep,
   nextLessonCard,
   startLesson,
+  startLessonPlacement,
 } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
@@ -48,15 +49,19 @@ const CARD_EYEBROWS = {
   order: 'Put it in order',
 } as const;
 
+/** What the briefing's eyebrow calls this run. */
+function briefingEyebrow(lesson: Lesson, placement: boolean): string {
+  if (placement) return 'Placement test';
+  return lesson.kind === 'final' ? 'Final challenge' : 'Briefing';
+}
+
 /** The briefing: a few captions, read at the player's own pace. */
-function Briefing({ lesson }: { lesson: Lesson }) {
+function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean }) {
   const [index, setIndex] = useState(0);
   const last = index + 1 >= lesson.briefing.length;
   return (
     <div className="briefing">
-      <p className="play-panel__eyebrow">
-        {lesson.kind === 'final' ? 'Final challenge' : 'Briefing'}
-      </p>
+      <p className="play-panel__eyebrow">{briefingEyebrow(lesson, placement)}</p>
       <p className="briefing__caption" key={index} aria-live="polite">
         {lesson.briefing[index]}
       </p>
@@ -251,6 +256,69 @@ function CardScreen({ activity }: { activity: LessonActivity }) {
   );
 }
 
+/** The buttons under a Done screen: go again, or back to the Act's menu. */
+function DoneActions({
+  primary,
+  label,
+  onAgain,
+  act,
+}: {
+  primary: boolean;
+  label: string;
+  onAgain: () => void;
+  act: number;
+}) {
+  return (
+    <div className="play-panel__actions">
+      <button
+        type="button"
+        className={primary ? 'play-button play-button--primary' : 'play-button'}
+        onClick={onAgain}
+      >
+        {label}
+      </button>
+      <button type="button" className="play-button" onClick={leavePlay}>
+        Back to Act {act}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * A placement test's Done screen: the score, and whether it tested out. A miss isn't a
+ * failure: the lessons are still there to play, and the test can be taken again.
+ */
+function PlacementDone({ activity }: { activity: LessonActivity }) {
+  const { lesson, run, placement } = activity;
+  const result = placement?.result;
+  if (placement === undefined || result == null) return null;
+  const timedOut = run.outcome === 'timed-out';
+  return (
+    <div>
+      <p className={result.testedOut ? 'drill-result drill-result--pass' : 'drill-result'}>
+        {result.percent}% right on the first try
+        {timedOut
+          ? ` before time ran out (${String(run.firstTry.length)} of ${String(lesson.cards.length)} answered)`
+          : ''}
+        .
+      </p>
+      <p className="play-panel__muted">
+        {result.testedOut
+          ? `Tested out. Every lesson in Act ${String(lesson.act)} is marked done; the final is still yours to play.`
+          : `${String(placement.passPercent)}% tests out. Play the lessons, or try again.`}
+      </p>
+      <DoneActions
+        primary={!result.testedOut}
+        label="Try again"
+        act={lesson.act}
+        onAgain={() => {
+          startLessonPlacement(placement.act);
+        }}
+      />
+    </div>
+  );
+}
+
 /** The Done screen: stars and XP, or, when a final's clock ran out, a way back in. */
 function Done({ activity }: { activity: LessonActivity }) {
   const { lesson, run, xpEarned } = activity;
@@ -278,20 +346,14 @@ function Done({ activity }: { activity: LessonActivity }) {
           </p>
         </>
       )}
-      <div className="play-panel__actions">
-        <button
-          type="button"
-          className={timedOut ? 'play-button play-button--primary' : 'play-button'}
-          onClick={() => {
-            startLesson(lesson.id);
-          }}
-        >
-          {timedOut ? 'Try again' : 'Replay'}
-        </button>
-        <button type="button" className="play-button" onClick={leavePlay}>
-          Back to Act {lesson.act}
-        </button>
-      </div>
+      <DoneActions
+        primary={timedOut}
+        label={timedOut ? 'Try again' : 'Replay'}
+        act={lesson.act}
+        onAgain={() => {
+          startLesson(lesson.id);
+        }}
+      />
     </div>
   );
 }
@@ -330,9 +392,16 @@ export function LessonView({ activity }: { activity: LessonActivity }) {
           )}
         </p>
       ) : null}
-      {run.phase === 'briefing' ? <Briefing lesson={lesson} /> : null}
+      {run.phase === 'briefing' ? (
+        <Briefing lesson={lesson} placement={activity.placement !== undefined} />
+      ) : null}
       {run.phase === 'cards' ? <CardScreen activity={activity} /> : null}
-      {run.phase === 'done' ? <Done activity={activity} /> : null}
+      {run.phase === 'done' && activity.placement !== undefined ? (
+        <PlacementDone activity={activity} />
+      ) : null}
+      {run.phase === 'done' && activity.placement === undefined ? (
+        <Done activity={activity} />
+      ) : null}
     </>
   );
 }

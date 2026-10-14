@@ -7,8 +7,9 @@ import type { Lesson } from '../../game/missions/lessonSchema';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startFreePlay } from '../../game/play/freePlay';
 import { startLesson } from '../../game/play/lessonPlay';
+import { startActPlacement } from '../../game/play/play';
 import { startMission } from '../../game/play/missionPlay';
-import { reviewItemsToday, startPlacement, startReview } from '../../game/play/seriesPlay';
+import { reviewItemsToday, startReview } from '../../game/play/seriesPlay';
 import { bossAccess, isUnlocked, type BossAccess } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { completedActNumbers, rankFor } from '../../game/progression/xp';
@@ -112,7 +113,7 @@ function PlacementRow({ actNumber, actProgress, test }: PartRowProps & { test: P
         type="button"
         className="play-button"
         onClick={() => {
-          startPlacement(actNumber);
+          startActPlacement(actNumber);
         }}
       >
         Take

@@ -10,8 +10,11 @@ import {
   tickLesson,
   type LessonRun,
 } from '../../game/missions/lessonRunner';
+import type { PlacementResult } from '../../game/missions/grading';
+import { placementLesson } from '../../game/missions/lessonPlacement';
 import type { Lesson } from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
+import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { LessonView } from './LessonView';
 
 const T0 = Date.now();
@@ -114,5 +117,48 @@ describe('the lesson view', () => {
     const out = tickLesson(cards(sampleFinal), sampleFinal, T0 + 120_000);
     expect(text(view(out, sampleFinal))).toContain('Time’s up. You answered 0 of 6 cards.');
     expect(text(view(out, sampleFinal))).toContain('Try again');
+  });
+});
+
+describe('a lesson Act’s placement test in the lesson view', () => {
+  const full = fullSampleLessonAct();
+  const lesson = placementLesson(full.act, full.lessons);
+  const placementView = (run: LessonRun, result: PlacementResult | null) =>
+    renderToStaticMarkup(
+      <LessonView
+        activity={{
+          kind: 'lesson',
+          lesson,
+          run,
+          xpEarned: 0,
+          placement: { act: full.act.act, passPercent: 85, result },
+        }}
+      />,
+    );
+
+  it('calls its briefing a placement test, on one clock', () => {
+    const markup = text(placementView(startLessonRun(lesson), null));
+    expect(markup).toContain('Placement test');
+    expect(markup).toContain('Every card shares one clock: 4:00.');
+  });
+
+  it('ends with the score and whether it tested out, never stars', () => {
+    const done: LessonRun = { ...cards(lesson), phase: 'done', outcome: 'finished' };
+    const passed = text(placementView(done, { percent: 100, testedOut: true }));
+    expect(passed).toContain('100% right on the first try.');
+    expect(passed).toContain('Tested out. Every lesson in Act 6 is marked done');
+    expect(passed).not.toContain('★');
+    const missed = text(placementView(done, { percent: 67, testedOut: false }));
+    expect(missed).toContain('85% tests out. Play the lessons, or try again.');
+    expect(missed).toContain('Try again');
+  });
+
+  it('says how many cards were answered when the clock ran out', () => {
+    const out = tickLesson(cards(lesson), lesson, T0 + 240_000);
+    expect(text(placementView(out, { percent: 0, testedOut: false }))).toContain(
+      '0% right on the first try before time ran out (0 of 6 answered).',
+    );
+    // Until the result is saved, the Done screen waits rather than guessing.
+    expect(text(placementView(out, null))).not.toContain('right on the first try');
   });
 });

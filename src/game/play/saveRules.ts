@@ -197,11 +197,15 @@ export function completeLesson(
   return refreshAct(next, target, now);
 }
 
-/** Records a placement test. Testing out completes the Act's missions at half XP, once. */
+/**
+ * Records a placement test. Testing out marks the Act's missions (or a lesson Act's
+ * lessons) tested out at half XP, once. A lesson Act's final is its boss, so like a boss
+ * it isn't skipped: it stays there to play, and the Act completes without it.
+ */
 export function recordPlacement(
   save: SaveData,
   target: Act,
-  missions: readonly Mission[],
+  parts: readonly { readonly id: string; readonly xp: number }[],
   result: { percent: number; testedOut: boolean },
   now: Date,
 ): SaveData {
@@ -214,9 +218,11 @@ export function recordPlacement(
   };
   let next = withAct(save, target.act, { ...current, placement });
   if (result.testedOut && !alreadyTestedOut) {
-    const actMissions = missions.filter((entry) => target.missionIds.includes(entry.id));
-    const xp = placementTestOutXp(actMissions.map((entry) => entry.xp));
-    for (const entry of actMissions) {
+    const skipped = parts.filter(
+      (entry) => target.missionIds.includes(entry.id) && entry.id !== target.finalLessonId,
+    );
+    const xp = placementTestOutXp(skipped.map((entry) => entry.xp));
+    for (const entry of skipped) {
       const progress = mission(next, entry.id);
       if (progress.status === 'completed') continue;
       next = withMission(next, entry.id, { ...progress, status: 'tested-out' });
