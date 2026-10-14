@@ -80,6 +80,13 @@ export type Predicate =
    * command the player runs shifts those positions.
    */
   | { kind: 'headMessageIs'; message: string; label?: string }
+  /**
+   * This secret went through Otto's hands: in a line he typed, a file he wrote, or output
+   * the terminal printed back to him. A real agent keeps all of that in its context, so a
+   * secret it saw is one it holds, even if nobody read the screen. With no transcript to
+   * read (Act 2, or before Otto has acted), nothing has been shown.
+   */
+  | { kind: 'secretShown'; secret: string; label?: string }
   | { kind: 'all'; of: Predicate[]; label?: string }
   | { kind: 'any'; of: Predicate[]; label?: string }
   | { kind: 'not'; predicate: Predicate; label?: string }
@@ -227,6 +234,8 @@ export function evaluate(predicate: Predicate, q: SandboxQueries): boolean {
     case 'headMessageIs':
       // Trimmed so a trailing newline from an editor doesn't fail an otherwise exact match.
       return q.headCommit()?.message.trim() === predicate.message.trim();
+    case 'secretShown':
+      return q.transcript?.printed(predicate.secret) ?? false;
     case 'all':
       return predicate.of.every((child) => evaluate(child, q));
     case 'any':
@@ -333,6 +342,9 @@ export function describe(
       return `The reflog has an entry matching ${regexText(predicate.pattern, predicate.flags)}`;
     case 'headMessageIs':
       return `HEAD is on the commit "${predicate.message}"`;
+    case 'secretShown':
+      // Never the secret itself: the checklist is on screen for anyone to read.
+      return 'A secret went through Otto';
     case 'all':
       return 'All of these are true';
     case 'any':

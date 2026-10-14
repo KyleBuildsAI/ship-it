@@ -34,14 +34,19 @@ export type LoggedAction = DriverAction & { readonly answer?: never };
 /** An action as content writes it: a plan's script, a deny branch, a drill's history. */
 export type ContentAction =
   | { readonly do: 'run'; readonly line: string; readonly answer?: ConfirmLetter }
-  | Extract<DriverAction, { do: 'write' | 'newTerminal' | 'useTerminal' }>;
+  | Extract<DriverAction, { do: 'write' | 'edit' | 'newTerminal' | 'useTerminal' }>;
 
 /** One thing done to a sandbox after its setup. */
 export type LogEntry =
   /** Setup steps applied to the live sandbox, like a step's `before` or a boss twist. */
   | { readonly kind: 'steps'; readonly steps: readonly FixtureStep[] }
   /** One of Otto's actions, exactly as it was passed to drive(). */
-  | { readonly kind: 'action'; readonly action: LoggedAction };
+  | { readonly kind: 'action'; readonly action: LoggedAction }
+  /**
+   * Kyle's own action, like pasting a key into .env. It is driven the same way, but it
+   * never enters Otto's transcript: a secret Kyle handles himself is one Otto never saw.
+   */
+  | { readonly kind: 'kyle'; readonly action: LoggedAction };
 
 export interface SandboxLog {
   readonly setup: readonly FixtureStep[];
@@ -82,6 +87,8 @@ export function driverAction(action: ContentAction): LoggedAction {
       return { do: 'run', line: action.line };
     case 'write':
       return { do: 'write', path: action.path, content: action.content };
+    case 'edit':
+      return { do: 'edit', path: action.path, find: action.find, replace: action.replace };
     case 'newTerminal':
       return { do: 'newTerminal' };
     case 'useTerminal':
@@ -148,6 +155,7 @@ export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
   const transcript: TranscriptEntry[] = [];
   for (const entry of log.entries) {
     if (entry.kind === 'steps') applySteps(shell.ws, entry.steps);
+    else if (entry.kind === 'kyle') drive(shell, entry.action);
     else playAction(shell, transcript, entry.action);
   }
   return { shell, transcript };

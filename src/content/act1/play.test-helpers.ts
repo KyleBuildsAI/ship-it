@@ -1,4 +1,5 @@
 import { testDeps } from '../../engine/git/testDeps';
+import { drive as driveOutsideTranscript } from '../../engine/shell/driver';
 import {
   dryRun,
   dryRunRefused,
@@ -15,14 +16,18 @@ import {
   choosePlan,
   confirmAsked,
   decideGate,
+  doYourPart,
+  failedUnplanned,
   finishScript,
   nextAction,
   openGate,
   outcomeHolds,
+  partPending,
   pausesBefore,
   REFUSAL,
   stopScript,
   toDriverAction,
+  yourPartAction,
   type AgentStepState,
   type QueuedAction,
 } from '../../game/missions/agentRunner';
@@ -30,6 +35,7 @@ import type { AgentTask } from '../../game/missions/agentSchema';
 import { evaluate, type SandboxQueries } from '../../game/missions/predicates';
 import { sandboxQueries } from '../../game/missions/sandbox';
 import type { Mission, MissionStep } from '../../game/missions/schema';
+import { act1Missions } from './index';
 
 /*
  * Test-only helpers for playing Act 1 the way the game does, with no browser: Otto's
@@ -124,15 +130,20 @@ export function playCard(
     const result = playAction(live.shell, live.transcript, driven);
     log = withEntry(log, { kind: 'action', action: driven });
     drivenCount++;
-    if (action.do === 'run') {
+    // File tools fail too, like an edit whose text is gone, so they are checked like lines.
+    if (action.do === 'run' || action.do === 'write' || action.do === 'edit') {
       lines.push({
-        line: action.line,
+        line: gateLine(action),
         exitCode: result.exitCode,
-        fails: action.fails === true,
+        fails: action.do === 'run' && action.fails === true,
         output: result.lines.map((printed) => printed.text).join('\n'),
       });
     }
     if (result.asking) state = confirmAsked(state, action);
+    // As in play: a failure the content didn't plan stops Otto for new directions.
+    else if (failedUnplanned(action, result) && state.stage.at === 'running') {
+      state = stopScript(state);
+    }
   };
 
   for (let turns = 0; turns < 100 && state.stage.at === 'running'; turns++) {
@@ -145,6 +156,13 @@ export function playCard(
     const next = nextAction(state);
     if (next === null) {
       state = finishScript(state);
+      // Kyle does his own part as soon as Otto claims, as play asks before the check.
+      if (state.stage.at === 'check' && partPending(state, step)) {
+        const part = yourPartAction(step);
+        driveOutsideTranscript(live.shell, part);
+        log = withEntry(log, { kind: 'kyle', action: part });
+        state = doYourPart(state, step);
+      }
       break;
     }
     state = next.state;
@@ -167,7 +185,7 @@ export function playCard(
       drive(action);
       continue;
     }
-    const line = action.do === 'run' || action.do === 'answer' ? action.line : action.do;
+    const line = gateLine(action);
     gates.push({ line, harmful: dry.harmful });
     const kind = action.do === 'answer' ? 'confirm' : 'line';
     state = openGate(state, action, { kind, line, changes: dry.changes, harmful: dry.harmful });
@@ -178,6 +196,12 @@ export function playCard(
     if (allow) drive(action);
   }
   return { log, state, lines, gates, predicts, driven: drivenCount };
+}
+
+/** How a gate names what it holds: the line, or for Otto's file tools, the file they change. */
+function gateLine(action: QueuedAction): string {
+  if (action.do === 'run' || action.do === 'answer') return action.line;
+  return action.do === 'write' || action.do === 'edit' ? `${action.do} ${action.path}` : action.do;
 }
 
 /**
@@ -201,4 +225,11 @@ export function trueChecks(step: MissionStep, log: SandboxLog): string[] {
   return taskOf(step)
     .check.options.filter((option) => evaluate(option.truth, queries))
     .map((option) => option.id);
+}
+
+/** An Act 1 mission by id, parsed as the game loads it. Throws if Act 1 doesn't have it. */
+export function missionById(id: string): Mission {
+  const found = act1Missions.find((mission) => mission.id === id);
+  if (found === undefined) throw new Error(`Act 1 has no mission "${id}"`);
+  return found;
 }

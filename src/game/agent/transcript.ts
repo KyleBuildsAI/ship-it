@@ -37,7 +37,7 @@ export function transcriptEntry(action: DriverAction, step: DriverStep): Transcr
   };
 }
 
-/** What Otto sent with an action: the line, the letter, or the file he wrote. */
+/** What Otto sent with an action: the line, the letter, or the file he wrote or edited. */
 function sent(action: DriverAction): readonly string[] {
   switch (action.do) {
     case 'run':
@@ -46,6 +46,8 @@ function sent(action: DriverAction): readonly string[] {
       return [action.choice];
     case 'write':
       return [action.path, action.content];
+    case 'edit':
+      return [action.path, action.find, action.replace];
     case 'newTerminal':
     case 'useTerminal':
       return [];

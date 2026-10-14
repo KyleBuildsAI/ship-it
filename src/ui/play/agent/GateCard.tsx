@@ -16,7 +16,9 @@ const LETTERS: Readonly<Record<ConfirmLetter, string>> = {
 /** The card's first line: what Otto is about to do, in his own words for each kind. */
 function heading(gate: Gate, action: QueuedAction): string {
   if (gate.kind === 'confirm') return 'PowerShell asks before it goes on with:';
-  return action.do === 'write' ? 'Otto wants to write the file:' : 'Otto wants to run:';
+  if (action.do === 'write') return 'Otto wants to write the whole file:';
+  if (action.do === 'edit') return 'Otto wants to edit the file:';
+  return 'Otto wants to run:';
 }
 
 /**
@@ -39,6 +41,13 @@ export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction })
       {action.do === 'answer' ? (
         <p>
           Otto will answer <strong>{action.choice}</strong> ({LETTERS[action.choice]}).
+        </p>
+      ) : null}
+      {action.do === 'edit' ? (
+        // An edit changes one piece of the file: show which, so Kyle can tell it from a
+        // whole-file write, whose effects line reads the same.
+        <p>
+          Changes <code>{action.find}</code> to <code>{action.replace}</code>, and keeps the rest.
         </p>
       ) : null}
       {effects.length > 0 ? (

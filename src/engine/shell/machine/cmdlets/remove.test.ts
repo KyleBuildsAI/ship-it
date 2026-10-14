@@ -301,6 +301,38 @@ describe("Remove-Item's Confirm question", () => {
     expect(drive.exists('Users/kyle/notes.txt')).toBe(true);
   });
 
+  it("refuses to delete in Program Files or Windows, even with -Force: Kyle isn't an admin", () => {
+    const ws = windows()
+      .write('Program Files/nodejs/node.exe', 'node\n')
+      .write('Program Files/nodejs/npm.cmd', 'npm\n')
+      .build(testDeps());
+    const shell = new Shell(ws, 'C:\\Users\\kyle');
+    const events: EngineEvent[] = [];
+    ws.events.on((event) => events.push(event));
+    const denied = (path: string) => ({
+      text: `Remove-Item: Access to the path '${path}' is denied.`,
+      tone: 'error',
+    });
+    expect(shell.run("Remove-Item 'C:\\Program Files\\nodejs' -Recurse -Force")).toEqual({
+      lines: [
+        denied('C:\\Program Files\\nodejs\\node.exe'),
+        denied('C:\\Program Files\\nodejs\\npm.cmd'),
+        {
+          text: "Remove-Item: The directory is not empty. : 'C:\\Program Files\\nodejs'.",
+          tone: 'error',
+        },
+      ],
+      exitCode: 1,
+    });
+    // An empty folder there is refused on its own, in any spelling of the path.
+    expect(texts(shell.run('rm C:\\WINDOWS\\System32'))).toEqual([
+      "Remove-Item: Access to the path 'C:\\Windows\\system32' is denied.",
+    ]);
+    expect(ws.machine?.drive.exists('Program Files/nodejs/node.exe')).toBe(true);
+    expect(ws.machine?.drive.exists('Windows/system32')).toBe(true);
+    expect(events).toEqual([]);
+  });
+
   it('runs what came after ; once answered, and keeps answers out of history', () => {
     const { shell, drive } = laptop();
     shell.run('rm tmp; rm notes.txt');

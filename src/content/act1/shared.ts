@@ -11,6 +11,13 @@ export const QW = `${HOME}/quillwork`;
 export const API = `${QW}/api`;
 export const WEB = `${QW}/web`;
 
+/**
+ * Sage's dev key, which Kyle pastes into the API's .env in Mission 1.3. Plainly fake on
+ * purpose: a real-looking key in the source would trip gitleaks, which scans every commit,
+ * and the game teaches that keys never land in git.
+ */
+export const DEV_KEY = 'dev-key-for-the-game-1234';
+
 const FILES: Readonly<Record<string, string>> = {
   [`${API}/package.json`]: '{\n  "name": "quillwork-api",\n  "version": "1.0.0"\n}\n',
   [`${API}/server.js`]: "require('dotenv').config();\nconsole.log('Quillwork API');\n",
@@ -22,7 +29,12 @@ const FILES: Readonly<Record<string, string>> = {
   [`${HOME}/Documents/todo.txt`]: 'Get the Quillwork API running.\n',
 };
 
-/** The laptop before anything has happened: the projects, and a terminal open at home. */
-export function laptop(): FixtureBuilder {
-  return windows().files(FILES).session();
+/**
+ * The laptop before anything has happened: the projects, and a terminal open at home.
+ * `mount` is the folder git works in (decision D16): a mission that grades git, like 1.3,
+ * mounts the API so `ignored` and `tracked` read its repository.
+ */
+export function laptop(options: { readonly mount?: string } = {}): FixtureBuilder {
+  const machine = options.mount === undefined ? windows() : windows({ mount: options.mount });
+  return machine.files(FILES).session();
 }

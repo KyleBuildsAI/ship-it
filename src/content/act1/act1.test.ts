@@ -4,46 +4,71 @@ import { dryRun, startLog, withEntry, type SandboxLog } from '../../game/agent/r
 import { outcomeHolds } from '../../game/missions/agentRunner';
 import { isJudgmentDrill } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import { act1, act1Missions } from './index';
+import { act1, act1Lessons, act1Missions } from './index';
 
 const mission = act1Missions[0];
 if (mission === undefined) throw new Error('Act 1 has no mission');
 
 describe('Act 1', () => {
-  it('parses, ships Mission 1.1 in early access, and passes validateAct', () => {
+  it('parses, ships 1.1 to 1.4, then 1.5, 1.6 and the final, and passes validateAct', () => {
+    // Still early access: the Field Mission isn't built, so the Act can't complete yet.
     expect(act1.earlyAccess).toBe(true);
-    expect(act1.missionIds).toEqual(['where-things-live']);
-    expect(act1.upcoming).toHaveLength(5);
-    expect(validateAct(act1, act1Missions)).toEqual([]);
+    expect(act1.missionIds).toEqual([
+      'where-things-live',
+      'deletes-are-forever',
+      'secrets-stay-home',
+      'every-terminal',
+      'dependencies-are-declared',
+      'running-isnt-working',
+      'works-on-my-machine',
+    ]);
+    expect(act1.finalLessonId).toBe('works-on-my-machine');
+    expect(act1.upcoming).toEqual([]);
+    expect(validateAct(act1, act1Missions, act1Lessons)).toEqual([]);
   });
 });
 
-describe('Mission 1.1, Where Things Live, as a directed mission', () => {
-  it('has 3-5 steps, every one directed, and pauses Otto before deletes', () => {
-    expect(mission.approvals).toBe('destructive');
-    expect(mission.steps.length).toBeGreaterThanOrEqual(3);
-    expect(mission.steps.length).toBeLessThanOrEqual(5);
-    for (const step of mission.steps) expect(step.agent, step.id).toBeDefined();
-  });
+/** Each mission's drill ids start with its own prefix, so ids never clash across missions. */
+const DRILL_PREFIX: Readonly<Record<string, string>> = {
+  'where-things-live': 'wtl-',
+  'deletes-are-forever': 'daf-',
+  'secrets-stay-home': 'ssh-',
+  'every-terminal': 'etw-',
+};
 
-  it('has 5-8 judgment drills of at least 3 kinds, each 30-60 seconds', () => {
-    const drills = mission.drills.filter(isJudgmentDrill);
-    expect(drills).toHaveLength(mission.drills.length);
-    expect(drills.length).toBeGreaterThanOrEqual(5);
-    expect(drills.length).toBeLessThanOrEqual(8);
-    expect(new Set(drills.map((drill) => drill.kind)).size).toBeGreaterThanOrEqual(3);
-    for (const drill of drills) {
-      expect(drill.id.startsWith('wtl-'), drill.id).toBe(true);
-      expect(drill.timeLimitSeconds).toBeGreaterThanOrEqual(30);
-      expect(drill.timeLimitSeconds).toBeLessThanOrEqual(60);
-    }
-  });
+describe.each(act1Missions.map((each) => [each.title, each] as const))(
+  '%s, as a directed mission',
+  (_, directed) => {
+    it('has 3-5 steps, every one directed, and pauses Otto before deletes at least', () => {
+      // 1.3 pauses on every change, so each edit to a secret's file shows first (D6).
+      expect(directed.approvals).toBe(
+        directed.id === 'secrets-stay-home' ? 'changes' : 'destructive',
+      );
+      expect(directed.steps.length).toBeGreaterThanOrEqual(3);
+      expect(directed.steps.length).toBeLessThanOrEqual(5);
+      for (const step of directed.steps) expect(step.agent, step.id).toBeDefined();
+    });
 
-  it('gives the Question Round strong, okay and weak questions', () => {
-    const qualities = new Set(mission.questionRound.candidates.map((entry) => entry.quality));
-    expect([...qualities].sort()).toEqual(['okay', 'strong', 'weak']);
-  });
-});
+    it('has 5-8 judgment drills of at least 3 kinds, each 30-60 seconds', () => {
+      const drills = directed.drills.filter(isJudgmentDrill);
+      const prefix = DRILL_PREFIX[directed.id] ?? `no prefix for ${directed.id}`;
+      expect(drills).toHaveLength(directed.drills.length);
+      expect(drills.length).toBeGreaterThanOrEqual(5);
+      expect(drills.length).toBeLessThanOrEqual(8);
+      expect(new Set(drills.map((drill) => drill.kind)).size).toBeGreaterThanOrEqual(3);
+      for (const drill of drills) {
+        expect(drill.id.startsWith(prefix), drill.id).toBe(true);
+        expect(drill.timeLimitSeconds).toBeGreaterThanOrEqual(30);
+        expect(drill.timeLimitSeconds).toBeLessThanOrEqual(60);
+      }
+    });
+
+    it('gives the Question Round strong, okay and weak questions', () => {
+      const qualities = new Set(directed.questionRound.candidates.map((entry) => entry.quality));
+      expect([...qualities].sort()).toEqual(['okay', 'strong', 'weak']);
+    });
+  },
+);
 
 describe("Mission 1.1's bare-name prediction", () => {
   const step = mission.steps.find((found) => found.id === 'notes-in-the-api');

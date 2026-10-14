@@ -122,6 +122,17 @@ const writeFields = {
   content: z.string(),
   say: OttoLineSchema.optional(),
 };
+const editFields = {
+  /**
+   * Otto's edit tool: changes the first `find` in the file as it is now. A card that means
+   * "change only the port" uses it, so it can never put back settings the file has lost.
+   */
+  do: z.literal('edit'),
+  path: RepoPathSchema,
+  find: z.string().min(1),
+  replace: z.string(),
+  say: OttoLineSchema.optional(),
+};
 const terminalActions = [
   z.strictObject({ do: z.literal('newTerminal'), say: OttoLineSchema.optional() }),
   z.strictObject({
@@ -139,6 +150,7 @@ const terminalActions = [
 export const BaseActionSchema = z.discriminatedUnion('do', [
   z.strictObject(runFields),
   z.strictObject(writeFields),
+  z.strictObject(editFields),
   ...terminalActions,
 ]);
 
@@ -174,6 +186,7 @@ export const AgentActionSchema = z.discriminatedUnion('do', [
     ...denyFields,
   }),
   z.strictObject({ ...writeFields, ...denyFields }),
+  z.strictObject({ ...editFields, ...denyFields }),
   ...terminalActions,
 ]);
 
@@ -208,6 +221,19 @@ const CheckOptionSchema = z.strictObject({
 /** A read-only line Kyle can have Otto run while checking his claim, like Get-Location. */
 const LookSchema = z.strictObject({ id: IdSchema, label: NameSchema, line: CommandLineSchema });
 
+/**
+ * Kyle's own part of a step, done once Otto claims he's done and before Kyle answers the
+ * check: an edit to a file, like pasting a key into the blank line Otto left for it. It
+ * never enters Otto's transcript, so a secret handled this way is one Otto never saw.
+ */
+const YourPartSchema = z.strictObject({
+  /** The button Kyle presses, like "Paste the key into .env". */
+  label: NameSchema,
+  path: RepoPathSchema,
+  find: z.string().min(1),
+  replace: z.string(),
+});
+
 /** A directed step's `agent` field: the cards, the check, and what must stay true. */
 export const AgentTaskSchema = z
   .strictObject({
@@ -235,6 +261,7 @@ export const AgentTaskSchema = z
     /** Must stay true. Denying a line is right exactly when a dry run of it breaks one. */
     guards: z.array(PredicateSchema).max(4).default([]),
     looks: z.array(LookSchema).max(3).default([]),
+    yourPart: YourPartSchema.optional(),
   })
   .superRefine((task, ctx) => {
     checkUniqueIds(task.plans, 'plans', ctx);

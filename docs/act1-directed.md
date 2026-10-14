@@ -145,12 +145,12 @@ Speed (`game/agent/pace.ts`):
 
 | Slip | Missions |
 |---|---|
-| `wrong-place`: ran where its terminal happened to stand | 1.1, 1.5 |
-| `overclaim`: "done" after an error, or without checking | 1.1, 1.6 |
+| `wrong-place`: ran where its terminal happened to stand | 1.1, 1.3, 1.5 |
+| `overclaim`: "done" after an error, without checking, or over what the printout showed | 1.1, 1.3, 1.4, 1.6 |
 | `too-broad`: a wildcard, `-Recurse`, the parent folder, answering A | 1.2 |
-| `wrong-verb`: replace instead of append, move instead of copy | 1.2 |
+| `wrong-verb`: replace instead of append, move instead of copy | 1.2, 1.3 |
 | `leak`: printed or copied a secret, or asked for one in chat | 1.3 |
-| `stale-terminal`: trusted a terminal older than a save or install | 1.4 |
+| `stale-terminal`: trusted one terminal's copy as if it were saved: older than a save or install, or gone at the next restart | 1.4 |
 | `shell-mixup`: bash syntax in PowerShell | 1.4 drills |
 | `big-hammer`: reinstall everything, kill every node | 1.4, 1.6, boss |
 | `invented-fact`: a lookalike or made-up package | 1.5 |
@@ -167,7 +167,7 @@ Layout, unchanged in frame:
 | Stage | Kyle sees | Kyle does | Word budget (checked by `validateAct`) |
 |---|---|---|---|
 | **1. Direct** | "1.1 Where Things Live · Step 2 of 4". The goal, and the step's `note` if it has one. Otto: "Your call." 2-3 request cards. A secondary **Say it your way** button. Hint. | Clicks a card. Or writes a sentence: Otto repeats it back as "Plan: *card text*. Go?" [Go] [Pick instead]. | goal ≤ 20; each card ≤ 12; note + goal + all cards ≤ 60 |
-| **2. Run** | Otto's bubble. The terminal types each line. The world animates. **Stop** (between lines). | Watches and reads. Stop returns to Direct with the plan marked as tried. | Otto lines ≤ 12 |
+| **2. Run** | Otto's bubble. The terminal types each line. The world animates. **Stop** (between lines). | Watches and reads. Stop returns to Direct with the plan marked as tried. A line or file edit that fails, when the content didn't mark it `fails`, stops Otto the same way: like a real agent, he reads the error instead of running on and claiming success. | Otto lines ≤ 12 |
 | · **Predict** (only lines with `predict`) | The line sits at the prompt, not yet run. "Before Otto runs it: where will notes land?" 2-4 options. | Picks. Then a ghost shows what will happen for 1.5 s and the line runs. The prediction is graded after it runs. | question + options ≤ 40 |
 | · **Gate** (lines that pause, D6) | "Otto wants to run:" the command, Otto's `say`, the **worked-out effects** (up to 3 lines), a diff for `write`, and the blast radius in the world. [Allow] [Deny]. For Confirm: PowerShell's question and "Otto will answer A". | Allow or deny. Deny runs `onDeny` (Otto corrects himself), or stops for new directions. Denying a safe line makes Otto ask "I need this to finish: <effect>. Run it?" | say ≤ 12 |
 | **3. Check** | Otto's claim ("Done: notes is in the API project."). One question with 2-4 options. Up to 3 **look** chips ("Where is Otto?"). The terminal and world stay live. | Runs looks (read-only, printed in the terminal), reads the evidence, picks an option. | claim + question + options + look labels ≤ 60 |
@@ -473,6 +473,16 @@ Rubric: *pins an exact absolute path for the source or destination, or the machi
 - okay: exact path; audit date; who else uses it
 - weak: use Explorer; who made the mess; delete everything
 
+**As built.** `src/content/act1/deletes-are-forever.ts` follows the table above, with these changes, each forced by a test in `deletes-are-forever.test.ts` that plays every card through `agentRunner` under both gate policies, two fix rounds deep:
+- The laptop is Mission 1.1's plus `api\tmp` (3 junk files), `api\logs` (3 `.log` files and `incident-2026-09.md`) and `api\config.json` (port, timeout, retries). Each step starts with `before: [cd API]`.
+- `clear-tmp`: `whole-tmp` runs `Remove-Item …\tmp -Recurse`, `mkdir …\tmp`, then lists the API. Its only fix is `just-tmp` (`mkdir .\tmp -Force`, then `Remove-Item .\tmp\* -Recurse`): the `mkdir` makes tmp again when Kyle stopped `whole-tmp` between its delete and its `mkdir`, and does nothing when tmp is there. The check has two options, "Everything but tmp's junk" and "the whole project went": nothing else is reachable at a check.
+- `the-confirm-question`: the goal is the spec's "Have Otto delete the old logs.", so Kyle finds Marco's report through the Confirm question or by listing logs. The weak card is `Remove-Item logs -Recurse -Force`, which never asks. `logs-folder` predicts the Confirm question before it runs; denying Otto's A makes him type L, then run `Remove-Item logs\*.log`. Its check has two options for the same reason.
+- `backup-first`: a card that "changes only the port" uses Otto's **edit tool** (`do: 'edit'`, find and replace in the file as it is now), never a `write` of the whole file, so no card can write lost settings back from memory. Success asks for config on port 3000 with every setting, and `config.backup.json` holding the old ones; after an edit, a backup holds the old settings only if it was made before they were lost. The guards are `config keeps retries` (a lossy write is harmful, backup or not: deny it) and `any[config keeps retries, backup keeps retries]` (once config has lost them, copying over the only good backup is harmful too). The okay card `backup-then-edit` makes the slip: denied, Otto makes the small edit instead and the step passes; allowed, the fix `restore-and-edit` puts the backup back, then edits. With no backup, `restore-and-edit`'s `Copy-Item` fails and Otto stops there.
+- Allowing `clean-up`, `inside-tmp`, `no-questions`, `logs-folder` or `just-edit` loses files no card can bring back: only Rewind can help (D8). The test pins that list (`rewindOnly`) both ways: those have no passing fix, and every other card that misses has one, including `backup-then-edit` allowed, which its backup mends.
+- Drills (8): `daf-approve-wildcard` (deny), `daf-approve-dist` (allow; the prompt says dist holds only build output, since drills hide the effects list), `daf-predict-confirm`, `daf-predict-wildcard` (`Remove-Item *.log` in the API deletes nothing), `daf-diagnose-moved`, `daf-fix-restore` (copy back passes; moving the backup back uses it up), `daf-approve-diff` (deny: a lossy write with no backup) and `daf-approve-port-edit` (allow: an edit of the port line alone, beside a backup). `daf-predict-hidden` and `daf-order-backup` wait for the hidden-file capture and order drills.
+- The gate names an edit apart from a write ("Otto wants to edit the file:" and the text it changes); the full diff for a write waits for B12.
+- The card-by-card test suite now lives in `directed.test-helpers.ts`, shared by 1.1 and 1.2. Each mission's test passes its own tables; gate keys name the cards played before the line, because one line can be safe or harmful depending on them.
+
 ---
 
 ### Mission 1.3: Secrets Stay Home (`secrets-stay-home`), approvals `changes`
@@ -514,12 +524,22 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 - okay: the variable name; is a restart OK; rotate the old key
 - weak: paste it in chat; commit it; which model
 
+**As built.** `src/content/act1/secrets-stay-home.ts` follows the table above, adapted to what the engine runs today, with each change forced by `secrets-stay-home.test.ts`, which plays every card through `agentRunner` under both gate policies, two fix rounds deep:
+- **Only one piece of C1 is built: `secretShown`.** It is `{ kind: 'secretShown', secret }`, true when that text went through Otto's transcript (a line he typed, a file he wrote, or output printed back to him), which `transcript.ts` already recorded. The checklist never prints the secret. There is no `dotenv` predicate (the checks use `driveFile` contains, equals or a pattern), no `paste` action, and no Otto question. The `human` action is built as a step's `yourPart`: one edit Kyle makes himself once Otto claims he's done, before the check's answers open. It goes into the sandbox log as a `kyle` entry, which replays like Otto's actions but never enters his transcript, so a key pasted this way is one `secretShown` never sees. Rewind takes it back; a fix round keeps it.
+- **The git commands don't run on the laptop yet**, so Otto never types `git status` or `git add`. The laptop mounts the API as its repository (D16, `laptop({ mount: API })`) with the template, README and `.gitignore` committed, and the checks read git's state directly: `ignored ['.env']`, `untracked ['quill-dev.txt']`, `tracked ['.env']`.
+- The template starts as `PORT=` and `DATABASE_URL=`; QUILL_API_KEY arrives in step 3. `.gitignore` lists `node_modules/` and `.env.local`, the near miss.
+- `make-the-env`: weak `fill-the-template` runs `Set-Content .env.example 'PORT=3000'` (**wrong place**; harmful by the guard ".env.example holds names only"). Okay `copy-then-set` copies the template, then `Set-Content .env 'PORT=3000'` (**wrong verb**: it drops DATABASE_URL; harmful by ".env keeps every name", which holds while .env doesn't exist). Denied, Otto makes a one-line edit instead. Strong `copy-then-edit` copies, edits the PORT line, then shows the template, not `.env`: the drill `ssh-approve-cat-env` grades printing `.env` to Otto as a leak, so the strong card never does it, even before `.env` holds a secret. Kyle can look at `.env` himself with the look chip. The edit finds the blank line `PORT=` with its line end, so on a `.env` copied from a filled template it fails and Otto stops, rather than making `PORT=30003000`; the check reads the whole line (`^PORT=3000\r?$`). The fix `start-over` writes the names back to the template, copies it, and edits PORT.
+- `keep-it-out-of-git`: weak `trust-it` reads `.gitignore` and claims `.env` is covered (**overclaim**: it saw `.env.local`). Okay `replace-it` runs `Set-Content .gitignore .env` (**wrong verb**; harmful by ".gitignore keeps its other rules"); denied, Otto appends instead. Strong `append-and-show` appends and shows. Fixes `add-the-rule` and `put-rules-back`.
+- `the-api-key`: weak `otto-reads-it` reads the key file (an `ask` gate; harmful because `secretShown` breaks), then adds the key to the template "so the team has it" (**leak**). Allowed, only Rewind can help: no card makes Otto forget, and the check's feedback says to revoke it. Okay `copy-key-file` names QUILL_API_KEY in both files, then copies the key file into the API (**leak**: untracked and not ignored, one `git add` from shared); denied, Otto shows the names instead. Strong `names-only` adds a blank `QUILL_API_KEY=` to both files and shows `.env.example`; its claim tells Kyle to paste the value in himself, and the check waits for his part, "Paste the key into .env yourself", which fills that blank line. The step passes only when the template names the key and `.env` holds it, with Otto never having seen it, so the paste is the skill the step grades. Fixes `name-it` and `remove-copy`.
+- Drills (7): `ssh-approve-cat-env` (deny: printing `.env` shows Otto the key), `ssh-approve-cat-example` (allow), `ssh-approve-copy-key` (deny), `ssh-predict-ignore-after-commit` (`tracked ['.env']` stays true), `ssh-diagnose-claim-readme` (README holds the key itself), `ssh-diagnose-env-shared` (in place of `ssh-diagnose-env-at-home`: `.env.local` doesn't cover `.env`), and `ssh-fix-key-in-template` (writing the names again passes; editing the key out fails, because Otto must handle the key to find it). `ssh-order-env` waits for order drills.
+- The Fence and Otto's memory cloud (C2) are not built yet.
+
 ---
 
 ### Mission 1.4: Every Terminal Is Its Own World (`every-terminal`), approvals `destructive`
 
 **Principle.**
-- A terminal copies the saved variables and PATH when it opens. Later saves and installs reach only new terminals, **Otto's too**: after an install, the agent needs a fresh terminal.
+- A terminal copies the saved variables and PATH when it opens. Later saves and installs reach only new terminals, **Otto's too**: after an install, the agent needs a fresh terminal. For a real agent (Claude Code, Codex, an editor's terminal) that means restarting the agent: on Windows a child process copies its parent's variables, not the saved ones, so every shell the agent opens copies the agent's PATH from when it started.
 - "Not recognized" means "not on *this* terminal's PATH".
 
 **Visual.**
@@ -555,7 +575,17 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 - okay: which version; admin rights; the full log
 - weak: reinstall; would a Mac do this; who touched it
 
+**As built.** `src/content/act1/every-terminal.ts` keeps the principle and adapts the table to what the laptop runs today. D1 to D4 aren't built: Otto can't type `$env:NAME = …` (an expression), `setx`, `npm` or `Get-Command`, and the laptop has no programs. So the changes that happen outside Otto (the installer's PATH edit, Sage's saved variable, Kyle's own `$env:` test) arrive through each step's `before`, and the checks read each terminal's own copy of its variables with `envVar`, which is the lesson itself. Each change below is forced by `every-terminal.test.ts`, which plays every card through `agentRunner` under both gate policies, two fix rounds deep:
+- The laptop is Mission 1.1's plus `C:\Program Files\nodejs` (`node.exe`, `npm.cmd`) and the API's `.env` as Mission 1.3 left it: `PORT=3000`, a blank `DATABASE_URL=` and Sage's dev key (`DEV_KEY` in `shared.ts`). `C:\tools\node16` and the `which-node` step wait for command lookup (D3).
+- `npm-not-recognized`: `before` adds Node's folder to the saved Machine PATH, after PS 1 opened. No card types `npm`: on today's laptop it is never found, in any terminal, so the content suite refuses "not recognized" in a card. The step's note tells the symptom instead and says plainly that the laptop can't run programs yet, and the cards read PATH (`Write-Output $env:Path`). Weak `reinstall` tries to remove Node (**big hammer**); Otto's terminal isn't elevated, so Windows refuses ("Access to the path ... is denied."), nothing changes, nothing pauses, and Otto tells Kyle to reinstall as admin. Okay `look-here` prints the old terminal's PATH and claims Node is on it (**overclaim**: he misread his own printout, like `print-here`). Strong `new-terminal` opens one and prints its PATH; its lesson says a real agent needs a restart instead. The check asks "Can Otto's terminal find Node now?" with two options, "Yes: its PATH lists nodejs, and Node is there" and "No: its PATH copy is older than the install". Success: the active terminal's PATH names Node's folder.
+- `saved-for-new-terminals` (in place of setx): `before` restarts the terminals, then Sage saves `QUILL_ENV=dev` as a user variable. Weak `trust-the-save` goes to the API and claims it (**stale terminal**). Okay `print-here` prints it in the old terminal, with a prediction, and claims done over the empty line (**overclaim**). Strong `fresh-in-api` opens a terminal, goes to the API and prints `dev`. The fix `open-one` shows a new terminal opens at home. Success: a terminal in the API sees `QUILL_ENV=dev`. Nothing pauses here.
+- `make-it-last` (new): `before` sets `$env:QUILL_DEBUG` in Otto's terminal, as Kyle's test. A `$env:` change dies with its terminal, so the lasting home is the API's `.env`, which the API reads at every start. Weak `prove-it` opens a terminal, predicts and prints the empty line, and claims it's set everywhere (**overclaim**). Okay `check-here` prints `true` in the terminal tonight's restart will close and claims it's set for the API (**stale terminal**). Strong `append-env` appends one line, then shows `.env`'s first and last lines (`-TotalCount 1`, `-Tail 1`), proving PORT and the new line without printing the key on line 3. Fix `save-it` appends. Guards: ".env keeps PORT and the key" and "Otto never saw the key"; the look chips skip the key's line too, since Kyle's looks run in Otto's terminal. Nothing pauses here.
+- Drills (8): `etw-predict-new-tab`, `etw-predict-old-tab`, `etw-diagnose-stale-tab` ("Otto's npm failed in PS 1. Why?": the scene prints PS 1's PATH without nodejs, lists Node's folder, then runs `npm`, so the cause is read, not told), `etw-diagnose-claim-tab` (a `$env:` change doesn't reach PS 2), `etw-diagnose-export` (**shell mixup**: bash's `export` is not recognized), `etw-approve-clear-path` (deny: `Remove-Item Env:Path` reloads nothing and leaves PS 1 finding no programs), `etw-approve-append-env` (allow; the prompt says `.env` holds PORT and the key, since drills hide the effects list) and `etw-fix-stale-path` (same evidence; a new terminal passes; removing Node is refused, and standing in its folder or printing PATH fail). `etw-diagnose-node16`, `etw-approve-setx-path` and `etw-order-save-open` wait for command lookup, setx and order drills.
+- The lantern notes, corkboard, PATH lamps and scout drone (D5, D6) are not built yet.
+
 ---
+
+> **Shipped as lessons for now.** Missions 1.5 and 1.6 and the boss need npm, processes and ports, which the laptop engine doesn't simulate yet (milestones E, F and G). So they ship today as click-through lessons (`src/content/act1/dependenciesAreDeclared.ts`, `runningIsntWorking.ts` and `worksOnMyMachine.ts`, the boss as Act 1's timed final), built from the same principles, slips and real output as the designs below. When those milestones land, a directed version can replace its lesson under the same id. The final lesson differs from the boss table in 3.7 in three places, to stay consistent with 1.5: the dev script is `nodemon server.js` (1.5 adds nodemon), so missing `node_modules` shows first and old Node shows as a `fetch` crash from a lone Node 16 `node.exe` a build tool put on the system PATH; `DATABASE_URL` arrives by DM with its password, so it is a secret; and the dev database simply hasn't been started, rather than stopped by a restart twist.
 
 ### Mission 1.5: Dependencies Are Declared (`dependencies-are-declared`), approvals `destructive`
 
@@ -815,6 +845,10 @@ const runFields = {
 const writeFields = {
   /** Otto's file tool: writes a whole file, shown as a diff on a gate. */
   do: z.literal('write'), path: RepoPathSchema, content: z.string(), say: OttoLineSchema.optional(),
+};
+const editFields = {
+  /** Otto's edit tool: changes the first `find` in the file as it is now, and keeps the rest. */
+  do: z.literal('edit'), path: RepoPathSchema, find: z.string().min(1), replace: z.string(), say: OttoLineSchema.optional(),
 };
 const terminalActions = [
   z.strictObject({ do: z.literal('newTerminal'), say: OttoLineSchema.optional() }),

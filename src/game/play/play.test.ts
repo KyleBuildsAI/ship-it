@@ -4,10 +4,12 @@ import { onTerminalFeed } from '../agent/terminalFeed';
 import { evaluate, type Predicate } from '../missions/predicates';
 import {
   directedMission,
+  directedMissionInput,
   earlySampleAct,
   notesMission,
   otherSampleAct,
   sampleAct,
+  sampleAgentTaskInput,
   sampleMission,
   secondMission,
   thirdMission,
@@ -35,6 +37,7 @@ import {
   checkClaim,
   decide,
   directFix,
+  doPart,
   nextStep,
   ottoRun,
   pickCard,
@@ -447,6 +450,63 @@ function finishAfterTheSim(entry: Mission): void {
   submitQuestionRound(['when-lost'], '', T0 + 2_000_000);
 }
 
+describe("Kyle's own part of a step", () => {
+  const SECRET = 'dev-secret-for-the-test';
+  const partMission = MissionSchema.parse({
+    ...directedMissionInput,
+    id: 'sample-your-part',
+    steps: directedMissionInput.steps.map((entry) => ({
+      ...entry,
+      agent: {
+        ...sampleAgentTaskInput,
+        yourPart: {
+          label: 'Paste the secret',
+          path: `${API}/package.json`,
+          find: '{}',
+          replace: `{ "key": "${SECRET}" }`,
+        },
+      },
+    })),
+  });
+
+  beforeEach(() => {
+    directedCatalog(partMission);
+    startMission(partMission.id);
+    endBriefing();
+  });
+
+  it('waits for the part before the check, and keeps it out of what Otto saw', () => {
+    pickCard('full-path');
+    ottoWaits();
+    expect(stage()).toBe('check');
+    // The answers are shut until Kyle has done his part.
+    checkClaim('api');
+    expect(stage()).toBe('check');
+
+    doPart();
+    ottoWaits();
+    const pasted = { kind: 'driveFile', path: `${API}/package.json`, contains: SECRET } as const;
+    expect(holds(pasted)).toBe(true);
+    expect(holds({ kind: 'secretShown', secret: SECRET })).toBe(false);
+    expect(mission().agent?.partDone).toBe(true);
+    // Done once: a second press does nothing.
+    doPart();
+    expect(mission().agent?.partDone).toBe(true);
+
+    checkClaim('api');
+    expect(mission().agent?.stage).toMatchObject({ at: 'result', verdict: 'confirmed' });
+  });
+
+  it('is taken back by Rewind, with the laptop', () => {
+    pickCard('full-path');
+    ottoWaits();
+    doPart();
+    rewind();
+    expect(mission().agent?.partDone).toBe(false);
+    expect(holds({ kind: 'driveFile', path: `${API}/package.json`, equals: '{}\n' })).toBe(true);
+  });
+});
+
 describe('directing Otto through a step', () => {
   beforeEach(() => {
     directedCatalog(directedMission);
@@ -810,6 +870,34 @@ describe('gates and predictions in play', () => {
         status: 'denied',
       },
     ]);
+  });
+
+  it('logs an edit by what it did, and stops Otto at a line that fails unplanned', () => {
+    const edit = { do: 'edit', path: `${API}/package.json`, find: '{', replace: '{ ' } as const;
+    const failing = { do: 'run', line: 'Copy-Item nope.json api.json' } as const;
+    const script = [edit, failing, { do: 'run', line: NOTES_LINE }];
+    directedCatalog(withStrongScript('sample-notes-fails', script));
+    startMission('sample-notes-fails');
+    endBriefing();
+    pickCard('full-path');
+    ottoWaits();
+    // Changing part of package.json still overwrites it, so the edit pauses like a write.
+    expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
+    decide(true);
+    ottoWaits();
+    // The Copy-Item failed, so Otto stops instead of running on and claiming success.
+    expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(ottoRun.get().last).toEqual({ kind: 'stopped' });
+    expect(ottoRun.get().rows).toEqual([
+      {
+        text: 'Edited C:\\Users\\kyle\\quillwork\\api\\package.json',
+        typed: false,
+        answer: false,
+        status: 'ok',
+      },
+      { text: failing.line, typed: true, answer: false, status: 'failed' },
+    ]);
+    expect(holds(apiNotes)).toBe(false);
   });
 
   it("drops an action's words once Otto moves on to one that has none", () => {

@@ -288,6 +288,13 @@ const predicateKinds = z.discriminatedUnion('kind', [
     .strictObject({ kind: z.literal('reflogContains'), ...regexFields, ...labelled })
     .superRefine(checkRegex),
   z.strictObject({ kind: z.literal('headMessageIs'), message: NameSchema, ...labelled }),
+  // Short text would match by accident ("a" is in almost any output), so a secret has a
+  // secret's length.
+  z.strictObject({
+    kind: z.literal('secretShown'),
+    secret: z.string().trim().min(8),
+    ...labelled,
+  }),
   z.strictObject({ kind: z.literal('all'), of: z.array(nested).min(1), ...labelled }),
   z.strictObject({ kind: z.literal('any'), of: z.array(nested).min(1), ...labelled }),
   z.strictObject({ kind: z.literal('not'), predicate: nested, ...labelled }),

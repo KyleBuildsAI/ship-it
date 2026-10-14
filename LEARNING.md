@@ -2143,3 +2143,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/153
 3. So the machine island draws the new folders as terraces, exactly as it does after `mkdir`.
 
 </details>
+
+---
+
+## #155 feat: the rest of act 1, missions 1.2 to 1.4 directed, lessons 1.5, 1.6 and the final
+
+https://github.com/KyleBuildsAI/ship-it/pull/155
+
+1. Why does Otto edit one line instead of writing the whole settings file?
+2. Why must you paste the key into `.env` yourself in 1.3?
+3. Why doesn't a variable you set in one tab show up in another?
+
+<details><summary>Answers</summary>
+
+1. Writing the whole file from memory can drop settings he didn't remember. An edit changes only the line you meant.
+2. Anything the agent sees can end up in its logs, its memory or a commit. The game checks that Otto never read the key.
+3. Each terminal got its own copy of the variables when it opened. `$env:` changes only that copy.
+
+</details>

@@ -178,6 +178,20 @@ describe('the directing panel', () => {
     expect(text).toContain('The laptop shows no change, but Otto asked first.');
   });
 
+  it('tells an edit of one piece apart from a write of the whole file', () => {
+    const path = 'Users/kyle/quillwork/api/config.json';
+    const changes = [{ kind: 'modified', path, how: 'replaced' }] as const;
+    const gate = { kind: 'line', line: path, changes, harmful: false } as const;
+    const edit = { do: 'edit', path, find: '8080', replace: '3000', onDeny: [] } as const;
+    const edited = shown(atGate(edit, gate));
+    expect(edited).toContain('Otto wants to edit the file:' + path);
+    expect(edited).toContain('Changes 8080 to 3000, and keeps the rest.');
+    const write = { do: 'write', path, content: '{}', onDeny: [] } as const;
+    const written = shown(atGate(write, gate));
+    expect(written).toContain('Otto wants to write the whole file:' + path);
+    expect(written).not.toContain('keeps the rest');
+  });
+
   it("asks Kyle to check Otto's claim, with his looks beside the answers", () => {
     const checking: AgentStepState = { ...start, stage: { at: 'check', planId: 'bare-name' } };
     expect(shown(checking)).toBe(
@@ -185,6 +199,25 @@ describe('the directing panel', () => {
         'Look before you answer:[List home]' +
         '[Only in the API folder][In C:\\Users\\kyle, where fresh terminals start][In both places]',
     );
+  });
+
+  it("asks for Kyle's own part first, and opens the answers once it's done", () => {
+    const task = step.agent;
+    if (task === undefined) throw new Error('the notes sample is directed');
+    const part = { label: 'Paste the key', path: 'Users/kyle/a.txt', find: 'x', replace: 'y' };
+    const withPart: MissionStep = { ...step, agent: { ...task, yourPart: part } };
+    const checking: AgentStepState = { ...start, stage: { at: 'check', planId: 'bare-name' } };
+    const markup = (agent: AgentStepState) =>
+      renderToStaticMarkup(
+        <AgentStepView activity={activity(agent)} step={withPart} hintLevel={0} checklist={[]} />,
+      );
+    // Every button waits to arm; the answers also wait for the part.
+    const pending = markup(checking);
+    expect(pending).toContain('Your part');
+    expect(pending).toContain('Paste the key');
+    const done = markup({ ...checking, partDone: true });
+    expect(done).not.toContain('Your part');
+    expect(done).toContain('Where did notes land?');
   });
 
   /** A result for the weak card, Kyle having answered `optionId`. */

@@ -110,6 +110,13 @@ describe('PredicateSchema', () => {
     expect(PredicateSchema.safeParse(deep).success).toBe(false);
   });
 
+  it('takes a secret long enough not to match ordinary output by chance', () => {
+    expect(PredicateSchema.safeParse({ kind: 'secretShown', secret: 'dev-key-for' }).success).toBe(
+      true,
+    );
+    expect(PredicateSchema.safeParse({ kind: 'secretShown', secret: 'key' }).success).toBe(false);
+  });
+
   it('rejects misspelled keys instead of dropping them', () => {
     // Dropping `exist` would silently flip this check to "a.ts exists".
     const typo = { kind: 'workingFile', path: 'a.ts', exist: false };
@@ -615,6 +622,16 @@ describe('an Act made of lessons', () => {
       'The final lesson is this Act’s boss, so it has no boss fight as well.',
       'A lesson Act has no placement test: lessons have no drills.',
     ]);
+  });
+
+  it('leaves its final out of the 6-mission limit, since the final is the boss', () => {
+    // Act 1 has six missions and lessons, then its final: seven ids, six missions.
+    const six = Array.from({ length: 6 }, (_, i) => `part-${String(i)}`);
+    expect(lessonAct({ missionIds: [...six, 'sample-final'] }).success).toBe(true);
+    expect(lessonAct({ missionIds: [...six, 'extra', 'sample-final'] }).success).toBe(false);
+    expect(
+      problems(lessonAct({ missionIds: [...six, 'sample-final'], upcoming: ['More'] })),
+    ).toContain('An Act has at most 6 missions, counting the upcoming ones.');
   });
 
   it('needs 3 to 6 lessons and nothing upcoming once finished, but not in early access', () => {

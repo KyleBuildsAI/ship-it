@@ -22,18 +22,22 @@ import {
   completeAgentStep,
   confirmAsked,
   decideGate,
+  doYourPart,
   echoPlan,
+  failedUnplanned,
   finishScript,
   nextAction,
   openFixRound,
   openGate,
   outcomeHolds,
+  partPending,
   pausesBefore,
   REFUSAL,
   rewindStep,
   stars,
   stopScript,
   toDriverAction,
+  yourPartAction,
   type AgentStepState,
   type QueuedAction,
 } from '../missions/agentRunner';
@@ -51,6 +55,7 @@ import {
   currentQueries,
   dryRunNow,
   recordAction,
+  recordKyleAction,
   rewindTo,
 } from './sandboxControl';
 import { recordSteps } from './saveRules';
@@ -391,13 +396,14 @@ function consider(action: QueuedAction, alreadyTyped: boolean): void {
   saveAgent(openGate(now.agent, action, gate));
 }
 
-/** The line a gate shows: the command, the line that asked, or the file Otto writes. */
+/** The line a gate shows: the command, the line that asked, or the file Otto writes or edits. */
 function gateLine(action: QueuedAction): string {
   switch (action.do) {
     case 'run':
     case 'answer':
       return action.line;
     case 'write':
+    case 'edit':
       return action.path;
     case 'newTerminal':
     case 'useTerminal':
@@ -416,6 +422,8 @@ function untypedLabel(action: QueuedAction): string | null {
       return null;
     case 'write':
       return `Wrote ${display(action.path)}`;
+    case 'edit':
+      return `Edited ${display(action.path)}`;
     case 'newTerminal':
       return 'Opened a new terminal';
     case 'useTerminal':
@@ -434,7 +442,14 @@ function driveAction(action: QueuedAction): void {
       : feedOutcome(playback.feed, step, label);
   appendBeats(fed.beats, fed.state);
   const agent = missionActivity()?.agent;
-  if (step.asking && agent !== null && agent !== undefined) saveAgent(confirmAsked(agent, action));
+  if (agent === null || agent === undefined) return;
+  if (step.asking) saveAgent(confirmAsked(agent, action));
+  else if (failedUnplanned(action, step) && agent.stage.at === 'running') {
+    // A Stop Kyle pressed during this action is answered by this one: never carried over.
+    playback.stopAsked = false;
+    ottoDid({ kind: 'stopped' });
+    saveAgent(stopScript(agent));
+  }
 }
 
 /**
@@ -520,12 +535,27 @@ export function runLook(lookId: string): void {
 }
 
 /**
+ * Kyle's own part, at the check, like pasting a key into .env. It changes the live
+ * sandbox and the log, but never Otto's transcript. The terminal shows it as Kyle's, under
+ * the part's label, since a file edit types no line.
+ */
+export function doPart(): void {
+  const now = live();
+  if (now?.agent.stage.at !== 'check' || !partPending(now.agent, now.step)) return;
+  const step = recordKyleAction(yourPartAction(now.step));
+  const fed = feedAction(now.playback.feed, step, 'kyle', now.task.yourPart?.label);
+  appendBeats(fed.beats, fed.state);
+  saveAgent(doYourPart(now.agent, now.step));
+}
+
+/**
  * Kyle's answer to "is Otto right?". The verdict comes from the live sandbox. A step that
  * passed keeps its stars, which pay XP when the mission is completed.
  */
 export function checkClaim(optionId: string): void {
   const now = live();
   if (now?.agent.stage.at !== 'check') return;
+  if (partPending(now.agent, now.step)) return;
   const { planId } = now.agent.stage;
   const agent = answerCheck(now.agent, now.step, optionId, currentQueries());
   if (agent.stage.at !== 'result') return;
