@@ -75,13 +75,25 @@ export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 
     kind: 'final',
     briefing: [
       test.pitch,
-      `${String(test.passPercent)}% right tests out of every lesson. Each card takes one answer, and you see your score at the end. No hints.`,
+      `${String(test.passPercent)}% right tests out of every lesson: ${missesAllowed(cards.length, test.passPercent)}. Each card takes one answer, and you see your score at the end. No hints.`,
     ],
     cards,
     // A placement pays the test-out XP from its lessons, never XP of its own.
     xp: 0,
     timeLimitSeconds: test.timeLimitSeconds,
   };
+}
+
+/**
+ * The pass mark in misses, since a percent hides how strict it is: 85% of 12 cards is 11,
+ * so one miss, not the two "85%" seems to allow.
+ */
+export function missesAllowed(cardCount: number, passPercent: number): string {
+  // Whole numbers only, so 100 * 12 * 0.85 can't round to 10.2 and allow a miss too many.
+  const misses = Math.floor((cardCount * (100 - passPercent)) / 100);
+  const of = `of ${String(cardCount)}`;
+  if (misses === 0) return `answer all ${String(cardCount)} right`;
+  return misses === 1 ? `miss at most one ${of}` : `miss at most ${String(misses)} ${of}`;
 }
 
 /**
