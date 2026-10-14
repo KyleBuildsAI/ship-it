@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateAct } from '../game/missions/validateAct';
-import { completeLesson } from '../game/play/saveRules';
-import { completedActNumbers, rankFor } from '../game/progression/xp';
+import { completeLesson, recordFieldMission } from '../game/play/saveRules';
+import { completedActNumbers, rankFor, XP_AWARDS } from '../game/progression/xp';
 import { createDefaultSave, type SaveData } from '../game/save/schema';
 import { act3 } from './act3';
 import { act4 } from './act4';
@@ -14,12 +14,20 @@ import type { LessonActContent } from './lessonAct';
 const NOW = new Date('2026-10-03T12:00:00.000Z');
 const LESSON_ACTS: readonly LessonActContent[] = [act3, act4, act5, act6, act7, act8];
 
-/** Plays every lesson of an Act to the end, the way finishing each one in the menu would. */
+/**
+ * Plays every lesson of an Act to the end, the way finishing each one in the menu would,
+ * then passes its Field Mission when it has one: an Act with a Field Mission isn't
+ * complete until that real-repo work is verified too.
+ */
 function finishAct(save: SaveData, content: LessonActContent): SaveData {
-  return content.lessons.reduce(
+  const played = content.lessons.reduce(
     (next, lesson) => completeLesson(next, content.act, lesson, 100, NOW),
     save,
   );
+  const { fieldMission } = content.act;
+  if (fieldMission === undefined) return played;
+  const passedIds = fieldMission.verifications.map((check) => check.id);
+  return recordFieldMission(played, content.act, passedIds, NOW);
 }
 
 describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))(
@@ -74,7 +82,8 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
         bossCompletedAt: NOW.toISOString(),
         completedAt: NOW.toISOString(),
       });
-      const xp = lessons.reduce((total, lesson) => total + lesson.xp, 0);
+      const fieldXp = act.fieldMission === undefined ? 0 : XP_AWARDS.fieldMission;
+      const xp = lessons.reduce((total, lesson) => total + lesson.xp, fieldXp);
       expect(save.profile.xp).toBe(xp);
     });
   },

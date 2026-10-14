@@ -97,7 +97,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, then the Field Mission on your real repo.',
     missions: [
       { title: 'Requests and Responses' },
       { title: 'APIs and Auth' },
@@ -105,6 +106,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Logs and Stack Traces' },
     ],
     boss: { title: 'The 3am Page' },
+    fieldMission: { title: 'Document One Request' },
   },
   {
     act: 7,
