@@ -139,38 +139,77 @@ describe('Act 6 Field Mission: Document One Request', () => {
     if (found === undefined) throw new Error(`no verification ${id}`);
     return found;
   };
+  const synced = [
+    'On branch main',
+    "Your branch is up to date with 'origin/main'.",
+    '',
+    'nothing to commit, working tree clean',
+    '',
+  ].join('\n');
 
-  it('happens on SandCastles and asks for an agent-written README section', () => {
+  it('happens on SandCastles, through a docs branch and a pull request', () => {
     expect(field.repoName).toBe('SandCastles');
     const text = field.checklist.map((item) => item.text).join(' ');
-    for (const words of ['agent', 'README', 'status code', 'push', '/health']) {
+    for (const words of ['agent', 'README', 'status code', 'docs/', 'pull request', '/health']) {
       expect(text, words).toContain(words);
     }
   });
 
-  it('passes a pushed docs commit, a clean tree and no tracked .env', () => {
+  it('lets the agent run every check, as long as Kyle sees the exact output', () => {
+    // A vibe coder may never open PowerShell, so no check depends on typing it himself.
+    for (const check of field.verifications) {
+      expect(check.instruction, check.id).toContain('ask your agent');
+      expect(check.instruction, check.id).toContain('exact output');
+    }
+  });
+
+  it('asks for fake values and a read-through for secrets, since no paste can see them', () => {
+    const text = field.checklist.map((item) => item.text).join(' ');
+    expect(text).toContain('obvious fakes');
+    expect(text).toContain('no keys, tokens, cookies');
+    expect(text).not.toContain('not a guess');
+  });
+
+  it('passes a documented request, merged as docs:, synced, with no secret file', () => {
+    const readme = 'README.md:12:GET /health\nREADME.md:14:Returns 200 and {"status":"ok"}.\n';
+    expect(verifyPaste(verification('readme-documents-request'), readme)).toMatchObject({
+      passed: true,
+    });
     expect(
-      verifyPaste(verification('docs-commit'), 'a1b2c3d docs: document the castles request\n'),
+      verifyPaste(verification('merged-docs-commit'), 'a1b2c3d docs: document GET /health (#7)\n'),
     ).toMatchObject({ passed: true });
-    const pushed = [
-      'On branch main',
-      "Your branch is up to date with 'origin/main'.",
-      '',
-      'nothing to commit, working tree clean',
-      '',
-    ].join('\n');
-    expect(verifyPaste(verification('nothing-left-over'), pushed)).toMatchObject({ passed: true });
+    expect(verifyPaste(verification('synced-with-github'), synced)).toMatchObject({
+      passed: true,
+    });
     expect(
-      verifyPaste(verification('no-key-committed'), 'README.md\n.env.example\nsrc/server.ts\n'),
+      verifyPaste(verification('no-secret-file'), 'README.md\n.env.example\nsrc/server.ts\n'),
     ).toMatchObject({ passed: true });
   });
 
-  it('fails a vague commit, leftover changes and a committed .env', () => {
-    expect(verifyPaste(verification('docs-commit'), 'a1b2c3d update readme\n')).toMatchObject({
+  it('fails an untouched repo that only passed Act 2', () => {
+    // After Clean the Dirty Tree, the repo is clean and its commits Conventional, so only
+    // the README itself and the type of its newest change show this mission was done.
+    const noApi = 'README.md:3:Built in 2024 on port 3000.\n';
+    expect(verifyPaste(verification('readme-documents-request'), noApi)).toMatchObject({
+      passed: false,
+    });
+    expect(
+      verifyPaste(verification('merged-docs-commit'), 'a1b2c3d chore: ignore build output\n'),
+    ).toMatchObject({ passed: false });
+  });
+
+  it('fails an unpushed commit, leftover changes and a committed .env', () => {
+    const ahead = synced.replace(
+      "Your branch is up to date with 'origin/main'.",
+      "Your branch is ahead of 'origin/main' by 1 commit.",
+    );
+    expect(verifyPaste(verification('synced-with-github'), ahead)).toMatchObject({
       passed: false,
     });
     const dirty = [
       'On branch main',
+      "Your branch is up to date with 'origin/main'.",
+      '',
       'Changes not staged for commit:',
       '  (use "git add <file>..." to update what will be committed)',
       '\tmodified:   README.md',
@@ -178,8 +217,10 @@ describe('Act 6 Field Mission: Document One Request', () => {
       'no changes added to commit (use "git add" and/or "git commit -a")',
       '',
     ].join('\n');
-    expect(verifyPaste(verification('nothing-left-over'), dirty)).toMatchObject({ passed: false });
-    expect(verifyPaste(verification('no-key-committed'), 'README.md\n.env\n')).toMatchObject({
+    expect(verifyPaste(verification('synced-with-github'), dirty)).toMatchObject({
+      passed: false,
+    });
+    expect(verifyPaste(verification('no-secret-file'), 'README.md\n.env\n')).toMatchObject({
       passed: false,
     });
   });
