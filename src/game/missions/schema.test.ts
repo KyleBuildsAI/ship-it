@@ -135,7 +135,7 @@ describe('PredicateSchema', () => {
   });
 
   it('rejects a regex that does not compile, when the mission loads', () => {
-    for (const kind of ['headMessage', 'allMessagesMatch', 'reflogContains']) {
+    for (const kind of ['headMessage', 'allMessagesMatch', 'reflogContains', 'headBeforeReflog']) {
       const result = PredicateSchema.safeParse({ kind, pattern: '(unclosed' });
       expect(result.success).toBe(false);
       expect(problems(result)[0]).toMatch(/^Invalid regex: /);
