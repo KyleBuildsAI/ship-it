@@ -322,6 +322,30 @@ describe('laptop checks', () => {
   });
 });
 
+describe('secretShown reads what went through Otto', () => {
+  const secret: Predicate = { kind: 'secretShown', secret: 'dev-key-for-the-game' };
+  /** Queries whose transcript holds exactly these texts, the way transcript.ts matches. */
+  const seen = (...texts: string[]): SandboxQueries => ({
+    ...gitQueries(project()),
+    transcript: {
+      printed: (text) => texts.some((part) => part.toLowerCase().includes(text.toLowerCase())),
+    },
+  });
+
+  it('is true once the secret is in the transcript, in any case', () => {
+    expect(evaluate(secret, seen('DEV-KEY-FOR-THE-GAME'))).toBe(true);
+    expect(evaluate(secret, seen('PORT=3000', 'QUILL_API_KEY='))).toBe(false);
+  });
+
+  it('is false with no transcript at all: nothing has been shown', () => {
+    expect(evaluate(secret, gitQueries(project()))).toBe(false);
+  });
+
+  it('never puts the secret on the checklist', () => {
+    expect(describePredicate(secret)).not.toContain('dev-key');
+  });
+});
+
 describe('describe', () => {
   const cases: [Predicate, string][] = [
     [{ kind: 'isRepo' }, 'This folder is a git repository'],

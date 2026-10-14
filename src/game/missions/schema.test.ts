@@ -110,6 +110,13 @@ describe('PredicateSchema', () => {
     expect(PredicateSchema.safeParse(deep).success).toBe(false);
   });
 
+  it('takes a secret long enough not to match ordinary output by chance', () => {
+    expect(PredicateSchema.safeParse({ kind: 'secretShown', secret: 'dev-key-for' }).success).toBe(
+      true,
+    );
+    expect(PredicateSchema.safeParse({ kind: 'secretShown', secret: 'key' }).success).toBe(false);
+  });
+
   it('rejects misspelled keys instead of dropping them', () => {
     // Dropping `exist` would silently flip this check to "a.ts exists".
     const typo = { kind: 'workingFile', path: 'a.ts', exist: false };
