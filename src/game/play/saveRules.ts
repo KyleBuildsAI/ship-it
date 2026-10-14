@@ -12,7 +12,13 @@ import {
   type SaveData,
 } from '../save/schema';
 import type { Lesson } from '../missions/lessonSchema';
-import { requireFieldMission, type Act, type Drill, type Mission } from '../missions/schema';
+import {
+  isLessonPlacement,
+  requireFieldMission,
+  type Act,
+  type Drill,
+  type Mission,
+} from '../missions/schema';
 
 /*
  * How play changes the save. Every function takes a save and returns a new one, so the
@@ -379,8 +385,8 @@ function partsDone(save: SaveData, target: Act): boolean {
  *
  * A lesson Act's final is listed in missionIds and stands in for the boss, so finishing
  * every lesson beats it. Its Field Mission is optional, and only counts when it exists.
- * When it does, a placement pass skips the lessons but not the Field Mission: cards can be
- * guessed, and the Field Mission is the one part done on a real repo.
+ * When it does, a placement of cards skips the lessons but not the Field Mission: cards can
+ * be guessed, and the Field Mission is the one part done on a real repo.
  */
 function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   if (target.earlyAccess) return save;
@@ -390,9 +396,11 @@ function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   const fieldDone = target.fieldMission === undefined || current.fieldMissionCompletedAt !== null;
   const everything =
     target.missionIds.every((id) => missionDone(save, id)) && bossBeaten && fieldDone;
-  // A lesson Act's Field Mission is real work on a real repo, so a card test can't skip it.
-  const lessonFieldLeft = target.finalLessonId !== undefined && !fieldDone;
-  const testedOut = current.placement.testedOut && partsDone(save, target) && !lessonFieldLeft;
+  // A Field Mission is real work on a real repo, so a card test can't skip it. A drill
+  // test (Act 2's, even with its final) proves the missions and skips it, as it always has.
+  const cardTest = target.placementTest !== undefined && isLessonPlacement(target.placementTest);
+  const cardFieldLeft = cardTest && !fieldDone;
+  const testedOut = current.placement.testedOut && partsDone(save, target) && !cardFieldLeft;
   if (!everything && !testedOut) return save;
   return withAct(save, target.act, { ...current, completedAt: now.toISOString() });
 }
