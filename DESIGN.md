@@ -295,6 +295,8 @@ Every card happens at Quillwork, where Kyle directs Otto, the team's coding agen
 
 Final (the boss): **"The Agent Went Rogue"**, 6:00, nine cards: Otto's PR passes CI and has a real rounding fix, but also doubles the refund limit, flips the test that guarded it and switches off `npm test` in CI. Kyle finds it, holds the deploy, sends it back and hardens the process.
 
+Act 7 is a finished Act. Placement test: 12 cards, three from each lesson (a spec, defining done, the right context; a lost permission check, asking for evidence, scope drift; tests first, a bent test, why evals; prompt injection, least privilege, secrets in `.env`), on a 7:00 clock; 85% tests out. Field Mission: **"Spec It, Then Ship It"** on SandCastles. Kyle writes `docs/specs/<feature>.md` (Goal, Constraints, Done means, How to verify), has his own AI agent plan and build it, checks the diff against the spec, and lands it through a PR whose description links the spec. Four pastes verify it with no token: `git log --oneline -- docs/specs` shows a committed spec, the last three commits are Conventional, `git status` is clean, and `git ls-files` tracks no `.env`. Pasted git output can't see the PR page, so the briefing says linking the spec is Kyle's job. This replaces the earlier plan's Tidepool eval suite for Act 7.
+
 ### Act 8: The Loop (lessons)
 Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.
 Every card is set at Quillwork, with Sage running a mock loop and Otto, Marco, Priya and Dex in the stories, and every lesson asks at least twice what Kyle would tell Otto. Content: `src/content/act8/`, one file per lesson.
