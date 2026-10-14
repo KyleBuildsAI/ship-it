@@ -2233,3 +2233,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/158
 3. Normally the 0.8 version it replaces is still in the newest commit, so nothing is lost. After a rewind, HEAD~2 has no tax.ts, so the restore deletes the file. A delete always pauses, and a guard makes it harmful.
 
 </details>
+
+---
+
+## #159 feat: act 2 ends in a timed final you click through
+
+https://github.com/KyleBuildsAI/ship-it/pull/159
+
+1. Why does finishing "The Dirty Tree" count as beating Act 2's boss, even though there's no boss fight any more?
+2. Before this PR, passing Act 2's placement test completed the Act at once. What would have changed if `refreshAct` had kept checking "has a final" instead of "is a card test"?
+3. Why is `src/game/play/bossPlay.ts` still in the codebase when no shipped Act has a boss?
+
+<details><summary>Answers</summary>
+
+1. Act 2 names the final as its `finalLessonId`. When a lesson with that id is finished, `completeLesson` stamps `bossCompletedAt`, and `refreshAct` treats an Act with a final as having a boss that's beaten by playing its last part.
+2. Act 2 has a final now, so it would have been treated like a card-tested Act. A placement pass would no longer complete Act 2 until its Field Mission was verified. That's a silent behaviour change, and a drills test proves more than guessable cards do.
+3. It's general code that runs any Act's `boss` (a timed typed fight with twists), and its tests use a sample Act, not Act 2. Deleting it would remove a working feature that a future Act could use. Only the Act 2 content that nothing else used was removed.
+
+</details>
