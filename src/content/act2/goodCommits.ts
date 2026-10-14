@@ -134,7 +134,7 @@ const commitFixTask = {
   plans: [
     {
       id: 'just-fix',
-      text: 'Stage only src/login.ts, commit it as fix: trim login emails.',
+      text: `Stage only src/login.ts, commit it as "${FIX_MESSAGE}".`,
       quality: 'strong',
       covers: ['goal', 'limits', 'check'],
       intents: ['stage only src/login.ts', 'commit the login fix alone'],
@@ -251,7 +251,7 @@ const commitDocsTask = {
   plans: [
     {
       id: 'just-docs',
-      text: 'Stage only README.md, commit it as docs: fix install command.',
+      text: `Stage only README.md, commit it as "${DOCS_MESSAGE}".`,
       quality: 'strong',
       covers: ['goal', 'limits', 'check'],
       intents: ['stage only README.md', 'commit the readme as docs'],
@@ -281,6 +281,7 @@ const commitDocsTask = {
       ],
       claim: 'Done: the README fix is committed.',
       lesson: 'The fix: type means the code had a bug. A README typo is a docs: change.',
+      slip: 'wrong-label',
     },
     {
       id: 'commit-docs',
@@ -369,7 +370,7 @@ const commitFeatureTask = {
   plans: [
     {
       id: 'name-both',
-      text: 'Stage theme.ts and app.ts by name, commit as feat: add dark mode.',
+      text: `Stage theme.ts and app.ts by name, commit as "${FEAT_MESSAGE}".`,
       quality: 'strong',
       covers: ['goal', 'limits', 'check'],
       intents: ['stage theme.ts and app.ts', 'commit dark mode by name'],
@@ -485,7 +486,7 @@ const commitBumpTask = {
   plans: [
     {
       id: 'am-bump',
-      text: 'Check nothing else is loose, then commit -am as chore: bump version.',
+      text: `Check git status, then commit -am "${CHORE_MESSAGE}".`,
       quality: 'strong',
       covers: ['goal', 'limits', 'check'],
       intents: ['check git status then commit -am', 'commit -am the bump'],
@@ -499,7 +500,7 @@ const commitBumpTask = {
     },
     {
       id: 'one-file',
-      text: 'Commit package.json as chore: bump version.',
+      text: `Commit package.json as "${CHORE_MESSAGE}".`,
       quality: 'okay',
       covers: ['goal'],
       intents: ['commit package.json', 'commit the package file'],
@@ -520,6 +521,7 @@ const commitBumpTask = {
       script: [{ do: 'run', line: 'git commit -am "bump"' }],
       claim: 'Done: bump committed.',
       lesson: '-am was right here, but "bump" has no type. A changelog cannot sort it.',
+      slip: 'wrong-label',
     },
   ],
   fixes: [

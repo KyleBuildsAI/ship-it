@@ -37,6 +37,8 @@ export const SLIPS = [
   'big-hammer',
   'invented-fact',
   'moved-goalposts',
+  // Appended, never inserted: saves store slips by name, and older names must stay valid.
+  'wrong-label',
 ] as const;
 export type Slip = (typeof SLIPS)[number];
 

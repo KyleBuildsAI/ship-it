@@ -155,6 +155,7 @@ Speed (`game/agent/pace.ts`):
 | `big-hammer`: reinstall everything, kill every node | 1.4, 1.6, boss |
 | `invented-fact`: a lookalike or made-up package | 1.5 |
 | `moved-goalposts`: changed the goal (another port) instead of fixing it | 1.6 |
+| `wrong-label`: a commit message with no type, or the wrong one | 2.3 |
 
 ### 1.3 One step, screen by screen
 
@@ -807,7 +808,8 @@ They live in `src/game/world/machine/` and read `MachineQueries`, which gains `l
 export const ANATOMY = ['goal', 'place', 'limits', 'check'] as const;
 export type AnatomyPart = (typeof ANATOMY)[number];
 export const SLIPS = ['wrong-place', 'overclaim', 'too-broad', 'wrong-verb', 'leak',
-  'stale-terminal', 'shell-mixup', 'big-hammer', 'invented-fact', 'moved-goalposts'] as const;
+  'stale-terminal', 'shell-mixup', 'big-hammer', 'invented-fact', 'moved-goalposts',
+  'wrong-label'] as const;
 
 /** A PowerShell line Otto types. It is code, so it doesn't count toward the screen-word limit. */
 const CommandLineSchema = z.string().trim().min(1).max(200);

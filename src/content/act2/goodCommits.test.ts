@@ -183,6 +183,27 @@ describe('Good Commits, directed', () => {
       'Seals 5 files into a new commit: "fix: trim spaces from login emails"',
     ]);
   });
+
+  it('quotes on each card exactly the message Otto then commits', () => {
+    // A mission about reading commit messages can't let a card promise one and Otto type another.
+    const quoted = /"([a-z]+: [^"]+)"/;
+    for (const step of mission.steps) {
+      for (const card of [...(step.agent?.plans ?? []), ...(step.agent?.fixes ?? [])]) {
+        const message = quoted.exec(card.text)?.[1];
+        if (message === undefined) continue;
+        const lines = card.script.map((action) => ('line' in action ? action.line : ''));
+        expect(lines, card.id).toContainEqual(expect.stringContaining(`"${message}"`));
+      }
+    }
+  });
+
+  it('gives every card that is not strong a slip, so the Done screen counts it', () => {
+    for (const step of mission.steps) {
+      for (const card of step.agent?.plans ?? []) {
+        if (card.quality !== 'strong') expect(card.slip, card.id).toBeDefined();
+      }
+    }
+  });
 });
 
 /*
