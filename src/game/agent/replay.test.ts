@@ -3,6 +3,7 @@ import { repo, windows } from '../../engine/fixtures';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { snapshotMachine } from '../../engine/machine/snapshot';
+import { saveWorkbench } from '../../engine/workbench';
 import { DriverError } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
 import {
@@ -21,6 +22,7 @@ import {
   playAction,
   playContent,
   replay,
+  restoredLog,
   sceneLog,
   startLog,
   withEntry,
@@ -114,6 +116,17 @@ describe('replay', () => {
     }
     expect(stateOf(replay(log, testDeps()).shell)).toEqual(stateOf(live));
     expect(stateOf(live).commits).toHaveLength(2);
+  });
+
+  it('starts a log from a saved Workbench, commit ids and all, for a resumed mission', () => {
+    const live = createSandbox(repo().commit('init', { 'app.ts': 'v1\n' }).toSpec(), testDeps());
+    const log = withEntry(restoredLog(saveWorkbench(live)), {
+      kind: 'action',
+      action: { do: 'run', line: 'git rm app.ts' },
+    });
+    const { shell } = replay(log, testDeps());
+    expect(shell.ws.repo?.headCommit()?.id).toBe(live.repo?.headCommit()?.id);
+    expect(gitQueries(shell.ws).stagedPaths()).toEqual(['app.ts']);
   });
 
   it('refuses a log where a line comes while a question is still open', () => {
@@ -226,7 +239,7 @@ describe('dryRun', () => {
     expect(dryRun(addedA, addB, { guards: [untracked] }, testDeps()).harmful).toBe(true);
   });
 
-  it('tries a line in an Act 2 sandbox too, where no laptop can change', () => {
+  it('tries a line in an Act 2 sandbox too, and says what moves in the Git World', () => {
     const act2 = repo().commit('init', { 'app.ts': 'v1\n' }).toSpec();
     const guard: Predicate = { kind: 'workingFile', path: 'app.ts' };
     const dry = dryRun(
@@ -235,8 +248,22 @@ describe('dryRun', () => {
       { guards: [guard] },
       testDeps(),
     );
-    expect(dry.changes).toEqual([]);
+    expect(dry.changes).toEqual([
+      { kind: 'dock', path: 'app.ts', how: 'removed' },
+      { kind: 'workbench', path: 'app.ts', how: 'deleted', unsaved: false },
+    ]);
     expect(dry.broken).toEqual(['app.ts exists']);
+  });
+
+  it("lists a laptop's file once, from the drive, not again as a Workbench change", () => {
+    const laptop = windows().session().init().cd('Users/kyle/quillwork/app').toSpec();
+    const made = dryRun(
+      startLog(laptop),
+      { do: 'write', path: 'Users/kyle/quillwork/app/notes.md', content: 'x\n' },
+      { guards: [] },
+      testDeps(),
+    );
+    expect(made.changes.map((change) => change.kind)).toEqual(['created']);
   });
 });
 

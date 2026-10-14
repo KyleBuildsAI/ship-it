@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
+import { diffGitSnapshots, snapshotGit } from '../../engine/git/snapshot';
 import { snapshotMachine } from '../../engine/machine/snapshot';
 import { drive } from '../../engine/shell/driver';
 import { replay, type SandboxLog } from '../../game/agent/replay';
@@ -65,6 +66,8 @@ export interface DirectedSpec {
   /**
    * What a fix does after a start card failed: `step > '<start card> > <fix card>'`. A fix
    * whose line fails unplanned ends at 'direct': Otto stops instead of claiming success.
+   * After a start card whose harmful line Kyle denied, the key reads
+   * `'<start card> (denied) > <card>'`, because denying left a different state to fix.
    */
   readonly fixes: Readonly<Record<string, Readonly<Record<string, Ending>>>>;
   /**
@@ -78,7 +81,8 @@ export interface DirectedSpec {
    * finds it harmful: `<step> > <cards played> > <line>`. Pinned, so a guard or a setup
    * that drifts changes the answer Kyle is graded on and fails here. The cards are part
    * of the key because one line can be safe or harmful depending on what ran before it:
-   * a lossy edit is harmful with no backup and safe beside one.
+   * a lossy edit is harmful with no backup and safe beside one. An earlier card in which
+   * Kyle denied a harmful line is named "card (denied)", as in `fixes`.
    */
   readonly gates: Readonly<Record<string, boolean>>;
 }
@@ -99,6 +103,12 @@ function endingFor(result: CardResult | undefined, policy: GatePolicy): Ending |
 /** One way through a step: the cards picked in order, and where they left things. */
 interface Path {
   readonly cards: readonly string[];
+  /**
+   * The cards as the spec's tables name them: a card in which Kyle denied a harmful line
+   * reads "card (denied)". Allowed or denied, the same cards can leave the step in two
+   * different states, and each needs its own row.
+   */
+  readonly labels: readonly string[];
   readonly policy: GatePolicy;
   readonly played: CardPlayed;
   /**
@@ -110,7 +120,18 @@ interface Path {
   readonly wrecked: boolean;
 }
 
+/**
+ * How the spec's tables name a path: the cards before the last as labelled (a denied one
+ * reads "card (denied)"), then the last card's id, since a table row is about that card.
+ */
+function routeOf(path: Path): string {
+  return [...path.labels.slice(0, -1), ...path.cards.slice(-1)].join(' > ');
+}
+
 const passes = (step: MissionStep, log: SandboxLog) => stepPasses(step, queriesOf(log));
+
+/** Otto stopped and Kyle is back at the cards: after a deny with no plan B, or a failure. */
+const endedAtCards = (path: Path) => path.played.state.stage.at === 'direct';
 
 function trueOf(step: MissionStep, log: SandboxLog): string {
   const [only] = trueChecks(step, log);
@@ -141,16 +162,27 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
       policy: GatePolicy,
     ) => {
       const cards = before?.cards ?? [];
-      for (const plan of offeredPlans(from.state, step)) {
+      const labels = before?.labels ?? [];
+      for (const plan of offeredPlans(from.state, step, queriesOf(from.log))) {
         const played = playCard(mission, step, from, plan.id, policy);
-        const wrecked =
-          (before?.wrecked ?? false) ||
-          (policy === 'allow-all' && played.gates.some((gate) => gate.harmful));
-        const path = { cards: [...cards, plan.id], policy, played, wrecked };
+        const harmed = played.gates.some((gate) => gate.harmful);
+        const wrecked = (before?.wrecked ?? false) || (policy === 'allow-all' && harmed);
+        const label = policy === 'deny-harmful' && harmed ? `${plan.id} (denied)` : plan.id;
+        const path = {
+          cards: [...cards, plan.id],
+          labels: [...labels, label],
+          policy,
+          played,
+          wrecked,
+        };
         paths.push(path);
-        if (cards.length >= 2 || played.state.stage.at !== 'check') continue;
-        if (passes(step, played.log)) continue;
-        walk(path, fixRoundAfter(step, played), policy);
+        if (cards.length >= 2) continue;
+        // Back at the cards after a deny or a failure, Kyle is already in a fix round: that
+        // round is walked too, so a right call that leaves no way on shows up here.
+        if (played.state.stage.at === 'direct') walk(path, played, policy);
+        else if (played.state.stage.at === 'check' && !passes(step, played.log)) {
+          walk(path, fixRoundAfter(step, played), policy);
+        }
       }
     };
     for (const policy of POLICIES) walk(null, { log: start, state: beginAgentStep(step) }, policy);
@@ -177,16 +209,22 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
           root === null
             ? { log: start, state: beginAgentStep(step) }
             : fixRoundAfter(step, root.played);
-        for (const plan of offeredPlans(begin.state, step)) {
+        for (const plan of offeredPlans(begin.state, step, queriesOf(begin.log))) {
           const whole = playCard(mission, step, begin, plan.id, policy);
           for (let stopAt = 0; stopAt < whole.driven; stopAt++) {
             const stopped = playCard(mission, step, begin, plan.id, policy, stopAt);
             const cards = [...(root?.cards ?? []), `${plan.id} (Stop after ${String(stopAt)})`];
             const wrecked = root?.wrecked ?? false;
-            stops.push({ cards, policy, played: stopped, wrecked });
-            for (const next of offeredPlans(stopped.state, step)) {
+            stops.push({ cards, labels: cards, policy, played: stopped, wrecked });
+            for (const next of offeredPlans(stopped.state, step, queriesOf(stopped.log))) {
               const played = playCard(mission, step, stopped, next.id, policy);
-              stops.push({ cards: [...cards, next.id], policy, played, wrecked });
+              stops.push({
+                cards: [...cards, next.id],
+                labels: [...cards, next.id],
+                policy,
+                played,
+                wrecked,
+              });
             }
           }
         }
@@ -228,7 +266,7 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
 
       it('fixes the failed cards the way the spec describes', () => {
         for (const [route, want] of Object.entries(spec.fixes[step.id] ?? {})) {
-          const found = paths.filter((path) => path.cards.join(' > ') === route);
+          const found = paths.filter((path) => routeOf(path) === route);
           if (found.length === 0) throw new Error(`No path ${route}`);
           for (const path of found) {
             if (want === 'direct') {
@@ -275,8 +313,10 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         );
         for (const path of paths.filter(({ cards }) => cards.length <= 2)) {
           const before = byCards.get(`${path.policy}: ${path.cards.slice(0, -1).join()}`);
-          // On a wrecked laptop, a card's lines can fail because their folder is gone.
-          const strict = before?.wrecked !== true;
+          // On a wrecked laptop, a card's lines can fail because their folder is gone. After
+          // a deny or a Stop, a fix written for a failed check can meet a laptop where what
+          // it restores was never made: Otto stops at that line, and the way-on test holds.
+          const strict = before === undefined || (!before.wrecked && !endedAtCards(before));
           for (const ran of path.played.lines) {
             const where = `${path.cards.join(' > ')}: ${ran.line}\n${ran.output}`;
             expect(ran.output, where).not.toMatch(UNSUPPORTED);
@@ -309,11 +349,39 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         }
       });
 
+      it('leaves a way on after every deny or Stop that did no harm', () => {
+        // Rewind lives on the result screen, which a step back at the cards never reaches,
+        // so a fix round with no passing card would leave Kyle stuck for making the right call.
+        for (const path of paths.filter(({ cards }) => cards.length === 1)) {
+          if (path.wrecked || path.played.state.stage.at !== 'direct') continue;
+          const [card = ''] = path.cards;
+          const wayOn = paths.some(
+            (other) =>
+              other.policy === path.policy &&
+              other.cards.length === 2 &&
+              other.cards[0] === card &&
+              other.played.state.stage.at === 'check' &&
+              passes(step, other.played.log),
+          );
+          expect(wayOn, `${card} (${path.policy})`).toBe(true);
+        }
+      });
+
+      it('never offers a fix whose own lines do harm', () => {
+        // A fix is Kyle's way out, so one that pauses on a harmful line is a trap.
+        const fixIds = new Set(task.fixes.map((fix) => fix.id));
+        for (const path of paths) {
+          if (!fixIds.has(path.cards.at(-1) ?? '')) continue;
+          const harmful = path.played.gates.filter((gate) => gate.harmful).map((gate) => gate.line);
+          expect(harmful, `${path.cards.join(' > ')} (${path.policy})`).toEqual([]);
+        }
+      });
+
       it('pauses only where the pinned table says, with the harm it pins', () => {
         const seen: Record<string, boolean> = {};
         for (const path of paths.filter(({ cards }) => cards.length <= 2)) {
           for (const gate of path.played.gates) {
-            const key = `${step.id} > ${path.cards.join(' > ')} > ${gate.line}`;
+            const key = `${step.id} > ${routeOf(path)} > ${gate.line}`;
             // Both policies reach a gate the same way, so they must agree on its harm.
             if (key in seen) expect(gate.harmful, key).toBe(seen[key]);
             seen[key] = gate.harmful;
@@ -341,16 +409,40 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         }
       });
 
-      it('has looks that only look: no events, and the laptop unchanged', () => {
+      // Every other test here starts the step from the reference path. A step that passes
+      // another way can leave a different project behind, so each passing end is carried
+      // into the next step, whose hint card must still pass and have one true answer.
+      const next = mission.steps[index + 1];
+      if (next !== undefined) {
+        it('hands every passing end to the next step, whose hint card still passes', () => {
+          const passing = checked.filter((path) => passes(step, path.played.log));
+          expect(passing.length).toBeGreaterThan(0);
+          for (const path of passing) {
+            const where = `${path.cards.join(' > ')} (${path.policy}), then ${next.id}`;
+            const begun = { log: beginStep(path.played.log, next), state: beginAgentStep(next) };
+            const played = playCard(mission, next, begun, taskOf(next).hintPlan, 'allow-all');
+            expect(played.state.stage.at, where).toBe('check');
+            expect(passes(next, played.log), where).toBe(true);
+            expect(trueChecks(next, played.log), where).toHaveLength(1);
+            for (const predicted of played.predicts) {
+              expect(predicted.trueOptions, where).toHaveLength(1);
+            }
+          }
+        });
+      }
+
+      it('has looks that only look: no events, and nothing changed', () => {
         for (const path of checked) {
           for (const look of task.looks) {
             const { shell } = replay(path.played.log, testDeps());
+            // A laptop is compared whole; a git project by its three areas.
             const machine = shell.ws.machine;
-            if (machine === null) throw new Error('Act 1 plays on a laptop.');
-            const before = snapshotMachine(machine);
+            const before = machine === null ? null : snapshotMachine(machine);
+            const gitBefore = snapshotGit(shell.ws);
             const looked = drive(shell, { do: 'run', line: look.line });
             expect(looked.events, look.line).toEqual([]);
-            expect(snapshotMachine(machine), look.line).toEqual(before);
+            expect(diffGitSnapshots(gitBefore, snapshotGit(shell.ws)), look.line).toEqual([]);
+            if (machine !== null) expect(snapshotMachine(machine), look.line).toEqual(before);
           }
         }
       });

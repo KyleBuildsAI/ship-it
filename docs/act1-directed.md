@@ -145,8 +145,8 @@ Speed (`game/agent/pace.ts`):
 
 | Slip | Missions |
 |---|---|
-| `wrong-place`: ran where its terminal happened to stand | 1.1, 1.3, 1.5 |
-| `overclaim`: "done" after an error, without checking, or over what the printout showed | 1.1, 1.3, 1.4, 1.6 |
+| `wrong-place`: ran where its terminal happened to stand, or acted on the wrong file | 1.1, 1.3, 1.5, 2.2 |
+| `overclaim`: "done" after an error, without checking, or over what the printout showed | 1.1, 1.3, 1.4, 1.6, 2.2 |
 | `too-broad`: a wildcard, `-Recurse`, the parent folder, answering A | 1.2 |
 | `wrong-verb`: replace instead of append, move instead of copy | 1.2, 1.3 |
 | `leak`: printed or copied a secret, or asked for one in chat | 1.3 |
@@ -155,6 +155,7 @@ Speed (`game/agent/pace.ts`):
 | `big-hammer`: reinstall everything, kill every node | 1.4, 1.6, boss |
 | `invented-fact`: a lookalike or made-up package | 1.5 |
 | `moved-goalposts`: changed the goal (another port) instead of fixing it | 1.6 |
+| `wrong-label`: a commit message with no type, or the wrong one | 2.3 |
 
 ### 1.3 One step, screen by screen
 
@@ -807,7 +808,8 @@ They live in `src/game/world/machine/` and read `MachineQueries`, which gains `l
 export const ANATOMY = ['goal', 'place', 'limits', 'check'] as const;
 export type AnatomyPart = (typeof ANATOMY)[number];
 export const SLIPS = ['wrong-place', 'overclaim', 'too-broad', 'wrong-verb', 'leak',
-  'stale-terminal', 'shell-mixup', 'big-hammer', 'invented-fact', 'moved-goalposts'] as const;
+  'stale-terminal', 'shell-mixup', 'big-hammer', 'invented-fact', 'moved-goalposts',
+  'wrong-label'] as const;
 
 /** A PowerShell line Otto types. It is code, so it doesn't count toward the screen-word limit. */
 const CommandLineSchema = z.string().trim().min(1).max(200);
@@ -895,6 +897,8 @@ export const PlanSchema = z.strictObject({
   /** Why this direction worked or didn't. At most 25 words. */
   lesson: ScreenTextSchema,
   slip: z.enum(SLIPS).optional(),
+  /** A fix only: offered while this holds on the sandbox (e.g. there is a commit to undo). */
+  when: PredicateSchema.optional(),
 });
 
 const CheckOptionSchema = z.strictObject({
@@ -1486,7 +1490,7 @@ Drill example:
 | File | Proves |
 |---|---|
 | `src/content/act1/act1.test.ts` | The schema parses. `validateAct` and `validateCatalog([act1, act2])` return `[]`. 3-5 directed steps. 5-8 drills, all judgment drills, using at least 3 kinds. Limits of 30-60 s. The Question Round has strong, okay and weak candidates. No command line contains a secret value. |
-| `src/content/act1/agent.test.ts` (replaces `sims.test.ts`) | From each step's canonical start (the reference path of earlier steps, plus `before`), for every start plan, under allow-all and deny-harmful, and every plan → fix to depth 2: (1) every line runs with no "doesn't run … yet", "expressions yet" or "not recognized", unless marked `fails`; `fails` lines exit non-zero and the rest exit 0; every line that asks has an `answer`; (2) exactly one check option is true at every end state, and **every option is true at some end state** (no made-up distractors); (3) at least one start plan passes directly, and each step has a slip; (4) the step is not already passing on arrival; (5) looks emit zero events and leave the snapshot unchanged; (6) a pinned table of which gates are harmful, so a drifting guard fails; (7) every end state that misses has a fix that passes from it; (8) every `predict` has exactly one true outcome; (9) the reference path completes the mission in order. |
+| `src/content/act1/agent.test.ts` (replaces `sims.test.ts`) | From each step's canonical start (the reference path of earlier steps, plus `before`), for every start plan, under allow-all and deny-harmful, and every plan → fix to depth 2, including the cards Kyle meets after a deny leaves Otto waiting for directions: (1) every line runs with no "doesn't run … yet", "expressions yet" or "not recognized", unless marked `fails`; `fails` lines exit non-zero and the rest exit 0; every line that asks has an `answer`; (2) exactly one check option is true at every end state, and **every option is true at some end state** (no made-up distractors); (3) at least one start plan passes directly, and each step has a slip; (4) the step is not already passing on arrival; (5) looks emit zero events and leave the snapshot unchanged; (6) a pinned table of which gates are harmful, so a drifting guard fails; (7) every end state that misses has a fix that passes from it; (8) every `predict` has exactly one true outcome; (9) the reference path completes the mission in order; (10) every deny that leaves Otto waiting has a next card that passes; (11) every passing end of a step, not only the reference path's, is carried into the next step, whose hint card must still pass with one true check option. A card whose line fails after a deny (a restore with no backup made) is pinned as stopping Otto (`'direct'`), and a route or gate that ends differently per policy is pinned once per policy. |
 | `src/content/act1/drills.test.ts` | predict and diagnose: exactly one option true. fix: at least one passes and one fails. approve: harm matches a pinned table, and each mission has at least one allow and one deny answer. order and spot: the rules in §2.1. |
 | `src/content/act1/intent.test.ts` (B1) | Every card's own text matches its plan. A paraphrase corpus per plan matches. Vague text matches the weak plan. |
 | `src/content/act1/boss.test.ts`, `fieldMission.test.ts` | §3.7, §3.8 |

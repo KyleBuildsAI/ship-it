@@ -7,8 +7,8 @@ import {
   type FeedBeat,
   type FeedState,
 } from '../agent/feed';
-import type { MachineChange } from '../../engine/machine/snapshot';
 import { display } from '../../engine/machine/winPath';
+import type { SandboxChange } from '../agent/effects';
 import { advance, NORMAL_PACE, START, type Pace, type Playhead } from '../agent/pace';
 import type { SandboxLog } from '../agent/replay';
 import { EMPTY_RUN_LOG, logDenied, logReveals, type RunLog, type RunRow } from '../agent/runLog';
@@ -27,6 +27,7 @@ import {
   failedUnplanned,
   finishScript,
   nextAction,
+  offeredPlans,
   openFixRound,
   openGate,
   outcomeHolds,
@@ -41,7 +42,7 @@ import {
   type AgentStepState,
   type QueuedAction,
 } from '../missions/agentRunner';
-import type { AgentTask, ApprovalMode } from '../missions/agentSchema';
+import type { AgentTask, ApprovalMode, Plan } from '../missions/agentSchema';
 import { evaluate, explain, type CheckRow } from '../missions/predicates';
 import { MissionRunError } from '../missions/runner';
 import type { Mission, MissionStep } from '../missions/schema';
@@ -93,7 +94,7 @@ interface Playback {
    * After Kyle predicts, what the line will change, shown as a ghost before it runs. The
    * line waits until `heldMs` reaches the ghost's time at Otto's pace (ghostMs).
    */
-  ghost: { readonly changes: readonly MachineChange[]; heldMs: number } | null;
+  ghost: { readonly changes: readonly SandboxChange[]; heldMs: number } | null;
   /** The run log as far as the terminal has shown, the line being typed included. */
   runLog: RunLog;
 }
@@ -252,10 +253,26 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
   return { ...current, agent: beginAgentStep(step) };
 }
 
+/**
+ * The cards Kyle can pick now. A fix with a `when` shows only while it holds on the live
+ * sandbox, so a card that undoes "that commit" never shows when there's none to undo.
+ */
+export function cardsOnOffer(current: MissionActivity): readonly Plan[] {
+  const step = current.mission.steps[current.run.stepIndex];
+  if (current.agent === null || step === undefined) return [];
+  return offeredPlans(current.agent, step, currentQueries());
+}
+
+function onOffer(now: Live, planId: string): boolean {
+  return cardsOnOffer(now.current).some((plan) => plan.id === planId);
+}
+
 /** "Say it back": Otto repeats a card as "Plan: <card>. Go?" before running it. */
 export function repeatCard(planId: string): void {
   const now = live();
-  if (now?.agent.stage.at === 'direct') saveAgent(echoPlan(now.agent, now.step, planId));
+  if (now?.agent.stage.at === 'direct' && onOffer(now, planId)) {
+    saveAgent(echoPlan(now.agent, now.step, planId));
+  }
 }
 
 /** "Pick instead": back to the cards from Otto's repeat. */
@@ -272,7 +289,7 @@ export function pickCard(planId: string): void {
   const now = live();
   const stage = now?.agent.stage;
   const picking = stage?.at === 'direct' || (stage?.at === 'echo' && stage.planId === planId);
-  if (now === null || !picking) return;
+  if (now === null || !picking || !onOffer(now, planId)) return;
   // A new plan starts Otto's talk afresh: the last plan's words are about the last plan.
   ottoRun.update({ last: null });
   saveAgent(choosePlan(now.agent, now.step, planId));
@@ -413,6 +430,14 @@ function gateLine(action: QueuedAction): string {
 }
 
 /**
+ * A file path as Kyle reads it: a Windows path on the laptop, and on a git project the
+ * project path the Git World's crates already show.
+ */
+function shownPath(path: string): string {
+  return sandbox.get().shell.ws.machine === null ? path : display(path);
+}
+
+/**
  * The run log's words for an action Otto doesn't type: his file tool, or a terminal tab.
  * Null for a line or an answer, whose row shows what he typed.
  */
@@ -422,9 +447,9 @@ function untypedLabel(action: QueuedAction): string | null {
     case 'answer':
       return null;
     case 'write':
-      return `Wrote ${display(action.path)}`;
+      return `Wrote ${shownPath(action.path)}`;
     case 'edit':
-      return `Edited ${display(action.path)}`;
+      return `Edited ${shownPath(action.path)}`;
     case 'newTerminal':
       return 'Opened a new terminal';
     case 'useTerminal':
@@ -472,7 +497,7 @@ export function predict(optionId: string): void {
 }
 
 /** The ghost of the predicted line, while it shows: for the world's ghost tiles (A26). */
-export function predictionGhost(): readonly MachineChange[] {
+export function predictionGhost(): readonly SandboxChange[] {
   return live()?.playback.ghost?.changes ?? [];
 }
 

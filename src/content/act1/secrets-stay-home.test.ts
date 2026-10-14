@@ -81,6 +81,8 @@ describeDirectedMission(missionById('secrets-stay-home'), {
       'copy-key-file > remove-copy': { passed: true, check: 'home-only' },
       // Otto has seen the key: no card can make him forget it.
       'otto-reads-it > name-it': { passed: false, check: 'seen' },
+      // Denied, Otto never saw it, so naming the key passes.
+      'otto-reads-it (denied) > name-it': { passed: true, check: 'home-only' },
     },
   },
   // Allowed, Otto has read the key: only Rewind can help, and on a real machine, revoking it.
@@ -106,6 +108,14 @@ describeDirectedMission(missionById('secrets-stay-home'), {
     [`make-the-env > fill-the-template > start-over > ${WRITE_EXAMPLE}`]: false,
     'make-the-env > fill-the-template > start-over > Copy-Item .env.example .env': false,
     [`make-the-env > fill-the-template > start-over > ${EDIT_ENV}`]: false,
+    // Denied, the template was never filled, so copying it is safe again.
+    [`make-the-env > fill-the-template (denied) > copy-then-edit > ${COPY_TEMPLATE}`]: false,
+    [`make-the-env > fill-the-template (denied) > copy-then-edit > ${EDIT_ENV}`]: false,
+    'make-the-env > fill-the-template (denied) > copy-then-set > Copy-Item .env.example .env': false,
+    "make-the-env > fill-the-template (denied) > copy-then-set > Set-Content .env 'PORT=3000'": true,
+    [`make-the-env > fill-the-template (denied) > copy-then-set > ${EDIT_ENV}`]: false,
+    'make-the-env > fill-the-template (denied) > start-over > Copy-Item .env.example .env': false,
+    [`make-the-env > fill-the-template (denied) > start-over > ${EDIT_ENV}`]: false,
     // Step 2: only replacing .gitignore loses rules. Every append is safe.
     [`keep-it-out-of-git > append-and-show > ${APPEND_ENV_RULE}`]: false,
     'keep-it-out-of-git > replace-it > Set-Content .gitignore .env': true,
@@ -146,6 +156,14 @@ describeDirectedMission(missionById('secrets-stay-home'), {
     'the-api-key > copy-key-file > remove-copy > Remove-Item .\\quill-dev.txt': false,
     [`the-api-key > names-only > ${FULL_NAME_IN_TEMPLATE}`]: false,
     [`the-api-key > names-only > ${FULL_NAME_IN_ENV}`]: false,
+    // Denied, Otto never read the key, so the cards weigh as they do from the start.
+    [`the-api-key > otto-reads-it (denied) > copy-key-file > ${NAME_IN_ENV}`]: false,
+    [`the-api-key > otto-reads-it (denied) > copy-key-file > ${NAME_IN_TEMPLATE}`]: false,
+    [`the-api-key > otto-reads-it (denied) > copy-key-file > ${COPY_KEY}`]: true,
+    [`the-api-key > otto-reads-it (denied) > name-it > ${NAME_IN_ENV}`]: false,
+    [`the-api-key > otto-reads-it (denied) > name-it > ${NAME_IN_TEMPLATE}`]: false,
+    [`the-api-key > otto-reads-it (denied) > names-only > ${FULL_NAME_IN_ENV}`]: false,
+    [`the-api-key > otto-reads-it (denied) > names-only > ${FULL_NAME_IN_TEMPLATE}`]: false,
   },
 });
 

@@ -23,7 +23,7 @@ function heading(gate: Gate, action: QueuedAction): string {
 
 /**
  * An approval gate (docs/act1-directed.md section 1.3). Otto waits while Kyle reads the
- * line and what a dry run says it changes, worked out on a copy of the laptop, never
+ * line and what a dry run says it changes, worked out on a copy of the sandbox, never
  * written by an author. Allow and Deny look alike on purpose: the card's colors must not
  * hint which one is right. Both wait a moment before they take a click (useArmed), so a
  * double-click on one gate never decides the next.
@@ -57,7 +57,7 @@ export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction })
           ))}
         </ul>
       ) : (
-        <p className="play-panel__muted">The laptop shows no change, but Otto asked first.</p>
+        <p className="play-panel__muted">The dry run shows no change, but Otto asked first.</p>
       )}
       <div className="play-panel__actions">
         <button

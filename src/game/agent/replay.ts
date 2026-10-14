@@ -1,6 +1,7 @@
 import type { FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
-import { diffSnapshots, snapshotMachine, type MachineChange } from '../../engine/machine/snapshot';
+import { diffGitSnapshots, snapshotGit } from '../../engine/git/snapshot';
+import { diffSnapshots, snapshotMachine } from '../../engine/machine/snapshot';
 import {
   drive,
   type ConfirmLetter,
@@ -8,9 +9,11 @@ import {
   type DriverStep,
 } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
+import { loadWorkbench, type WorkbenchData } from '../../engine/workbench';
 import type { EngineEvent, Workspace } from '../../engine/workspace';
 import { describe, evaluate, type Predicate, type SandboxQueries } from '../missions/predicates';
 import { applySteps, createSandbox, DISPLAY_ROOT, sandboxQueries } from '../missions/sandbox';
+import type { SandboxChange } from './effects';
 import { transcriptEntry, transcriptQueries, type TranscriptEntry } from './transcript';
 
 /*
@@ -50,6 +53,12 @@ export type LogEntry =
 
 export interface SandboxLog {
   readonly setup: readonly FixtureStep[];
+  /**
+   * A saved Workbench the log starts from instead of its setup: a directed git mission
+   * resumed from the save, whose sandbox no setup rebuilds. Its commit ids come back as
+   * they were, so a dry run on it sees the same history the live sandbox has.
+   */
+  readonly restore?: WorkbenchData;
   readonly entries: readonly LogEntry[];
 }
 
@@ -63,7 +72,12 @@ export function startLog(
 
 /** The same log with one more entry. A log never changes, so one kept earlier is a checkpoint. */
 export function withEntry(log: SandboxLog, entry: LogEntry): SandboxLog {
-  return { setup: log.setup, entries: [...log.entries, entry] };
+  return { ...log, entries: [...log.entries, entry] };
+}
+
+/** A log that starts from a saved Workbench, as a resumed Act 2 mission does. */
+export function restoredLog(saved: WorkbenchData): SandboxLog {
+  return { setup: [], restore: saved, entries: [] };
 }
 
 /**
@@ -151,7 +165,9 @@ export interface Replay {
  * driver refuses a line while a question is open, and an answer before its question.
  */
 export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
-  const shell = new Shell(createSandbox(log.setup, deps), DISPLAY_ROOT);
+  const ws =
+    log.restore === undefined ? createSandbox(log.setup, deps) : loadWorkbench(log.restore, deps);
+  const shell = new Shell(ws, DISPLAY_ROOT);
   const transcript: TranscriptEntry[] = [];
   for (const entry of log.entries) {
     if (entry.kind === 'steps') applySteps(shell.ws, entry.steps);
@@ -165,8 +181,11 @@ export function replay(log: SandboxLog, deps: RepositoryDeps): Replay {
 export interface DryRun {
   /** What the terminal showed, as if it had run for real. */
   readonly step: DriverStep;
-  /** What changed on the laptop, by name only: the effects a gate lists. */
-  readonly changes: readonly MachineChange[];
+  /**
+   * What changed, by name only: the effects a gate lists. On a laptop, its files, folders,
+   * variables and terminals; in any sandbox with a project, git's three areas too.
+   */
+  readonly changes: readonly SandboxChange[];
   /** Questions about the scratch copy as the action left it, transcript included. */
   readonly queries: SandboxQueries;
   /** The guards the action broke, as the checklist words them. */
@@ -271,13 +290,19 @@ function guardParts(guard: Predicate): Predicate[] {
 }
 
 /**
- * Snapshots the laptop now, and returns how to ask what changed since. The action's own
- * events say which items moved where, which two snapshots alone can't tell. An Act 2
- * sandbox has no laptop, so nothing on one can change.
+ * Snapshots the sandbox now, and returns how to ask what changed since. On a laptop, the
+ * action's own events say which items moved where, which two snapshots alone can't tell.
+ * Git's side is snapshotted everywhere: on a laptop without its files, which the
+ * machine's snapshot already compares, so one change is never listed twice.
  */
-function watchChanges(ws: Workspace): (events: readonly EngineEvent[]) => MachineChange[] {
+function watchChanges(ws: Workspace): (events: readonly EngineEvent[]) => SandboxChange[] {
   const machine = ws.machine;
-  if (machine === null) return () => [];
-  const before = snapshotMachine(machine);
-  return (events) => diffSnapshots(before, snapshotMachine(machine), events);
+  const onLaptop = machine !== null;
+  const gitBefore = snapshotGit(ws, !onLaptop);
+  const machineBefore = onLaptop ? snapshotMachine(machine) : null;
+  return (events) => {
+    const git = diffGitSnapshots(gitBefore, snapshotGit(ws, !onLaptop));
+    if (machine === null || machineBefore === null) return git;
+    return [...diffSnapshots(machineBefore, snapshotMachine(machine), events), ...git];
+  };
 }

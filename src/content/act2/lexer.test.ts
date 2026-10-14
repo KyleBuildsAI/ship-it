@@ -5,29 +5,47 @@ import { tokenize } from '../../engine/shell/tokenize';
 /**
  * Act 2 still uses its own small tokenizer. Act 1 brings a fuller PowerShell lexer, and
  * one day Act 2 should move onto it. This proves that move is safe: every command line in
- * Act 2's played solutions lexes into exactly the same words either way.
+ * Act 2 (Otto's lines and looks in the directed missions, and the typed boss's solutions)
+ * lexes into exactly the same words either way.
  */
-const sources = import.meta.glob<string>(['./sims.test.ts', './drills.test.ts', './boss.test.ts'], {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
+const sources = import.meta.glob<string>(
+  [
+    './threeRooms.ts',
+    './readingHistory.ts',
+    './goodCommits.ts',
+    './ignoreList.ts',
+    './undoEverything.ts',
+    './boss.test.ts',
+  ],
+  { query: '?raw', import: 'default', eager: true },
+);
 
 const COMMAND = /^(git|echo|cat|type|ls|dir|cd|rm|mkdir|code|pwd)( |$)/;
 /** A TypeScript string in single or double quotes, with its \ escapes. */
 const STRING = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g;
 
-/** Every command line quoted in the tests' code (comment lines skipped). */
-function commandLines(source: string): string[] {
+/**
+ * A mission's `line:` value: Otto's command or a look. Mission files are full of prose that
+ * starts with "git" too (lessons, feedback), so only these strings count there.
+ */
+const LINE = /\bline: (?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/g;
+
+/** Every command line quoted in a file's code (comment lines skipped). */
+function commandLines(source: string, pattern: RegExp): string[] {
   return source
     .split('\n')
     .filter((text) => !/^\s*(\/\/|\/\*|\*)/.test(text))
-    .flatMap((text) => [...text.matchAll(STRING)])
+    .flatMap((text) => [...text.matchAll(pattern)])
     .map((match) => (match[1] ?? match[2] ?? '').replace(/\\(.)/g, '$1'))
     .filter((text) => COMMAND.test(text));
 }
 
-const corpus = [...new Set(Object.values(sources).flatMap(commandLines))];
+const linesIn = (path: string, source: string) =>
+  commandLines(source, path.endsWith('.test.ts') ? STRING : LINE);
+
+const corpus = [
+  ...new Set(Object.entries(sources).flatMap(([path, source]) => linesIn(path, source))),
+];
 
 /** Both lexers' output in Act 2's shape: words, and > or >>. */
 function viaLex(line: string): string[] {
@@ -48,12 +66,13 @@ function viaTokenize(line: string): string[] {
 }
 
 describe("Act 2's command lines under the Act 1 lexer", () => {
-  it('finds the solutions in all three files', () => {
-    expect(Object.keys(sources)).toHaveLength(3);
-    for (const source of Object.values(sources))
-      expect(commandLines(source).length).toBeGreaterThan(0);
+  it('finds command lines in every mission and the boss', () => {
+    expect(Object.keys(sources)).toHaveLength(6);
+    for (const [path, source] of Object.entries(sources))
+      expect(linesIn(path, source).length, path).toBeGreaterThan(0);
     expect(corpus.length).toBeGreaterThan(100);
-    expect(corpus).toContain('git commit -m "feat: add notes app"');
+    // A boss line: the boss stays typed while the missions become directed.
+    expect(corpus).toContain('git commit -m "feat: add search"');
     expect(corpus).toContain('echo "*.log" >> .gitignore');
   });
 

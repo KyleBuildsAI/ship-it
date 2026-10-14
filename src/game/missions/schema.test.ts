@@ -30,11 +30,16 @@ import {
   earlyActInput,
   sampleAct,
   sampleActInput,
+  sampleAgentTaskInput,
   sampleJudgmentDrillsInput,
   sampleMission,
   sampleMissionInput,
 } from './sample.test-mission';
+import type { AgentTaskInput } from './agentSchema';
 import { lessonActInput } from './sample.test-lesson';
+
+/** A card as content writes it. */
+type Plan = AgentTaskInput['plans'][number];
 
 /** The messages zod reports, so a test can check the right rule fired. */
 function problems(result: { success: boolean; error?: { issues: { message: string }[] } }) {
@@ -130,7 +135,7 @@ describe('PredicateSchema', () => {
   });
 
   it('rejects a regex that does not compile, when the mission loads', () => {
-    for (const kind of ['headMessage', 'allMessagesMatch', 'reflogContains']) {
+    for (const kind of ['headMessage', 'allMessagesMatch', 'reflogContains', 'headBeforeReflog']) {
       const result = PredicateSchema.safeParse({ kind, pattern: '(unclosed' });
       expect(result.success).toBe(false);
       expect(problems(result)[0]).toMatch(/^Invalid regex: /);
@@ -357,9 +362,26 @@ describe('directed missions', () => {
     ]);
   });
 
-  it('start on the laptop, where Otto works', () => {
+  it('work on the laptop or a git project, and only a laptop has terminal tabs', () => {
     const onGit = directed({ initialRepoState: sampleMissionInput.initialRepoState });
-    expect(problems(onGit)).toEqual(['Otto works on the laptop, so start with windows().']);
+    expect(problems(onGit)).toEqual([]);
+    const plan = first(sampleAgentTaskInput.plans);
+    const tabbed: Plan = { ...plan, script: [{ do: 'newTerminal' }, ...plan.script] };
+    const denyToTab: Plan = {
+      ...plan,
+      script: [{ do: 'run', line: 'cd ..', onDeny: [{ do: 'useTerminal', tab: 1 }] }],
+    };
+    const otherPlans = sampleAgentTaskInput.plans.slice(1);
+    const tabsMessage =
+      'Terminal tabs belong to a laptop: start with windows(), or keep Otto in one terminal.';
+    for (const card of [tabbed, denyToTab]) {
+      const agent = { ...sampleAgentTaskInput, plans: [card, ...otherPlans] };
+      const steps = [{ ...directedStep, agent }];
+      expect(
+        problems(directed({ initialRepoState: sampleMissionInput.initialRepoState, steps })),
+      ).toEqual([tabsMessage]);
+      expect(directed({ steps }).success).toBe(true);
+    }
   });
 
   it('have judgment drills, and typed missions have typed ones', () => {

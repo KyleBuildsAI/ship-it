@@ -3,13 +3,31 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { collectConsoleProblems } from './consoleProblems';
 
-async function run(page: Page, ...commands: string[]): Promise<void> {
-  const input = page.locator('.xterm-helper-textarea');
-  await input.focus();
-  for (const command of commands) {
-    await page.keyboard.insertText(command);
-    await page.keyboard.press('Enter');
-  }
+/**
+ * Mission 2.1's first step, directed: Kyle picks a card, allows Otto's git init at its
+ * gate, and confirms the check. Nothing is typed, and the terminal stays closed.
+ */
+async function makeTheRepository(page: Page): Promise<void> {
+  await expect(page.getByText('Step 1 of 3', { exact: true })).toBeVisible();
+  await page
+    .getByRole('list', { name: 'Request cards' })
+    .getByRole('button', { name: /Turn this folder into a git repository/ })
+    .click();
+  await page
+    .getByRole('group', { name: "Approve Otto's action" })
+    .getByRole('button', { name: 'Allow' })
+    .click();
+  await page
+    .getByRole('group', { name: "Check Otto's claim" })
+    .getByRole('button', { name: /A new repository/ })
+    .click();
+  await expect(page.getByText('Confirmed.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await page.getByRole('button', { name: 'Next step' }).click();
+  await expect(page.getByText('Step 2 of 3', { exact: true })).toBeVisible();
 }
 
 async function openAct2(page: Page): Promise<void> {
@@ -35,10 +53,7 @@ test('a mission step is graded by state and survives a reload', async ({ page })
   await openAct2(page);
   await missionRow(page, 'Three Rooms').getByRole('button', { name: 'Play' }).click();
   await page.getByRole('button', { name: 'Skip briefing' }).click();
-  await expect(page.getByText('Step 1 of 5')).toBeVisible();
-
-  await run(page, 'git init');
-  await expect(page.getByText('Step 2 of 5')).toBeVisible();
+  await makeTheRepository(page);
 
   // Closing the browser mid-mission loses nothing: the save is in IndexedDB.
   await page.reload();
@@ -47,8 +62,34 @@ test('a mission step is graded by state and survives a reload', async ({ page })
   await expect(missionRow(page, 'Three Rooms')).toContainText('In progress');
   // ...and Play picks it up at the step reached, on the repository git init made.
   await missionRow(page, 'Three Rooms').getByRole('button', { name: 'Play' }).click();
-  await expect(page.getByText('Step 2 of 5')).toBeVisible();
+  await expect(page.getByText('Step 2 of 3', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Skip briefing' })).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
+test("Act 2's placement test is answered by clicking, with the terminal closed", async ({
+  page,
+}) => {
+  test.slow();
+  const problems = collectConsoleProblems(page);
+  await page.goto('./');
+  await expect(page.getByLabel('Developer status')).toContainText('saved');
+
+  await openAct2(page);
+  await page
+    .getByRole('region', { name: 'Missions' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Placement test' })
+    .getByRole('button', { name: 'Take' })
+    .click();
+  await page.getByRole('button', { name: 'Start 1 of 12' }).click();
+  // Every drill it borrows is a judgment drill: Kyle picks an answer, nothing is typed.
+  await expect(page.getByRole('group', { name: 'Judgment drill' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Your answer' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
   expect(problems).toEqual([]);
 });
 
@@ -61,8 +102,7 @@ test('an exported save imports back after starting over', async ({ page }) => {
   await openAct2(page);
   await missionRow(page, 'Three Rooms').getByRole('button', { name: 'Play' }).click();
   await page.getByRole('button', { name: 'Skip briefing' }).click();
-  await run(page, 'git init');
-  await expect(page.getByText('Step 2 of 5')).toBeVisible();
+  await makeTheRepository(page);
 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const downloading = page.waitForEvent('download');
