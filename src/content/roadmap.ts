@@ -127,7 +127,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on SandCastles.',
     missions: [
       { title: 'Think Out Loud' },
       { title: 'Debug From Symptoms' },
@@ -135,6 +136,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Customers and Your Story' },
     ],
     boss: { title: 'The Mock Interview Loop' },
+    fieldMission: { title: 'Tell the SandCastles Story' },
   },
 ];
 
