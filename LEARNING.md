@@ -2215,3 +2215,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/157
 3. Act 8 added a validator rule that fails a placement test when one length rule picks the right option on more than half the cards. Act 1's right answer was the longest on all nine, so the new rule caught a weakness that was already there.
 
 </details>
+
+---
+
+## #158 feat: act 2 becomes directed: otto runs git, you plan and check
+
+https://github.com/KyleBuildsAI/ship-it/pull/158
+
+1. `git restore --source HEAD --staged --worktree app.ts` wipes a staged edit from the dock and the Workbench. Which line does the gate show, and why only one?
+2. After 2.5's "Throw away the wip commit" card is allowed, why does the "Undo wip but keep its changes staged" fix card disappear?
+3. Why does Reading History's strong restore of `src/tax.ts` no longer pause, while the same restore after a rewind does?
+
+<details><summary>Answers</summary>
+
+1. "Throws away the staged edits to app.ts". The version that was lost was on the dock, so the dock's `discarded` line says it. The Workbench line would repeat the same loss, so it just reads as a rewrite.
+2. Its `when` condition needs "wip" to be the newest commit. After the hard reset it isn't, and `reset --soft HEAD~1` would unseal a pushed commit instead.
+3. Normally the 0.8 version it replaces is still in the newest commit, so nothing is lost. After a rewind, HEAD~2 has no tax.ts, so the restore deletes the file. A delete always pauses, and a guard makes it harmful.
+
+</details>
