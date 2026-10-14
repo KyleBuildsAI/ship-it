@@ -585,6 +585,8 @@ Every file edit shows a diff. The briefing notes that real agents have the same 
 
 ---
 
+> **Shipped as lessons for now.** Missions 1.5 and 1.6 and the boss need npm, processes and ports, which the laptop engine doesn't simulate yet (milestones E, F and G). So they ship today as click-through lessons (`src/content/act1/dependenciesAreDeclared.ts`, `runningIsntWorking.ts` and `worksOnMyMachine.ts`, the boss as Act 1's timed final), built from the same principles, slips and real output as the designs below. When those milestones land, a directed version can replace its lesson under the same id.
+
 ### Mission 1.5: Dependencies Are Declared (`dependencies-are-declared`), approvals `destructive`
 
 **Principle.** A project lists what it needs in `package.json`, installs into its own `node_modules`, and is pinned by the lockfile. Install from the project folder, and read every package name before approving.
