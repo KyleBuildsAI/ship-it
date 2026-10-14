@@ -165,6 +165,7 @@ describe('Brief Your Real Agent', () => {
       'ports',
       'doc',
       'handoff',
+      'stage',
       'commit',
     ]);
     const steps = field.checklist.map((item) => item.text).join(' ');
@@ -183,7 +184,17 @@ describe('Brief Your Real Agent', () => {
     expect(words).toContain('Names only; values never leave .env.');
   });
 
-  it('passes a tracked file list with the brief and no .env, and fails one with .env', () => {
+  it('stages the brief by name, checks for .env first, and tests it in a fresh clone', () => {
+    const text = (id: string) => field.checklist.find((item) => item.id === id)?.text ?? '';
+    expect(text('stage')).toContain('git add CLAUDE.md');
+    expect(text('stage')).toContain('never git add . or git add -A');
+    expect(text('stage')).toMatch(/If \.env appears anywhere in it, stop/);
+    expect(text('handoff')).toContain('new, empty folder, never your working one');
+    expect(text('handoff')).toContain('ask before creating or overwriting any .env');
+    expect(text('doc')).toContain('not a full path');
+  });
+
+  it('passes a tracked file list with no .env, and fails one with .env', () => {
     const tracked = ['.env.example', '.gitignore', 'CLAUDE.md', 'package.json', 'src/index.ts'];
     expect(verifyPaste(check('no-secrets-tracked'), tracked.join('\n')).passed).toBe(true);
     const leaked = verifyPaste(check('no-secrets-tracked'), [...tracked, '.env'].join('\n'));
@@ -191,36 +202,52 @@ describe('Brief Your Real Agent', () => {
     expect(leaked.message).toContain('.env');
   });
 
-  it('passes a clean, pushed status, and fails one with the brief still uncommitted', () => {
-    const clean = [
-      'On branch main',
-      "Your branch is up to date with 'origin/main'.",
-      '',
-      'nothing to commit, working tree clean',
-    ].join('\n');
-    expect(verifyPaste(check('clean-tree'), clean).passed).toBe(true);
-    const dirty = [
-      'On branch main',
-      "Your branch is up to date with 'origin/main'.",
-      '',
-      'Untracked files:',
-      '  (use "git add <file>..." to include in what will be committed)',
-      '\tCLAUDE.md',
-      '',
-      'nothing added to commit but untracked files present (use "git add" to track)',
-    ].join('\n');
-    expect(verifyPaste(check('clean-tree'), dirty).passed).toBe(false);
+  it('needs the brief itself tracked, as CLAUDE.md or AGENTS.md', () => {
+    expect(verifyPaste(check('brief-tracked'), 'AGENTS.md\npackage.json').passed).toBe(true);
+    expect(verifyPaste(check('brief-tracked'), 'CLAUDE.md\npackage.json').passed).toBe(true);
+    const missing = verifyPaste(check('brief-tracked'), '.gitignore\npackage.json');
+    expect(missing).toMatchObject({ passed: false });
+    expect(missing.message).toContain('CLAUDE.md or AGENTS.md');
   });
 
-  it('judges only the newest commit: docs: passes, a vague message fails', () => {
+  it('looks only at the brief, so other unfinished work in the repo does not matter', () => {
+    const pushed = check('brief-pushed');
+    expect(pushed.command).toBe('git status -sb -- CLAUDE.md AGENTS.md');
+    expect(verifyPaste(pushed, '## main...origin/main').passed).toBe(true);
+    // The same command with the prompt line copied in passes the same way.
+    const withPrompt = 'PS C:\\repo> git status -sb -- CLAUDE.md AGENTS.md\n## main...origin/main';
+    expect(verifyPaste(pushed, withPrompt).passed).toBe(true);
+    expect(verifyPaste(pushed, '## main...origin/main\n?? CLAUDE.md').passed).toBe(false);
+  });
+
+  it('fails a brief committed but not pushed, or with no remote branch to push to', () => {
+    const pushed = check('brief-pushed');
+    const ahead = verifyPaste(pushed, '## main...origin/main [ahead 1]');
+    expect(ahead.passed).toBe(false);
+    expect(ahead.message).toContain('not pushed');
+    expect(verifyPaste(pushed, '## main').passed).toBe(false);
+  });
+
+  it('judges only the newest commit, and only a docs: one passes', () => {
     const older = ['b2c3d4e feat: add castle builder', 'c3d4e5f update stuff'];
     const docs = ['a1b2c3d (HEAD -> main, origin/main) docs: add environment setup for agents'];
     expect(verifyPaste(check('docs-commit'), [...docs, ...older].join('\n')).passed).toBe(true);
     const vague = ['a1b2c3d (HEAD -> main) added claude file', ...older];
     expect(verifyPaste(check('docs-commit'), vague.join('\n')).passed).toBe(false);
+    // A Conventional commit of another type is not the brief.
+    const feat = ['a1b2c3d (HEAD -> main) feat: add castle gate', ...older];
+    expect(verifyPaste(check('docs-commit'), feat.join('\n')).passed).toBe(false);
   });
 
-  it('completes the Field Mission only when all three checks have passed', () => {
+  it('does not pass an untouched repo: a clean tree and a Conventional history are not enough', () => {
+    // How Act 2's Field Mission leaves SandCastles, before any brief is written.
+    const files = ['.gitignore', 'package.json', 'src/index.ts'].join('\n');
+    expect(verifyPaste(check('brief-tracked'), files).passed).toBe(false);
+    const log = ['a1b2c3d (HEAD -> main) chore: ignore build output', 'b2c3d4e feat: add castle'];
+    expect(verifyPaste(check('docs-commit'), log.join('\n')).passed).toBe(false);
+  });
+
+  it('completes the Field Mission only when every check has passed', () => {
     const [first, ...rest] = field.verifications.map((entry) => entry.id);
     const one = recordFieldMission(createDefaultSave(NOW), act1, [first ?? ''], NOW);
     expect(one.acts['1']?.fieldMissionCompletedAt ?? null).toBeNull();
