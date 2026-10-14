@@ -411,7 +411,7 @@ const FieldMissionSchema = z
     checkUniqueIds(field.verifications, 'verifications', ctx);
   });
 
-const PlacementSchema = z.strictObject({
+const DrillPlacementSchema = z.strictObject({
   /** One line in the Act menu for players who may know this already. */
   pitch: z.string().min(1),
   /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
@@ -419,16 +419,57 @@ const PlacementSchema = z.strictObject({
   passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
 });
 
+/**
+ * The fewest seconds a lesson placement gives each card. A lesson final's tests hold it to
+ * 40; a placement is a little brisker, since it's for players who know this already.
+ */
+export const LESSON_PLACEMENT_SECONDS_PER_CARD = 30;
+
+/**
+ * A lesson Act's placement test: cards borrowed from its lessons, answered by clicking on
+ * one shared clock, like a final. Lessons have no drills, so it names cards instead.
+ * validateAct checks every card exists in one of the Act's lessons (not the final, which
+ * is the boss) and that each of those lessons lends at least two.
+ */
+const LessonPlacementSchema = z
+  .strictObject({
+    pitch: z.string().min(1),
+    /** Card ids from this Act's lessons, in the order they're asked. */
+    cardIds: z.array(IdSchema).min(4).max(18),
+    /** One clock for every card, starting when the briefing ends. */
+    timeLimitSeconds: z.int().positive().max(1800),
+    passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
+  })
+  .superRefine((test, ctx) => {
+    const fewest = test.cardIds.length * LESSON_PLACEMENT_SECONDS_PER_CARD;
+    if (test.timeLimitSeconds < fewest) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['timeLimitSeconds'],
+        message: `Give each card at least ${String(LESSON_PLACEMENT_SECONDS_PER_CARD)} seconds: ${String(fewest)} for these.`,
+      });
+    }
+  });
+
+// Both sides are strict objects, and only one has drillIds and only one has cardIds, so a
+// placement test can only ever match one of them.
+const PlacementSchema = z.union([DrillPlacementSchema, LessonPlacementSchema]);
+
 /** DESIGN.md section 5: an Act has 3 to 6 missions. In early access it may have fewer so far. */
 const MIN_MISSIONS = 3;
 const MAX_MISSIONS = 6;
 
+/** Whether a placement test names lesson cards, rather than mission drills. */
+export function isLessonPlacement(test: PlacementTest): test is LessonPlacementTest {
+  return 'cardIds' in test;
+}
+
 /**
  * The rules for an Act taught by lessons, which ends in a final lesson instead of a boss
  * fight (DESIGN.md section 5, Lessons). The final stands in for the boss, so there's no
- * boss as well. There's no placement test either: a placement test borrows drills from
- * missions, and lessons have none, so a few lessons are played instead of tested out of.
- * A Field Mission is optional; when there is one, it's needed to complete the Act.
+ * boss as well. Its placement test, when it has one, borrows cards from its lessons
+ * (lessons have no drills to borrow). A placement test and a Field Mission are optional;
+ * a Field Mission, when there is one, is needed to complete the Act.
  */
 function checkLessonAct(
   act: {
@@ -436,9 +477,9 @@ function checkLessonAct(
     readonly missionIds: readonly string[];
     readonly upcoming: readonly string[];
     readonly finalLessonId?: string;
-    // Only whether these exist matters here, so their shapes aren't needed.
+    readonly placementTest?: PlacementTest;
+    // Only whether a boss exists matters here, so its shape isn't needed.
     readonly boss?: unknown;
-    readonly placementTest?: unknown;
   },
   problem: (path: string, message: string) => void,
 ): void {
@@ -448,10 +489,17 @@ function checkLessonAct(
   if (act.boss !== undefined) {
     problem('boss', 'The final lesson is this Act’s boss, so it has no boss fight as well.');
   }
-  if (act.placementTest !== undefined) {
-    problem('placementTest', 'A lesson Act has no placement test: lessons have no drills.');
+  const { placementTest } = act;
+  if (placementTest !== undefined && !isLessonPlacement(placementTest)) {
+    problem('placementTest', 'A lesson Act’s placement test names cards: use cardIds.');
   }
-  if (act.earlyAccess) return;
+  if (act.earlyAccess) {
+    // Testing out skips every lesson, and some of this Act's aren't built yet.
+    if (placementTest !== undefined) {
+      problem('placementTest', 'An early-access Act has no placement test yet.');
+    }
+    return;
+  }
   if (act.missionIds.length < MIN_MISSIONS) {
     problem('missionIds', 'A finished Act needs 3 to 6 missions. Set earlyAccess until then.');
   }
@@ -500,6 +548,9 @@ export const ActSchema = z
       checkLessonAct(act, problem);
       return;
     }
+    if (act.placementTest !== undefined && isLessonPlacement(act.placementTest)) {
+      problem('placementTest', 'Only a lesson Act’s placement test names cards: use drillIds.');
+    }
     if (act.earlyAccess) {
       // Testing out completes every mission, and some of this Act's aren't built yet.
       if (act.placementTest !== undefined) {
@@ -522,12 +573,20 @@ export const ActSchema = z
 export type Act = z.output<typeof ActSchema>;
 export type ActInput = z.input<typeof ActSchema>;
 export type PlacementTest = NonNullable<Act['placementTest']>;
+/** A placement test of drills from an Act's missions, like Act 2's. */
+export type DrillPlacementTest = z.output<typeof DrillPlacementSchema>;
+/** A placement test of cards from a lesson Act's lessons. */
+export type LessonPlacementTest = z.output<typeof LessonPlacementSchema>;
 export type Boss = NonNullable<Act['boss']>;
 export type BossTwist = Boss['twists'][number];
 export type FieldMission = NonNullable<Act['fieldMission']>;
-/** A finished Act, with every part there. Act 2 is one. */
+/** What a content file writes for a Field Mission, in any Act. */
+export type FieldMissionInput = NonNullable<ActInput['fieldMission']>;
+/** What a content file writes for a lesson Act's placement test. */
+export type LessonPlacementInput = z.input<typeof LessonPlacementSchema>;
+/** A finished Act with missions, with every part there. Act 2 is one. */
 export type CompleteAct = Act & {
-  placementTest: PlacementTest;
+  placementTest: DrillPlacementTest;
   boss: Boss;
   fieldMission: FieldMission;
 };
@@ -552,6 +611,24 @@ export function requirePlacement(act: Act): PlacementTest {
   return act.placementTest;
 }
 
+/** The placement test of an Act with missions: drills to play in the terminal. */
+export function requireDrillPlacement(act: Act): DrillPlacementTest {
+  const test = requirePlacement(act);
+  if (isLessonPlacement(test)) {
+    throw new ContentError(`Act ${String(act.act)}'s placement test is cards, not drills.`);
+  }
+  return test;
+}
+
+/** The placement test of a lesson Act: cards to answer by clicking. */
+export function requireLessonPlacement(act: Act): LessonPlacementTest {
+  const test = requirePlacement(act);
+  if (!isLessonPlacement(test)) {
+    throw new ContentError(`Act ${String(act.act)}'s placement test is drills, not cards.`);
+  }
+  return test;
+}
+
 export function requireBoss(act: Act): Boss {
   if (act.boss === undefined) throw missing(act, 'boss');
   return act.boss;
@@ -566,7 +643,7 @@ export function requireFieldMission(act: Act): FieldMission {
 export function requireComplete(act: Act): CompleteAct {
   return {
     ...act,
-    placementTest: requirePlacement(act),
+    placementTest: requireDrillPlacement(act),
     boss: requireBoss(act),
     fieldMission: requireFieldMission(act),
   };

@@ -14,6 +14,7 @@ import {
   countWords,
   directedProblems,
   isJudgmentDrill,
+  isLessonPlacement,
   MAX_SCREEN_WORDS,
   type Act,
   type Drill,
@@ -283,6 +284,44 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
 }
 
 /**
+ * Checks a lesson Act's placement test against its lessons. It names cards by id alone,
+ * so each must be exactly one card of a lesson in this Act. The final is the boss, and
+ * testing out doesn't skip it, so its cards aren't borrowed. Every other lesson lends at
+ * least two, so testing out of a lesson means answering something from it.
+ */
+function lessonPlacementIssues(
+  cardIds: readonly string[],
+  act: Act,
+  lessons: readonly Lesson[],
+): ContentIssue[] {
+  const issues: ContentIssue[] = [];
+  const report = (problem: string) => issues.push({ where: 'placement test', problem });
+  const taught = lessons.filter(
+    (lesson) => lesson.id !== act.finalLessonId && act.missionIds.includes(lesson.id),
+  );
+  for (const id of duplicates(cardIds)) report(`Card "${id}" is listed more than once.`);
+  const borrowed = new Map<string, number>();
+  for (const id of new Set(cardIds)) {
+    const owners = taught.filter((lesson) => lesson.cards.some((card) => card.id === id));
+    const [owner] = owners;
+    if (owner === undefined) {
+      report(`No lesson in this Act (the final aside) has a card "${id}".`);
+    } else if (owners.length > 1) {
+      report(`Card "${id}" is in more than one lesson; give each card its own id.`);
+    } else {
+      borrowed.set(owner.id, (borrowed.get(owner.id) ?? 0) + 1);
+    }
+  }
+  for (const lesson of taught) {
+    const count = borrowed.get(lesson.id) ?? 0;
+    if (count < 2) {
+      report(`Borrow at least 2 cards from lesson ${lesson.id}; it lends ${String(count)}.`);
+    }
+  }
+  return issues;
+}
+
+/**
  * Checks the links between an Act and its missions that no single schema can see:
  * every referenced mission and placement drill exists, ids don't collide, laptop checks
  * only grade setups that build a laptop, an early-access Act's upcoming list names only
@@ -366,12 +405,17 @@ export function validateAct(
     report(`drill ${id}`, 'Two drills in this Act share this id.');
   }
   const knownDrills = new Set(drillIds);
-  const placementIds = act.placementTest?.drillIds ?? [];
+  const { placementTest } = act;
+  const placementIds =
+    placementTest === undefined || isLessonPlacement(placementTest) ? [] : placementTest.drillIds;
   for (const id of duplicates(placementIds)) {
     report('placement test', `Drill "${id}" is listed more than once.`);
   }
   for (const id of placementIds) {
     if (!knownDrills.has(id)) report('placement test', `No drill in this Act has the id "${id}".`);
+  }
+  if (placementTest !== undefined && isLessonPlacement(placementTest)) {
+    issues.push(...lessonPlacementIssues(placementTest.cardIds, act, lessons));
   }
 
   const reportLaptop = (where: string, problem: string | null) => {

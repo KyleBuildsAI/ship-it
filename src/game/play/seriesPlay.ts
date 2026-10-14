@@ -9,7 +9,7 @@ import {
 } from '../missions/judgment';
 import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
-import { isJudgmentDrill, requirePlacement } from '../missions/schema';
+import { isJudgmentDrill, requireDrillPlacement } from '../missions/schema';
 import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
@@ -58,9 +58,12 @@ function begin(
   });
 }
 
-/** An Act's placement test: 85% or better tests out of the whole Act. */
+/**
+ * An Act's placement test of drills: 85% or better tests out of the whole Act. A lesson
+ * Act's placement test is cards instead, played as a lesson (lessonPlay.ts).
+ */
 export function startPlacement(act: number): void {
-  begin('placement', act, requirePlacement(getAct(act).act).drillIds);
+  begin('placement', act, requireDrillPlacement(getAct(act).act).drillIds);
 }
 
 /**
@@ -164,7 +167,7 @@ function finish(current: SeriesActivity, nowMs: number, graded: JudgmentGrade | 
   let placement = current.placement;
   if (done && current.kind === 'placement' && current.act !== null) {
     const { act, missions } = getAct(current.act);
-    placement = placementResult(results, requirePlacement(act).passPercent);
+    placement = placementResult(results, requireDrillPlacement(act).passPercent);
     const result = placement;
     saveProgressNow((save) => recordPlacement(save, act, missions, result, now));
   }
