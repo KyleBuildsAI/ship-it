@@ -51,6 +51,12 @@ export interface SetEnvOptions {
   readonly expand?: boolean;
 }
 
+/**
+ * Folders Windows keeps for administrators, canonical and lower-case. A program installed
+ * for every user lives here, so a terminal that isn't elevated can't remove it.
+ */
+const ADMIN_FOLDERS = ['program files', 'program files (x86)', 'windows'] as const;
+
 /** New process ids count up from here in steps of 4, as Windows hands them out. */
 const FIRST_PID = 9000;
 const PID_STEP = 4;
@@ -86,6 +92,16 @@ export class Machine {
       user: new EnvTable(options.saved?.user),
     };
     this.drive.makeDir(this.home);
+  }
+
+  /**
+   * Whether only an administrator may delete this item, like anything in C:\Program Files.
+   * Kyle's terminals are never elevated, so deletes there are refused, as on a real laptop.
+   * Setup code writes to the drive directly, so installing a program still works.
+   */
+  adminOnly(path: string): boolean {
+    const lower = path.toLowerCase();
+    return ADMIN_FOLDERS.some((folder) => lower === folder || lower.startsWith(`${folder}/`));
   }
 
   /** A fresh process id. */

@@ -210,7 +210,10 @@ function removeTree(
   const { ws, machine } = context;
   const { drive } = machine;
   const blocked = !force && (drive.isHidden(path) || drive.isReadOnly(path));
+  // Not even -Force gets past this one: only an elevated terminal could delete it.
+  const adminOnly = machine.adminOnly(path);
   if (drive.isFile(path)) {
+    if (adminOnly) return [failure(denied(path))];
     if (blocked) return [failure(ACCESS)];
     if (isHeld(context, path)) return [failure(heldMessage(path))];
     drive.deleteFile(path);
@@ -221,6 +224,8 @@ function removeTree(
   for (const entry of drive.listDir(path))
     lines.push(...removeTree(context, joinPath(path, entry.name), force));
   if (blocked) return [...lines, failure(ACCESS)];
+  // A full folder keeps the not-empty error below, after each refused file's own error.
+  if (adminOnly && drive.listDir(path).length === 0) return [...lines, failure(denied(path))];
   // -Force takes another way through .NET, with its own words (checked in 7.6.6).
   if (drive.listDir(path).length > 0)
     return [
@@ -237,6 +242,14 @@ function removeTree(
 
 function failure(message: string): OutputLine {
   return line(`Remove-Item: ${message}`, 'error');
+}
+
+/**
+ * .NET's words when Windows refuses a delete for lack of rights (UnauthorizedAccessException).
+ * Unlike the errors in ../fixtures, this one wasn't captured from the real laptop.
+ */
+function denied(path: string): string {
+  return `Access to the path '${display(path)}' is denied.`;
 }
 
 function notFound(path: string): OutputLine {
