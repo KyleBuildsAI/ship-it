@@ -6,13 +6,18 @@ import type { FieldMissionInput } from '../../game/missions/schema';
  * agent do the typing; the checklist teaches what to ask it for and what to check before
  * merging, which is the skill Act 4's lessons drill.
  *
+ * It is the first mission that pushes, so it starts with what a vibe coder trips on: no
+ * GitHub remote, a GitHub CLI that isn't signed in, and a .env that Act 2 untracked but
+ * that still sits in history, where a push would publish it. The history check comes
+ * before any push for that reason.
+ *
  * The game verifies by pasted PowerShell output, checked in the browser, so it needs no
- * GitHub token. A squash merge turns the PR into one commit on main titled after the PR,
- * so `git log --oneline -1` on an up-to-date main shows the PR's title, and the paste
- * checker can hold it to Conventional Commits. A plain merge commit ("Merge pull request
- * #12") is written by GitHub, so the checker ignores it and the check asks for a squash.
- * The description's sections and the linked issue are checked by Kyle on GitHub, as the
- * last checklist item says: no paste shows a PR's body.
+ * GitHub token. After a squash merge and a pull, main's newest commit is the PR, ending
+ * in its number, like "fix: round tide heights (#12)". A commit made straight on main has
+ * no number, and a plain merge ("Merge pull request #12") isn't a Conventional title, so
+ * both fail. The status check needs main, in step with origin/main, so a clean feature
+ * branch or an unpulled main can't pass. The description's sections and the linked issue
+ * are checked by Kyle on GitHub, or by the opt-in GitHub check for a public repo.
  */
 export const shipThroughAPullRequest = {
   id: 'ship-it-through-a-pull-request',
@@ -23,6 +28,18 @@ export const shipThroughAPullRequest = {
     'Let your own AI agent do the typing. Your job is the one you practised at Quillwork: ask for the right thing, then check it before you merge.',
   ],
   checklist: [
+    {
+      id: 'check-the-remote',
+      text: 'In PowerShell, in your SandCastles folder, run git remote -v. It should show origin on github.com. If it shows nothing, create an empty repo on github.com and ask your agent to add it as origin.',
+    },
+    {
+      id: 'check-the-cli',
+      text: 'Your agent opens issues and PRs with the GitHub CLI. If gh auth status says you are not logged in, run gh auth login yourself; it signs you in through your browser. Or open them yourself on github.com.',
+    },
+    {
+      id: 'check-the-history',
+      text: 'Before anything is pushed, do the first check below: git log --all --oneline -- .env. If it lists any commit, stop and don’t push. Change every key that file held, then ask for help cleaning the history.',
+    },
     {
       id: 'pick-a-change',
       text: 'Pick one small, real improvement for SandCastles: a fix, a README section, a tidy-up. Small enough to review in five minutes.',
@@ -45,17 +62,25 @@ export const shipThroughAPullRequest = {
     },
     {
       id: 'squash-and-pull',
-      text: 'Merge with "Squash and merge", so main gets one commit named after the PR. Check the issue closed itself. Then ask your agent to switch to main and pull.',
+      text: 'Click "Squash and merge". Before confirming, check the commit title GitHub fills in is the PR’s Conventional title ending in its number, like (#12): for a single commit it may use that commit’s message. Then ask your agent to switch to main and pull.',
     },
   ],
   verifications: [
     {
+      id: 'pr-history-no-env',
+      instruction:
+        'Before anything is pushed, run this and copy the command line too, since it prints nothing when .env was never committed on any branch. Act 2 untracked it, but old commits still hold it.',
+      command: 'git log --all --oneline -- .env',
+      parser: 'log-oneline',
+      check: { kind: 'noCommits', path: '.env' },
+    },
+    {
       id: 'pr-main-in-sync',
       instruction:
-        'In PowerShell, in your SandCastles folder, run git status and paste everything it prints. You should be on main, up to date, with nothing to commit.',
+        'After the merge, in your SandCastles folder, run git fetch, then git status, and paste what git status prints. It should say you are on main, up to date with origin/main, with nothing to commit.',
       command: 'git status',
       parser: 'status-long',
-      check: { kind: 'clean' },
+      check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' },
     },
     {
       id: 'pr-squashed-onto-main',
@@ -63,7 +88,7 @@ export const shipThroughAPullRequest = {
         'Run git log --oneline -1 and paste the line. It is your merged PR: its title, then its number, like "fix: round tide heights (#12)". A "Merge pull request" line means it was not squashed.',
       command: 'git log --oneline -1',
       parser: 'log-oneline',
-      check: { kind: 'conventionalRatio', min: 1, last: 1 },
+      check: { kind: 'squashMergedPr' },
     },
     {
       id: 'pr-shared-no-secrets',
@@ -74,4 +99,9 @@ export const shipThroughAPullRequest = {
       check: { kind: 'noTrackedSecrets' },
     },
   ],
+  github: {
+    instruction:
+      'Optional, if SandCastles is public on GitHub: let GitHub confirm the PR itself. It checks the title, the three sections, that the issue closed, and that main is the merge.',
+    sections: ['What changed', 'Why', 'How to test'],
+  },
 } satisfies FieldMissionInput;

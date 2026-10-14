@@ -6,10 +6,12 @@ import {
   requireLessonPlacement,
   LESSON_PLACEMENT_SECONDS_PER_CARD,
 } from '../../game/missions/schema';
+import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
 import { setCatalog } from '../../game/play/catalog';
 import { verifyPaste } from '../../game/play/fieldCheck';
-import { startFieldMission, submitFieldPaste } from '../../game/play/fieldPlay';
+import { checkFieldOnGitHub, startFieldMission, submitFieldPaste } from '../../game/play/fieldPlay';
+import type { GitHubGet } from '../../game/play/githubCheck';
 import {
   answerLesson,
   checkLessonOrder,
@@ -95,6 +97,34 @@ describe('Act 4 placement test', () => {
     expect(asked.filter((card) => card.kind === 'prompt').length).toBeGreaterThanOrEqual(3);
   });
 
+  it('can’t be passed by picking the longest option', () => {
+    // Eleven pick cards: if the right answer were usually the longest, that habit alone
+    // would score 85%. Four options each, so guessing doesn't get close either.
+    const cards = taught
+      .flatMap((entry) => entry.cards)
+      .filter((card) => placement.cardIds.includes(card.id));
+    let rightIsLongest = 0;
+    for (const card of cards) {
+      if (card.kind === 'order') continue;
+      expect(card.options.length, card.id).toBeGreaterThanOrEqual(4);
+      const right = countWords(card.options.find((option) => option.correct)?.text ?? '');
+      const wrong = card.options.filter((option) => !option.correct);
+      const longestWrong = Math.max(...wrong.map((option) => countWords(option.text)));
+      if (right > longestWrong) rightIsLongest++;
+    }
+    expect(rightIsLongest).toBeLessThanOrEqual(2);
+  });
+
+  it('tests sequence with an order card, and judgment over definitions', () => {
+    const cards = taught
+      .flatMap((entry) => entry.cards)
+      .filter((card) => placement.cardIds.includes(card.id));
+    expect(cards.filter((card) => card.kind === 'order').length).toBeGreaterThanOrEqual(1);
+    // These two only test reading an error line or recalling what MAJOR means.
+    expect(placement.cardIds).not.toContain('protected-main');
+    expect(placement.cardIds).not.toContain('major');
+  });
+
   it('gives each card at least the placement minimum, and less than the final does', () => {
     const perCard = placement.timeLimitSeconds / placement.cardIds.length;
     expect(perCard).toBeGreaterThanOrEqual(LESSON_PLACEMENT_SECONDS_PER_CARD);
@@ -123,6 +153,41 @@ describe('Act 4 Field Mission', () => {
     expect(asks.length).toBeGreaterThanOrEqual(3);
   });
 
+  it('starts with the remote, the GitHub CLI and the history check, before any push', () => {
+    const ids = field.checklist.map((item) => item.id);
+    expect(ids.slice(0, 3)).toEqual(['check-the-remote', 'check-the-cli', 'check-the-history']);
+    expect(ids.indexOf('check-the-history')).toBeLessThan(ids.indexOf('branch-and-commit'));
+    expect(field.verifications[0]?.id).toBe('pr-history-no-env');
+    const cli = field.checklist.find((item) => item.id === 'check-the-cli')?.text ?? '';
+    expect(cli).toContain('gh auth login yourself');
+  });
+
+  it('tells Kyle to check the squash title GitHub fills in', () => {
+    const squash = field.checklist.find((item) => item.id === 'squash-and-pull')?.text ?? '';
+    expect(squash).toMatch(/Before confirming, check the commit title/);
+  });
+
+  it('passes an empty history search for .env, but only with the command copied', () => {
+    const search = check('pr-history-no-env');
+    const ran = 'PS C:\\code\\SandCastles> git log --all --oneline -- .env\r\n';
+    expect(verifyPaste(search, ran).passed).toBe(true);
+    expect(verifyPaste(search, '').passed).toBe(false);
+    // Searching only the current branch can miss a commit on another one.
+    expect(verifyPaste(search, 'PS> git log --oneline -- .env').passed).toBe(false);
+  });
+
+  it('stops the push when .env is anywhere in history, and says what to do', () => {
+    const found = [
+      'PS> git log --all --oneline -- .env',
+      'e4f5a6b chore: stop tracking .env',
+      '1a2b3c4 feat: add the tide API client',
+    ].join('\n');
+    const verdict = verifyPaste(check('pr-history-no-env'), found);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('Don’t push');
+    expect(verdict.message).toContain('Change every key');
+  });
+
   it('passes a clean, up-to-date main and fails a branch with work left', () => {
     const pulled = [
       'On branch main',
@@ -143,6 +208,31 @@ describe('Act 4 Field Mission', () => {
     expect(verifyPaste(check('pr-main-in-sync'), unfinished).passed).toBe(false);
   });
 
+  it('fails a clean tree that is on a feature branch, or behind GitHub', () => {
+    const onBranch = [
+      'On branch fix/tide-heights',
+      "Your branch is up to date with 'origin/fix/tide-heights'.",
+      '',
+      'nothing to commit, working tree clean',
+    ].join('\n');
+    const branchVerdict = verifyPaste(check('pr-main-in-sync'), onBranch);
+    expect(branchVerdict.passed).toBe(false);
+    expect(branchVerdict.message).toContain('git switch main');
+    const notPulled = [
+      'On branch main',
+      "Your branch is behind 'origin/main' by 1 commit, and can be fast-forwarded.",
+      '  (use "git pull" to update your local branch)',
+      '',
+      'nothing to commit, working tree clean',
+    ].join('\n');
+    const behindVerdict = verifyPaste(check('pr-main-in-sync'), notPulled);
+    expect(behindVerdict.passed).toBe(false);
+    expect(behindVerdict.message).toContain('git pull');
+    // No upstream line: nothing shows main matches GitHub.
+    const unknown = 'On branch main\nnothing to commit, working tree clean\n';
+    expect(verifyPaste(check('pr-main-in-sync'), unknown).passed).toBe(false);
+  });
+
   it('passes a squash-merged PR title, and fails a merge commit or a vague title', () => {
     const squashed =
       'a1b2c3d (HEAD -> main, origin/main, origin/HEAD) fix: round tide heights (#12)';
@@ -151,6 +241,10 @@ describe('Act 4 Field Mission', () => {
     expect(verifyPaste(check('pr-squashed-onto-main'), merged).passed).toBe(false);
     const vague = 'c3d4e5f (HEAD -> main, origin/main) Update tides.ts (#12)';
     expect(verifyPaste(check('pr-squashed-onto-main'), vague).passed).toBe(false);
+  });
+
+  it('fails a Conventional commit with no PR number, like a direct commit to main', () => {
+    expect(verifyPaste(check('pr-squashed-onto-main'), 'a1b2c3d fix: x').passed).toBe(false);
   });
 
   it('fails a tracked .env, and allows .env.example', () => {
@@ -198,6 +292,9 @@ describe('playing Act 4’s new parts', () => {
     openTerminal();
     startFieldMission(act.act);
     expect(hud.get().terminalOpen).toBe(false);
+    expect(
+      submitFieldPaste('pr-history-no-env', 'PS> git log --all --oneline -- .env', NOW).passed,
+    ).toBe(true);
     const clean =
       "On branch main\nYour branch is up to date with 'origin/main'.\n\nnothing to commit, working tree clean\n";
     expect(submitFieldPaste('pr-main-in-sync', clean, NOW).passed).toBe(true);
@@ -208,5 +305,48 @@ describe('playing Act 4’s new parts', () => {
       true,
     );
     expect(save().acts['4']?.fieldMissionCompletedAt).toBe(NOW.toISOString());
+  });
+
+  it('asks for owner/repo before calling GitHub, and needs the mission open', async () => {
+    const never: GitHubGet = () => Promise.reject(new Error('should not be called'));
+    expect((await checkFieldOnGitHub('kyle-c/SandCastles', NOW, never)).message).toBe(
+      'No Field Mission is open.',
+    );
+    startFieldMission(act.act);
+    expect((await checkFieldOnGitHub('SandCastles', NOW, never)).message).toContain('owner/repo');
+  });
+
+  it('confirms the PR on GitHub when Kyle opts in, asking only api.github.com paths', async () => {
+    startFieldMission(act.act);
+    const asked: string[] = [];
+    const github: GitHubGet = (path) => {
+      asked.push(path);
+      if (path.includes('/pulls')) {
+        const body = '## What changed\nx\n## Why\ny\n## How to test\nz\n\nCloses #12';
+        return Promise.resolve({
+          status: 200,
+          body: [
+            {
+              number: 13,
+              title: 'fix: round tide heights',
+              body,
+              merged_at: '2026-10-12T09:00:00Z',
+              merge_commit_sha: 'abc123',
+            },
+          ],
+        });
+      }
+      if (path.endsWith('/issues/12'))
+        return Promise.resolve({ status: 200, body: { state: 'closed' } });
+      return Promise.resolve({ status: 200, body: { sha: 'abc123' } });
+    };
+    const verdict = await checkFieldOnGitHub('https://github.com/kyle-c/SandCastles', NOW, github);
+    expect(verdict.passed).toBe(true);
+    expect(asked.every((path) => path.startsWith('/repos/kyle-c/SandCastles/'))).toBe(true);
+    const saved = save().fieldMissions[field.id];
+    expect(saved?.githubRepo).toBe('kyle-c/SandCastles');
+    expect(saved?.githubVerifiedAt).toBe(NOW.toISOString());
+    // The opt-in check never finishes the mission by itself: the pastes do.
+    expect(save().acts['4']?.fieldMissionCompletedAt ?? null).toBeNull();
   });
 });
