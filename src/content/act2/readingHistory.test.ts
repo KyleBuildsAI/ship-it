@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
 import { describeChanges } from '../../game/agent/effects';
 import { dryRun, replay } from '../../game/agent/replay';
-import { beginAgentStep } from '../../game/missions/agentRunner';
+import { answerCheck, beginAgentStep, openFixRound } from '../../game/missions/agentRunner';
 import { evaluate } from '../../game/missions/predicates';
 import { MissionSchema, type MissionStep } from '../../game/missions/schema';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
-import { canonicalStart, playCard, queriesOf, type CardPlayed } from '../act1/play.test-helpers';
+import {
+  canonicalStart,
+  playCard,
+  queriesOf,
+  trueChecks,
+  type CardPlayed,
+} from '../act1/play.test-helpers';
 import { readingHistory } from './readingHistory';
 
 /*
@@ -55,7 +61,7 @@ describeDirectedMission(mission, {
       'blame-newest > show-then-restore': { passed: true, check: 'fixed' },
       // After the rewind, HEAD~2 is the first commit, which has no tax.ts, so git
       // restore removes it to match: the bad rate is gone, but so is the file.
-      'rewind > restore-before-tidy': { passed: false, check: 'still-bad' },
+      'rewind > restore-before-tidy': { passed: false, check: 'file-gone' },
     },
     'clear-dock': {
       'wrong-diff > unstage-checkout': { passed: true, check: 'empty-kept' },
@@ -84,9 +90,9 @@ describeDirectedMission(mission, {
     'restore-tax > rewind > git reset --hard HEAD~2': true,
     'restore-tax > blame-newest > rewind > git reset --hard HEAD~2': true,
     // After the rewind, HEAD~1 already holds 0.08, so blame-newest's restore changes
-    // nothing and never pauses; restoring from HEAD~2 removes tax.ts, which no guard covers.
-    'restore-tax > rewind > show-then-restore > git restore --source=HEAD~2 src/tax.ts': false,
-    'restore-tax > rewind > restore-before-tidy > git restore --source=HEAD~2 src/tax.ts': false,
+    // nothing and never pauses; restoring from HEAD~2 deletes tax.ts, which breaks a guard.
+    'restore-tax > rewind > show-then-restore > git restore --source=HEAD~2 src/tax.ts': true,
+    'restore-tax > rewind > restore-before-tidy > git restore --source=HEAD~2 src/tax.ts': true,
     'clear-dock > discard > git restore src/checkout.ts': true,
     'clear-dock > wrong-diff > discard > git restore src/checkout.ts': true,
     'commit-real-change > misread-diff > undo-debug-commit > git reset HEAD~1': false,
@@ -113,7 +119,15 @@ function playFromStart(index: number, planId: string): CardPlayed {
 }
 
 describe('Reading History, directed', () => {
-  it("names the harm of Otto's rewind in the Git World's words", () => {
+  it('names each slip for the miss the check catches', () => {
+    const slipOf = (index: number, planId: string) =>
+      stepAt(index).agent?.plans.find((plan) => plan.id === planId)?.slip;
+    // stage-all claims a commit that never happened; misread-diff commits the wrong file.
+    expect(slipOf(2, 'stage-all')).toBe('overclaim');
+    expect(slipOf(3, 'misread-diff')).toBe('wrong-place');
+  });
+
+  it("names the harm of Otto's rewind in the Git World's words, Priya's edit included", () => {
     const guards = stepAt(0).agent?.guards ?? [];
     const start = canonicalStart(mission, 0);
     const dry = dryRun(
@@ -123,10 +137,34 @@ describe('Reading History, directed', () => {
       testDeps(),
     );
     expect(dry.harmful).toBe(true);
-    expect([...dry.broken].sort()).toEqual(['Every commit stays', 'Your cart.ts edit survives']);
-    expect(describeChanges(dry.changes, (path) => path)[0]).toBe(
+    expect([...dry.broken].sort()).toEqual([
+      'Every commit stays',
+      "Priya's debug edit survives",
+      'Your cart.ts edit survives',
+    ]);
+    // Her edit lived only on the dock and in the file the rewind deletes, so the card says
+    // it is thrown away instead of folding it into the count on the last line.
+    expect(describeChanges(dry.changes, (path) => path).slice(0, 2)).toEqual([
       'Takes 2 commits off main, newest "feat: show order total at checkout"',
-    );
+      'Throws away the staged edits to src/checkout.ts',
+    ]);
+  });
+
+  it('after a rewind, says the strong restore deletes tax.ts, and predicts that', () => {
+    const rewound = playFromStart(0, 'rewind');
+    const step = stepAt(0);
+    const fixRound = {
+      log: rewound.log,
+      state: openFixRound(answerCheck(rewound.state, step, 'history-lost', queriesOf(rewound.log))),
+    };
+    const played = playCard(mission, step, fixRound, 'show-then-restore', 'allow-all');
+    expect(played.gates).toEqual([
+      { line: 'git restore --source=HEAD~2 src/tax.ts', harmful: true },
+    ]);
+    expect(played.predicts).toEqual([
+      { question: 'Before Otto runs it: what will tax.ts say?', trueOptions: ['gone'] },
+    ]);
+    expect(trueChecks(step, played.log)).toEqual(['file-gone']);
   });
 
   it('shows Otto misreading the log: his restore leaves the bad rate in place', () => {

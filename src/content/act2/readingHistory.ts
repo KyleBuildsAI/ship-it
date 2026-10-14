@@ -10,9 +10,9 @@ import type { JudgmentDrillInput, MissionInput } from '../../game/missions/schem
  * step is graded on what Otto's reading led him to do, and each check asks Kyle to test
  * Otto's answer against the real log with the look chips.
  *
- * Nothing here marks an answer right. Gates come from dry runs (reset --hard drops commits
- * and the cart edit; restore throws Priya's edit away), checks from git predicates, and
- * each drill's key from running its scene.
+ * Nothing here marks an answer right. Gates come from dry runs (reset --hard drops commits,
+ * the cart edit and Priya's staged one; restore throws Priya's edit away), checks from git
+ * predicates, and each drill's key from running its scene.
  */
 
 const README_V1 = '# Quillwork Cafe\n\nOnline ordering for the office cafe.\n';
@@ -60,6 +60,19 @@ const taxFixed: Predicate = {
   contains: 'TAX_RATE = 0.08',
   label: 'tax.ts has the 0.08 rate',
 };
+/** The semicolon keeps 'TAX_RATE = 0.08;' from matching: the bad rate, still on the Workbench. */
+const taxStillBad: Predicate = { kind: 'workingFile', path: TAX, contains: 'TAX_RATE = 0.8;' };
+/**
+ * Restoring from a commit older than tax.ts deletes it to match, as real git does. That
+ * happens after a rewind, when HEAD~2 is the first commit.
+ */
+const taxStays: Predicate = {
+  kind: 'workingFile',
+  path: TAX,
+  exists: true,
+  label: 'tax.ts stays on the Workbench',
+};
+const taxGone: Predicate = { kind: 'workingFile', path: TAX, exists: false };
 const cartEditSurvives: Predicate = {
   kind: 'workingFile',
   path: CART,
@@ -101,11 +114,15 @@ const workbenchLook = { id: 'diff', label: "What's unsaved?", line: 'git diff' }
 /**
  * Step 1: which commit changed TAX_RATE? The weak card blames the newest commit without
  * reading it, restores from just before that one, and gets the same bad rate back. The
- * okay card rewinds the whole project, which a dry run finds harmful: it drops two commits
- * and throws away the unsaved cart.ts edit.
+ * okay card rewinds the whole project, which a dry run finds harmful: it drops two commits,
+ * throws away the unsaved cart.ts edit, and deletes checkout.ts with Priya's staged edit.
+ * After that rewind, HEAD~2 is the first commit, which has no tax.ts, so restoring from it
+ * deletes the file: the taxStays guard makes that gate harmful, and the check has an
+ * answer for it.
  */
 const restoreTaxTask = {
-  note: 'Marco: "Totals are ten times too high since last week!"',
+  // 0.8 instead of 0.08 makes the tax ten times too high; the total only about 1.7 times.
+  note: 'Marco: "Sales tax is ten times too high since last week!"',
   plans: [
     {
       id: 'blame-newest',
@@ -129,21 +146,24 @@ const restoreTaxTask = {
       covers: ['goal', 'limits', 'check'],
       intents: ['find which commit changed tax_rate', 'restore tax.ts from before it'],
       script: [
-        { do: 'run', line: `git log --oneline -- ${TAX}`, say: 'Two commits touched tax.ts.' },
-        { do: 'run', line: 'git show HEAD~1', say: '"chore: tidy tax config" set 0.8.' },
+        // Otto says what he reads for, not what he finds: a fix round can play this card
+        // after a rewind, where the log holds one tax.ts commit and HEAD~1 is another.
+        {
+          do: 'run',
+          line: `git log --oneline -- ${TAX}`,
+          say: 'Listing the commits that touched tax.ts.',
+        },
+        { do: 'run', line: 'git show HEAD~1', say: 'Checking what HEAD~1 did to TAX_RATE.' },
         {
           do: 'run',
           line: `git restore --source=HEAD~2 ${TAX}`,
           predict: {
             question: 'Before Otto runs it: what will tax.ts say?',
-            // Complements, so exactly one holds wherever the line runs.
+            // tax.ts holds one rate or the other, or is gone: exactly one holds wherever it runs.
             options: [
               { id: 'good', text: 'TAX_RATE = 0.08', outcome: { state: taxFixed } },
-              {
-                id: 'bad',
-                text: 'Still TAX_RATE = 0.8',
-                outcome: { state: { kind: 'not', predicate: taxFixed } },
-              },
+              { id: 'bad', text: 'Still TAX_RATE = 0.8', outcome: { state: taxStillBad } },
+              { id: 'gone', text: 'tax.ts is deleted', outcome: { state: taxGone } },
             ],
           },
         },
@@ -164,7 +184,7 @@ const restoreTaxTask = {
       ],
       claim: 'Done: the tax rate is fixed.',
       lesson:
-        'reset --hard HEAD~2 dropped the checkout commit and threw away your cart.ts edit. One file needed one restore.',
+        "reset --hard HEAD~2 dropped two commits, your cart.ts edit, and checkout.ts with Priya's staged edit. One file needed one restore.",
       slip: 'big-hammer',
     },
   ],
@@ -183,7 +203,7 @@ const restoreTaxTask = {
   hintPlan: 'show-then-restore',
   check: {
     question: 'What is in src/tax.ts now?',
-    // Split by two questions: is the rate 0.08, and are all five commits still there?
+    // Split by the file (0.08, 0.8, or gone) and, for 0.08, whether all five commits stay.
     options: [
       {
         id: 'fixed',
@@ -194,9 +214,16 @@ const restoreTaxTask = {
       {
         id: 'still-bad',
         text: 'Still TAX_RATE = 0.8',
-        truth: { kind: 'not', predicate: taxFixed },
+        truth: taxStillBad,
         feedback:
           'git diff shows no change to tax.ts: Otto restored a version that was already bad.',
+      },
+      {
+        id: 'file-gone',
+        text: 'Nothing: src/tax.ts is deleted',
+        truth: taxGone,
+        feedback:
+          'git status lists src/tax.ts as deleted: the commit Otto restored from had no tax.ts.',
       },
       {
         id: 'history-lost',
@@ -206,7 +233,7 @@ const restoreTaxTask = {
       },
     ],
   },
-  guards: [cartEditSurvives, historyKept],
+  guards: [cartEditSurvives, priyaEditSurvives, taxStays, historyKept],
   looks: [
     vaultLook,
     { id: 'tax-log', label: 'Which commits changed tax.ts?', line: `git log --oneline -- ${TAX}` },
@@ -338,8 +365,10 @@ const clearDockTask = {
 
 /**
  * Step 3: commit the tax fix alone. The weak card stages everything and stops there, so
- * nothing reaches the Vault; a fix unstages the rest first. No card here commits more than
- * the tax fix from the start, so every card can still run in a fix round.
+ * nothing reaches the Vault, yet claims a commit. From the start no card commits more than
+ * the tax fix. After that weak card the dock holds all three files, so only the fix that
+ * unstages first passes; stage-tax and commit-tax seal all three, and the check says so.
+ * Otto's lines say what he reads for, not what he finds, so they stay true there too.
  */
 const commitFixTask = {
   plans: [
@@ -356,7 +385,8 @@ const commitFixTask = {
       claim: 'Done: the tax fix is committed.',
       lesson:
         'git add . loaded every edit, the debug line too, and nothing was committed. The log still ends at the old commit.',
-      slip: 'too-broad',
+      // The miss the check catches is the claimed commit that never happened.
+      slip: 'overclaim',
     },
     {
       id: 'stage-tax',
@@ -366,7 +396,11 @@ const commitFixTask = {
       intents: ['stage only src/tax.ts', 'commit the tax fix alone'],
       script: [
         { do: 'run', line: `git add ${TAX}` },
-        { do: 'run', line: 'git diff --staged', say: 'Only the TAX_RATE lines are staged.' },
+        {
+          do: 'run',
+          line: 'git diff --staged',
+          say: 'Reading the dock before the commit seals it.',
+        },
         {
           do: 'run',
           line: `git commit -m "${FIX_MESSAGE}"`,
@@ -385,7 +419,7 @@ const commitFixTask = {
       ],
       claim: 'Done: committed only the tax fix.',
       lesson:
-        'diff --staged showed only the tax lines on the dock, so the commit held just the fix.',
+        'A commit seals the whole dock. git diff --staged shows that dock first, so read it before committing.',
     },
     {
       id: 'commit-tax',
@@ -468,7 +502,8 @@ const commitFeatureTask = {
       claim: 'Done: the new feature is committed.',
       lesson:
         'File names alone told Otto nothing. git diff shows checkout.ts only adds a debug print; the feature is in cart.ts.',
-      slip: 'overclaim',
+      // He committed the wrong file: the debug print, not the feature.
+      slip: 'wrong-place',
     },
     {
       id: 'read-diff',
@@ -480,14 +515,16 @@ const commitFeatureTask = {
         {
           do: 'run',
           line: 'git diff',
-          say: 'cart.ts adds free delivery. checkout.ts is a debug print.',
+          // True in a fix round too, where the debug print is already committed.
+          say: 'cart.ts adds free delivery: that is the feature.',
         },
         { do: 'run', line: `git add ${CART}` },
         { do: 'run', line: `git commit -m "${FEATURE_MESSAGE}"` },
         { do: 'run', line: 'git show --stat HEAD' },
       ],
       claim: 'Done: committed only the free delivery change.',
-      lesson: 'git diff showed the lines, not just the names, so the debug print stayed out.',
+      lesson:
+        "git diff shows the lines, not just the names, so a debug print can't pass for a feature.",
     },
     {
       id: 'stage-cart',
