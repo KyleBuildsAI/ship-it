@@ -283,6 +283,16 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
   return texts;
 }
 
+// "That query..." or "Given that error..." reads fine in a lesson, right after the card
+// that showed it, but a placement test borrows cards one at a time and shuffles them.
+const POINTS_BACK = /^(?:that|given that|this)\b/i;
+
+/** True for a card that refers to an earlier card's code or log and shows none of its own. */
+function leansOnEarlierCard(card: Lesson['cards'][number]): boolean {
+  if (card.artifact !== undefined) return false;
+  return POINTS_BACK.test(card.situation) || POINTS_BACK.test(card.question);
+}
+
 /**
  * Checks a lesson Act's placement test against its lessons. It names cards by id alone,
  * so each must be exactly one card of a lesson in this Act. The final is the boss: it
@@ -311,6 +321,12 @@ function lessonPlacementIssues(
       report(`Card "${id}" is in more than one lesson; give each card its own id.`);
     } else {
       borrowed.set(owner.id, (borrowed.get(owner.id) ?? 0) + 1);
+      const card = owner.cards.find((entry) => entry.id === id);
+      if (card !== undefined && leansOnEarlierCard(card)) {
+        report(
+          `Card "${id}" points back at something ("That...") the placement test never shows. Make it self-contained or give it an artifact.`,
+        );
+      }
     }
   }
   for (const lesson of taught) {

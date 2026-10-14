@@ -348,12 +348,14 @@ const BossSchema = z
 // ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
 // gh-run-list is GitHub's own word on a CI run, read through the player's gh login, so
 // the game never needs a token to see a green check.
+// select-string is PowerShell's Select-String, which shows the lines of a file that match.
 export const FIELD_PARSERS = [
   'status-short',
   'status-long',
   'log-oneline',
   'ls-files',
   'gh-run-list',
+  'select-string',
 ] as const;
 export type FieldParser = (typeof FIELD_PARSERS)[number];
 
@@ -371,6 +373,11 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
     pushed: z.literal(true).optional(),
     upstream: z.literal('up-to-date').optional(),
   }),
+  /**
+   * The matched lines of `file` name a request (`GET /health`) and a status code (`200`),
+   * so the README really documents one, rather than only having been committed.
+   */
+  z.strictObject({ kind: z.literal('documentsRequest'), file: NameSchema }),
   /**
    * At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages,
    * and only of these `types` when it's given, like ['ci'].
@@ -415,6 +422,7 @@ export type FieldCheck = z.output<typeof FieldCheckSchema>;
  */
 export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[]> = {
   clean: ['status-short', 'status-long'],
+  documentsRequest: ['select-string'],
   ignores: ['status-short', 'status-long'],
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   tracksPath: ['ls-files'],

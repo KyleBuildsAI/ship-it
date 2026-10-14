@@ -3,10 +3,12 @@ import {
   commitType,
   conventionalRatio,
   detectPasteKind,
+  documentedRequest,
   findSecretLike,
   firstTracked,
   isCleanStatus,
   isConventionalSubject,
+  isFromFile,
   isGreenRun,
   isSquashMergedSubject,
   isTypedBranchName,
@@ -16,6 +18,7 @@ import {
   parseLogOneline,
   parsePathList,
   parseRunList,
+  parseSelectString,
   parseStatusLong,
   parseStatusShort,
   readTopMerge,
@@ -44,6 +47,7 @@ const PARSER_NAMES = {
   'status-long': 'git status',
   'log-oneline': 'git log --oneline',
   'ls-files': 'git ls-files',
+  'select-string': 'Select-String',
 } as const;
 
 function fail(message: string): FieldVerdict {
@@ -97,6 +101,22 @@ function checkPushed(status: ParsedStatus): FieldVerdict {
 
 function plural(count: number, word: string): string {
   return `${String(count)} ${word}${count === 1 ? '' : 's'}`;
+}
+
+/** A Select-String paste: which lines of the file name a request and a status code. */
+function verifySelectString(verification: Verification, text: string): FieldVerdict {
+  const { check } = verification;
+  if (check.kind !== 'documentsRequest') return fail(`Run ${verification.command} and paste that.`);
+  const matches = parseSelectString(text).filter((match) => isFromFile(match, check.file));
+  if (matches.length === 0) {
+    return fail(
+      `No lines from ${check.file} in that paste. Run ${verification.command}, or ask your agent to run it and show you the exact output.`,
+    );
+  }
+  const { request, statusCode } = documentedRequest(matches.map((match) => match.text));
+  if (request === null) return fail(`${check.file} doesn't name a request like GET /health yet.`);
+  if (statusCode === null) return fail(`${check.file} names ${request}, but not its status code.`);
+  return { passed: true, message: `${check.file} documents ${request} and its ${statusCode}.` };
 }
 
 /**
@@ -303,11 +323,15 @@ function checkLog(verification: Verification, text: string): FieldVerdict {
     case 'newestCommitType': {
       const newest = newestWrittenCommit(commits);
       const type = newest === null ? null : commitType(newest.subject);
-      return type === check.type
-        ? { passed: true, message: `Your newest commit is a ${check.type}: commit.` }
-        : fail(
-            `Your newest commit should start with ${check.type}:, like "${check.type}: add environment setup for agents".`,
-          );
+      if (type === check.type) {
+        return { passed: true, message: `Your newest commit is a ${check.type}: commit.` };
+      }
+      // Naming the commit found shows whether the merge simply hasn't been pulled yet.
+      const found =
+        newest === null ? 'There is no commit there' : `The newest is "${newest.subject}"`;
+      return fail(
+        `${found}. It should start with ${check.type}:, like "${check.type}: add environment setup for agents". Merged on GitHub? Pull first.`,
+      );
     }
     default:
       return fail(`Run ${verification.command} and paste that.`);
@@ -338,6 +362,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
   if (verification.parser === 'ls-files') return checkTrackedFiles(verification, text);
   if (verification.parser === 'log-oneline') return checkLog(verification, text);
   if (verification.parser === 'gh-run-list') return checkRunList(verification, text);
+  if (verification.parser === 'select-string') return verifySelectString(verification, text);
 
   const { check } = verification;
   const status = parseStatus(text);

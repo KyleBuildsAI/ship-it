@@ -63,7 +63,7 @@ export const dataSpeedAndScale = {
       id: 'index',
       kind: 'choose',
       situation:
-        'That sidebar query takes 4 seconds. The docs table has 12 million rows, and no index on workspace_id.',
+        'The recent-documents sidebar query filters docs by workspace_id and sorts by updated_at. It takes 4 seconds: the table has 12 million rows and no index on workspace_id.',
       question: 'What’s the likely fix?',
       options: [
         {
@@ -164,7 +164,7 @@ export const dataSpeedAndScale = {
         },
         {
           id: 'leak',
-          text: 'It returns other companies’ documents.',
+          text: 'It leaks other companies’ documents: a writer can change the workspace in the request and read every workspace’s titles.',
           correct: false,
           feedback:
             'Look again: workspace_id = $1 keeps it to the writer’s own workspace. The flaw is the other value.',

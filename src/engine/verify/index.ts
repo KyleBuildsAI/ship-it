@@ -43,6 +43,13 @@ export { parsePathList } from './pathList';
 export { findSecretLike, type SecretKind } from './secretGuard';
 export { isGreenRun, parseRunList, type WorkflowRun } from './runList';
 export {
+  documentedRequest,
+  isFromFile,
+  parseSelectString,
+  type DocumentedRequest,
+  type SelectStringMatch,
+} from './selectString';
+export {
   parseStatusLong,
   type ChangeKind,
   type ConflictEntry,

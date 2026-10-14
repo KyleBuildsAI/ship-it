@@ -554,6 +554,14 @@ describe('ActSchema', () => {
     const typed = { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci'] };
     expect(verify('log-oneline', typed).success).toBe(true);
     expect(verify('log-oneline', { ...typed, types: ['wip'] }).success).toBe(false);
+    expect(verify('log-oneline', { kind: 'newestCommitType', type: 'docs' }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'newestCommitType', type: 'wip' }).success).toBe(false);
+    expect(verify('select-string', { kind: 'documentsRequest', file: 'README.md' }).success).toBe(
+      true,
+    );
+    expect(
+      problems(verify('status-long', { kind: 'documentsRequest', file: 'README.md' })),
+    ).toEqual(['A "documentsRequest" check needs select-string output.']);
   });
 
   it('rejects duplicate checklist and verification ids', () => {

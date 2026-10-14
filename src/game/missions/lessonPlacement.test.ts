@@ -112,6 +112,29 @@ describe("a lesson placement's cards", () => {
       'Card "read-the-diff" is in more than one lesson; give each card its own id.',
     );
   });
+
+  it('can’t point back at an earlier card’s code without showing it', () => {
+    // In a lesson, "That query" follows the card that showed it; a placement test may not.
+    const [card] = full.lessons[0]?.cards ?? [];
+    if (card === undefined) throw new Error('the sample lesson has no cards');
+    const leaning = { ...card, situation: 'That query is slow.', artifact: undefined };
+    const lessons = full.lessons.map((lesson, index) =>
+      index === 0 ? { ...lesson, cards: [leaning, ...lesson.cards.slice(1)] } : lesson,
+    );
+    // The sample placement borrows the first lesson's first card.
+    expect(validateAct(withCards(fullSamplePlacement.cardIds), [], lessons)).toEqual([
+      {
+        where: 'placement test',
+        problem: `Card "${card.id}" points back at something ("That...") the placement test never shows. Make it self-contained or give it an artifact.`,
+      },
+    ]);
+    // With the query shown as an artifact, the same words stand on their own.
+    const shown = { ...leaning, artifact: { kind: 'code' as const, text: 'SELECT 1;' } };
+    const fixed = lessons.map((lesson, index) =>
+      index === 0 ? { ...lesson, cards: [shown, ...lesson.cards.slice(1)] } : lesson,
+    );
+    expect(validateAct(withCards(fullSamplePlacement.cardIds), [], fixed)).toEqual([]);
+  });
 });
 
 describe('the placement run', () => {

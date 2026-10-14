@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { isPickCard, type LessonCard } from '../game/missions/lessonSchema';
+import { isLessonPlacement } from '../game/missions/schema';
 import { validateAct } from '../game/missions/validateAct';
 import { completeLesson, recordFieldMission } from '../game/play/saveRules';
 import { completedActNumbers, rankFor, XP_AWARDS } from '../game/progression/xp';
@@ -13,6 +15,16 @@ import type { LessonActContent } from './lessonAct';
 
 const NOW = new Date('2026-10-03T12:00:00.000Z');
 const LESSON_ACTS: readonly LessonActContent[] = [act3, act4, act5, act6, act7, act8];
+
+/**
+ * Whether always clicking the longest option gets this card right. An order card has no
+ * option to pick, so it counts as right: the guard below assumes the luckiest player.
+ */
+function longestWins(card: LessonCard): boolean {
+  if (!isPickCard(card)) return true;
+  const longest = Math.max(...card.options.map((option) => option.text.length));
+  return card.options.some((option) => option.correct && option.text.length === longest);
+}
 
 /** Plays every lesson of an Act to the end, the way finishing each one in the menu would. */
 function playLessons(save: SaveData, content: LessonActContent): SaveData {
@@ -84,6 +96,19 @@ describe.each(LESSON_ACTS.map((content) => [content.act.act, content] as const))
         expect(share).toBeLessThanOrEqual(0.5);
       }
       expect(new Set(places).size).toBeGreaterThanOrEqual(3);
+    });
+
+    it('never lets picking the longest option pass the placement test', () => {
+      // Right answers tend to be the detailed ones. If they were the longest on nearly
+      // every borrowed card, Kyle could test out of the lessons without reading them.
+      const { placementTest } = act;
+      if (placementTest === undefined || !isLessonPlacement(placementTest)) return;
+      const cards = lessons.flatMap((lesson) => lesson.cards);
+      const borrowed = placementTest.cardIds.flatMap(
+        (id) => cards.find((card) => card.id === id) ?? [],
+      );
+      const percent = (100 * borrowed.filter(longestWins).length) / borrowed.length;
+      expect(percent).toBeLessThan(placementTest.passPercent);
     });
 
     it('is complete, final and all, once every lesson (and any Field Mission) is done', () => {

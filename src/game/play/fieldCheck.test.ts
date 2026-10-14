@@ -221,6 +221,52 @@ describe('verifyPaste', () => {
     expect(verifyPaste(check, '').message).toContain('Copy the line');
   });
 
+  it('tells pushed from merely clean', () => {
+    const check = verification({ check: { kind: 'clean', upstream: 'up-to-date' } });
+    expect(verifyPaste(check, CLEAN_LONG)).toMatchObject({ passed: true });
+    const ahead = CLEAN_LONG.replace(
+      "Your branch is up to date with 'origin/main'.",
+      'Your branch is ahead of \'origin/main\' by 1 commit.\r\n  (use "git push" to publish your local commits)',
+    );
+    expect(verifyPaste(check, ahead).message).toContain('GitHub doesn’t');
+    const dirty = verifyPaste(
+      verification({
+        parser: 'status-short',
+        command: 'git status -sb',
+        check: { kind: 'clean', upstream: 'up-to-date' },
+      }),
+      '## main...origin/main\n M src/app.ts\n',
+    );
+    expect(dirty.message).toContain('Not clean');
+  });
+
+  it('checks the newest commit has the right Conventional type', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 origin/main -- README.md',
+      check: { kind: 'newestCommitType', type: 'docs' },
+    });
+    expect(verifyPaste(check, 'a1b2c3d docs: document GET /health (#4)\n').passed).toBe(true);
+    expect(verifyPaste(check, LOG).message).toContain('feat: add tide charts');
+  });
+
+  it('finds a documented request and its status code in a Select-String paste', () => {
+    const check = verification({
+      parser: 'select-string',
+      command: "Select-String -Path README.md -Pattern 'GET /|[1-5][0-9][0-9]'",
+      check: { kind: 'documentsRequest', file: 'README.md' },
+    });
+    const both = 'README.md:14:GET /health\nREADME.md:16:Returns 200 OK.\n';
+    expect(verifyPaste(check, both)).toEqual({
+      passed: true,
+      message: 'README.md documents GET /health and its 200.',
+    });
+    expect(verifyPaste(check, 'README.md:14:GET /health\n').message).toContain('status code');
+    expect(verifyPaste(check, 'README.md:16:Returns 200 OK.\n').message).toContain('GET /health');
+    expect(verifyPaste(check, 'notes.md:1:GET /health 200\n').message).toContain('No lines');
+    expect(verifyPaste(check, CLEAN_LONG).message).toContain('ask your agent');
+  });
+
   it("fails the Act 2 Field Mission's ignore check while .env is still visible", () => {
     const check = cleanTheDirtyTree?.verifications.find(
       (entry) => entry.id === 'build-output-ignored',
