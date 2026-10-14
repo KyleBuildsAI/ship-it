@@ -278,6 +278,12 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
     }
     for (const check of fieldMission.verifications) {
       add(`field mission > verification ${check.id}`, check.instruction);
+      if (check.whenEmpty !== undefined) {
+        add(`field mission > verification ${check.id} > whenEmpty`, check.whenEmpty);
+      }
+      if (check.advice !== undefined) {
+        add(`field mission > verification ${check.id} > advice`, check.advice);
+      }
     }
   }
   return texts;

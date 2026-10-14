@@ -3,6 +3,8 @@ import {
   conventionalRatio,
   detectPasteKind,
   isCleanStatus,
+  isPullRequestSubject,
+  matchesPathPattern,
   parseLogOneline,
   parsePathList,
   parseStatusLong,
@@ -55,47 +57,72 @@ function unignored(status: ParsedStatus, patterns: readonly string[]): string[] 
   );
 }
 
+/** Reads a `git ls-files` paste: no secret files tracked, or a file matching a pattern. */
+function verifyPathList(verification: Verification, text: string): FieldVerdict {
+  const { check } = verification;
+  const paths = parsePathList(text);
+  if (paths.length === 0) return fail(`That paste lists no files. Run ${verification.command}.`);
+  if (check.kind === 'tracksPath') {
+    const found = paths.filter((path) => matchesPathPattern(path, check.pattern));
+    return found.length > 0
+      ? { passed: true, message: `Tracked: ${found.join(', ')}.` }
+      : fail(`No tracked file matches ${check.pattern} yet. Commit it, merge, then pull.`);
+  }
+  const secrets = trackedSecretPaths(paths);
+  return secrets.length === 0
+    ? { passed: true, message: 'No secret files are tracked.' }
+    : fail(
+        `Still tracked: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack with git rm --cached, then commit.'}`,
+      );
+}
+
+/** Reads a `git log --oneline` paste: enough commits, Conventional ones, or a merged PR. */
+function verifyLog(verification: Verification, text: string): FieldVerdict {
+  const { check } = verification;
+  if (detectPasteKind(text) !== 'log-oneline') {
+    return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
+  }
+  const commits = parseLogOneline(text);
+  switch (check.kind) {
+    case 'minCommits':
+      return commits.length >= check.count
+        ? { passed: true, message: `${String(commits.length)} commits. Nice.` }
+        : fail(`Only ${String(commits.length)} commits; this needs ${String(check.count)}.`);
+    case 'conventionalRatio': {
+      const ratio = conventionalRatio(commits.slice(0, check.last));
+      const percent = Math.round(ratio * 100);
+      return ratio >= check.min
+        ? { passed: true, message: `${String(percent)}% of recent commits are Conventional.` }
+        : fail(
+            `${String(percent)}% are Conventional Commits; aim for ${String(Math.round(check.min * 100))}%. ${verification.advice ?? 'New commits count, so keep going.'}`,
+          );
+    }
+    case 'viaPullRequest': {
+      const newest = commits[0];
+      if (newest !== undefined && isPullRequestSubject(newest.subject)) {
+        return { passed: true, message: 'It landed through a pull request.' };
+      }
+      return fail(
+        verification.advice ??
+          'That commit doesn’t show a PR number, so it looks pushed straight to main. Land the next change through a PR.',
+      );
+    }
+    default:
+      return fail(`Run ${verification.command} and paste that.`);
+  }
+}
+
 /**
  * Checks one pasted output against a Field Mission verification. Never throws: a paste
  * that isn't what was asked for gets a message saying which command to run instead.
  */
 export function verifyPaste(verification: Verification, text: string): FieldVerdict {
   if (text.trim() === '' && verification.parser !== 'status-short') {
-    return fail(`Paste the output of ${verification.command} first.`);
+    return fail(verification.whenEmpty ?? `Paste the output of ${verification.command} first.`);
   }
   const { check } = verification;
-
-  if (verification.parser === 'ls-files') {
-    const paths = parsePathList(text);
-    if (paths.length === 0) return fail(`That paste lists no files. Run ${verification.command}.`);
-    const secrets = trackedSecretPaths(paths);
-    return secrets.length === 0
-      ? { passed: true, message: 'No secret files are tracked.' }
-      : fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
-  }
-
-  if (verification.parser === 'log-oneline') {
-    const kind = detectPasteKind(text);
-    if (kind !== 'log-oneline') {
-      return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
-    }
-    const commits = parseLogOneline(text);
-    if (check.kind === 'minCommits') {
-      return commits.length >= check.count
-        ? { passed: true, message: `${String(commits.length)} commits. Nice.` }
-        : fail(`Only ${String(commits.length)} commits; this needs ${String(check.count)}.`);
-    }
-    if (check.kind === 'conventionalRatio') {
-      const ratio = conventionalRatio(commits.slice(0, check.last));
-      const percent = Math.round(ratio * 100);
-      return ratio >= check.min
-        ? { passed: true, message: `${String(percent)}% of recent commits are Conventional.` }
-        : fail(
-            `${String(percent)}% are Conventional Commits; aim for ${String(Math.round(check.min * 100))}%. New commits count, so keep going.`,
-          );
-    }
-    return fail(`Run ${verification.command} and paste that.`);
-  }
+  if (verification.parser === 'ls-files') return verifyPathList(verification, text);
+  if (verification.parser === 'log-oneline') return verifyLog(verification, text);
 
   const status = parseStatus(text);
   if (status === null) {
@@ -113,7 +140,9 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0
         ? { passed: true, message: 'No secret files show up as tracked.' }
-        : fail(`Tracked secrets: ${secrets.join(', ')}. Untrack them with git rm --cached.`);
+        : fail(
+            `Tracked secrets: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack them with git rm --cached.'}`,
+          );
     }
     case 'ignores': {
       const visible = [...unignored(status, check.patterns), ...buildOutputToIgnore(status)];
