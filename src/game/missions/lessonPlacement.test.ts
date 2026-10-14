@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { finishLessonBriefing, nextCard, pickOption, startLessonRun } from './lessonRunner';
 import { isPickCard, type Lesson } from './lessonSchema';
 import {
+  cardsToPass,
   lessonPlacementResult,
   placementLesson,
   placementLessonId,
@@ -126,6 +127,14 @@ describe('the placement run', () => {
     });
     expect(lesson.cards.map((card) => card.id)).toEqual(fullSamplePlacement.cardIds);
     expect(lesson.briefing[0]).toBe(fullSamplePlacement.pitch);
+    const need = cardsToPass(lesson.cards.length, 85);
+    expect(lesson.briefing[1]).toContain(`Get ${String(need)} of ${String(lesson.cards.length)}`);
+  });
+
+  it('says how many cards a pass needs, rounding the percent up to whole cards', () => {
+    expect(cardsToPass(12, 85)).toBe(11);
+    expect(cardsToPass(20, 85)).toBe(17);
+    expect(cardsToPass(6, 85)).toBe(6);
   });
 
   it('shows the options in an order set by the attempt, the same for the same attempt', () => {
