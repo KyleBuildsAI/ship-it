@@ -2125,3 +2125,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/152
 3. It's Otto's terminal for this step. You direct and check. Typing there would make it your work, not his, and the game grades the result of what you directed.
 
 </details>
+
+---
+
+## #153 feat: the laptop learns copy, move, rename, file contents and redirects
+
+https://github.com/KyleBuildsAI/ship-it/pull/153
+
+1. What happens to `notes.txt` if `Move-Item notes.txt missing\notes.txt` is refused?
+2. What's the difference between `>` and `>>`?
+3. Why does a copy announce the folders it creates?
+
+<details><summary>Answers</summary>
+
+1. Nothing. The drive checks that the destination folder exists before it deletes anything, so `notes.txt` stays where it was.
+2. `>` replaces the file's contents with the output. `>>` adds the output to the end.
+3. So the machine island draws the new folders as terraces, exactly as it does after `mkdir`.
+
+</details>
