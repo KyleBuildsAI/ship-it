@@ -1,4 +1,5 @@
 import { endDrill } from '../../mentor/drillGuard';
+import { openTerminal } from '../hud';
 import { explain } from '../missions/predicates';
 import { requireBoss } from '../missions/schema';
 import { applySteps } from '../missions/sandbox';
@@ -33,6 +34,8 @@ export function startBossFight(actNumber: number, nowMs: number = Date.now()): v
   // Throws before anything changes when this Act's boss isn't built yet.
   const { setup, title, timeLimitSeconds } = requireBoss(act);
   endDrill();
+  // A boss is beaten by typing against Dex's clock, so the terminal is ready from the start.
+  openTerminal();
   loadSandbox(setup, `${title}: Dex deploys in ${formatClock(timeLimitSeconds)}.`);
   setActivity({
     kind: 'boss',

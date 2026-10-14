@@ -7,6 +7,7 @@ import {
   type JudgmentAnswer,
   type JudgmentGrade,
 } from '../missions/judgment';
+import { closeTerminal, openTerminal } from '../hud';
 import { explain, evaluate } from '../missions/predicates';
 import { placementResult, scoreDrill } from '../missions/grading';
 import { isJudgmentDrill, requireDrillPlacement } from '../missions/schema';
@@ -47,10 +48,15 @@ function begin(
 ): void {
   endDrill();
   endScene();
+  const drills = drillIds.map(findDrill);
+  // Act 2's drills are typed, so the terminal opens for them; a judgment drill is answered
+  // in the panel, so a set of only those keeps it put away (DESIGN.md, First-run tutorial).
+  if (drills.some((drill) => !isJudgmentDrill(drill))) openTerminal();
+  else closeTerminal();
   setActivity({
     kind,
     act,
-    drills: drillIds.map(findDrill),
+    drills,
     active: null,
     results: [],
     placement: null,
