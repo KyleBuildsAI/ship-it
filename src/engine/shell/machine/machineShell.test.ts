@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { windows, type FixtureBuilder } from '../../fixtures';
+import { FsError, type FsErrorCode } from '../../fs/virtualFs';
 import { testDeps } from '../../git/testDeps';
 import type { MachineEvent } from '../../machine/events';
 import { Shell, type ShellResult } from '../shell';
@@ -193,6 +194,65 @@ describe('Set-Location', () => {
       "Set-Location: Cannot find path '\\\\server\\share' because it does not exist.",
       'This laptop has no network drives.',
     ]);
+  });
+});
+
+describe('the drive-error safety net', () => {
+  /** A drive that fails the next folder it's asked to make, as a missed check would. */
+  function failingMakeDir(code: FsErrorCode) {
+    const { shell, machine } = laptop();
+    vi.spyOn(machine.drive, 'makeDir').mockImplementation(() => {
+      throw new FsError(code, 'Users/kyle/x');
+    });
+    return shell;
+  }
+
+  it.each<[FsErrorCode, string]>([
+    ['ENOENT', "Cannot find path 'C:\\Users\\kyle\\x' because it does not exist."],
+    ['ENOTDIR', "Could not find a part of the path 'C:\\Users\\kyle\\x'."],
+    ['EISDIR', "Access to the path 'C:\\Users\\kyle\\x' is denied."],
+    [
+      'EEXIST',
+      "Cannot create 'C:\\Users\\kyle\\x' because a file or directory with the same name already exists.",
+    ],
+    ['ENOTEMPTY', "The directory is not empty. : 'C:\\Users\\kyle\\x'."],
+    [
+      'EINVAL',
+      'Destination path cannot be a subdirectory of the source or the source itself: C:\\Users\\kyle\\x.',
+    ],
+  ])('prints %s as one line in .NET words, and the prompt comes back', (code, message) => {
+    const shell = failingMakeDir(code);
+    const result = shell.run('New-Item x -ItemType Directory; pwd');
+    expect(result.lines[0]).toEqual({ text: `New-Item: ${message}`, tone: 'error' });
+    // The next statement still runs, and the prompt comes back.
+    expect(printed(result)).toBe(`New-Item: ${message}\n${getLocation}`);
+    expect(shell.prompt()).toBe('PS C:\\Users\\kyle> ');
+  });
+
+  it('catches a drive error in the work an answered question carries on', () => {
+    const { shell, machine } = laptop(LAPTOP.write('Users/kyle/full/one.txt', '1\n'));
+    vi.spyOn(machine.drive, 'removeDir').mockImplementation(() => {
+      throw new FsError('ENOTEMPTY', 'Users/kyle/full');
+    });
+    shell.run('rm full');
+    expect(shell.run('y')).toEqual({
+      lines: [
+        {
+          text: "Remove-Item: The directory is not empty. : 'C:\\Users\\kyle\\full'.",
+          tone: 'error',
+        },
+      ],
+      exitCode: 1,
+    });
+    expect(shell.prompt()).toBe('PS C:\\Users\\kyle> ');
+  });
+
+  it('lets any other error through, since that is a bug to see, not a drive failure', () => {
+    const { shell, machine } = laptop();
+    vi.spyOn(machine.drive, 'makeDir').mockImplementation(() => {
+      throw new Error('a bug');
+    });
+    expect(() => shell.run('mkdir x')).toThrow('a bug');
   });
 });
 

@@ -24,6 +24,16 @@ export interface ParamSpec {
    * matches the cmdlet's own parameters first: -fi is -Filter, and only -file is -File.
    */
   readonly provider?: boolean;
+  /**
+   * Takes every bare value left over, like Write-Output's -InputObject: echo a b prints
+   * both. Only a list parameter can.
+   */
+  readonly remaining?: boolean;
+  /**
+   * The smallest whole number the parameter takes, like Get-Content's -Tail (PowerShell's
+   * ValidateRange). It's checked while binding, so it beats the cmdlet's own errors.
+   */
+  readonly minimum?: number;
 }
 
 export interface CmdletSpec {
@@ -161,11 +171,15 @@ export function bind(
     .filter((parameter) => parameter.position !== undefined && !values.has(parameter.name))
     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const leftover: Unbound[] = [];
+  // While a parameter that takes the rest is still open, an unknown name anywhere is text
+  // for it too: echo -zz a prints -zz and a. Named, as in -InputObject a -zz, it isn't
+  // open, and -zz is an error (both checked in pwsh 7.6.6).
+  const soaks = open.some((parameter) => parameter.remaining === true);
   let filled = 0;
   for (let index = 0; index < unbound.length; index++) {
     const entry = unbound[index];
     if (entry === undefined) break;
-    if (entry.kind === 'unknown') {
+    if (entry.kind === 'unknown' && !soaks) {
       // An unknown name keeps the value after it, as PowerShell would have bound it there.
       leftover.push(entry);
       const next = unbound[index + 1];
@@ -181,7 +195,14 @@ export function bind(
       break;
     }
     filled++;
-    const checked = checkValue(parameter, entry.items);
+    const items =
+      parameter.remaining === true
+        ? takeRemaining(unbound, index)
+        : entry.kind === 'value'
+          ? entry.items
+          : [`-${entry.name}`];
+    if (parameter.remaining === true) index = unbound.length;
+    const checked = checkValue(parameter, items);
     if (isBindError(checked)) return checked;
     values.set(parameter.name, checked);
   }
@@ -194,6 +215,16 @@ export function bind(
     );
   if (first?.kind === 'value') return positionalFailure(leftover, open[filled - 1] ?? null);
   return { ok: true, bound: new Bound(values) };
+}
+
+/**
+ * Everything from here on, for a parameter that takes the rest. An unknown -name goes in
+ * as text too: Write-Output a -zz prints a and -zz.
+ */
+function takeRemaining(unbound: readonly Unbound[], from: number): string[] {
+  return unbound
+    .slice(from)
+    .flatMap((entry) => (entry.kind === 'value' ? entry.items : [`-${entry.name}`]));
 }
 
 /**
@@ -270,6 +301,16 @@ function checkValue(parameter: ParamSpec, items: readonly string[]): readonly st
       );
     numbers.push(String(converted));
   }
+  // PowerShell converts the whole value first, then validates it, naming the converted
+  // number: -TotalCount -1.4 is "The -1 argument" (checked in 7.6.6).
+  const { minimum } = parameter;
+  if (minimum === undefined) return numbers;
+  const tooSmall = numbers.find((number) => Number(number) < minimum);
+  const least = String(minimum);
+  if (tooSmall !== undefined)
+    return bindError(
+      `Cannot validate argument on parameter '${parameter.name}'. The ${tooSmall} argument is less than the minimum allowed range of ${least}. Supply an argument that is greater than or equal to ${least} and then try the command again.`,
+    );
   return numbers;
 }
 

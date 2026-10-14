@@ -41,4 +41,12 @@ export type MachineEvent =
       /** Canonical and spelled as stored, like 'Users/kyle/Projects'. */
       readonly path: string;
       readonly change: 'created' | 'deleted';
+    }
+  | {
+      /** A file or folder copied, moved or renamed, so the world can carry it across. */
+      readonly type: 'itemMoved';
+      readonly from: string;
+      readonly to: string;
+      readonly kind: 'file' | 'folder';
+      readonly copy: boolean;
     };

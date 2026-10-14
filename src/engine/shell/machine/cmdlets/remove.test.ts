@@ -68,6 +68,18 @@ describe('Remove-Item', () => {
     expect(drive.exists('Users/kyle/a.log')).toBe(false);
     expect(drive.exists('Users/kyle/b.log')).toBe(false);
     expect(shell.run('rm *.nothing')).toEqual({ lines: [], exitCode: 0 });
+    // A wildcard in a missing folder names the folder; under a file it matches nothing.
+    expect(shell.run('rm nope\\*.txt')).toEqual({
+      lines: [
+        {
+          text: "Remove-Item: Cannot find path 'C:\\Users\\kyle\\nope' because it does not exist.",
+          tone: 'error',
+        },
+      ],
+      exitCode: 1,
+    });
+    expect(shell.run('rm notes.txt\\*.txt')).toEqual({ lines: [], exitCode: 0 });
+    expect(drive.exists('Users/kyle/notes.txt')).toBe(true);
     // A wildcard skips hidden items unless -Force.
     shell.run('rm .c*');
     expect(drive.exists('Users/kyle/.cache')).toBe(true);

@@ -224,6 +224,22 @@ describe('lex: operators', () => {
     expect(show('echo 2 "a > b"')).toEqual(['echo', '2', 'a > b']);
   });
 
+  it('reads 2>&1 as one token that ends at its 1 (checked in 7.6.6)', () => {
+    expect(show('npm test 2>&1 > out.log')).toEqual(['npm', 'test', '<merge>', '>', 'out.log']);
+    expect(show('echo hi 2>&12')).toEqual(['echo', 'hi', '<merge>', '2']);
+    // Anything else after 2>& is a redirect with no file, which the shell reports.
+    expect(show('echo hi 2>&3')).toEqual(['echo', 'hi', '2>', '<call>', '3']);
+    expect(show('echo hi 2>>&1')).toEqual(['echo', 'hi', '2>>', '<call>', '1']);
+  });
+
+  it('refuses the pairs of streams PowerShell reserves, in its words', () => {
+    for (const pair of ['1>&2', '2>&2', '1>&1']) {
+      const error = lexError(`echo hi ${pair}`);
+      expect(error.message).toBe(`The '${pair}' operator is reserved for future use.`);
+      expect(error.hint).toBe('To send errors where the output goes, use 2>&1.');
+    }
+  });
+
   it('keeps > inside a bare word, as PowerShell does', () => {
     expect(show('echo hi>>a.txt a2>b')).toEqual(['echo', 'hi>>a.txt', 'a2>b']);
   });

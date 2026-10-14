@@ -1,6 +1,6 @@
 import type { FileTree } from '../fs/fileTree';
-import { joinPath } from '../fs/paths';
-import { VirtualFs, type DirEntry, type WriteResult } from '../fs/virtualFs';
+import { baseName, joinPath, parentDir } from '../fs/paths';
+import { FsError, VirtualFs, type DirEntry, type WriteResult } from '../fs/virtualFs';
 
 /**
  * The laptop's C: drive, case-insensitive and case-preserving like NTFS: `Users\KYLE`
@@ -102,6 +102,62 @@ export class WindowsFs implements FileTree {
   /** Like isHidden, the lower-case key needs no walk. */
   isReadOnly(path: string): boolean {
     return this.readOnlyPaths.has(path.toLowerCase());
+  }
+
+  /**
+   * Moves a file or folder, like a rename on NTFS: its contents and attributes go with it,
+   * and a new spelling of the same name is allowed (notes.txt to Notes.txt). Returns where
+   * it landed. The destination's folder must already exist and nothing else may stand at
+   * the destination.
+   */
+  move(from: string, to: string): string {
+    const source = this.stored(from);
+    const target = joinPath(this.stored(parentDir(to)), baseName(to));
+    // The move deletes the source before it rebuilds it, so every check comes first: a
+    // move that can't finish must throw with the source untouched, never halfway through.
+    this.checkMove(source, target);
+    const rebase = (path: string) => target + path.slice(source.length);
+    const isFile = this.tree.isFile(source);
+    const folders = isFile ? [] : [source, ...this.foldersUnder(source)];
+    const files = (isFile ? [source] : this.tree.allFiles(source)).map(
+      (file) => [file, this.tree.readFile(file)] as const,
+    );
+    const lowerSource = source.toLowerCase();
+    const inside = (path: string) => path === lowerSource || path.startsWith(`${lowerSource}/`);
+    const hidden = [...this.hiddenPaths].filter(inside);
+    const readOnly = [...this.readOnlyPaths].filter(inside);
+    if (isFile) this.tree.deleteFile(source);
+    else this.tree.removeDir(source, { recursive: true });
+    this.forgetAttributes(source);
+    for (const folder of folders) this.tree.makeDir(rebase(folder));
+    for (const [file, content] of files) this.tree.writeFile(rebase(file), content);
+    for (const path of hidden) this.hiddenPaths.add(rebase(path).toLowerCase());
+    for (const path of readOnly) this.readOnlyPaths.add(rebase(path).toLowerCase());
+    return target;
+  }
+
+  /** Throws the FsError a move would hit, before the move changes anything. */
+  private checkMove(source: string, target: string): void {
+    if (!this.tree.exists(source)) throw new FsError('ENOENT', source);
+    const lowerSource = source.toLowerCase();
+    if (target.toLowerCase().startsWith(`${lowerSource}/`)) throw new FsError('EINVAL', target);
+    // Covers a missing folder and a file where a folder should be (a.txt\x.txt).
+    if (!this.tree.isDir(parentDir(target))) throw new FsError('ENOTDIR', target);
+    // The tree underneath matches case exactly, so look the destination up by its stored
+    // spelling: A.txt is where a.txt is. Only the source itself may be there (a new spelling).
+    const occupant = this.stored(target);
+    if (this.tree.exists(occupant) && occupant.toLowerCase() !== lowerSource)
+      throw new FsError('EEXIST', occupant);
+  }
+
+  private foldersUnder(dir: string): string[] {
+    return this.tree
+      .listDir(dir)
+      .filter((entry) => entry.kind === 'dir')
+      .flatMap((entry) => {
+        const folder = joinPath(dir, entry.name);
+        return [folder, ...this.foldersUnder(folder)];
+      });
   }
 
   /** A deleted item takes its attributes with it, and so does everything inside it. */
