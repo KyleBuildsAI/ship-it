@@ -10,11 +10,23 @@ export {
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  isSquashMergedSubject,
+  searchesAllHistoryFor,
+  statusPosition,
   trackedSecretPaths,
   type ParsedStatus,
   type PathSource,
+  type StatusPosition,
 } from './checks';
 export { detectPasteKind, type PasteKind } from './detect';
+export {
+  latestMergedPull,
+  linkedIssueNumber,
+  parseRepoSlug,
+  pullRequestProblems,
+  type PullRequestSummary,
+  type RepoSlug,
+} from './github';
 export { parseLogOneline, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';

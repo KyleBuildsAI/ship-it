@@ -1,5 +1,5 @@
-import type { ParsedStatusLong } from './statusLong';
-import type { ParsedStatusShort, ShortEntry } from './statusShort';
+import type { ParsedStatusLong, UpstreamState } from './statusLong';
+import type { ParsedStatusShort, ShortBranch, ShortEntry } from './statusShort';
 
 /** Either status format. Checks read both, so Kyle can paste whichever he ran. */
 export type ParsedStatus = ParsedStatusLong | ParsedStatusShort;
@@ -32,6 +32,19 @@ export function isGeneratedSubject(subject: string): boolean {
   return GENERATED_SUBJECT.test(subject);
 }
 
+// GitHub ends the commit a squash merge makes with the PR's number, like " (#12)". A
+// commit made straight on main never gets one, so the number is the evidence a PR merged.
+const PULL_REQUEST_SUFFIX = / \(#[1-9]\d*\)$/;
+
+/**
+ * True for the commit GitHub's "Squash and merge" writes from a pull request with a
+ * Conventional title, like `fix: round tide heights (#12)`. A plain merge
+ * ("Merge pull request #12 from ...") and a direct commit to main both fail.
+ */
+export function isSquashMergedSubject(subject: string): boolean {
+  return isConventionalSubject(subject) && PULL_REQUEST_SUFFIX.test(subject);
+}
+
 /**
  * The share of commits, from 0 to 1, whose subject follows Conventional Commits.
  * Subjects git generated don't count either way, since nobody typed them. With no
@@ -44,6 +57,19 @@ export function conventionalRatio(commits: readonly { readonly subject: string }
   return conventional.length / written.length;
 }
 
+/**
+ * True when a typed command searches every branch's history for one path, like
+ * `git log --all --oneline -- .env`. When the path was never committed it prints nothing,
+ * so the copied command line is the only proof the right search ran. Without `--all` it
+ * would miss a commit that sits only on another branch, which a push can still publish.
+ */
+export function searchesAllHistoryFor(command: string, path: string): boolean {
+  const [program, subcommand, ...rest] = command.trim().split(/\s+/);
+  // PowerShell users often quote paths, as in -- '.env'.
+  const args = rest.map((arg) => arg.replace(/^['"]|['"]$/g, ''));
+  return program === 'git' && subcommand === 'log' && args.includes('--all') && args.includes(path);
+}
+
 // ---- Working tree ----------------------------------------------------------------------
 
 /**
@@ -52,6 +78,40 @@ export function conventionalRatio(commits: readonly { readonly subject: string }
  */
 export function isCleanStatus(status: ParsedStatus): boolean {
   return status.clean;
+}
+
+/** Where a status says HEAD is, and how it stands against the branch it tracks. */
+export interface StatusPosition {
+  /** The checked-out branch, or null when HEAD is detached or the paste never said. */
+  readonly branch: string | null;
+  /** Null when the paste shows no upstream: none is set, or `-s` ran without `-b`. */
+  readonly upstream: UpstreamState | null;
+}
+
+function shortUpstream(branch: ShortBranch): UpstreamState | null {
+  if (branch.upstreamGone === true) return 'gone';
+  if (branch.upstream === undefined) return null;
+  const ahead = branch.ahead ?? 0;
+  const behind = branch.behind ?? 0;
+  if (ahead > 0 && behind > 0) return 'diverged';
+  if (ahead > 0) return 'ahead';
+  return behind > 0 ? 'behind' : 'up-to-date';
+}
+
+/**
+ * The branch and upstream state from either status format. A clean tree alone can't say a
+ * PR landed: a feature branch is clean too, and so is a main nobody pulled. This can.
+ */
+export function statusPosition(status: ParsedStatus): StatusPosition {
+  if (status.format === 'long') {
+    return { branch: status.branch, upstream: status.upstream?.state ?? null };
+  }
+  const { branch } = status;
+  if (branch === null) return { branch: null, upstream: null };
+  return {
+    branch: branch.detached ? null : branch.name,
+    upstream: shortUpstream(branch),
+  };
 }
 
 /** A conflict in short format: a U in either column, or AA / DD (both added or deleted). */
