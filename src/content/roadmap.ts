@@ -17,7 +17,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'What every engineer who directs AI agents needs to know about the machine they run on, learned with Otto on a laptop.',
     stage: 'playable',
-    status: 'Early access: Mission 1.1 is playable, and the laptop sandbox is open.',
+    status: 'Early access: Missions 1.1 to 1.3 are playable, and the laptop sandbox is open.',
     missions: [
       { title: 'Where Things Live' },
       { title: 'Deletes Are Forever' },

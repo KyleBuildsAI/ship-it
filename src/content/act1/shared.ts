@@ -22,7 +22,12 @@ const FILES: Readonly<Record<string, string>> = {
   [`${HOME}/Documents/todo.txt`]: 'Get the Quillwork API running.\n',
 };
 
-/** The laptop before anything has happened: the projects, and a terminal open at home. */
-export function laptop(): FixtureBuilder {
-  return windows().files(FILES).session();
+/**
+ * The laptop before anything has happened: the projects, and a terminal open at home.
+ * `mount` is the folder git works in (decision D16): a mission that grades git, like 1.3,
+ * mounts the API so `ignored` and `tracked` read its repository.
+ */
+export function laptop(options: { readonly mount?: string } = {}): FixtureBuilder {
+  const machine = options.mount === undefined ? windows() : windows({ mount: options.mount });
+  return machine.files(FILES).session();
 }

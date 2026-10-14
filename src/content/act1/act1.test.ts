@@ -10,10 +10,14 @@ const mission = act1Missions[0];
 if (mission === undefined) throw new Error('Act 1 has no mission');
 
 describe('Act 1', () => {
-  it('parses, ships Missions 1.1 and 1.2 in early access, and passes validateAct', () => {
+  it('parses, ships Missions 1.1 to 1.3 in early access, and passes validateAct', () => {
     expect(act1.earlyAccess).toBe(true);
-    expect(act1.missionIds).toEqual(['where-things-live', 'deletes-are-forever']);
-    expect(act1.upcoming).toHaveLength(4);
+    expect(act1.missionIds).toEqual([
+      'where-things-live',
+      'deletes-are-forever',
+      'secrets-stay-home',
+    ]);
+    expect(act1.upcoming).toHaveLength(3);
     expect(validateAct(act1, act1Missions)).toEqual([]);
   });
 });
@@ -22,13 +26,17 @@ describe('Act 1', () => {
 const DRILL_PREFIX: Readonly<Record<string, string>> = {
   'where-things-live': 'wtl-',
   'deletes-are-forever': 'daf-',
+  'secrets-stay-home': 'ssh-',
 };
 
 describe.each(act1Missions.map((each) => [each.title, each] as const))(
   '%s, as a directed mission',
   (_, directed) => {
-    it('has 3-5 steps, every one directed, and pauses Otto before deletes', () => {
-      expect(directed.approvals).toBe('destructive');
+    it('has 3-5 steps, every one directed, and pauses Otto before deletes at least', () => {
+      // 1.3 pauses on every change, so each edit to a secret's file shows first (D6).
+      expect(directed.approvals).toBe(
+        directed.id === 'secrets-stay-home' ? 'changes' : 'destructive',
+      );
       expect(directed.steps.length).toBeGreaterThanOrEqual(3);
       expect(directed.steps.length).toBeLessThanOrEqual(5);
       for (const step of directed.steps) expect(step.agent, step.id).toBeDefined();
