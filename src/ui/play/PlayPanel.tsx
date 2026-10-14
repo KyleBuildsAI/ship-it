@@ -10,6 +10,7 @@ import { BossView } from './BossView';
 import { FieldView } from './FieldView';
 import { LessonView } from './LessonView';
 import { MissionView } from './MissionView';
+import { panelClassName } from './panelLayout';
 import { SeriesView } from './SeriesView';
 import { useOttoFrames } from './useOttoFrames';
 
@@ -68,11 +69,7 @@ export function PlayPanel() {
 
   if (!visible) return null;
   return (
-    <section
-      ref={panel}
-      className={terminalOpen ? 'glass play-panel play-panel--above-terminal' : 'glass play-panel'}
-      aria-label="Missions"
-    >
+    <section ref={panel} className={panelClassName(terminalOpen, activity)} aria-label="Missions">
       {content}
     </section>
   );
