@@ -28,10 +28,16 @@ test('every Act is open, and Act 1 opens a PowerShell laptop', async ({ page }) 
   await page.keyboard.press('Enter');
   await expect(terminal).toContainText('Downloads');
 
-  // Act 2's boss is open without playing its missions first.
+  // Act 2 ends in a timed final, like every Act, open without playing its missions first.
   await page.getByRole('button', { name: 'Acts', exact: true }).click();
   await page.getByRole('tab', { name: 'Act 2' }).click();
-  await expect(page.getByRole('button', { name: 'Fight' })).toBeEnabled();
+  await expect(
+    page
+      .getByRole('listitem')
+      .filter({ hasText: '2.6 Final: The Dirty Tree' })
+      .getByRole('button', { name: 'Play' }),
+  ).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Fight' })).toHaveCount(0);
   expect(problems).toEqual([]);
 });
 

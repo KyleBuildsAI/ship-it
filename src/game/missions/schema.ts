@@ -609,10 +609,10 @@ export function isLessonPlacement(test: PlacementTest): test is LessonPlacementT
 }
 
 /**
- * The rules for an Act taught by lessons, which ends in a final lesson instead of a boss
- * fight (DESIGN.md section 5, Lessons). The final stands in for the boss, so there's no
- * boss as well. Its placement test, when it has one, borrows cards from its lessons
- * (lessons have no drills to borrow). A placement test and a Field Mission are optional;
+ * The rules for an Act that ends in a final lesson instead of a boss fight (DESIGN.md
+ * section 5, Lessons). The final stands in for the boss, so there's no boss as well. Its
+ * placement test, when it has one, borrows cards from its lessons, or drills from its
+ * missions when it has them (Act 2). A placement test and a Field Mission are optional;
  * a Field Mission, when there is one, is needed to complete the Act.
  */
 function checkLessonAct(
@@ -633,10 +633,9 @@ function checkLessonAct(
   if (act.boss !== undefined) {
     problem('boss', 'The final lesson is this Act’s boss, so it has no boss fight as well.');
   }
+  // Either kind of placement test is allowed: cards when the Act is lessons, drills when
+  // its missions come before the final (Act 2). validateAct checks the ids exist.
   const { placementTest } = act;
-  if (placementTest !== undefined && !isLessonPlacement(placementTest)) {
-    problem('placementTest', 'A lesson Act’s placement test names cards: use cardIds.');
-  }
   if (act.earlyAccess) {
     // Testing out skips every lesson, and some of this Act's aren't built yet.
     if (placementTest !== undefined) {
@@ -728,7 +727,7 @@ export type FieldMission = NonNullable<Act['fieldMission']>;
 export type FieldMissionInput = NonNullable<ActInput['fieldMission']>;
 /** What a content file writes for a lesson Act's placement test. */
 export type LessonPlacementInput = z.input<typeof LessonPlacementSchema>;
-/** A finished Act with missions, with every part there. Act 2 is one. */
+/** A finished Act with missions and a typed boss fight, with every part there. */
 export type CompleteAct = Act & {
   placementTest: DrillPlacementTest;
   boss: Boss;

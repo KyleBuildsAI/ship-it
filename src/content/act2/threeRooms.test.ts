@@ -25,7 +25,7 @@ import { sandbox } from '../../game/sandbox';
 import { createDefaultSave, type SaveData } from '../../game/save/schema';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
 import { beginStep, canonicalStart, playCard, queriesOf } from '../act1/play.test-helpers';
-import { act2, act2Missions } from './index';
+import { act2, act2Lessons, act2Missions } from './index';
 
 /*
  * Mission 2.1, Three Rooms, played card by card and drill by drill
@@ -317,7 +317,7 @@ describe('Three Rooms, played in the game', () => {
 
   beforeEach(async () => {
     stored = createDefaultSave(NOW);
-    setCatalog({ acts: [{ act: act2, missions: act2Missions }] });
+    setCatalog({ acts: [{ act: act2, missions: act2Missions, lessons: act2Lessons }] });
     await startProgress(storage, NOW);
     startMission(mission.id);
     endBriefing();

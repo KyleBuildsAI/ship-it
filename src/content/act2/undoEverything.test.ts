@@ -20,7 +20,7 @@ import {
   queriesOf,
   trueChecks,
 } from '../act1/play.test-helpers';
-import { act2, act2Missions } from '../index';
+import { act2, act2Lessons, act2Missions } from '../index';
 import { undoEverything } from './undoEverything';
 
 /*
@@ -159,7 +159,7 @@ describe('Mission 2.5 directed', () => {
   it('is a directed mission in Act 2 that fits the word budgets', () => {
     expect(mission.approvals).toBe('destructive');
     expect(mission.steps.every((step) => step.agent !== undefined)).toBe(true);
-    expect(validateAct(act2, act2Missions)).toEqual([]);
+    expect(validateAct(act2, act2Missions, act2Lessons)).toEqual([]);
   });
 
   it('keeps the drills the placement test borrows', () => {
