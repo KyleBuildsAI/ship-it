@@ -391,13 +391,14 @@ function consider(action: QueuedAction, alreadyTyped: boolean): void {
   saveAgent(openGate(now.agent, action, gate));
 }
 
-/** The line a gate shows: the command, the line that asked, or the file Otto writes. */
+/** The line a gate shows: the command, the line that asked, or the file Otto writes or edits. */
 function gateLine(action: QueuedAction): string {
   switch (action.do) {
     case 'run':
     case 'answer':
       return action.line;
     case 'write':
+    case 'edit':
       return action.path;
     case 'newTerminal':
     case 'useTerminal':
@@ -416,6 +417,8 @@ function untypedLabel(action: QueuedAction): string | null {
       return null;
     case 'write':
       return `Wrote ${display(action.path)}`;
+    case 'edit':
+      return `Edited ${display(action.path)}`;
     case 'newTerminal':
       return 'Opened a new terminal';
     case 'useTerminal':

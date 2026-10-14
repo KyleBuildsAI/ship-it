@@ -200,6 +200,55 @@ describe('drive: write', () => {
   });
 });
 
+describe('drive: edit', () => {
+  const config = `${API}/config.json`;
+  const withConfig = () => {
+    const made = laptop();
+    drive(made.shell, { do: 'write', path: config, content: '{ "port": 8080, "retries": 3 }\n' });
+    return made;
+  };
+
+  it('changes only the first match in the file as it is now, and keeps the rest', () => {
+    const { shell, disk } = withConfig();
+    const step = drive(shell, {
+      do: 'edit',
+      path: 'USERS/kyle/quillwork/api/CONFIG.JSON',
+      find: '8080',
+      replace: '$&3000',
+    });
+    expect(step).toMatchObject({ echo: null, lines: [], exitCode: 0, asking: false });
+    expect(step.events).toEqual([{ type: 'fileChanged', path: config, change: 'modified' }]);
+    // `$&` stays as typed: the new text is never read as a replace pattern.
+    expect(disk.readFile(config)).toBe('{ "port": $&3000, "retries": 3 }\n');
+  });
+
+  it('fails and changes nothing when the file is missing or lacks the text', () => {
+    const { shell, disk } = withConfig();
+    const gone = drive(shell, { do: 'edit', path: `${API}/nope.json`, find: 'a', replace: 'b' });
+    expect(gone.exitCode).toBe(1);
+    expect(texts(gone)).toEqual([
+      "Can't edit C:\\Users\\kyle\\quillwork\\api\\nope.json: there is no such file.",
+    ]);
+    const lacks = drive(shell, { do: 'edit', path: config, find: '"timeout"', replace: 'x' });
+    expect(lacks.exitCode).toBe(1);
+    expect(texts(lacks)).toEqual([
+      'Can\'t edit C:\\Users\\kyle\\quillwork\\api\\config.json: it doesn\'t contain "timeout"',
+    ]);
+    expect(lacks.events).toEqual([]);
+    expect(disk.readFile(config)).toBe('{ "port": 8080, "retries": 3 }\n');
+  });
+
+  it("edits a project file in Act 2's sandbox", () => {
+    const ws = repo().write('notes.txt', 'week 1\n').build(testDeps());
+    const shell = new Shell(ws, 'C:\\Users\\kyle\\quillwork\\app');
+    const step = drive(shell, { do: 'edit', path: 'notes.txt', find: '1', replace: '2' });
+    expect(step.exitCode).toBe(0);
+    expect(ws.fs.readFile('notes.txt')).toBe('week 2\n');
+    const gone = drive(shell, { do: 'edit', path: 'nope.txt', find: '1', replace: '2' });
+    expect(texts(gone)).toEqual(["Can't edit nope.txt: there is no such file."]);
+  });
+});
+
 describe('drive: terminals', () => {
   it('opens a new tab at home, which becomes the active one', () => {
     const { shell, machine } = laptop();

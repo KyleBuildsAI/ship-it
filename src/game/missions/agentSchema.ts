@@ -122,6 +122,17 @@ const writeFields = {
   content: z.string(),
   say: OttoLineSchema.optional(),
 };
+const editFields = {
+  /**
+   * Otto's edit tool: changes the first `find` in the file as it is now. A card that means
+   * "change only the port" uses it, so it can never put back settings the file has lost.
+   */
+  do: z.literal('edit'),
+  path: RepoPathSchema,
+  find: z.string().min(1),
+  replace: z.string(),
+  say: OttoLineSchema.optional(),
+};
 const terminalActions = [
   z.strictObject({ do: z.literal('newTerminal'), say: OttoLineSchema.optional() }),
   z.strictObject({
@@ -139,6 +150,7 @@ const terminalActions = [
 export const BaseActionSchema = z.discriminatedUnion('do', [
   z.strictObject(runFields),
   z.strictObject(writeFields),
+  z.strictObject(editFields),
   ...terminalActions,
 ]);
 
@@ -174,6 +186,7 @@ export const AgentActionSchema = z.discriminatedUnion('do', [
     ...denyFields,
   }),
   z.strictObject({ ...writeFields, ...denyFields }),
+  z.strictObject({ ...editFields, ...denyFields }),
   ...terminalActions,
 ]);
 

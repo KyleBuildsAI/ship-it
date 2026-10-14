@@ -57,6 +57,9 @@ describe('actionText', () => {
     expect(actionText({ do: 'write', path: 'Users/kyle/a.txt', content: '' })).toBe(
       'Write the file C:\\Users\\kyle\\a.txt',
     );
+    expect(actionText({ do: 'edit', path: 'Users/kyle/a.txt', find: '1', replace: '2' })).toBe(
+      'Edit C:\\Users\\kyle\\a.txt: change 1 to 2',
+    );
     expect(actionText({ do: 'newTerminal' })).toBe('Open a new terminal');
     expect(actionText({ do: 'useTerminal', tab: 2 })).toBe('Switch to terminal 2');
   });

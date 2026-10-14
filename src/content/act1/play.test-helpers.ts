@@ -125,11 +125,12 @@ export function playCard(
     const result = playAction(live.shell, live.transcript, driven);
     log = withEntry(log, { kind: 'action', action: driven });
     drivenCount++;
-    if (action.do === 'run') {
+    // File tools fail too, like an edit whose text is gone, so they are checked like lines.
+    if (action.do === 'run' || action.do === 'write' || action.do === 'edit') {
       lines.push({
-        line: action.line,
+        line: gateLine(action),
         exitCode: result.exitCode,
-        fails: action.fails === true,
+        fails: action.do === 'run' && action.fails === true,
         output: result.lines.map((printed) => printed.text).join('\n'),
       });
     }
@@ -181,10 +182,10 @@ export function playCard(
   return { log, state, lines, gates, predicts, driven: drivenCount };
 }
 
-/** How a gate names what it holds: the line, or for Otto's file tool, the file it writes. */
+/** How a gate names what it holds: the line, or for Otto's file tools, the file they change. */
 function gateLine(action: QueuedAction): string {
   if (action.do === 'run' || action.do === 'answer') return action.line;
-  return action.do === 'write' ? `write ${action.path}` : action.do;
+  return action.do === 'write' || action.do === 'edit' ? `${action.do} ${action.path}` : action.do;
 }
 
 /**

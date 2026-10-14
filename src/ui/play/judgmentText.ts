@@ -13,6 +13,8 @@ export function actionText(action: BaseAction): string {
       return action.line;
     case 'write':
       return `Write the file ${display(action.path)}`;
+    case 'edit':
+      return `Edit ${display(action.path)}: change ${action.find} to ${action.replace}`;
     case 'newTerminal':
       return 'Open a new terminal';
     case 'useTerminal':

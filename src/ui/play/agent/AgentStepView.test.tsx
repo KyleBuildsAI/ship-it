@@ -178,6 +178,20 @@ describe('the directing panel', () => {
     expect(text).toContain('The laptop shows no change, but Otto asked first.');
   });
 
+  it('tells an edit of one piece apart from a write of the whole file', () => {
+    const path = 'Users/kyle/quillwork/api/config.json';
+    const changes = [{ kind: 'modified', path, how: 'replaced' }] as const;
+    const gate = { kind: 'line', line: path, changes, harmful: false } as const;
+    const edit = { do: 'edit', path, find: '8080', replace: '3000', onDeny: [] } as const;
+    const edited = shown(atGate(edit, gate));
+    expect(edited).toContain('Otto wants to edit the file:' + path);
+    expect(edited).toContain('Changes 8080 to 3000, and keeps the rest.');
+    const write = { do: 'write', path, content: '{}', onDeny: [] } as const;
+    const written = shown(atGate(write, gate));
+    expect(written).toContain('Otto wants to write the whole file:' + path);
+    expect(written).not.toContain('keeps the rest');
+  });
+
   it("asks Kyle to check Otto's claim, with his looks beside the answers", () => {
     const checking: AgentStepState = { ...start, stage: { at: 'check', planId: 'bare-name' } };
     expect(shown(checking)).toBe(

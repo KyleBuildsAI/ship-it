@@ -34,7 +34,7 @@ export type LoggedAction = DriverAction & { readonly answer?: never };
 /** An action as content writes it: a plan's script, a deny branch, a drill's history. */
 export type ContentAction =
   | { readonly do: 'run'; readonly line: string; readonly answer?: ConfirmLetter }
-  | Extract<DriverAction, { do: 'write' | 'newTerminal' | 'useTerminal' }>;
+  | Extract<DriverAction, { do: 'write' | 'edit' | 'newTerminal' | 'useTerminal' }>;
 
 /** One thing done to a sandbox after its setup. */
 export type LogEntry =
@@ -82,6 +82,8 @@ export function driverAction(action: ContentAction): LoggedAction {
       return { do: 'run', line: action.line };
     case 'write':
       return { do: 'write', path: action.path, content: action.content };
+    case 'edit':
+      return { do: 'edit', path: action.path, find: action.find, replace: action.replace };
     case 'newTerminal':
       return { do: 'newTerminal' };
     case 'useTerminal':

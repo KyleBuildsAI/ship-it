@@ -1,4 +1,4 @@
-import { writeSandboxFile } from '../fixtures';
+import { readSandboxFile, writeSandboxFile } from '../fixtures';
 import { parentDir } from '../fs/paths';
 import { FsError } from '../fs/virtualFs';
 import { line, type OutputLine } from '../git/cli/output';
@@ -26,6 +26,12 @@ export type DriverAction =
    * path on a laptop ('Users/kyle/notes.txt'), and a project path in Act 2's sandboxes.
    */
   | { readonly do: 'write'; readonly path: string; readonly content: string }
+  /**
+   * Change one piece of a file as it is now, with the agent's edit tool: the first `find`
+   * becomes `replace`, and the rest of the file stays. Unlike a write, it can't put back
+   * text the file has lost, because it never carries the whole file.
+   */
+  | { readonly do: 'edit'; readonly path: string; readonly find: string; readonly replace: string }
   /** Open a new terminal tab. It becomes the active one, as a new tab does. */
   | { readonly do: 'newTerminal' }
   /** Switch to an open tab by its number. */
@@ -120,6 +126,8 @@ function act(shell: Shell, action: DriverAction): Acted {
         echo: null,
         result: writeFile(shell.ws, action.path, action.content),
       };
+    case 'edit':
+      return { ...where(shell), echo: null, result: editFile(shell.ws, action) };
     case 'newTerminal':
       requireMachine(shell, action).openSession();
       return { ...where(shell), echo: null, result: SILENT };
@@ -166,6 +174,30 @@ function writeFile(ws: Workspace, path: string, content: string): ShellResult {
     const reason = error.code === 'EISDIR' ? "it's a folder" : 'a file is in the way';
     return { lines: [line(`Can't write ${shown}: ${reason}.`, 'error')], exitCode: 1 };
   }
+}
+
+/**
+ * The agent's edit tool, like a real agent's find-and-replace: it reads the file as it is
+ * now and changes only the first `find`. A missing file, or text that isn't there, fails
+ * with a message and changes nothing, the way a real edit tool refuses rather than guess.
+ */
+function editFile(
+  ws: Workspace,
+  edit: { readonly path: string; readonly find: string; readonly replace: string },
+): ShellResult {
+  const path = ws.machine === null ? edit.path : ws.machine.drive.stored(edit.path);
+  const shown = ws.machine === null ? edit.path : display(path);
+  const text = readSandboxFile(ws, path);
+  if (text === null) return failed(`Can't edit ${shown}: there is no such file.`);
+  const at = text.indexOf(edit.find);
+  if (at < 0) return failed(`Can't edit ${shown}: it doesn't contain ${edit.find}`);
+  // Sliced, not String.replace, so a `$` in the new text is never read as a pattern.
+  writeSandboxFile(ws, path, text.slice(0, at) + edit.replace + text.slice(at + edit.find.length));
+  return SILENT;
+}
+
+function failed(message: string): ShellResult {
+  return { lines: [line(message, 'error')], exitCode: 1 };
 }
 
 /**
