@@ -177,7 +177,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 | 2 | **Clean the dirty tree.** Commit outstanding SandCastles work in logical commits with conventional messages. Add .gitignore entries for build output and secrets. End with a clean `git status`. (Based on a real incident where deploys built from clean checkouts silently dropped uncommitted work.) |
 | 3 | Use feature branches for all SandCastles work. Land one branch by rebase and one by merge. Explain the difference in the commit or PR text. |
 | 4 | Create the sanitized public alpha repo. Open issues for the next 3 features. Every change via PR. Release v0.1.0 with notes. |
-| 5 | Add tests and CI to the alpha (self-hosted runner). CI badge in README. Secret scanning on. |
+| 5 | **Green on Every Push.** Kyle briefs his own AI agent to add a GitHub Actions workflow to SandCastles that runs its tests (or lint) on every push and pull request, reviews the file (no `\|\| true`, no `continue-on-error`), pushes it with a `ci:` commit, and gets one green run. Pastes prove the workflow is tracked (`git ls-files .github/workflows`) and pushed to GitHub's main with a Conventional message (`git log --oneline -1 origin/main -- .github/workflows`). The green run itself shows only on GitHub, so the checklist says where to look; checking it automatically waits for the M3+ API checks. Later: a self-hosted runner, a CI badge in the README, secret scanning on. |
 | 6 | Architecture diagram and a one-command setup doc a stranger can follow. |
 | 7 | Turn the Tidepool concept into a real eval suite. Prompt-injection hardening on one agent tool. |
 | 8 | SandCastles deep-dive: defend the architecture against the interviewer. |
@@ -274,6 +274,10 @@ Every card happens at Quillwork with Sage, Dex, Marco, Priya and Otto. The lesso
 - 5.4 **Secrets and Updates**: secrets in Actions, a leaked key (revoke first) and the cleanup in order, fork PRs and secrets, major dependency bumps, the lockfile, briefing an upgrade, judging a new dependency
 
 Final (the boss): **"Red CI"**, 6:00 for 9 cards: main is broken on release day. Find the first red build, read the trace, choose revert or fix forward, brief Otto's revert, catch his skipped test, and stop admins bypassing the required CI check.
+
+Placement test: 12 cards, three from each of 5.1 to 5.4 (reading an artifact and telling Otto what to do in each set), on a 7:00 clock (`src/content/act5/placement.ts`). Red CI stays open after testing out.
+
+Field Mission: **"Green on Every Push"** (`src/content/act5/fieldMission.ts`), below.
 
 ### Act 6: How Systems Work (lessons)
 HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.
