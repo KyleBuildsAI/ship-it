@@ -178,7 +178,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 | 3 | Use feature branches for all SandCastles work. Land one branch by rebase and one by merge. Explain the difference in the commit or PR text. |
 | 4 | Create the sanitized public alpha repo. Open issues for the next 3 features. Every change via PR. Release v0.1.0 with notes. |
 | 5 | Add tests and CI to the alpha (self-hosted runner). CI badge in README. Secret scanning on. |
-| 6 | Architecture diagram and a one-command setup doc a stranger can follow. |
+| 6 | **Document One Request** (built). Kyle has his own AI agent add an API section to SandCastles' README: one real request (or a new `GET /health` endpoint), an example JSON response and its status code, checked against the running app, then committed and pushed. Paste checks: a Conventional Commit, a clean tree, and no tracked `.env`. Kyle reads the section on github.com himself; the paste checks can't see file contents. |
 | 7 | Turn the Tidepool concept into a real eval suite. Prompt-injection hardening on one agent tool. |
 | 8 | SandCastles deep-dive: defend the architecture against the interviewer. |
 
@@ -220,7 +220,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 
 Every Act is playable today, each entered through its Campus portal (section 4). They're taught two ways:
 - **Acts 1 and 2 are simulated.** Act 1 runs Otto's real PowerShell on the simulated laptop and its machine island; Act 2 runs the git engine in the Git World. Act 1 is in early access (directed Missions 1.1 to 1.4, the laptop sandbox, then 1.5, 1.6 and its final as lessons, because the laptop doesn't simulate npm or processes yet; its Field Mission isn't built); Act 2 is complete.
-- **Acts 3 to 8 are lessons** (section 5, Lessons): four lessons each and a timed final in place of the boss, answered by clicking, never typing. They teach judgment about git, GitHub, CI, systems and directing AI agents rather than syntax. Their Field Missions aren't built yet.
+- **Acts 3 to 8 are lessons** (section 5, Lessons): four lessons each and a timed final in place of the boss, answered by clicking, never typing. They teach judgment about git, GitHub, CI, systems and directing AI agents rather than syntax. Act 6 also has its placement test and Field Mission (section 11); the other lesson Acts' aren't built yet.
 
 ### Act 1: The Machine (directed, then lessons; early access)
 The principles every engineer who directs AI agents needs about the machine they run on, learned by getting the Quillwork API running on Kyle's laptop with Otto. Kyle directs; Otto's real PowerShell runs through the laptop engine and animates the machine island. It is the starting Act, and ships in early access until its Field Mission is built.
@@ -284,6 +284,8 @@ Every card is a day at Quillwork, a small startup that makes a writing app, with
 - 6.4 **Logs and Stack Traces**: where to look in a stack trace, what was undefined, briefing a fix for the cause not the symptom, a swallowed error, following one request id, briefing safe logging, log levels, the debugging steps in order
 
 Final (the boss): **"The 3am Page"**, 6:00 for nine cards: incident triage from metrics and logs, rolling back, telling the team, confirming recovery, then briefing Otto on the root cause and a blameless postmortem. Content lives one lesson per file in `src/content/act6/`, collected in play order by `lessons.ts`.
+
+Placement test (`placementTest.ts`): twelve cards, three from each of 6.1 to 6.4 (at least one of each three briefs Otto), on one 8:00 clock, 40 seconds a card like the final. Field Mission (`fieldMission.ts`): **"Document One Request"** (section 8). With both, Act 6 is a finished Act: complete once every lesson and the Field Mission are done, or once the placement test is passed.
 
 ### Act 7: AI-Native Engineering (lessons)
 Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.
