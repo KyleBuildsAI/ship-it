@@ -1,0 +1,237 @@
+import { describe, expect, it } from 'vitest';
+import { gitQueries } from '../../engine/git/queries';
+import { testDeps } from '../../engine/git/testDeps';
+import { describeChanges } from '../../game/agent/effects';
+import { dryRun, replay } from '../../game/agent/replay';
+import { beginAgentStep } from '../../game/missions/agentRunner';
+import { MissionSchema, type Mission, type MissionStep } from '../../game/missions/schema';
+import { validateAct } from '../../game/missions/validateAct';
+import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
+import { canonicalStart, playCard } from '../act1/play.test-helpers';
+import { act2, act2Missions } from '../index';
+import { undoEverything } from './undoEverything';
+
+/*
+ * Mission 2.5, directed: every card played through agentRunner and replay.ts, the way the
+ * game plays it. The tables below are what each card is meant to do. The engine decides
+ * every answer: gates by dry runs against the step's guards, checks and drills by git
+ * predicates. So reset --hard is harmful where it drops shared commits or work with no
+ * other copy, and safe in the fire drill, where the reflog still holds both commits.
+ */
+
+const mission: Mission = MissionSchema.parse(undoEverything);
+
+function stepById(id: string): MissionStep {
+  const found = mission.steps.find((step) => step.id === id);
+  if (found === undefined) throw new Error(`Mission 2.5 has no step "${id}".`);
+  return found;
+}
+
+describeDirectedMission(mission, {
+  start: {
+    'discard-edit': {
+      'restore-style': { passed: true, check: 'clean' },
+      'undo-all': {
+        'allow-all': { passed: false, check: 'notes-gone' },
+        'deny-harmful': 'direct',
+      },
+      'unstage-style': { passed: false, check: 'experiment' },
+    },
+    'unstage-notes': {
+      'restore-staged': { passed: true, check: 'loose' },
+      'commit-it': { passed: false, check: 'committed' },
+      'restore-notes': { passed: false, check: 'on-dock' },
+    },
+    'redo-wip': {
+      'soft-reset': { passed: true, check: 'redone' },
+      'hard-reset': { 'allow-all': { passed: false, check: 'lost' }, 'deny-harmful': 'direct' },
+      'new-commit': { passed: false, check: 'wip' },
+    },
+    'revert-confetti': {
+      revert: { passed: true, check: 'reverted' },
+      'reset-back': {
+        'allow-all': { passed: false, check: 'erased' },
+        'deny-harmful': 'direct',
+      },
+      'delete-file': { passed: false, check: 'half' },
+    },
+    'reflog-recover': {
+      'drill-rescue': { passed: true, check: 'back' },
+      'drill-only': { passed: false, check: 'gone' },
+      'soft-drill': { passed: false, check: 'dock' },
+    },
+  },
+  fixes: {
+    'discard-edit': {
+      'unstage-style > fix-restore': { passed: true, check: 'clean' },
+      'unstage-style > restore-style': { passed: true, check: 'clean' },
+    },
+    'unstage-notes': {
+      'commit-it > uncommit-notes': { passed: true, check: 'loose' },
+      'commit-it > restore-staged': { passed: false, check: 'committed' },
+      'restore-notes > restore-staged': { passed: true, check: 'loose' },
+    },
+    'redo-wip': {
+      'new-commit > fix-soft': { passed: true, check: 'redone' },
+      'new-commit > soft-reset': { passed: true, check: 'redone' },
+    },
+    'revert-confetti': {
+      'delete-file > fix-app': { passed: true, check: 'reverted' },
+      // HEAD~2 now names the readme commit: reverting by position after a new commit misses.
+      'delete-file > revert': { passed: false, check: 'half' },
+    },
+    'reflog-recover': {
+      'drill-only > reflog-back': { passed: true, check: 'back' },
+      'soft-drill > reflog-back': { passed: true, check: 'back' },
+    },
+  },
+  rewindOnly: ['discard-edit > undo-all', 'redo-wip > hard-reset', 'revert-confetti > reset-back'],
+  // Every git line that pauses in destructive mode, and whether a dry run finds it harmful.
+  gates: {
+    'discard-edit > restore-style > git restore style.css': false,
+    'discard-edit > undo-all > git reset --hard': true,
+    'discard-edit > unstage-style > fix-restore > git restore style.css': false,
+    'discard-edit > unstage-style > restore-style > git restore style.css': false,
+    'discard-edit > unstage-style > undo-all > git reset --hard': true,
+    // Undoing Otto's own new commit is safe; after restore-notes it would drop "wip".
+    'unstage-notes > commit-it > uncommit-notes > git reset HEAD~1': false,
+    'unstage-notes > restore-notes > uncommit-notes > git reset HEAD~1': true,
+    'redo-wip > soft-reset > git reset --soft HEAD~1': false,
+    'redo-wip > hard-reset > git reset --hard HEAD~1': true,
+    // After the hard reset, one more step back reaches a pushed commit.
+    'redo-wip > hard-reset > fix-soft > git reset --soft HEAD~1': true,
+    'redo-wip > hard-reset > soft-reset > git reset --soft HEAD~1': true,
+    'redo-wip > new-commit > fix-soft > git reset --soft HEAD~1': false,
+    'redo-wip > new-commit > hard-reset > git reset --hard HEAD~1': true,
+    'redo-wip > new-commit > soft-reset > git reset --soft HEAD~1': false,
+    'revert-confetti > revert > git revert HEAD~2': false,
+    'revert-confetti > reset-back > git reset --hard HEAD~3': true,
+    'revert-confetti > delete-file > git rm src/confetti.js': false,
+    'revert-confetti > delete-file > fix-app > git restore --source=HEAD~4 src/app.js': false,
+    'revert-confetti > delete-file > reset-back > git reset --hard HEAD~3': true,
+    'revert-confetti > delete-file > revert > git revert HEAD~2': false,
+    // The fire drill: no guard protects two unpushed commits the reflog still knows.
+    'reflog-recover > drill-rescue > git reset --hard HEAD~2': false,
+    "reflog-recover > drill-rescue > git reset --hard 'HEAD@{1}'": false,
+    'reflog-recover > drill-only > git reset --hard HEAD~2': false,
+    'reflog-recover > drill-only > drill-rescue > git reset --hard HEAD~2': false,
+    "reflog-recover > drill-only > drill-rescue > git reset --hard 'HEAD@{1}'": false,
+    "reflog-recover > drill-only > reflog-back > git reset --hard 'HEAD@{1}'": false,
+    'reflog-recover > drill-only > soft-drill > git reset --soft HEAD~2': false,
+    'reflog-recover > soft-drill > git reset --soft HEAD~2': false,
+    'reflog-recover > soft-drill > drill-only > git reset --hard HEAD~2': false,
+    'reflog-recover > soft-drill > drill-rescue > git reset --hard HEAD~2': false,
+    "reflog-recover > soft-drill > drill-rescue > git reset --hard 'HEAD@{1}'": false,
+  },
+});
+
+describeJudgmentDrills(mission, {
+  'undo-discard-edit': { key: ['allow'], wrong: 'deny' },
+  'undo-restore-deleted': { key: ['restore'], wrong: 'restore-staged' },
+  'undo-unstage': { key: ['off-dock'], wrong: 'edit-gone' },
+  'undo-revert-shared': { key: ['revert'], wrong: 'reset-hard' },
+  'undo-soft-reset': { key: ['dock'], wrong: 'workbench' },
+  'undo-mixed-reset': { key: ['on-workbench'], wrong: 'gone' },
+  'undo-hard-reset': { key: ['deny'], wrong: 'allow' },
+  'undo-reflog-rescue': { key: ['reflog'], wrong: 'recommit' },
+});
+
+describe('Mission 2.5 directed', () => {
+  it('is a directed mission in Act 2 that fits the word budgets', () => {
+    expect(mission.approvals).toBe('destructive');
+    expect(mission.steps.every((step) => step.agent !== undefined)).toBe(true);
+    expect(validateAct(act2, act2Missions)).toEqual([]);
+  });
+
+  it('keeps the drills the placement test borrows', () => {
+    const ids = mission.drills.map((drill) => drill.id);
+    const borrowed = act2.placementTest.drillIds.filter((id) => id.startsWith('undo-'));
+    expect(borrowed.length).toBeGreaterThan(0);
+    for (const id of borrowed) expect(ids).toContain(id);
+  });
+});
+
+describe("Mission 2.5's gates say, in plain words, what each undo costs", () => {
+  /** The approval card's lines for `line`, run where step `index` begins on the reference path. */
+  function gateFor(index: number, line: string) {
+    const step = mission.steps[index];
+    if (step === undefined) throw new Error(`No step ${String(index)}`);
+    const start = canonicalStart(mission, index);
+    const dry = dryRun(
+      start,
+      { do: 'run', line },
+      { guards: step.agent?.guards ?? [] },
+      testDeps(),
+    );
+    return {
+      harmful: dry.harmful,
+      broken: dry.broken,
+      effects: describeChanges(dry.changes, (path) => path),
+    };
+  }
+
+  it('reset --hard on Friday throws away the experiment and deletes notes.txt', () => {
+    expect(gateFor(0, 'git reset --hard')).toEqual({
+      harmful: true,
+      broken: ['Your notes.txt survives'],
+      effects: [
+        'Throws away the unsaved edits to style.css',
+        'Deletes notes.txt from the Workbench',
+        'Takes notes.txt off the Loading Dock',
+      ],
+    });
+  });
+
+  it('git restore style.css pauses, and is safe: it names one file', () => {
+    expect(gateFor(0, 'git restore style.css')).toEqual({
+      harmful: false,
+      broken: [],
+      effects: ['Throws away the unsaved edits to style.css'],
+    });
+  });
+
+  it('resetting past the shared confetti commit drops three commits: harmful', () => {
+    const gate = gateFor(3, 'git reset --hard HEAD~3');
+    expect(gate.harmful).toBe(true);
+    expect(gate.broken).toEqual(['Shared commits stay in history']);
+    expect(gate.effects[0]).toBe('Takes 3 commits off main, newest "feat: add pricing calculator"');
+  });
+
+  it('git revert keeps every commit: it pauses for the files it rewrites, and is safe', () => {
+    const gate = gateFor(3, 'git revert HEAD~2');
+    expect(gate.harmful).toBe(false);
+    expect(gate.effects.slice(0, 2)).toEqual([
+      'Rewrites src/app.js on the Workbench',
+      'Deletes src/confetti.js from the Workbench',
+    ]);
+    expect(gate.effects[2]).toMatch(/^Seals 2 files into a new commit: "Revert /);
+  });
+
+  it('the fire drill is the same reset --hard, and safe: nothing it drops is shared', () => {
+    const gate = gateFor(4, 'git reset --hard HEAD~2');
+    expect(gate.harmful).toBe(false);
+    expect(gate.effects[0]).toMatch(/^Takes 2 commits off main, newest "Revert /);
+  });
+});
+
+describe('Mission 2.5 on the reference path', () => {
+  it('ends with the revert on top, pricing kept, and the drill in the reflog', () => {
+    const log = canonicalStart(mission, mission.steps.length);
+    const { shell } = replay(log, testDeps());
+    const git = gitQueries(shell.ws);
+    expect(git.headCommit()?.message).toMatch(/^Revert "feat: add confetti on signup"/);
+    expect(git.log()).toHaveLength(6);
+    expect(git.trackedPaths()).toContain('src/pricing.js');
+    expect(git.reflog().some((entry) => entry.message === 'reset: moving to HEAD~2')).toBe(true);
+  });
+
+  it('asks Kyle nothing on the strong Friday card but the prediction, and one safe gate', () => {
+    const step = stepById('discard-edit');
+    const begun = { log: canonicalStart(mission, 0), state: beginAgentStep(step) };
+    const played = playCard(mission, step, begun, 'restore-style', 'deny-harmful');
+    expect(played.gates).toEqual([{ line: 'git restore style.css', harmful: false }]);
+    expect(played.predicts).toEqual([
+      { question: 'Before Otto runs it: what is in style.css after?', trueOptions: ['committed'] },
+    ]);
+  });
+});
