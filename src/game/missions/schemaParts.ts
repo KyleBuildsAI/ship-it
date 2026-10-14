@@ -258,6 +258,7 @@ const predicateKinds = z.discriminatedUnion('kind', [
     contains: z.string().min(1).optional(),
     ...labelled,
   }),
+  z.strictObject({ kind: z.literal('inHistory'), path: RepoPathSchema, ...labelled }),
   z
     .strictObject({
       kind: z.literal('workingFile'),
