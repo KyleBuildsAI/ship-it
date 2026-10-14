@@ -10,14 +10,15 @@ const mission = act1Missions[0];
 if (mission === undefined) throw new Error('Act 1 has no mission');
 
 describe('Act 1', () => {
-  it('parses, ships Missions 1.1 to 1.3 in early access, and passes validateAct', () => {
+  it('parses, ships Missions 1.1 to 1.4 in early access, and passes validateAct', () => {
     expect(act1.earlyAccess).toBe(true);
     expect(act1.missionIds).toEqual([
       'where-things-live',
       'deletes-are-forever',
       'secrets-stay-home',
+      'every-terminal',
     ]);
-    expect(act1.upcoming).toHaveLength(3);
+    expect(act1.upcoming).toHaveLength(2);
     expect(validateAct(act1, act1Missions)).toEqual([]);
   });
 });
@@ -27,6 +28,7 @@ const DRILL_PREFIX: Readonly<Record<string, string>> = {
   'where-things-live': 'wtl-',
   'deletes-are-forever': 'daf-',
   'secrets-stay-home': 'ssh-',
+  'every-terminal': 'etw-',
 };
 
 describe.each(act1Missions.map((each) => [each.title, each] as const))(

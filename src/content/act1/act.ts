@@ -1,5 +1,6 @@
 import type { ActInput, MissionInput } from '../../game/missions/schema';
 import { deletesAreForever } from './deletes-are-forever';
+import { everyTerminal } from './every-terminal';
 import { secretsStayHome } from './secrets-stay-home';
 import { whereThingsLive } from './whereThingsLive';
 
@@ -8,6 +9,7 @@ export const act1MissionInputs: readonly MissionInput[] = [
   whereThingsLive,
   deletesAreForever,
   secretsStayHome,
+  everyTerminal,
 ];
 
 /** Act 1 ships in early access, one mission at a time (docs/act1-directed.md section 5.7). */
@@ -16,9 +18,5 @@ export const act1Input: ActInput = {
   title: 'The Machine',
   earlyAccess: true,
   missionIds: act1MissionInputs.map((mission) => mission.id),
-  upcoming: [
-    'Every Terminal Is Its Own World',
-    'Dependencies Are Declared',
-    "Running Isn't Working",
-  ],
+  upcoming: ['Dependencies Are Declared', "Running Isn't Working"],
 };
