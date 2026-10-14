@@ -1,22 +1,29 @@
+import { describe, expect, it } from 'vitest';
+import { testDeps } from '../../engine/git/testDeps';
+import { beginAgentStep } from '../../game/missions/agentRunner';
+import { answerKey } from '../../game/missions/judgment';
+import { evaluate } from '../../game/missions/predicates';
+import { isJudgmentDrill } from '../../game/missions/schema';
 import { describeDirectedMission, describeJudgmentDrills } from './directed.test-helpers';
-import { missionById } from './play.test-helpers';
+import { beginStep, canonicalStart, missionById, playCard, queriesOf } from './play.test-helpers';
 
 /*
  * Mission 1.4, Every Terminal Is Its Own World, played card by card and drill by drill
  * (directed.test-helpers.ts). The tables are what the spec says each card and drill does.
  *
- * The mission pauses only on deletes and replaced files (`destructive`), so the gates are
- * the big hammers: removing Node, and replacing .env when one line would do.
+ * The mission pauses only on deletes and replaced files (`destructive`), and no card
+ * makes either: Windows refuses Otto's delete in Program Files, since his terminal isn't
+ * elevated, and every .env change is an append. So nothing pauses.
  * 'direct' means Otto stopped for new directions after a deny with no plan B.
  */
 
-const REMOVE_NODE = "Remove-Item 'C:\\Program Files\\nodejs' -Recurse";
-const REPLACE_ENV = "Set-Content C:\\Users\\kyle\\quillwork\\api\\.env 'QUILL_DEBUG=true'";
+const mission = missionById('every-terminal');
 
-describeDirectedMission(missionById('every-terminal'), {
+describeDirectedMission(mission, {
   start: {
     'npm-not-recognized': {
-      reinstall: { 'allow-all': { passed: false, check: 'gone' }, 'deny-harmful': 'direct' },
+      // Windows refuses the delete, so Node stays and PS 1's PATH is still the old copy.
+      reinstall: { passed: false, check: 'stale' },
       'look-here': { passed: false, check: 'stale' },
       'new-terminal': { passed: true, check: 'fresh' },
     },
@@ -27,11 +34,7 @@ describeDirectedMission(missionById('every-terminal'), {
     },
     'make-it-last': {
       'prove-it': { passed: false, check: 'nowhere' },
-      'replace-env': {
-        'allow-all': { passed: false, check: 'port-lost' },
-        // Denied, Otto appends the line instead.
-        'deny-harmful': { passed: true, check: 'dotenv' },
-      },
+      'check-here': { passed: false, check: 'nowhere' },
       'append-env': { passed: true, check: 'dotenv' },
     },
   },
@@ -39,8 +42,7 @@ describeDirectedMission(missionById('every-terminal'), {
     'npm-not-recognized': {
       'look-here > fresh-tab': { passed: true, check: 'fresh' },
       'look-here > new-terminal': { passed: true, check: 'fresh' },
-      // Node is gone: a fresh PATH names a folder that isn't there any more.
-      'reinstall > fresh-tab': { passed: false, check: 'gone' },
+      'reinstall > fresh-tab': { passed: true, check: 'fresh' },
     },
     'saved-for-new-terminals': {
       'trust-the-save > fresh-in-api': { passed: true, check: 'ready' },
@@ -49,31 +51,65 @@ describeDirectedMission(missionById('every-terminal'), {
       'print-here > open-one': { passed: false, check: 'home' },
     },
     'make-it-last': {
-      'replace-env > put-port-back': { passed: true, check: 'dotenv' },
+      'prove-it > save-it': { passed: true, check: 'dotenv' },
+      'check-here > save-it': { passed: true, check: 'dotenv' },
       'prove-it > append-env': { passed: true, check: 'dotenv' },
-      'prove-it > put-port-back': { passed: false, check: 'nowhere' },
     },
   },
-  // Allowed, Otto deleted Node: no card brings it back, only Rewind (or a real reinstall).
-  rewindOnly: ['npm-not-recognized > reinstall'],
-  gates: {
-    // Step 1: removing Node is harmful wherever it comes: the guard keeps Node installed.
-    [`npm-not-recognized > reinstall > ${REMOVE_NODE}`]: true,
-    [`npm-not-recognized > look-here > reinstall > ${REMOVE_NODE}`]: true,
-    // Step 2 never pauses: opening terminals and reading variables change nothing saved.
-    // Step 3: replacing .env loses PORT. Appends don't pause in this mission's mode.
-    [`make-it-last > replace-env > ${REPLACE_ENV}`]: true,
-    [`make-it-last > prove-it > replace-env > ${REPLACE_ENV}`]: true,
-  },
+  gates: {},
 });
 
-describeJudgmentDrills(missionById('every-terminal'), {
+describeJudgmentDrills(mission, {
   'etw-predict-new-tab': { key: ['dev'], wrong: 'empty' },
   'etw-predict-old-tab': { key: ['empty'], wrong: 'dev' },
   'etw-diagnose-stale-tab': { key: ['stale'], wrong: 'missing' },
   'etw-diagnose-claim-tab': { key: ['only-ps1'], wrong: 'right' },
   'etw-diagnose-export': { key: ['bash'], wrong: 'new-only' },
-  'etw-approve-replace-env': { key: ['deny'], wrong: 'allow' },
+  'etw-approve-clear-path': { key: ['deny'], wrong: 'allow' },
   'etw-approve-append-env': { key: ['allow'], wrong: 'deny' },
   'etw-fix-stale-path': { key: ['new-tab'], wrong: 'reinstall' },
+});
+
+describe('every-terminal, against the review', () => {
+  it('leaves Node installed when Otto tries to delete it: Program Files needs an admin', () => {
+    const step = mission.steps[0];
+    if (step === undefined) throw new Error('No step 1');
+    const log = beginStep(canonicalStart(mission, 0), step);
+    const played = playCard(
+      mission,
+      step,
+      { log, state: beginAgentStep(step) },
+      'reinstall',
+      'allow-all',
+    );
+    const removal = played.lines.find((run) => run.line.startsWith('Remove-Item'));
+    expect(removal?.exitCode).not.toBe(0);
+    expect(removal?.output).toContain(
+      "Access to the path 'C:\\Program Files\\nodejs\\node.exe' is denied.",
+    );
+    // Nothing changed, so nothing paused, whatever the gate policy.
+    expect(played.gates).toEqual([]);
+    const node = { kind: 'driveFile', path: 'Program Files/nodejs/node.exe' } as const;
+    expect(evaluate(node, queriesOf(played.log))).toBe(true);
+  });
+
+  it('keeps the API key in .env, as Mission 1.3 left it', () => {
+    const setup = JSON.stringify(mission.initialRepoState);
+    expect(setup).toContain('QUILL_API_KEY=dev-key-for-the-game-1234');
+    expect(setup).toContain('DATABASE_URL=');
+  });
+
+  it('shows the stale-tab evidence in the drills instead of stating the cause', () => {
+    for (const id of ['etw-diagnose-stale-tab', 'etw-fix-stale-path']) {
+      const drill = mission.drills.find((candidate) => candidate.id === id);
+      if (drill === undefined || !isJudgmentDrill(drill)) throw new Error(`No drill ${id}`);
+      expect(drill.prompt).not.toMatch(/install/i);
+      expect(drill.history.map((action) => ('line' in action ? action.line : ''))).toEqual([
+        'Write-Output $env:Path',
+        "Get-ChildItem 'C:\\Program Files\\nodejs'",
+        'npm --version',
+      ]);
+      expect(answerKey(drill, testDeps()).length).toBe(1);
+    }
+  });
 });

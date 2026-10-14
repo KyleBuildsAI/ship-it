@@ -1,12 +1,15 @@
 import type { Predicate } from '../../game/missions/predicates';
 import type { MissionInput } from '../../game/missions/schema';
-import { API, HOME, laptop } from './shared';
+import { API, DEV_KEY, HOME, laptop } from './shared';
 
 /**
  * Mission 1.4, Every Terminal Is Its Own World (docs/act1-directed.md section 3): a
  * terminal copies the saved variables and PATH when it opens. A $env: change lives only in
  * the terminal it was typed in, until that terminal closes, and saved changes reach only
  * terminals opened after them. "Not recognized" means: not on this terminal's PATH.
+ *
+ * A real agent's terminals copy the agent's own variables, not the saved ones, so the
+ * lessons say what "a new terminal" means there: restart the agent.
  *
  * The laptop runs no programs and no setx yet, so Otto can't save a variable or run npm.
  * The installer's PATH change, Sage's saved variable and Kyle's $env: test arrive through
@@ -20,8 +23,8 @@ const NODE_DIR = 'C:\\Program Files\\nodejs';
 
 const NODE_FOLDER = 'Program Files/nodejs';
 const ENV_FILE = `${API}/.env`;
-/** The API's .env as Mission 1.3 left it, minus the key: one setting the API needs. */
-const ENV_SETTINGS = 'PORT=3000\n';
+/** The API's .env as Mission 1.3 left it: the port, a blank DATABASE_URL, and Sage's key. */
+const ENV_SETTINGS = `PORT=3000\nDATABASE_URL=\nQUILL_API_KEY=${DEV_KEY}\n`;
 
 const not = (predicate: Predicate): Predicate => ({ kind: 'not', predicate });
 
@@ -44,6 +47,16 @@ const NODE_ON_PATH: Predicate = { kind: 'envVar', name: 'Path', contains: NODE_D
 /** The installer saved Node's folder on the Machine PATH, once PS 1 was already open. */
 const INSTALL_NODE = { op: 'pathAdd', scope: 'machine', dir: NODE_DIR, at: 'end' } as const;
 
+/**
+ * What Otto saw in PS 1, for the drills: no nodejs on its PATH, Node's folder there, npm
+ * not found. The evidence is shown, so the prompt needn't give the cause away.
+ */
+const STALE_TAB_EVIDENCE = [
+  { do: 'run', line: 'Write-Output $env:Path' },
+  { do: 'run', line: `Get-ChildItem '${NODE_DIR}'` },
+  { do: 'run', line: 'npm --version', fails: true },
+] as const;
+
 const SEES_QUILL_ENV: Predicate = { kind: 'envVar', name: 'QUILL_ENV', equals: 'dev' };
 const IN_API: Predicate = { kind: 'currentDirectory', path: API };
 
@@ -59,7 +72,18 @@ const PORT_KEPT: Predicate = {
   path: ENV_FILE,
   pattern: '^PORT=3000\\r?$',
   flags: 'm',
-  label: '.env keeps PORT=3000',
+};
+/** Replacing .env would lose the key too, the bigger loss: Kyle would need Sage again. */
+const ENV_KEPT: Predicate = {
+  kind: 'all',
+  of: [PORT_KEPT, { kind: 'driveFile', path: ENV_FILE, contains: `QUILL_API_KEY=${DEV_KEY}` }],
+  label: '.env keeps PORT and the key',
+};
+/** Anything Otto prints stays in his context (Mission 1.3), so he checks .env by its ends. */
+const KEY_UNSEEN: Predicate = {
+  kind: 'not',
+  predicate: { kind: 'secretShown', secret: DEV_KEY },
+  label: 'Otto never saw the key',
 };
 
 export const everyTerminal: MissionInput = {
@@ -73,7 +97,7 @@ export const everyTerminal: MissionInput = {
     captions: [
       'A terminal copies the saved variables and PATH when it opens. After that, its copy is its own.',
       '$env:NAME changes only the terminal you typed it in, and only until that terminal closes.',
-      '"Not recognized" means: not on this terminal\'s PATH. Saved changes reach only new terminals, Otto\'s too.',
+      '"Not recognized" means: not on this terminal\'s PATH. Saved changes reach only new terminals. A real agent\'s terminals copy the agent, so restart it.',
     ],
     diagram: 'lanterns-and-corkboard',
   },
@@ -81,7 +105,7 @@ export const everyTerminal: MissionInput = {
   steps: [
     {
       id: 'npm-not-recognized',
-      instruction: "npm is not recognized in Otto's terminal. Get him one that finds Node.",
+      instruction: 'Get Otto a terminal that can find Node.',
       success: { ...NODE_ON_PATH, label: "Otto's terminal has Node on its PATH" },
       hints: [
         "Node's installer ran this morning. When did Otto's terminal open?",
@@ -90,7 +114,9 @@ export const everyTerminal: MissionInput = {
       ],
       agent: {
         before: [INSTALL_NODE],
-        note: "Node's installer ran this morning, after Otto's terminal opened.",
+        // The symptom is told, not shown: the laptop can't run programs, so npm is never
+        // found in any terminal, and a card that ran it would contradict the lesson.
+        note: "Otto's npm says 'not recognized'. Node installed this morning, after his terminal opened. This laptop can't run programs yet, so cards read PATH.",
         focus: [NODE_FOLDER, HOME],
         plans: [
           {
@@ -102,15 +128,16 @@ export const everyTerminal: MissionInput = {
             script: [
               {
                 do: 'run',
-                // A delete, so it pauses. Node was fine: only the terminal's copy was old.
+                // Otto's terminal isn't elevated, so Windows refuses: nothing changes, so
+                // nothing pauses. Node was fine anyway: only the terminal's copy was old.
                 line: `Remove-Item '${NODE_DIR}' -Recurse`,
+                fails: true,
                 say: 'npm looks broken. Removing Node to start clean.',
-                denyLine: 'Okay, Node stays. What should I do instead?',
               },
             ],
-            claim: 'Done: Node is gone. Reinstall it and npm works.',
+            claim: 'Windows blocked me. Reinstall Node as admin, and npm works.',
             lesson:
-              "Node was fine. Otto's terminal opened before the install, so its PATH copy was old.",
+              "Node was fine: Otto's terminal opened before the install. Program Files needs an admin, so Windows refused the delete.",
             slip: 'big-hammer',
           },
           {
@@ -122,7 +149,8 @@ export const everyTerminal: MissionInput = {
             script: [{ do: 'run', line: 'Write-Output $env:Path' }],
             claim: "Done: Node's folder is on PATH now.",
             lesson: 'The printed PATH has no nodejs: this terminal copied PATH before the install.',
-            slip: 'stale-terminal',
+            // Otto read his own printout wrong: a claim over the evidence, like print-here.
+            slip: 'overclaim',
           },
           {
             id: 'new-terminal',
@@ -132,7 +160,8 @@ export const everyTerminal: MissionInput = {
             intents: ['open a new terminal', 'fresh terminal', 'new tab then path'],
             script: [{ do: 'newTerminal' }, { do: 'run', line: 'Write-Output $env:Path' }],
             claim: "Done: the new terminal's PATH has Node's folder.",
-            lesson: 'A new terminal copies the saved PATH as it opens, installer changes included.',
+            lesson:
+              "A new terminal copies the saved PATH. A real agent's terminals copy the agent's own PATH, so restart the agent.",
           },
         ],
         fixes: [
@@ -144,30 +173,27 @@ export const everyTerminal: MissionInput = {
             intents: ['that is the old terminal', 'open a new one'],
             script: [{ do: 'newTerminal' }, { do: 'run', line: 'Write-Output $env:Path' }],
             claim: "Fixed: the new terminal's PATH has nodejs.",
-            lesson: 'The fix was a fresh terminal, not a reinstall.',
+            lesson:
+              'The fix was a fresh terminal, not a reinstall. With a real agent, restart the agent.',
           },
         ],
         hintPlan: 'new-terminal',
         check: {
-          question: "Does Otto's terminal have Node's folder on its PATH?",
+          // About finding Node, which is what the step asks. Windows refuses the only delete,
+          // so Node is always there, and PATH alone tells the two answers apart.
+          question: "Can Otto's terminal find Node now?",
           options: [
             {
               id: 'fresh',
-              text: `Yes: it lists ${NODE_DIR}`,
+              text: 'Yes: its PATH lists nodejs, and Node is there',
               truth: { kind: 'all', of: [NODE_ON_PATH, NODE_INSTALLED] },
               feedback: 'Right: a terminal opened after the install copied the new PATH.',
             },
             {
               id: 'stale',
-              text: 'No: this terminal opened before the install',
+              text: 'No: its PATH copy is older than the install',
               truth: { kind: 'all', of: [not(NODE_ON_PATH), NODE_INSTALLED] },
               feedback: 'Read the PATH Otto printed: no nodejs. It was copied before the install.',
-            },
-            {
-              id: 'gone',
-              text: 'Node is gone: Otto deleted it',
-              truth: not(NODE_INSTALLED),
-              feedback: 'Otto removed Node. On a real laptop, that means reinstalling it.',
             },
           ],
         },
@@ -258,7 +284,7 @@ export const everyTerminal: MissionInput = {
             ],
             claim: 'Done: the new terminal in the API prints dev.',
             lesson:
-              'Saved variables reach terminals opened after the save. The printed dev proves it.',
+              'Saved variables reach terminals opened after the save; the printed dev proves it. A real agent sees them once restarted.',
           },
         ],
         fixes: [
@@ -352,45 +378,48 @@ export const everyTerminal: MissionInput = {
             slip: 'overclaim',
           },
           {
-            id: 'replace-env',
-            text: "Put QUILL_DEBUG=true in the API's .env.",
+            // The terminal-scope trap: a check, in a terminal tonight's restart will close.
+            id: 'check-here',
+            text: "Print QUILL_DEBUG here, to make sure it's set.",
             quality: 'okay',
-            covers: ['goal', 'place'],
-            intents: ['put it in .env', 'save it in the env file'],
-            script: [
-              {
-                do: 'run',
-                // Set-Content replaces the whole file, so it pauses, and PORT would go.
-                line: `Set-Content ${API_PATH}\\.env 'QUILL_DEBUG=true'`,
-                onDeny: [{ do: 'run', line: `Add-Content ${API_PATH}\\.env 'QUILL_DEBUG=true'` }],
-                denyLine: 'Right, that replaced .env. Adding one line instead.',
-              },
-            ],
-            claim: 'Done: .env sets QUILL_DEBUG=true.',
-            lesson: 'Set-Content replaces the whole file, so PORT went. Say add a line.',
-            slip: 'wrong-verb',
+            covers: ['goal', 'check'],
+            intents: ['print quill_debug here', 'make sure it is set'],
+            script: [{ do: 'run', line: 'Write-Output $env:QUILL_DEBUG' }],
+            claim: "Done: it prints true, so it's set for the API.",
+            lesson:
+              "It's true in this terminal only. Tonight's restart closes it, and the $env: change goes with it.",
+            // Trusted one terminal's copy as if it were saved, like trust-the-save.
+            slip: 'stale-terminal',
           },
           {
             id: 'append-env',
-            text: "Append one line, QUILL_DEBUG=true, to the API's .env.",
+            text: "Append QUILL_DEBUG=true to the API's .env. Show its ends, not the key.",
             quality: 'strong',
-            covers: ['goal', 'place', 'limits'],
+            covers: ['goal', 'place', 'limits', 'check'],
             intents: ['append to .env', 'add one line to the env file'],
-            script: [{ do: 'run', line: `Add-Content ${API_PATH}\\.env 'QUILL_DEBUG=true'` }],
-            claim: '.env ends with QUILL_DEBUG=true. PORT is untouched.',
-            lesson: 'The API reads .env each time it starts, from any terminal, after any restart.',
+            // The key is on line 3, so the first and last lines prove the append without
+            // putting it in Otto's context.
+            script: [
+              { do: 'run', line: `Add-Content ${API_PATH}\\.env 'QUILL_DEBUG=true'` },
+              { do: 'run', line: `Get-Content ${API_PATH}\\.env -TotalCount 1` },
+              { do: 'run', line: `Get-Content ${API_PATH}\\.env -Tail 1` },
+            ],
+            claim: 'Done: line 1 is still PORT=3000, and the last is QUILL_DEBUG=true.',
+            lesson:
+              'The API reads .env at every start, from any terminal. Otto showed both ends of .env, never the key line.',
           },
         ],
         fixes: [
           {
-            id: 'put-port-back',
-            text: 'Add PORT=3000 back to .env.',
+            id: 'save-it',
+            text: '$env: dies tonight. Append QUILL_DEBUG=true to .env.',
             quality: 'okay',
             covers: ['goal', 'place'],
-            intents: ['put port back', 'add port 3000'],
-            script: [{ do: 'run', line: `Add-Content ${API_PATH}\\.env 'PORT=3000'` }],
-            claim: 'Fixed: .env has PORT=3000 again.',
-            lesson: 'An append put PORT back. Next time, say add a line, not set the file.',
+            intents: ['save it in .env', 'append it to the env file'],
+            script: [{ do: 'run', line: `Add-Content ${API_PATH}\\.env 'QUILL_DEBUG=true'` }],
+            claim: 'Fixed: .env sets QUILL_DEBUG=true.',
+            lesson:
+              'A file outlasts any terminal. Next time, also ask Otto to show the line landed.',
           },
         ],
         hintPlan: 'append-env',
@@ -399,15 +428,9 @@ export const everyTerminal: MissionInput = {
           options: [
             {
               id: 'dotenv',
-              text: "In the API's .env, with PORT kept",
-              truth: { kind: 'all', of: [DEBUG_IN_ENV, PORT_KEPT] },
+              text: "In the API's .env, beside PORT and the key",
+              truth: { kind: 'all', of: [DEBUG_IN_ENV, ENV_KEPT] },
               feedback: 'Right: the API reads .env each time it starts.',
-            },
-            {
-              id: 'port-lost',
-              text: 'In .env, but PORT=3000 is gone',
-              truth: { kind: 'all', of: [DEBUG_IN_ENV, not(PORT_KEPT)] },
-              feedback: 'Show .env: Set-Content replaced it, so PORT=3000 went.',
             },
             {
               id: 'nowhere',
@@ -417,9 +440,14 @@ export const everyTerminal: MissionInput = {
             },
           ],
         },
-        guards: [PORT_KEPT],
+        guards: [ENV_KEPT, KEY_UNSEEN],
+        // Neither look prints the key's line: Kyle's looks run in Otto's terminal too.
         looks: [
-          { id: 'env', label: 'Show .env', line: `Get-Content ${API_PATH}\\.env` },
+          {
+            id: 'env',
+            label: ".env's first two lines",
+            line: `Get-Content ${API_PATH}\\.env -TotalCount 2`,
+          },
           { id: 'debug', label: 'Print QUILL_DEBUG', line: 'Write-Output $env:QUILL_DEBUG' },
         ],
       },
@@ -472,14 +500,14 @@ export const everyTerminal: MissionInput = {
     {
       kind: 'diagnose',
       id: 'etw-diagnose-stale-tab',
-      prompt: 'Node installed after PS 1 opened. Otto ran npm there. Why did it fail?',
+      prompt: "Otto's npm failed in PS 1. Why?",
       concept: 'environment',
       setup: nodeLaptop().pathAdd('machine', NODE_DIR, 'end').toSpec(),
-      history: [{ do: 'run', line: 'npm --version', fails: true }],
+      history: [...STALE_TAB_EVIDENCE],
       options: [
         {
           id: 'stale',
-          text: "PS 1's PATH copy is older than the install",
+          text: "PS 1's PATH copy is older than Node's install",
           truth: {
             kind: 'all',
             of: [{ ...NODE_ON_PATH, scope: 'newTerminal' }, not(NODE_ON_PATH)],
@@ -488,7 +516,8 @@ export const everyTerminal: MissionInput = {
         { id: 'missing', text: "Node isn't installed", truth: not(NODE_INSTALLED) },
         { id: 'admin', text: 'npm needs an administrator terminal' },
       ],
-      explain: 'The saved PATH has Node now, but PS 1 copied it earlier. A new terminal finds npm.',
+      explain:
+        "Node's folder is there, but PS 1's PATH lacks it: PS 1 copied PATH before the install. A new terminal's PATH has it.",
     },
     {
       kind: 'diagnose',
@@ -552,22 +581,32 @@ export const everyTerminal: MissionInput = {
     },
     {
       kind: 'approve',
-      id: 'etw-approve-replace-env',
-      prompt: 'Otto stands in the API. Allow?',
-      concept: 'approvals',
-      setup: nodeLaptop().cd(API).toSpec(),
+      id: 'etw-approve-clear-path',
+      prompt: 'Node installed after PS 1 opened. Otto is in PS 1. Allow?',
+      concept: 'environment',
+      setup: nodeLaptop().pathAdd('machine', NODE_DIR, 'end').toSpec(),
+      // A terminal-scope trap: removing PS 1's copy reloads nothing from the saved PATH.
       action: {
         do: 'run',
-        line: "Set-Content .env 'QUILL_DEBUG=true'",
-        say: 'Saving QUILL_DEBUG so it outlasts this terminal.',
+        line: 'Remove-Item Env:Path',
+        say: "Clearing this terminal's old PATH so it reloads.",
       },
-      guards: [PORT_KEPT],
-      explain: 'Set-Content replaces the whole file, so PORT=3000 goes. Add-Content keeps it.',
+      guards: [
+        {
+          kind: 'envVar',
+          name: 'Path',
+          contains: 'C:\\Windows\\system32',
+          label: 'PS 1 can still find programs',
+        },
+      ],
+      explain:
+        'A terminal copies PATH once, as it opens. Removing it reloads nothing: PS 1 would find no programs at all. Open a new terminal instead.',
     },
     {
       kind: 'approve',
       id: 'etw-approve-append-env',
-      prompt: 'Otto stands in the API. Allow?',
+      // Drills hide the effects list, so the prompt says what .env already holds.
+      prompt: "Otto stands in the API. The API's .env holds PORT=3000 and the API key. Allow?",
       concept: 'approvals',
       setup: nodeLaptop().cd(API).toSpec(),
       action: {
@@ -575,15 +614,17 @@ export const everyTerminal: MissionInput = {
         line: "Add-Content .env 'QUILL_DEBUG=true'",
         say: 'Saving QUILL_DEBUG so it outlasts this terminal.',
       },
-      guards: [PORT_KEPT],
-      explain: 'Add-Content adds one line at the end. PORT=3000 stays.',
+      guards: [ENV_KEPT],
+      explain:
+        'Add-Content adds one line at the end, so PORT=3000 and the key stay. The API reads it at every start, from any terminal.',
     },
     {
       kind: 'fix',
       id: 'etw-fix-stale-path',
-      prompt: 'Node installed after PS 1 opened, and npm is not recognized. Which fix works?',
+      prompt: "Otto's npm failed in PS 1. Which fix works?",
       concept: 'environment',
       setup: nodeLaptop().pathAdd('machine', NODE_DIR, 'end').toSpec(),
+      history: [...STALE_TAB_EVIDENCE],
       goal: { ...NODE_ON_PATH, label: "Otto's terminal has Node on its PATH" },
       failIf: [not(NODE_INSTALLED)],
       options: [
@@ -605,7 +646,7 @@ export const everyTerminal: MissionInput = {
         },
       ],
       explain:
-        'A new terminal copies the saved PATH, Node included. Standing in a folder adds nothing to PATH.',
+        'A new terminal copies the saved PATH, Node included. Program Files refuses deletes without an admin, and standing in a folder adds nothing to PATH.',
     },
   ],
   questionRound: {
