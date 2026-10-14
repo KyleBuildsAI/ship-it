@@ -63,22 +63,15 @@ const SOLUTIONS: Record<string, Record<string, string[]>> = {
       'git commit -m "chore: ignore secrets and build output"',
     ],
   },
-  'undo-everything': {
-    'discard-edit': ['git status', 'git restore style.css'],
-    'unstage-notes': ['git restore --staged notes.txt'],
-    'redo-wip': [
-      'git log --oneline -2',
-      'git reset --soft HEAD~1',
-      'git commit -m "feat: add pricing calculator"',
-    ],
-    'revert-confetti': ['git log --oneline', 'git revert HEAD~2'],
-    'hard-reset': ['git reset --hard HEAD~2'],
-    'reflog-recover': ['git reflog', "git reset --hard 'HEAD@{1}'"],
-  },
 };
 
+/** Missions Kyle types. A directed mission is played card by card in its own test file. */
+const typedMissions = act2Missions.filter((mission) =>
+  mission.steps.every((step) => step.agent === undefined),
+);
+
 function missionById(id: string): Mission {
-  const mission = act2Missions.find((candidate) => candidate.id === id);
+  const mission = typedMissions.find((candidate) => candidate.id === id);
   if (mission === undefined) throw new Error(`Act 2 has no mission "${id}".`);
   return mission;
 }
@@ -104,14 +97,14 @@ function play(mission: Mission, start: MissionRun, shell: Shell, commands: reado
 
 describe('Act 2 sims, played step by step', () => {
   it('has a reference solution for exactly the steps each mission has', () => {
-    for (const mission of act2Missions) {
+    for (const mission of typedMissions) {
       expect(Object.keys(SOLUTIONS[mission.id] ?? {}), mission.id).toEqual(
         mission.steps.map((step) => step.id),
       );
     }
   });
 
-  it.each(act2Missions.map((mission) => mission.id))('%s is solvable by state', (id) => {
+  it.each(typedMissions.map((mission) => mission.id))('%s is solvable by state', (id) => {
     const mission = missionById(id);
     const sim = startSim(mission);
     const { shell } = sim;
@@ -237,41 +230,5 @@ describe('Act 2 sims accept other valid paths', () => {
     expect(explain(step.success, gitQueries(shell.ws))).toContainEqual(
       expect.objectContaining({ label: 'dist/ is still ignored', passed: false }),
     );
-  });
-
-  it('undo-everything: reset --mixed then re-add, and recover by the id from git reflog', () => {
-    const mission = missionById('undo-everything');
-    const { run, shell } = startSim(mission);
-    let played = play(mission, run, shell, [
-      'git restore style.css',
-      'git restore --staged notes.txt',
-      'git reset HEAD~1',
-      'git add src/pricing.js',
-      'git commit -m "feat: add pricing calculator"',
-      'git revert HEAD~2',
-      'git reset --hard HEAD~2',
-    ]);
-    expect(played.stepIndex).toBe(5);
-
-    // Read the revert commit's id off the reflog, exactly as Kyle would on screen.
-    const reflog = shell.run('git reflog').lines.map((line) => line.text);
-    const revertLine = reflog.find((text) => text.includes('Revert "feat: add confetti'));
-    const revertId = revertLine?.split(' ')[0] ?? '';
-    expect(revertId).toMatch(/^[0-9a-f]{7}$/);
-    played = play(mission, played, shell, [`git reset --hard ${revertId}`]);
-    expect(played.phase).toBe('drills');
-  });
-
-  it('undo-everything: reset --hard to fix the confetti commit fails the revert step', () => {
-    const mission = missionById('undo-everything');
-    const { run, shell } = startSim(mission);
-    const rewritten = play(mission, run, shell, [
-      'git restore style.css',
-      'git restore --staged notes.txt',
-      'git reset --soft HEAD~1',
-      'git commit -m "feat: add pricing calculator"',
-      'git reset --hard HEAD~3',
-    ]);
-    expect(rewritten.stepIndex).toBe(3);
   });
 });

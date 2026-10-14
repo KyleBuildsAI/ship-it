@@ -93,15 +93,6 @@ const ANSWERS: Record<string, string[][]> = {
     ['echo ".env*" > .gitignore', 'echo "!.env.example" >> .gitignore'],
     ['echo ".env" > .gitignore', 'echo ".env.local" >> .gitignore'],
   ],
-  // 2.5 Undo Everything
-  'undo-discard-edit': [['git restore src/app.js']],
-  'undo-restore-deleted': [['git restore README.md']],
-  'undo-unstage': [['git restore --staged config.json'], ['git reset config.json']],
-  'undo-revert-shared': [['git log --oneline', 'git revert HEAD~1']],
-  'undo-soft-reset': [['git reset --soft HEAD~1']],
-  'undo-mixed-reset': [['git reset HEAD~1'], ['git reset --mixed HEAD~1']],
-  'undo-hard-reset': [['git reset --hard HEAD~1']],
-  'undo-reflog-rescue': [['git reset --hard HEAD~2', 'git reflog', "git reset --hard 'HEAD@{1}'"]],
 };
 
 /** Answers that reach the wrong state, to prove the drill really checks what it says. */
@@ -113,17 +104,15 @@ const WRONG_ANSWERS: Record<string, string[]> = {
   'commits-am-trap': ['git commit -am "feat: add dark mode"'],
   'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
   'ignore-untrack-env': ['git rm .env', 'git commit -m "chore: remove .env"'],
-  'undo-revert-shared': ['git reset --hard HEAD~2'],
-  'undo-soft-reset': ['git reset HEAD~1'],
 };
 
-/** Act 2 is typed, so its drills are graded by state; the mission schema refuses any other. */
-function typed(drill: Drill): SandboxDrill {
-  if (isJudgmentDrill(drill)) throw new Error(`Act 2's drill "${drill.id}" should be typed.`);
-  return drill;
-}
-
-const drills = act2Missions.flatMap((mission) => mission.drills.map(typed));
+/**
+ * A typed mission's drills, graded by state. A directed mission's judgment drills are
+ * keyed by the engine instead, and pinned in that mission's own test file.
+ */
+const drills: SandboxDrill[] = act2Missions
+  .flatMap((mission): Drill[] => mission.drills)
+  .filter((drill): drill is SandboxDrill => !isJudgmentDrill(drill));
 
 describe('Act 2 No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {

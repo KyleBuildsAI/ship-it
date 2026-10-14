@@ -1,11 +1,19 @@
 import { repo } from '../../engine/git/fixtures';
-import type { MissionInput } from '../../game/missions/schema';
-import { headIsConventional } from './shared';
+import type { AgentTaskInput } from '../../game/missions/agentSchema';
+import type { Predicate } from '../../game/missions/predicates';
+import type { JudgmentDrillInput, MissionInput } from '../../game/missions/schema';
+import { CONVENTIONAL_PATTERN } from './shared';
 
 /**
- * Mission 2.5: every undo in Act 2, from smallest to scariest. restore for the
- * Workbench, restore --staged for the Loading Dock, reset --soft for an unpushed commit,
- * revert for shared history, then a deliberate reset --hard and a reflog rescue.
+ * Mission 2.5, directed: every undo in Act 2, from smallest to scariest. Otto runs the git;
+ * Kyle picks the request, allows or denies the risky lines, and checks Otto's claim.
+ * restore for the Workbench, restore --staged for the Loading Dock, reset --soft for an
+ * unpushed commit, revert for shared history, then a deliberate reset --hard and a reflog
+ * rescue.
+ *
+ * Nothing here says which answer is right. A gate is harmful when a dry run breaks one of
+ * the step's guards: reset --hard is harmful where it drops pushed commits or work with no
+ * other copy, and safe in the fire drill, where the reflog still holds both commits.
  */
 
 const INDEX_V1 = '<h1>Quillwork</h1>\n<script type="module" src="src/app.js"></script>\n';
@@ -20,6 +28,7 @@ const CONFETTI =
 const SIGNUP =
   "export function signUp(email) {\n  return fetch('/api/signup', { method: 'POST', body: email });\n}\n";
 const README = '# Quillwork\n\nThe landing page for Quillwork AI.\n';
+const README_V2 = `${README}\nRun it with npm start.\n`;
 const PRICING = 'export function monthlyPrice(seats) {\n  return seats * 12;\n}\n';
 const NOTES = 'Ask Sage about the reflog before Friday.\n';
 
@@ -29,6 +38,863 @@ const PLAYER_V1 = 'export function play(video) {\n  video.play();\n}\n';
 const PLAYER_AUTOPLAY =
   "import { autoplay } from './autoplay.js';\n\nexport function play(video) {\n  autoplay(video);\n}\n";
 const AUTOPLAY = 'export function autoplay(video) {\n  video.muted = false;\n  video.play();\n}\n';
+
+/** The message git writes for reverting the confetti commit. */
+const REVERT_PATTERN = '^Revert "feat: add confetti on signup"';
+
+// ---- What the steps check -------------------------------------------------------------
+
+/** notes.txt is still on the Workbench: the work nothing else holds a copy of. */
+const notesSurvive: Predicate = {
+  kind: 'workingFile',
+  path: 'notes.txt',
+  label: 'Your notes.txt survives',
+};
+const styleBack: Predicate = { kind: 'workingFile', path: 'style.css', equals: STYLE };
+const notesStaged: Predicate = { kind: 'staged', paths: ['notes.txt'] };
+const notesCommitted: Predicate = { kind: 'tracked', paths: ['notes.txt'] };
+const pricingSurvives: Predicate = {
+  kind: 'workingFile',
+  path: 'src/pricing.js',
+  label: 'Your pricing work survives',
+};
+const pricingStaged: Predicate = { kind: 'staged', paths: ['src/pricing.js'] };
+const headIsWip: Predicate = { kind: 'headMessageIs', message: 'wip' };
+const headChangedPricing: Predicate = { kind: 'commitChanged', paths: ['src/pricing.js'] };
+
+/**
+ * Step 2 starts with five commits. Taking notes.txt off the dock needs none of them gone,
+ * so a reset that drops one is harmful there.
+ */
+const everyCommitKept: Predicate = {
+  kind: 'commitCount',
+  min: 5,
+  label: 'Every commit stays in history',
+};
+/** Every commit before "wip" is pushed: the team has them, so they stay. */
+const pushedKept: Predicate = {
+  kind: 'commitCount',
+  min: 4,
+  label: 'Pushed commits stay in history',
+};
+/** Step 4 starts with five commits, and the team has all of them. */
+const sharedKept: Predicate = {
+  kind: 'commitCount',
+  min: 5,
+  label: 'Shared commits stay in history',
+};
+const confettiGone: Predicate = {
+  kind: 'notTracked',
+  paths: ['src/confetti.js'],
+  label: 'confetti.js is out of the last commit',
+};
+const appBack: Predicate = {
+  kind: 'fileAtHead',
+  path: 'src/app.js',
+  equals: APP_V1,
+  label: 'app.js is back to before confetti',
+};
+const headIsRevert: Predicate = { kind: 'headMessage', pattern: REVERT_PATTERN };
+/** notes.txt stays a loose file: reset --hard leaves files git never tracked alone. */
+const notesLoose: Predicate = {
+  kind: 'untracked',
+  paths: ['notes.txt'],
+  label: 'notes.txt stays a loose file',
+};
+
+/** Read-only lines Kyle can have Otto run while he checks a claim. */
+const gitLooks = [
+  { id: 'status', label: "What's on the dock?", line: 'git status' },
+  { id: 'log', label: "What's in the Vault?", line: 'git log --oneline' },
+  { id: 'staged', label: 'What will commit?', line: 'git diff --staged' },
+];
+
+// ---- Step 1: throw away the style.css experiment -------------------------------------
+
+/**
+ * The weak card resets everything, which also deletes notes.txt: it only ever lived on
+ * the dock, so no commit can bring it back. The okay card uses the dock's undo on a file
+ * that was never on the dock, so nothing happens.
+ */
+const discardEditTask = {
+  plans: [
+    {
+      id: 'restore-style',
+      text: 'Restore only style.css from the last commit. Touch nothing else.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['restore style.css', 'restore only style.css'],
+      script: [
+        {
+          do: 'run',
+          line: 'git restore style.css',
+          say: 'Putting style.css back.',
+          predict: {
+            question: 'Before Otto runs it: what is in style.css after?',
+            // Two options that split every state: is style.css the committed version?
+            options: [
+              { id: 'committed', text: "The last commit's version", outcome: { state: styleBack } },
+              {
+                id: 'experiment',
+                text: 'Still the hotpink experiment',
+                outcome: { state: { kind: 'not', predicate: styleBack } },
+              },
+            ],
+          },
+        },
+        { do: 'run', line: 'git status' },
+      ],
+      claim: 'Done: style.css matches the last commit.',
+      lesson: 'git restore copied style.css back. Naming the file left notes.txt alone.',
+    },
+    {
+      id: 'undo-all',
+      text: 'Undo all my changes.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['undo all my changes', 'undo everything'],
+      script: [
+        { do: 'run', line: 'git reset --hard', say: 'Resetting everything to the last commit.' },
+      ],
+      claim: 'Done: everything is back to the last commit.',
+      lesson: 'reset --hard also deleted notes.txt, which no commit held. Name the one file.',
+      slip: 'big-hammer',
+    },
+    {
+      id: 'unstage-style',
+      text: 'Unstage style.css.',
+      quality: 'okay',
+      covers: ['goal'],
+      intents: ['unstage style.css', 'restore --staged style.css'],
+      script: [{ do: 'run', line: 'git restore --staged style.css' }],
+      claim: 'Done: style.css is undone.',
+      lesson: '--staged only empties the dock, and style.css was never on it.',
+      slip: 'wrong-verb',
+    },
+  ],
+  fixes: [
+    {
+      id: 'fix-restore',
+      text: 'Throw away the style.css edit with git restore.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['git restore style.css', 'throw away the edit'],
+      script: [{ do: 'run', line: 'git restore style.css' }],
+      claim: 'Fixed: style.css matches the last commit.',
+      lesson: 'Without --staged, restore rewrites the Workbench copy from the dock.',
+    },
+  ],
+  hintPlan: 'restore-style',
+  check: {
+    question: 'What are style.css and notes.txt like now?',
+    // Split by two questions: is notes.txt still there, and is style.css back?
+    options: [
+      {
+        id: 'clean',
+        text: 'style.css is committed again, notes.txt kept',
+        truth: { kind: 'all', of: [notesSurvive, styleBack] },
+        feedback: 'git status shows no change to style.css, and notes.txt still waits.',
+      },
+      {
+        id: 'experiment',
+        text: 'style.css still has the experiment',
+        truth: { kind: 'all', of: [notesSurvive, { kind: 'not', predicate: styleBack }] },
+        feedback: 'git status still lists style.css as modified.',
+      },
+      {
+        id: 'notes-gone',
+        text: 'notes.txt is gone',
+        truth: { kind: 'not', predicate: notesSurvive },
+        feedback: 'git status no longer lists notes.txt anywhere.',
+      },
+    ],
+  },
+  guards: [notesSurvive],
+  looks: gitLooks,
+} satisfies AgentTaskInput;
+
+// ---- Step 2: take notes.txt off the dock ---------------------------------------------
+
+/**
+ * The weak card commits notes.txt to get it "off the dock", and the fix undoes that
+ * commit with a mixed reset. The okay card restores the Workbench copy, which is already
+ * the same as the dock's.
+ */
+const unstageNotesTask = {
+  plans: [
+    {
+      id: 'restore-staged',
+      text: 'Take notes.txt off the Loading Dock. Keep the file.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['unstage notes.txt', 'restore --staged notes.txt'],
+      script: [
+        { do: 'run', line: 'git restore --staged notes.txt', say: 'Unloading notes.txt.' },
+        { do: 'run', line: 'git status' },
+      ],
+      claim: 'Done: notes.txt is off the dock, file kept.',
+      lesson: 'restore --staged emptied the dock. The file stayed on the Workbench.',
+    },
+    {
+      id: 'commit-it',
+      text: 'Get notes.txt off the dock.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['get notes off the dock', 'clear the dock'],
+      script: [{ do: 'run', line: 'git commit -m "chore: save notes"', say: 'Shipping the dock.' }],
+      claim: 'Done: the dock is empty.',
+      lesson: 'Committing empties the dock by sealing notes.txt into history. Say "keep it out".',
+      slip: 'overclaim',
+    },
+    {
+      id: 'restore-notes',
+      text: 'Restore notes.txt.',
+      quality: 'okay',
+      covers: ['goal'],
+      intents: ['restore notes.txt', 'git restore notes'],
+      script: [{ do: 'run', line: 'git restore notes.txt' }],
+      claim: 'Done: notes.txt is restored.',
+      lesson: 'Plain restore rewrites the Workbench. The dock needs --staged.',
+      slip: 'wrong-verb',
+    },
+  ],
+  fixes: [
+    {
+      id: 'uncommit-notes',
+      text: 'Undo that commit, and leave notes.txt as a loose file.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['undo that commit', 'reset HEAD~1'],
+      script: [{ do: 'run', line: 'git reset HEAD~1', say: 'Taking that commit back.' }],
+      claim: 'Fixed: notes.txt is loose again.',
+      lesson: 'A mixed reset took the commit back and emptied the dock. The file stayed.',
+    },
+  ],
+  hintPlan: 'restore-staged',
+  check: {
+    question: 'Where is notes.txt now?',
+    // Split by two questions: is it in the last commit, and if not, is it on the dock?
+    options: [
+      {
+        id: 'loose',
+        text: 'On the Workbench only, off the dock',
+        truth: { kind: 'untracked', paths: ['notes.txt'] },
+        feedback: 'git status lists notes.txt under Untracked files.',
+      },
+      {
+        id: 'on-dock',
+        text: 'Still waiting on the Loading Dock',
+        truth: { kind: 'all', of: [notesStaged, { kind: 'not', predicate: notesCommitted }] },
+        feedback: 'git status still lists notes.txt under Changes to be committed.',
+      },
+      {
+        id: 'committed',
+        text: 'Sealed into a commit',
+        truth: notesCommitted,
+        feedback: 'git log --oneline shows a new commit on top.',
+      },
+    ],
+  },
+  guards: [notesSurvive, everyCommitKept],
+  looks: gitLooks,
+} satisfies AgentTaskInput;
+
+// ---- Step 3: redo the unpushed "wip" commit -------------------------------------------
+
+/**
+ * The weak card throws "wip" away with reset --hard, deleting src/pricing.js too: harmful.
+ * The okay card commits again without undoing anything, so there is nothing to commit.
+ */
+const redoWipTask = {
+  plans: [
+    {
+      id: 'soft-reset',
+      text: 'Undo wip with reset --soft, recommit as feat: add pricing calculator.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['reset --soft HEAD~1', 'feat: add pricing calculator'],
+      script: [
+        {
+          do: 'run',
+          line: 'git reset --soft HEAD~1',
+          say: 'Unsealing the wip commit.',
+          predict: {
+            question: 'Before Otto runs it: where does src/pricing.js go?',
+            // Two options that split every state: is pricing.js waiting on the dock?
+            options: [
+              {
+                id: 'dock',
+                text: 'Back onto the Loading Dock',
+                outcome: { state: pricingStaged },
+              },
+              {
+                id: 'nowhere',
+                text: 'Not onto the dock',
+                outcome: { state: { kind: 'not', predicate: pricingStaged } },
+              },
+            ],
+          },
+        },
+        { do: 'run', line: 'git commit -m "feat: add pricing calculator"' },
+        { do: 'run', line: 'git log --oneline' },
+      ],
+      claim: 'Done: wip is now feat: add pricing calculator.',
+      lesson: 'reset --soft unsealed wip and kept its changes staged. One commit made it right.',
+    },
+    {
+      id: 'hard-reset',
+      text: 'Throw away the wip commit and start fresh.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['throw away wip', 'start fresh'],
+      script: [{ do: 'run', line: 'git reset --hard HEAD~1', say: 'Dropping wip. Fresh start.' }],
+      claim: 'Done: wip is gone.',
+      lesson: 'reset --hard dropped the commit and deleted src/pricing.js with it.',
+      slip: 'big-hammer',
+    },
+    {
+      id: 'new-commit',
+      text: 'Commit again with a better message.',
+      quality: 'okay',
+      covers: ['goal'],
+      intents: ['commit again', 'better message'],
+      script: [{ do: 'run', line: 'git commit -m "feat: add pricing calculator"', fails: true }],
+      claim: 'Done: the commit has a proper message.',
+      lesson: 'Nothing was staged, so the commit failed. wip is still the last commit.',
+      slip: 'overclaim',
+    },
+  ],
+  fixes: [
+    {
+      id: 'fix-soft',
+      text: 'Undo wip but keep its changes staged, then recommit properly.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['undo wip keep changes', 'recommit properly'],
+      script: [
+        { do: 'run', line: 'git reset --soft HEAD~1' },
+        { do: 'run', line: 'git commit -m "feat: add pricing calculator"' },
+      ],
+      claim: 'Fixed: wip is now feat: add pricing calculator.',
+      lesson: 'Unsealing first gave the new commit something to hold.',
+    },
+  ],
+  hintPlan: 'soft-reset',
+  check: {
+    question: 'What is the newest commit now?',
+    // wip changed pricing.js, so these three split every state.
+    options: [
+      {
+        id: 'redone',
+        text: 'Pricing, with a proper message',
+        truth: { kind: 'all', of: [headChangedPricing, { kind: 'not', predicate: headIsWip }] },
+        feedback: 'git log --oneline starts with feat: add pricing calculator.',
+      },
+      {
+        id: 'wip',
+        text: 'Still wip',
+        truth: headIsWip,
+        feedback: 'git log --oneline still starts with wip.',
+      },
+      {
+        id: 'lost',
+        text: 'One without the pricing work',
+        truth: { kind: 'not', predicate: headChangedPricing },
+        feedback: 'git log --oneline starts with an older commit. Pricing is gone.',
+      },
+    ],
+  },
+  guards: [pricingSurvives, pushedKept],
+  looks: gitLooks,
+} satisfies AgentTaskInput;
+
+// ---- Step 4: undo the shared confetti commit -----------------------------------------
+
+/**
+ * The team already has the confetti commit, so the guard keeps every commit. The weak
+ * card resets back past it, dropping three: harmful. The okay card deletes confetti.js
+ * but leaves app.js calling it.
+ */
+const revertConfettiTask = {
+  plans: [
+    {
+      id: 'revert',
+      text: 'Revert the confetti commit with a new commit. Keep history.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['revert the confetti commit', 'git revert'],
+      script: [
+        { do: 'run', line: 'git log --oneline', say: 'Finding the confetti commit.' },
+        {
+          do: 'run',
+          line: 'git revert HEAD~2',
+          predict: {
+            question: 'Before Otto runs it: what happens to history?',
+            // Two options that split every state: did the history keep every commit?
+            options: [
+              {
+                id: 'adds',
+                text: 'A new commit is added on top',
+                outcome: { state: { kind: 'commitCount', min: 6 } },
+              },
+              {
+                id: 'erases',
+                text: 'The confetti commit is erased',
+                outcome: { state: { kind: 'commitCount', max: 5 } },
+              },
+            ],
+          },
+        },
+      ],
+      claim: 'Done: confetti is undone, history kept.',
+      lesson: "revert added a commit that cancels confetti. Nobody's copy breaks.",
+    },
+    {
+      id: 'reset-back',
+      text: 'Go back to before the confetti commit.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['go back to before confetti', 'undo confetti'],
+      script: [{ do: 'run', line: 'git reset --hard HEAD~3', say: 'Rewinding past confetti.' }],
+      claim: 'Done: confetti is gone.',
+      lesson: "reset --hard erased three shared commits. Every teammate's copy now disagrees.",
+      slip: 'big-hammer',
+    },
+    {
+      id: 'delete-file',
+      text: 'Delete confetti.js and commit the removal.',
+      quality: 'okay',
+      covers: ['goal'],
+      intents: ['delete confetti.js', 'remove the confetti file'],
+      script: [
+        { do: 'run', line: 'git rm src/confetti.js', say: 'Removing confetti.js.' },
+        { do: 'run', line: 'git commit -m "fix: remove confetti"' },
+      ],
+      claim: 'Done: confetti is undone.',
+      lesson: 'app.js still calls launchConfetti. A revert undoes every file a commit touched.',
+      slip: 'overclaim',
+    },
+  ],
+  fixes: [
+    {
+      id: 'fix-app',
+      text: 'Put app.js back to its pre-confetti version, and commit it.',
+      quality: 'strong',
+      covers: ['goal', 'limits'],
+      intents: ['put app.js back', 'restore app.js'],
+      script: [
+        { do: 'run', line: 'git restore --source=HEAD~4 src/app.js' },
+        { do: 'run', line: 'git commit -am "fix: stop launching confetti"' },
+      ],
+      claim: 'Fixed: app.js no longer calls confetti.',
+      lesson: 'app.js came back from before confetti, and a new commit sealed it.',
+    },
+  ],
+  hintPlan: 'revert',
+  check: {
+    question: 'Is confetti undone, with history kept?',
+    // Split by two questions: did shared commits go, and is any confetti code left?
+    options: [
+      {
+        id: 'reverted',
+        text: 'Yes: undone, every commit kept',
+        truth: { kind: 'all', of: [sharedKept, confettiGone, appBack] },
+        feedback: 'git log --oneline lists every old commit, with a Revert on top.',
+      },
+      {
+        id: 'half',
+        text: 'No: confetti code is still committed',
+        truth: {
+          kind: 'all',
+          of: [
+            sharedKept,
+            { kind: 'not', predicate: { kind: 'all', of: [confettiGone, appBack] } },
+          ],
+        },
+        feedback: 'app.js in the last commit still imports confetti.js.',
+      },
+      {
+        id: 'erased',
+        text: 'Shared commits were erased',
+        truth: { kind: 'not', predicate: sharedKept },
+        feedback: 'Count the lines in git log --oneline: commits went missing.',
+      },
+    ],
+  },
+  guards: [sharedKept],
+  looks: gitLooks,
+} satisfies AgentTaskInput;
+
+// ---- Step 5: fire drill, then the reflog rescue --------------------------------------
+
+/**
+ * A deliberate reset --hard on two unpushed commits. Its gate is safe: no guard protects
+ * those commits, because the reflog still knows them. The weak card runs the drill and
+ * stops; the okay card uses reset --soft, so the work waits on the dock instead.
+ */
+const reflogRecoverTask = {
+  plans: [
+    {
+      id: 'drill-rescue',
+      text: 'Reset --hard two commits, then bring them back from the reflog.',
+      quality: 'strong',
+      covers: ['goal', 'check'],
+      intents: ['reset --hard HEAD~2 then reflog', 'bring them back from the reflog'],
+      script: [
+        { do: 'run', line: 'git reset --hard HEAD~2', say: 'Fire drill. Two commits going.' },
+        { do: 'run', line: 'git reflog', say: 'Following the footprints.' },
+        {
+          do: 'run',
+          line: "git reset --hard 'HEAD@{1}'",
+          predict: {
+            question: 'Before Otto runs it: what will be the newest commit?',
+            // Two options that split every state: is the revert back on top?
+            options: [
+              {
+                id: 'revert',
+                text: 'The revert commit, back again',
+                outcome: { state: headIsRevert },
+              },
+              {
+                id: 'older',
+                text: 'An older commit',
+                outcome: { state: { kind: 'not', predicate: headIsRevert } },
+              },
+            ],
+          },
+        },
+        { do: 'run', line: 'git log --oneline' },
+      ],
+      claim: 'Done: drill over, both commits are back.',
+      lesson: 'HEAD@{1} is where HEAD stood one move ago: right before the reset.',
+    },
+    {
+      id: 'drill-only',
+      text: 'Run the reset --hard fire drill.',
+      quality: 'weak',
+      covers: ['goal'],
+      intents: ['run the fire drill', 'reset --hard HEAD~2'],
+      script: [
+        { do: 'run', line: 'git reset --hard HEAD~2', say: 'Fire drill. Two commits going.' },
+      ],
+      claim: 'Done: drill over, nothing was lost.',
+      lesson: 'The two commits left main. Only the reflog still points at them.',
+      slip: 'overclaim',
+    },
+    {
+      id: 'soft-drill',
+      text: 'Do the drill with reset --soft instead, to be safe.',
+      quality: 'okay',
+      covers: ['goal', 'limits'],
+      intents: ['reset --soft HEAD~2', 'drill with soft'],
+      script: [{ do: 'run', line: 'git reset --soft HEAD~2' }],
+      claim: 'Done: drill over, both commits are safe.',
+      lesson: 'The commits still left main. Their changes only wait on the dock.',
+      slip: 'wrong-verb',
+    },
+  ],
+  fixes: [
+    {
+      id: 'reflog-back',
+      text: 'Find where HEAD was in the reflog, and reset back there.',
+      quality: 'strong',
+      covers: ['goal', 'check'],
+      intents: ['use the reflog', 'reset to HEAD@{1}'],
+      script: [
+        { do: 'run', line: 'git reflog' },
+        { do: 'run', line: "git reset --hard 'HEAD@{1}'" },
+      ],
+      claim: 'Fixed: both commits are back on main.',
+      lesson: 'The reflog remembered the commit HEAD left. Resetting to it brought both back.',
+    },
+  ],
+  hintPlan: 'drill-rescue',
+  check: {
+    question: 'Where are the two commits now?',
+    // Split by two questions: is the revert newest, and if not, is the work on the dock?
+    options: [
+      {
+        id: 'back',
+        text: 'Back on main, the revert on top',
+        truth: headIsRevert,
+        feedback: 'git log --oneline starts with the Revert commit.',
+      },
+      {
+        id: 'dock',
+        text: 'Off main, their changes on the dock',
+        truth: { kind: 'all', of: [{ kind: 'not', predicate: headIsRevert }, pricingStaged] },
+        feedback: 'git status lists their files under Changes to be committed.',
+      },
+      {
+        id: 'gone',
+        text: 'Off main, and off the dock',
+        truth: {
+          kind: 'all',
+          of: [
+            { kind: 'not', predicate: headIsRevert },
+            { kind: 'not', predicate: pricingStaged },
+          ],
+        },
+        feedback: 'git log --oneline starts with docs: add readme.',
+      },
+    ],
+  },
+  guards: [notesLoose],
+  looks: gitLooks,
+} satisfies AgentTaskInput;
+
+// ---- Judgment drills -------------------------------------------------------------------
+
+const videoProject = () =>
+  repo()
+    .commit('feat: add video page', { 'index.html': INDEX_V1, 'src/player.js': PLAYER_V1 })
+    .commit('feat: add autoplay', { 'src/autoplay.js': AUTOPLAY, 'src/player.js': PLAYER_AUTOPLAY })
+    .commit('docs: add readme', { 'README.md': README });
+
+/** Every commit in the video project is pushed: the team has all three. */
+const videoPushedKept: Predicate = {
+  kind: 'commitCount',
+  min: 3,
+  label: 'Pushed commits stay in history',
+};
+
+/** The engine works out each key; describeJudgmentDrills in the test pins it. */
+const drills = [
+  {
+    kind: 'approve',
+    id: 'undo-discard-edit',
+    prompt: 'You told Otto to drop your app.js edit, and keep the README edit. Allow?',
+    concept: 'restore',
+    setup: repo()
+      .commit('feat: add landing page', { 'src/app.js': APP_V1, 'README.md': README })
+      .modify('src/app.js', APP_CONFETTI)
+      .modify('README.md', README_V2)
+      .toSpec(),
+    action: { do: 'run', line: 'git restore src/app.js', say: 'Throwing away the app.js edit.' },
+    guards: [
+      {
+        kind: 'workingFile',
+        path: 'README.md',
+        equals: README_V2,
+        label: 'Your README edit survives',
+      },
+    ],
+    explain: 'Naming src/app.js limits restore to that one file. The README edit stays.',
+  },
+  {
+    kind: 'fix',
+    id: 'undo-restore-deleted',
+    prompt: 'You deleted README.md by accident, and have not committed. Which fix is right?',
+    concept: 'restore',
+    setup: repo()
+      .commit('docs: add readme', { 'README.md': README, 'index.html': INDEX_V1 })
+      .delete('README.md')
+      .toSpec(),
+    goal: { kind: 'workingFile', path: 'README.md', equals: README },
+    options: [
+      {
+        id: 'restore',
+        text: 'git restore README.md',
+        script: [{ do: 'run', line: 'git restore README.md' }],
+      },
+      {
+        id: 'restore-staged',
+        text: 'git restore --staged README.md',
+        script: [{ do: 'run', line: 'git restore --staged README.md' }],
+      },
+      {
+        id: 'commit',
+        text: 'Commit, then look in history',
+        script: [{ do: 'run', line: 'git commit -am "docs: drop readme"' }],
+      },
+    ],
+    explain: 'The last commit still has README.md, so restore copies it back to the Workbench.',
+  },
+  {
+    kind: 'predict',
+    id: 'undo-unstage',
+    prompt: 'Otto is about to run this. What happens to config.json?',
+    concept: 'restore-staged',
+    setup: repo()
+      .commit('feat: add config', { 'config.json': CONFIG_V1 })
+      .write('config.json', CONFIG_V2)
+      .stage('config.json')
+      .toSpec(),
+    action: { do: 'run', line: 'git restore --staged config.json' },
+    options: [
+      {
+        id: 'off-dock',
+        text: 'It leaves the dock; the edit stays on disk',
+        outcome: {
+          state: {
+            kind: 'all',
+            of: [
+              { kind: 'notStaged', paths: ['config.json'] },
+              { kind: 'workingFile', path: 'config.json', equals: CONFIG_V2 },
+            ],
+          },
+        },
+      },
+      {
+        id: 'edit-gone',
+        text: 'The edit is thrown away',
+        outcome: { state: { kind: 'workingFile', path: 'config.json', equals: CONFIG_V1 } },
+      },
+      { id: 'fails', text: 'It fails: nothing to unstage', outcome: { result: 'error' } },
+    ],
+    explain: '--staged works on the Loading Dock only. The file on disk keeps your edit.',
+  },
+  {
+    kind: 'fix',
+    id: 'undo-revert-shared',
+    prompt: 'The pushed commit "feat: add autoplay" broke the video page. Which fix is right?',
+    concept: 'revert',
+    setup: videoProject().toSpec(),
+    goal: {
+      kind: 'all',
+      of: [
+        { kind: 'notTracked', paths: ['src/autoplay.js'] },
+        { kind: 'fileAtHead', path: 'src/player.js', equals: PLAYER_V1 },
+        { kind: 'tracked', paths: ['README.md'] },
+      ],
+    },
+    failIf: [{ kind: 'not', predicate: videoPushedKept }],
+    options: [
+      {
+        id: 'revert',
+        text: 'git revert HEAD~1',
+        script: [{ do: 'run', line: 'git revert HEAD~1' }],
+      },
+      {
+        id: 'reset-hard',
+        text: 'git reset --hard HEAD~2',
+        script: [{ do: 'run', line: 'git reset --hard HEAD~2' }],
+      },
+      {
+        id: 'rm-autoplay',
+        text: 'Remove autoplay.js and commit',
+        script: [
+          { do: 'run', line: 'git rm src/autoplay.js' },
+          { do: 'run', line: 'git commit -m "fix: remove autoplay"' },
+        ],
+      },
+    ],
+    explain: 'revert adds a commit that cancels autoplay in every file. Pushed history stays.',
+  },
+  {
+    kind: 'predict',
+    id: 'undo-soft-reset',
+    prompt: 'Otto is about to run this. Where does src/search.js end up?',
+    concept: 'reset-soft',
+    setup: repo()
+      .commit('feat: add home page', { 'index.html': INDEX_V1 })
+      .commit('feat: add search', { 'src/search.js': PRICING })
+      .toSpec(),
+    action: { do: 'run', line: 'git reset --soft HEAD~1' },
+    options: [
+      {
+        id: 'dock',
+        text: 'On the Loading Dock, ready to recommit',
+        outcome: { state: { kind: 'staged', paths: ['src/search.js'] } },
+      },
+      {
+        id: 'workbench',
+        text: 'On the Workbench, not staged',
+        outcome: { state: { kind: 'untracked', paths: ['src/search.js'] } },
+      },
+      {
+        id: 'deleted',
+        text: 'Deleted with the commit',
+        outcome: { state: { kind: 'workingFile', path: 'src/search.js', exists: false } },
+      },
+    ],
+    explain: "--soft moves the branch back only. The commit's changes wait on the dock.",
+  },
+  {
+    kind: 'diagnose',
+    id: 'undo-mixed-reset',
+    prompt: 'Otto says your confetti change is gone. Is he right?',
+    concept: 'reset-mixed',
+    setup: repo()
+      .commit('feat: add landing page', { 'src/app.js': APP_V1 })
+      .commit('feat: add confetti', { 'src/app.js': APP_CONFETTI })
+      .toSpec(),
+    history: [{ do: 'run', line: 'git reset HEAD~1', say: 'Undoing the confetti commit.' }],
+    claim: 'Done: the confetti change is gone for good.',
+    options: [
+      {
+        id: 'on-workbench',
+        text: 'No: it waits unstaged on the Workbench',
+        truth: {
+          kind: 'all',
+          of: [
+            { kind: 'modified', paths: ['src/app.js'] },
+            { kind: 'notStaged', paths: ['src/app.js'] },
+          ],
+        },
+      },
+      {
+        id: 'on-dock',
+        text: 'No: it waits on the Loading Dock',
+        truth: { kind: 'staged', paths: ['src/app.js'] },
+      },
+      {
+        id: 'gone',
+        text: 'Yes: app.js is back to before confetti',
+        truth: { kind: 'workingFile', path: 'src/app.js', equals: APP_V1 },
+      },
+    ],
+    explain: 'A plain reset moves the branch and empties the dock. Your Workbench keeps the edit.',
+  },
+  {
+    kind: 'approve',
+    id: 'undo-hard-reset',
+    prompt: 'The team already has all three commits. Otto wants to undo the readme. Allow?',
+    concept: 'reset-hard',
+    setup: videoProject().toSpec(),
+    action: { do: 'run', line: 'git reset --hard HEAD~1', say: 'Dropping the readme commit.' },
+    guards: [videoPushedKept],
+    explain: 'reset --hard takes a pushed commit off main. Teammates still have it: revert it.',
+  },
+  {
+    kind: 'fix',
+    id: 'undo-reflog-rescue',
+    prompt: 'Otto ran reset --hard by mistake. Which fix brings back "feat: add payments"?',
+    concept: 'reflog',
+    setup: repo()
+      .commit('feat: add cart', { 'src/cart.js': APP_V1 })
+      .commit('feat: add checkout', { 'src/checkout.js': SIGNUP })
+      .commit('feat: add payments', { 'src/payments.js': PRICING })
+      .toSpec(),
+    history: [{ do: 'run', line: 'git reset --hard HEAD~2', say: 'Cleaning up history.' }],
+    goal: {
+      kind: 'all',
+      of: [
+        { kind: 'headMessageIs', message: 'feat: add payments' },
+        { kind: 'commitCount', equals: 3 },
+      ],
+    },
+    options: [
+      {
+        id: 'reflog',
+        text: "git reset --hard 'HEAD@{1}'",
+        script: [{ do: 'run', line: "git reset --hard 'HEAD@{1}'" }],
+      },
+      {
+        id: 'revert',
+        text: 'git revert HEAD',
+        script: [{ do: 'run', line: 'git revert HEAD' }],
+      },
+      {
+        id: 'recommit',
+        text: 'Commit payments again',
+        script: [{ do: 'run', line: 'git commit -m "feat: add payments"' }],
+      },
+    ],
+    explain:
+      'HEAD@{1} is where HEAD stood before the reset. Resetting there brings both commits back.',
+  },
+] satisfies JudgmentDrillInput[];
 
 export const undoEverything: MissionInput = {
   id: 'undo-everything',
@@ -61,284 +927,113 @@ export const undoEverything: MissionInput = {
     .untracked('notes.txt', NOTES)
     .stage('notes.txt')
     .toSpec(),
+  approvals: 'destructive',
   steps: [
     {
       id: 'discard-edit',
       instruction:
-        'Friday afternoon. Your style.css experiment went badly. Throw away the unstaged edit and get the committed version back.',
+        'Friday. Your style.css experiment went badly. Get the committed version back, and keep notes.txt.',
       success: {
         kind: 'all',
         of: [
-          {
-            kind: 'workingFile',
-            path: 'style.css',
-            equals: STYLE,
-            label: 'style.css matches the last commit',
-          },
+          { ...styleBack, label: 'style.css matches the last commit' },
           { kind: 'notStaged', paths: ['style.css'] },
         ],
       },
       hints: [
-        'Which command undoes changes on the Workbench? git status even suggests it.',
-        'git restore <file> copies the file back from the Loading Dock, discarding unstaged edits. This undo has no undo, so be sure.',
-        'Run: git restore style.css',
+        'Which undo works on one Workbench file, and leaves everything else alone?',
+        'git restore <file> copies a file back from the dock. Unsaved edits are gone for good.',
+        'Pick the card that restores only style.css.',
       ],
+      agent: discardEditTask,
     },
     {
       id: 'unstage-notes',
-      instruction: 'notes.txt is on the Loading Dock by mistake. Unstage it, but keep the file.',
+      instruction: 'notes.txt is on the Loading Dock by mistake. Take it off, but keep the file.',
       success: {
         kind: 'all',
         of: [
-          { kind: 'notStaged', paths: ['notes.txt'] },
-          { kind: 'workingFile', path: 'notes.txt', exists: true },
+          { kind: 'untracked', paths: ['notes.txt'], label: 'notes.txt is off the dock' },
+          { kind: 'notTracked', paths: ['notes.txt'], label: 'No commit holds notes.txt' },
         ],
       },
       hints: [
         'Which flag makes restore work on the Loading Dock instead of the Workbench?',
-        'git restore --staged <file> carries a crate from the dock back to the Workbench. The file on disk is untouched.',
-        'Run: git restore --staged notes.txt',
+        'git restore --staged takes a crate off the dock. The file on disk is untouched.',
+        'Pick the card that takes notes.txt off the Loading Dock.',
       ],
+      agent: unstageNotesTask,
     },
     {
       id: 'redo-wip',
       instruction:
-        'Your last commit, "wip", was never pushed, and its message says nothing. Undo the commit but keep its changes, then commit again with a proper Conventional Commit message.',
+        'Your last commit, "wip", was never pushed. Redo it with a proper message, keeping its changes.',
       success: {
         kind: 'all',
         of: [
-          { kind: 'commitCount', equals: 5, label: 'Still 5 commits: "wip" was replaced' },
+          { kind: 'commitCount', equals: 5, label: 'Still 5 commits: wip was replaced' },
           { kind: 'commitChanged', paths: ['src/pricing.js'], only: true },
-          headIsConventional(),
+          {
+            kind: 'headMessage',
+            pattern: CONVENTIONAL_PATTERN,
+            label: 'A Conventional Commit message',
+          },
         ],
       },
       hints: [
-        'Which reset mode moves the branch back but leaves the changes staged?',
-        'git reset --soft HEAD~1 moves the branch back one commit and keeps its changes on the Loading Dock, ready to recommit. Only rewrite commits nobody else has.',
-        'Run: git reset --soft HEAD~1, then git commit -m "feat: add pricing calculator"',
+        'Which reset mode moves the branch back but keeps the changes staged?',
+        'reset --soft HEAD~1 unseals the last commit. Only rewrite commits nobody else has.',
+        'Pick the card that uses reset --soft.',
       ],
       xp: 20,
+      agent: redoWipTask,
     },
     {
       id: 'revert-confetti',
       instruction:
-        'The confetti commit crashed signups, and the whole team already has it. Undo it without rewriting shared history.',
+        'The confetti commit crashed signups, and the team already has it. Undo it without rewriting history.',
       success: {
         kind: 'all',
         of: [
-          { kind: 'notTracked', paths: ['src/confetti.js'] },
-          {
-            kind: 'fileAtHead',
-            path: 'src/app.js',
-            equals: APP_V1,
-            label: 'src/app.js is back to its pre-confetti version',
-          },
-          { kind: 'commitCount', min: 6, label: 'History kept: nothing was erased' },
+          confettiGone,
+          appBack,
+          { kind: 'commitCount', min: 6, label: 'A new commit, nothing erased' },
         ],
       },
       hints: [
-        'Is it safe to rewrite history that your teammates already pulled?',
-        "git revert <commit> adds a new commit with the opposite changes. The bad commit stays in history, so nobody's copy breaks. Find its id with git log --oneline.",
-        'Run: git revert HEAD~2',
+        'Is it safe to rewrite history your teammates already pulled?',
+        'git revert adds a commit with the opposite changes. The bad one stays in history.',
+        'Pick the card that reverts the confetti commit.',
       ],
       xp: 20,
-    },
-    {
-      id: 'hard-reset',
-      instruction:
-        'Fire drill. Run git reset --hard HEAD~2 on purpose, and watch two commits vanish along with src/pricing.js.',
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'headMessageIs', message: 'docs: add readme' },
-          { kind: 'workingFile', path: 'src/pricing.js', exists: false },
-        ],
-      },
-      hints: [
-        'What does --hard reset that --soft and --mixed leave alone?',
-        '--hard moves the branch and resets both the Loading Dock and the Workbench. Commits look gone, but the reflog still remembers them.',
-        'Run: git reset --hard HEAD~2',
-      ],
+      agent: revertConfettiTask,
     },
     {
       id: 'reflog-recover',
       instruction:
-        'Now get it all back. git reflog lists every place HEAD has been. Follow the footprints back to your revert commit.',
+        'Fire drill: reset --hard your two unpushed commits, then bring them back with the reflog.',
       success: {
         kind: 'all',
         of: [
-          { kind: 'tracked', paths: ['src/pricing.js'] },
-          { kind: 'notTracked', paths: ['src/confetti.js'] },
-          { kind: 'commitCount', min: 6, label: 'Your lost commits are back' },
+          {
+            kind: 'reflogContains',
+            pattern: '^reset: moving to HEAD~2$',
+            label: 'The fire drill ran',
+          },
+          { ...headIsRevert, label: 'The revert is the newest commit again' },
+          { kind: 'tracked', paths: ['src/pricing.js'], label: 'Your pricing commit is back' },
         ],
       },
       hints: [
-        'Where does git record every move HEAD makes, even the ones that erased commits?',
-        "git reflog lists HEAD's past positions, newest first. HEAD@{1} is where HEAD was one move ago. PowerShell treats braces specially, so quote it: 'HEAD@{1}'.",
-        "Run: git reflog, then git reset --hard 'HEAD@{1}'",
+        'Where does git record every move HEAD makes, even ones that erased commits?',
+        "git reflog lists HEAD's past positions. HEAD@{1} is where it stood one move ago.",
+        'Pick the card that resets, then follows the reflog back.',
       ],
       xp: 30,
+      agent: reflogRecoverTask,
     },
   ],
-  drills: [
-    {
-      id: 'undo-discard-edit',
-      prompt: 'Throw away the unstaged edit to src/app.js.',
-      setup: repo()
-        .commit('feat: add landing page', { 'src/app.js': APP_V1 })
-        .modify('src/app.js', APP_CONFETTI)
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'clean' },
-          {
-            kind: 'workingFile',
-            path: 'src/app.js',
-            equals: APP_V1,
-            label: 'src/app.js matches the last commit',
-          },
-        ],
-      },
-      timeLimitSeconds: 45,
-      concept: 'restore',
-    },
-    {
-      id: 'undo-restore-deleted',
-      prompt: 'You deleted README.md by accident, and have not committed. Get it back.',
-      setup: repo()
-        .commit('docs: add readme', { 'README.md': README, 'index.html': INDEX_V1 })
-        .delete('README.md')
-        .toSpec(),
-      success: { kind: 'workingFile', path: 'README.md', equals: README },
-      timeLimitSeconds: 45,
-      concept: 'restore',
-    },
-    {
-      id: 'undo-unstage',
-      prompt: 'Unstage config.json, but keep your edit to it on disk.',
-      setup: repo()
-        .commit('feat: add config', { 'config.json': CONFIG_V1 })
-        .write('config.json', CONFIG_V2)
-        .stage('config.json')
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'notStaged', paths: ['config.json'] },
-          {
-            kind: 'workingFile',
-            path: 'config.json',
-            equals: CONFIG_V2,
-            label: 'Your edit to config.json is still on disk',
-          },
-        ],
-      },
-      timeLimitSeconds: 45,
-      concept: 'restore-staged',
-    },
-    {
-      id: 'undo-revert-shared',
-      prompt:
-        'The pushed commit "feat: add autoplay" broke the video page. Undo it without rewriting shared history.',
-      setup: repo()
-        .commit('feat: add video page', { 'index.html': INDEX_V1, 'src/player.js': PLAYER_V1 })
-        .commit('feat: add autoplay', {
-          'src/autoplay.js': AUTOPLAY,
-          'src/player.js': PLAYER_AUTOPLAY,
-        })
-        .commit('docs: add readme', { 'README.md': README })
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'notTracked', paths: ['src/autoplay.js'] },
-          { kind: 'fileAtHead', path: 'src/player.js', equals: PLAYER_V1 },
-          { kind: 'tracked', paths: ['README.md'] },
-          { kind: 'commitCount', equals: 4, label: 'One new commit, nothing erased' },
-        ],
-      },
-      timeLimitSeconds: 90,
-      concept: 'revert',
-    },
-    {
-      id: 'undo-soft-reset',
-      prompt: 'Your last commit is not pushed yet. Undo it, keeping its changes staged.',
-      setup: repo()
-        .commit('feat: add home page', { 'index.html': INDEX_V1 })
-        .commit('feat: add search', { 'src/search.js': PRICING })
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'headMessageIs', message: 'feat: add home page' },
-          { kind: 'staged', paths: ['src/search.js'] },
-        ],
-      },
-      timeLimitSeconds: 45,
-      concept: 'reset-soft',
-    },
-    {
-      id: 'undo-mixed-reset',
-      prompt: 'Undo your last commit and leave its changes unstaged on the Workbench.',
-      setup: repo()
-        .commit('feat: add landing page', { 'src/app.js': APP_V1 })
-        .commit('feat: add confetti', { 'src/app.js': APP_CONFETTI })
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'headMessageIs', message: 'feat: add landing page' },
-          { kind: 'modified', paths: ['src/app.js'] },
-          { kind: 'notStaged', paths: ['src/app.js'] },
-        ],
-      },
-      timeLimitSeconds: 45,
-      concept: 'reset-mixed',
-    },
-    {
-      id: 'undo-hard-reset',
-      prompt:
-        'Throw away the last commit and every uncommitted edit. Go back to "feat: add header".',
-      setup: repo()
-        .commit('feat: add header', {
-          'index.html': INDEX_V1,
-          'header.html': '<header></header>\n',
-        })
-        .commit('feat: add broken footer', { 'footer.html': '<footer>\n' })
-        .modify('header.html', '<header>WIP\n')
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [{ kind: 'headMessageIs', message: 'feat: add header' }, { kind: 'clean' }],
-      },
-      timeLimitSeconds: 60,
-      concept: 'reset-hard',
-    },
-    {
-      id: 'undo-reflog-rescue',
-      prompt:
-        'Rescue practice: run git reset --hard HEAD~2, then use the reflog to bring back "feat: add payments".',
-      setup: repo()
-        .commit('feat: add cart', { 'src/cart.js': APP_V1 })
-        .commit('feat: add checkout', { 'src/checkout.js': SIGNUP })
-        .commit('feat: add payments', { 'src/payments.js': PRICING })
-        .toSpec(),
-      success: {
-        kind: 'all',
-        of: [
-          { kind: 'headMessageIs', message: 'feat: add payments' },
-          {
-            kind: 'reflogContains',
-            pattern: '^reset: moving to',
-            label: 'The reflog shows your reset',
-          },
-        ],
-      },
-      timeLimitSeconds: 90,
-      concept: 'reflog',
-    },
-  ],
+  drills,
   questionRound: {
     ticket: {
       from: 'Marco',
