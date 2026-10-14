@@ -206,14 +206,11 @@ describe('Act 7 placement test', () => {
   });
 });
 
-/** Genuine-shaped PowerShell output for each check, as Kyle would paste it. */
+/** Genuine-shaped PowerShell output for each check, as Kyle would paste it after a squash merge. */
 const PASSING_PASTES: Record<string, string> = {
-  'spec-committed': 'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts per spec (#14)',
-  'agent-commits-conventional': [
-    'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts per spec (#14)',
-    '9f8e7d6 docs: add tide alerts spec',
-    '5c4b3a2 fix: keep the map centered on resize',
-  ].join('\n'),
+  'spec-on-main': 'docs/specs/tide-alerts.md',
+  'spec-landed-by-pr': 'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts (#14)',
+  'agent-commits-conventional': 'a1b2c3d (HEAD -> main, origin/main) feat: add tide alerts (#14)',
   'nothing-left-behind': [
     'On branch main',
     "Your branch is up to date with 'origin/main'.",
@@ -254,13 +251,65 @@ describe('Act 7 Field Mission: Spec It, Then Ship It', () => {
     }
   });
 
-  it('fails when no spec was ever committed: the log prints nothing', () => {
-    expect(verifyPaste(verificationOf('spec-committed'), '').passed).toBe(false);
+  it('passes a merge commit too: first-parent history shows GitHub’s merge', () => {
+    const merged = 'f00ba47 (HEAD -> main) Merge pull request #14 from kyle/feat-tide-alerts';
+    expect(verifyPaste(verificationOf('spec-landed-by-pr'), merged).passed).toBe(true);
+    // Without --first-parent, git shows the agent's own commit on the branch.
+    const branchCommit = '9f8e7d6 docs: add tide alerts spec';
+    expect(verifyPaste(verificationOf('agent-commits-conventional'), branchCommit).passed).toBe(
+      true,
+    );
   });
 
-  it('fails when the agent wrote vague commit messages', () => {
-    const vague = ['a1b2c3d update files', '9f8e7d6 wip', '5c4b3a2 fix: keep the map'].join('\n');
-    expect(verifyPaste(verificationOf('agent-commits-conventional'), vague).passed).toBe(false);
+  it('says no spec is on main yet, not "paste it first", when a spec log prints nothing', () => {
+    for (const id of ['spec-on-main', 'spec-landed-by-pr', 'agent-commits-conventional']) {
+      const verdict = verifyPaste(verificationOf(id), '');
+      expect(verdict.passed, id).toBe(false);
+      expect(verdict.message, id).toContain('no spec is on main yet');
+      expect(verdict.message, id).toContain('git pull');
+    }
+  });
+
+  it('fails a spec pushed straight to main, without a PR', () => {
+    const direct = 'a1b2c3d (HEAD -> main) docs: add tide alerts spec';
+    const verdict = verifyPaste(verificationOf('spec-landed-by-pr'), direct);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('through a PR');
+  });
+
+  it('fails a squash merge with a plain PR title, and says to fix the next title', () => {
+    const plain = 'a1b2c3d (HEAD -> main) Add tide alerts (#14)';
+    const verdict = verifyPaste(verificationOf('agent-commits-conventional'), plain);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('next PR’s title');
+    expect(verdict.message).not.toContain('keep going');
+    const pr = field?.checklist.find((item) => item.id === 'pr')?.text ?? '';
+    expect(pr).toContain('Conventional title');
+  });
+
+  it('judges only the spec’s own commit, so old history neither passes nor fails it', () => {
+    const conventional = verificationOf('agent-commits-conventional');
+    expect(conventional.command).toContain('-1 -- docs/specs');
+    expect(conventional.check).toEqual({ kind: 'conventionalRatio', min: 1, last: 1 });
+  });
+
+  it('asks for the test first, so the spec’s check fails before the agent builds', () => {
+    const steps = field?.checklist.map((item) => item.id) ?? [];
+    expect(steps.indexOf('test-first')).toBeLessThan(steps.indexOf('brief'));
+    const text = field?.checklist.find((item) => item.id === 'test-first')?.text ?? '';
+    expect(text).toContain('failing');
+  });
+
+  it('says what “its checks pass” means for a repo with no CI', () => {
+    const pr = field?.checklist.find((item) => item.id === 'pr')?.text ?? '';
+    expect(pr).toContain('if it has none');
+  });
+
+  it('says to roll a leaked key before untracking it, since the PR pushed it', () => {
+    const verdict = verifyPaste(verificationOf('agent-kept-secrets-out'), '.env\nsrc/app.ts');
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toMatch(/^Still tracked: \.env\. Roll \(revoke and replace\)/);
+    expect(verdict.message).toContain('git rm --cached');
   });
 
   it('fails when the agent left stray files or tracked a .env', () => {
