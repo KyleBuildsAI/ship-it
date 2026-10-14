@@ -66,7 +66,7 @@ export const greenOnEveryPush: FieldMissionInput = {
     {
       id: 'workflow-pushed',
       instruction:
-        'Run git fetch, then this, or have your agent do it. It prints the newest commit on GitHub’s main that changed gitleaks.yml, which proves the pull request merged. It must start with ci:.',
+        'Run git fetch, then this, or have your agent do it. It prints the newest commit on GitHub’s main that changed gitleaks.yml, which proves the pull request merged. Its message must start with “ci:”.',
       command: 'git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml',
       parser: 'log-oneline',
       check: { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci'] },
