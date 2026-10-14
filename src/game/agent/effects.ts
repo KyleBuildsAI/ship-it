@@ -1,4 +1,5 @@
 import { baseName, isWithin, parentDir } from '../../engine/fs/paths';
+import type { GitChange } from '../../engine/git/snapshot';
 import type { MachineChange } from '../../engine/machine/snapshot';
 import type { AgentAction, ApprovalMode, BaseAction } from '../missions/agentSchema';
 
@@ -6,11 +7,16 @@ import type { AgentAction, ApprovalMode, BaseAction } from '../missions/agentSch
  * Which of Otto's actions pause for Kyle's approval, and what the approval card says they
  * change (docs/act1-directed.md decisions D5 and D6, section 1.3).
  *
- * Both answers come from a dry run: the action is played on a copy of the laptop first, and
- * the snapshots before and after give its MachineChange list. Nothing here reads the
- * command's text, so `mkdir notes` and `md notes` are judged alike, and no author has to
- * write an effects list that could go stale or give the answer away.
+ * Both answers come from a dry run: the action is played on a copy of the sandbox first, and
+ * the snapshots before and after give its changes: the laptop's MachineChange list, and
+ * git's GitChange list (what moves between the Workbench, the Loading Dock and the Vault).
+ * Nothing here reads the command's text, so `mkdir notes` and `md notes`, or
+ * `git restore app.ts` and `git checkout -- app.ts`, are judged alike, and no author has
+ * to write an effects list that could go stale or give the answer away.
  */
+
+/** Anything an action can change: on the laptop, or in git's three areas. */
+export type SandboxChange = MachineChange | GitChange;
 
 /**
  * How much a change risks. It decides which approval modes pause for it.
@@ -37,8 +43,22 @@ const PAUSES_FOR: Readonly<Record<ApprovalMode, readonly ChangeWeight[]>> = {
 /** The most effects an approval card lists, so it reads at a glance beside the command. */
 export const MAX_EFFECT_LINES = 3;
 
-export function weighChange(change: MachineChange): ChangeWeight {
+export function weighChange(change: SandboxChange): ChangeWeight {
   switch (change.kind) {
+    case 'repoCreated':
+    case 'sealed':
+      return 'additive';
+    case 'workbench':
+      // A git command that rewrites or removes a Workbench file loses that version of it,
+      // like a laptop file being replaced, even when a commit still has an older one.
+      return change.how === 'created' ? 'additive' : 'destructive';
+    case 'dock':
+      // Loading or unloading a crate changes what the next commit holds, but the file
+      // itself stays on the Workbench either way: nothing is lost.
+      return 'additive';
+    case 'dropped':
+      // Commits leave the branch's history: the work in them is off the record.
+      return 'destructive';
     case 'deleted':
       return 'destructive';
     case 'modified':
@@ -63,7 +83,7 @@ export function weighChange(change: MachineChange): ChangeWeight {
 export interface PendingAction {
   /** A content action, or Otto's answer to a Confirm question, which pauses the same way. */
   readonly action: AgentAction | BaseAction | { readonly do: 'answer' };
-  readonly changes: readonly MachineChange[];
+  readonly changes: readonly SandboxChange[];
 }
 
 /**
@@ -85,7 +105,7 @@ export function isConsequential(pending: PendingAction, mode: ApprovalMode): boo
  * No changes gives no lines.
  */
 export function describeChanges(
-  changes: readonly MachineChange[],
+  changes: readonly SandboxChange[],
   display: (path: string) => string,
 ): string[] {
   // sort is stable, so lines of the same weight keep the order diffSnapshots gave them.
@@ -99,6 +119,19 @@ export function describeChanges(
 
 type DeletedChange = Extract<MachineChange, { kind: 'deleted' }>;
 
+/**
+ * Several paths loaded onto (or taken off) the Loading Dock by one command, like
+ * `git add .`: one line for the lot, the way deletes in one folder share a line.
+ */
+interface DockGroup {
+  readonly kind: 'dockGroup';
+  readonly how: 'loaded' | 'unloaded';
+  readonly paths: readonly string[];
+}
+
+/** A change as the card lists it: one change, or a group of dock moves. */
+type Shown = SandboxChange | DockGroup;
+
 interface Effect {
   readonly weight: ChangeWeight;
   readonly text: string;
@@ -110,14 +143,14 @@ interface Effect {
  * folder share one line, so a wildcard reads as its blast radius.
  */
 function listEffects(
-  changes: readonly MachineChange[],
+  changes: readonly SandboxChange[],
   display: (path: string) => string,
 ): Effect[] {
-  const shown = changes.filter((change) => !holdsNewItems(change, changes));
+  const shown = groupDock(changes.filter((change) => !holdsNewItems(change, changes)));
   const effects: Effect[] = [];
   const foldersDone = new Set<string>();
   for (const change of shown) {
-    const weight = weighChange(change);
+    const weight = change.kind === 'dockGroup' ? 'additive' : weighChange(change);
     if (change.kind !== 'deleted') {
       effects.push({ weight, text: describeChange(change, display) });
       continue;
@@ -139,10 +172,36 @@ function listEffects(
 }
 
 /**
+ * Dock moves of the same direction become one group when there is more than one. The
+ * group takes the place of its first move, so the Vault, dock, Workbench order holds.
+ */
+function groupDock(changes: readonly SandboxChange[]): Shown[] {
+  const pathsFor = (how: DockGroup['how']) =>
+    changes.flatMap((change) =>
+      change.kind === 'dock' && change.how === how ? [change.path] : [],
+    );
+  const shown: Shown[] = [];
+  const placed = new Set<DockGroup['how']>();
+  for (const change of changes) {
+    if (change.kind !== 'dock') {
+      shown.push(change);
+      continue;
+    }
+    const paths = pathsFor(change.how);
+    if (paths.length === 1) shown.push(change);
+    else if (!placed.has(change.how)) {
+      placed.add(change.how);
+      shown.push({ kind: 'dockGroup', how: change.how, paths });
+    }
+  }
+  return shown;
+}
+
+/**
  * A new folder made only to hold other new items, like `web` when `mkdir web\notes` makes
  * both. The deeper path already shows it, so it gets no line.
  */
-function holdsNewItems(change: MachineChange, changes: readonly MachineChange[]): boolean {
+function holdsNewItems(change: SandboxChange, changes: readonly SandboxChange[]): boolean {
   if (change.kind !== 'created' || change.item !== 'folder') return false;
   return changes.some(
     (other) =>
@@ -150,8 +209,15 @@ function holdsNewItems(change: MachineChange, changes: readonly MachineChange[])
   );
 }
 
-function describeChange(change: MachineChange, display: (path: string) => string): string {
+function describeChange(change: Shown, display: (path: string) => string): string {
   switch (change.kind) {
+    case 'repoCreated':
+    case 'workbench':
+    case 'dock':
+    case 'dockGroup':
+    case 'sealed':
+    case 'dropped':
+      return describeGitChange(change);
     case 'created':
       return `Makes the ${change.item} ${display(change.path)}`;
     case 'deleted':
@@ -171,6 +237,57 @@ function describeChange(change: MachineChange, display: (path: string) => string
     case 'terminal':
       return `${change.change === 'opened' ? 'Opens' : 'Closes'} PS ${String(change.tab)}`;
   }
+}
+
+/**
+ * Git's changes in the Git World's words: crates on the Workbench, the Loading Dock, and
+ * commits sealed into (or taken off) the Vault's history. Paths are project paths, which
+ * the world already shows as they are.
+ */
+function describeGitChange(change: Exclude<Shown, MachineChange>): string {
+  switch (change.kind) {
+    case 'repoCreated':
+      return 'Sets up a Loading Dock and a Vault for this project';
+    case 'workbench':
+      return describeWorkbench(change);
+    case 'dock':
+      return change.how === 'loaded'
+        ? `Moves ${change.path} onto the Loading Dock`
+        : `Takes ${change.path} off the Loading Dock`;
+    case 'dockGroup':
+      return change.how === 'loaded'
+        ? `Moves ${counted(change.paths.length, 'file')} onto the Loading Dock`
+        : `Takes ${counted(change.paths.length, 'file')} off the Loading Dock`;
+    case 'sealed':
+      return `Seals ${counted(change.files, 'file')} into a new commit: "${change.message}"`;
+    case 'dropped':
+      return describeDropped(change);
+  }
+}
+
+function describeWorkbench(change: Extract<GitChange, { kind: 'workbench' }>): string {
+  switch (change.how) {
+    case 'created':
+      return `Puts ${change.path} on the Workbench`;
+    case 'changed':
+      return change.unsaved
+        ? `Throws away the unsaved edits to ${change.path}`
+        : `Rewrites ${change.path} on the Workbench`;
+    case 'deleted':
+      return change.unsaved
+        ? `Deletes ${change.path} and its unsaved edits`
+        : `Deletes ${change.path} from the Workbench`;
+  }
+}
+
+/** "Takes 2 commits off main, newest "add login"": the history Kyle would lose. */
+function describeDropped(change: Extract<GitChange, { kind: 'dropped' }>): string {
+  const where = change.branch ?? 'HEAD';
+  const [newest] = change.commits;
+  const which = newest === undefined ? '' : `, newest "${newest.message}"`;
+  if (change.commits.length === 1)
+    return `Takes the commit "${newest?.message ?? ''}" off ${where}`;
+  return `Takes ${counted(change.commits.length, 'commit')} off ${where}${which}`;
 }
 
 /** "Deletes 3 files in C:\…\logs": every item counts, including what was inside folders. */

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { windows } from '../../engine/fixtures';
+import { folder, repo, windows, type FixtureBuilder } from '../../engine/fixtures';
+import { diffGitSnapshots, snapshotGit } from '../../engine/git/snapshot';
 import { testDeps } from '../../engine/git/testDeps';
 import { diffSnapshots, snapshotMachine, type MachineChange } from '../../engine/machine/snapshot';
 import { display } from '../../engine/machine/winPath';
 import { drive, type DriverAction } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
+import { DISPLAY_ROOT } from '../missions/sandbox';
 import { APPROVAL_MODES, type AgentAction, type ApprovalMode } from '../missions/agentSchema';
 import {
   describeChanges,
@@ -364,5 +366,101 @@ describe('effects of a dry run on a real laptop', () => {
     const lines = describeChanges(diffSnapshots(before, snapshotMachine(machine)), display);
     expect(lines).toEqual(['Sets the variable QUILL_API_KEY for your new terminals']);
     expect(lines.join(' ')).not.toContain('dev-key');
+  });
+});
+
+describe('effects of a git line in the Git World', () => {
+  const twoCommits = repo()
+    .commit('first', { 'app.ts': 'v1\n' })
+    .commit('add login', { 'login.ts': 'login\n' });
+
+  /** What one git line changes, in the Workbench, Loading Dock and Vault, and its card. */
+  function effectsOf(setup: FixtureBuilder, line: string) {
+    const ws = setup.build(testDeps());
+    const shell = new Shell(ws, DISPLAY_ROOT);
+    const before = snapshotGit(ws);
+    drive(shell, { do: 'run', line });
+    const changes = diffGitSnapshots(before, snapshotGit(ws));
+    const action: AgentAction = { do: 'run', line, onDeny: [] };
+    return {
+      lines: describeChanges(changes, display),
+      destructive: isConsequential({ action, changes }, 'destructive'),
+      changes: isConsequential({ action, changes }, 'changes'),
+    };
+  }
+
+  it('lets git add and git commit through in destructive mode, and pauses them in changes', () => {
+    const edited = twoCommits.write('app.ts', 'v2\n').write('new.ts', 'n\n');
+    expect(effectsOf(edited, 'git add .')).toEqual({
+      lines: ['Moves 2 files onto the Loading Dock'],
+      destructive: false,
+      changes: true,
+    });
+    expect(effectsOf(edited.stage('app.ts'), 'git commit -m "edit app"')).toEqual({
+      lines: ['Seals 1 file into a new commit: "edit app"'],
+      destructive: false,
+      changes: true,
+    });
+    expect(effectsOf(folder().write('a.ts', 'a\n'), 'git init').lines).toEqual([
+      'Sets up a Loading Dock and a Vault for this project',
+    ]);
+  });
+
+  it('pauses git reset --hard, and says which commit and which edits go', () => {
+    const effects = effectsOf(twoCommits.write('app.ts', 'mine\n'), 'git reset --hard HEAD~1');
+    expect(effects.destructive).toBe(true);
+    expect(effects.lines).toEqual([
+      'Takes the commit "add login" off main',
+      'Throws away the unsaved edits to app.ts',
+      'Deletes login.ts from the Workbench',
+    ]);
+  });
+
+  it('pauses git rm, which deletes the file and loads its removal', () => {
+    const effects = effectsOf(twoCommits, 'git rm login.ts');
+    expect(effects.destructive).toBe(true);
+    expect(effects.lines).toEqual([
+      'Deletes login.ts from the Workbench',
+      'Moves login.ts onto the Loading Dock',
+    ]);
+  });
+
+  it('words every kind of git change, taking crates off and counting dropped commits', () => {
+    const staged = twoCommits.write('app.ts', 'v2\n').write('b.ts', 'b\n').stage('app.ts', 'b.ts');
+    expect(effectsOf(staged, 'git restore --staged app.ts b.ts').lines).toEqual([
+      'Takes 2 files off the Loading Dock',
+    ]);
+    expect(effectsOf(staged, 'git restore --staged b.ts').lines).toEqual([
+      'Takes b.ts off the Loading Dock',
+    ]);
+    const three = twoCommits.commit('third', { 'c.ts': 'c\n' });
+    expect(effectsOf(three, 'git reset --soft HEAD~2').lines).toEqual([
+      'Takes 2 commits off main, newest "third"',
+      'Moves 2 files onto the Loading Dock',
+    ]);
+    const unsavedNew = twoCommits.write('login.ts', 'mine\n');
+    expect(effectsOf(unsavedNew, 'git rm -f login.ts').lines).toEqual([
+      'Deletes login.ts and its unsaved edits',
+      'Moves login.ts onto the Loading Dock',
+    ]);
+    const stagedThenRestored = twoCommits.write('app.ts', 'v2\n').stage('app.ts');
+    expect(
+      effectsOf(stagedThenRestored, 'git restore --source HEAD --staged --worktree app.ts').lines,
+    ).toEqual(['Rewrites app.ts on the Workbench', 'Takes app.ts off the Loading Dock']);
+    const deletedOnBench = twoCommits.delete('login.ts');
+    expect(effectsOf(deletedOnBench, 'git restore login.ts').lines).toEqual([
+      'Puts login.ts on the Workbench',
+    ]);
+  });
+
+  it('weighs a dropped commit as destructive and a dock move as additive', () => {
+    expect(weighChange({ kind: 'dropped', branch: null, commits: [] })).toBe('destructive');
+    expect(weighChange({ kind: 'dock', path: 'a.ts', how: 'unloaded' })).toBe('additive');
+    expect(
+      describeChanges(
+        [{ kind: 'dropped', branch: null, commits: [{ id: 'x', message: 'm' }] }],
+        display,
+      ),
+    ).toEqual(['Takes the commit "m" off HEAD']);
   });
 });
