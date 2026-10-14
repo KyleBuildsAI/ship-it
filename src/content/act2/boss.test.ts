@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gitQueries } from '../../engine/git/queries';
 import type { Shell } from '../../engine/shell/shell';
 import { evaluate } from '../../game/missions/predicates';
-import { checkBoss, startBoss, tick, type BossRun } from '../../game/missions/runner';
+import { brokenRules, checkBoss, startBoss, tick, type BossRun } from '../../game/missions/runner';
 import { applySteps } from '../../game/missions/sandbox';
 import { HIDDEN_FILE } from './dirtyTree';
 import { act2 } from './index';
@@ -55,6 +55,18 @@ describe('The Dirty Tree boss', () => {
     expect(dirty).toBeLessThanOrEqual(42);
     expect(status.untracked).toContain('.env');
     expect(status.ignored).toEqual([HIDDEN_FILE]);
+  });
+
+  it('names every rule that committing everything breaks', () => {
+    const { shell, fight } = startFight();
+    const q = gitQueries(shell.ws);
+    expect(brokenRules(fight, act2, q)).toEqual([]);
+    enterAll(shell, ['git add .', 'git commit -m "chore: commit everything"']);
+    expect(checkBoss(fight, act2, q, seconds(10))).toBe('lost-rule');
+    expect(brokenRules(fight, act2, q)).toEqual([
+      'A secret (.env) was committed',
+      'Build output or node_modules/ was committed',
+    ]);
   });
 
   it('is not won by the untouched setup', () => {

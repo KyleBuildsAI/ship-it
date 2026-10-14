@@ -4,7 +4,7 @@ import {
   type DrillScore,
   type QuestionRoundScore,
 } from './grading';
-import { evaluate, type SandboxQueries } from './predicates';
+import { describe, evaluate, type SandboxQueries } from './predicates';
 import {
   isJudgmentDrill,
   requireBoss,
@@ -374,6 +374,17 @@ export function tick(boss: BossRun, act: Act, nowMs: number): BossTick {
  * win that arrives late: the UI checks after every command, so a real win is always
  * seen before the deadline.
  */
+/**
+ * The labels of the rules that broke, so a loss by rule can say which one: the ending
+ * otherwise reads like near-success, with most objectives ticked.
+ */
+export function brokenRules(boss: BossRun, act: Act, queries: SandboxQueries): string[] {
+  const { failIf } = expectBoss(boss, act);
+  return failIf
+    .filter((rule) => evaluate(rule, queries))
+    .map((rule) => describe(rule, queries.machine?.display));
+}
+
 export function checkBoss(
   boss: BossRun,
   act: Act,

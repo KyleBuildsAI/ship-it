@@ -24,6 +24,13 @@ export function BossView({
   useClock(running);
   const boss = requireBoss(getAct(activity.act).act);
   const latest = activity.messages.at(-1);
+  // A loss by rule names the rule that broke, not just an example of one.
+  const ending =
+    activity.outcome === 'lost-rule' && activity.brokenRules.length > 0
+      ? `Dex pulled the deploy: ${activity.brokenRules.join('; ')}.`
+      : running
+        ? ''
+        : ENDINGS[activity.outcome];
 
   return (
     <>
@@ -53,7 +60,7 @@ export function BossView({
               activity.outcome === 'won' ? 'drill-result drill-result--pass' : 'drill-result'
             }
           >
-            {ENDINGS[activity.outcome]}
+            {ending}
           </p>
           <div className="play-panel__actions">
             {activity.outcome === 'won' ? null : (

@@ -369,6 +369,9 @@ describe('the boss', () => {
     run('git add .env', 'git commit -m "chore: oops"');
     bossSandboxChanged(T0 + 1_000);
     expect(boss().outcome).toBe('lost-rule');
+    // The sample's rule has no label, so the ending names it by what it checks.
+    expect(boss().brokenRules).toHaveLength(1);
+    expect(boss().brokenRules[0]).toContain('.env');
   });
 
   it('loses when the clock runs out', () => {

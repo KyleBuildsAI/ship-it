@@ -2,7 +2,7 @@ import { endDrill } from '../../mentor/drillGuard';
 import { explain } from '../missions/predicates';
 import { requireBoss } from '../missions/schema';
 import { applySteps } from '../missions/sandbox';
-import { checkBoss, secondsRemaining, startBoss, tick } from '../missions/runner';
+import { brokenRules, checkBoss, secondsRemaining, startBoss, tick } from '../missions/runner';
 import { saveProgressNow } from '../progress';
 import { getAct } from './catalog';
 import { play, type BossActivity } from './playStore';
@@ -41,6 +41,7 @@ export function startBossFight(actNumber: number, nowMs: number = Date.now()): v
     outcome: 'running',
     secondsLeft: timeLimitSeconds,
     messages: [],
+    brokenRules: [],
   });
 }
 
@@ -52,11 +53,17 @@ export function formatClock(seconds: number): string {
 
 function settle(current: BossActivity, nowMs: number): void {
   const { act } = getAct(current.act);
-  const outcome = checkBoss(current.boss, act, currentQueries(), nowMs);
+  const queries = currentQueries();
+  const outcome = checkBoss(current.boss, act, queries, nowMs);
   if (outcome === 'won' && current.outcome !== 'won') {
     saveProgressNow((save) => completeBoss(save, act, new Date(nowMs)));
   }
-  setActivity({ ...current, outcome, secondsLeft: secondsRemaining(current.boss, act, nowMs) });
+  setActivity({
+    ...current,
+    outcome,
+    secondsLeft: secondsRemaining(current.boss, act, nowMs),
+    brokenRules: outcome === 'lost-rule' ? brokenRules(current.boss, act, queries) : [],
+  });
 }
 
 /** Called on a timer: fires due twists into the live sandbox and runs the clock down. */
