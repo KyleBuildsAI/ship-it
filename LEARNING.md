@@ -2161,3 +2161,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/155
 3. Each terminal got its own copy of the variables when it opened. `$env:` changes only that copy.
 
 </details>
+
+---
+
+## #154 fix: twelve act 2 playtest bugs, including missions that restarted when resumed
+
+https://github.com/KyleBuildsAI/ship-it/pull/154
+
+1. Why does the resume point save the whole Workbench instead of the commands Kyle typed?
+2. When is the resume point saved, and when is it cleared?
+3. Why does `git status --ignored` show `dist/` as one line but `src/logger.ts` as a file?
+
+<details><summary>Answers</summary>
+
+1. Editor saves aren't commands, so replaying commands would miss them. Commit ids also include the time, so a replay would make different ids, and `git reset <id>` copied from the reflog would fail. A snapshot brings back the exact same repository.
+2. It's saved when a step or a drill finishes, so a resumed step starts exactly as it began. It's cleared when the mission is finished (a replay starts fresh) or when Kyle clicks Start mission over.
+3. A folder folds into one line only when nothing tracked or untracked lives inside it. Everything in `dist/` is ignored, but `src/` also holds tracked source files, so the logger is listed on its own.
+
+</details>
