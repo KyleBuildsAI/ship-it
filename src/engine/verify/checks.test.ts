@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildOutputToIgnore,
   conventionalRatio,
+  conventionalType,
   isCleanStatus,
   isConventionalSubject,
   isGeneratedSubject,
@@ -92,6 +93,21 @@ describe('conventionalRatio', () => {
   it('gives 0 when there is nothing to judge', () => {
     expect(conventionalRatio([])).toBe(0);
     expect(conventionalRatio([{ subject: "Merge branch 'x'" }])).toBe(0);
+  });
+
+  it('counts only the named types when given some', () => {
+    const commits = [{ subject: 'ci: scan for secrets (#4)' }, { subject: 'fix: calibrate' }];
+    expect(conventionalRatio(commits, ['ci'])).toBe(1 / 2);
+    expect(conventionalRatio([{ subject: 'ci(gitleaks): add' }], ['ci'])).toBe(1);
+    expect(conventionalRatio([{ subject: 'add gitleaks' }], ['ci'])).toBe(0);
+  });
+});
+
+describe('conventionalType', () => {
+  it('names the type of a Conventional subject, and nothing for any other', () => {
+    expect(conventionalType('ci: run tests on every push')).toBe('ci');
+    expect(conventionalType('feat(parser)!: read paths')).toBe('feat');
+    expect(conventionalType('Add workflow')).toBeNull();
   });
 });
 

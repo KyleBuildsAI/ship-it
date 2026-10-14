@@ -6,6 +6,7 @@
 export {
   buildOutputToIgnore,
   conventionalRatio,
+  conventionalType,
   isCleanStatus,
   isConventionalSubject,
   isGeneratedSubject,
@@ -18,6 +19,7 @@ export { detectPasteKind, type PasteKind } from './detect';
 export { parseLogOneline, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';
+export { isGreenRun, parseRunList, type WorkflowRun } from './runList';
 export {
   parseStatusLong,
   type ChangeKind,

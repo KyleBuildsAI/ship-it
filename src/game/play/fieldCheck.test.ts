@@ -84,6 +84,43 @@ describe('verifyPaste', () => {
     expect(leaked.message).toContain('.env');
   });
 
+  it('passes a tracked path only when it is on the list, and never beside a secret', () => {
+    const check = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'tracksPath', patterns: ['.github/workflows/gitleaks.yml', 'docs/'] },
+    });
+    expect(verifyPaste(check, 'README.md\n').passed).toBe(false);
+    expect(verifyPaste(check, 'docs/setup.md\n').passed).toBe(true);
+    expect(verifyPaste(check, '.github/workflows/gitleaks.yml\n').message).toContain('Git tracks');
+    expect(verifyPaste(check, '.github/workflows/gitleaks.yml\n.env\n').message).toContain('.env');
+  });
+
+  it('reads a gh run list paste for the newest run', () => {
+    const check = verification({
+      parser: 'gh-run-list',
+      command: 'gh run list --limit 1',
+      check: { kind: 'latestRunGreen' },
+    });
+    const table = 'STATUS  TITLE\n✓       ci: scan  Secret scan  main  push  1  9s  now';
+    expect(verifyPaste(check, table).passed).toBe(true);
+    const cancelled = '[{"status":"completed","conclusion":"cancelled"}]';
+    expect(verifyPaste(check, cancelled).message).toContain('(cancelled)');
+    expect(verifyPaste(check, '[{"status":"completed"}]').message).toContain('(no result)');
+  });
+
+  it('holds a typed Conventional check to that type', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1',
+      check: { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci', 'build'] },
+    });
+    expect(verifyPaste(check, 'a1b2c3d build: pin node\n').passed).toBe(true);
+    expect(verifyPaste(check, 'a1b2c3d feat: add tide charts\n').message).toContain(
+      'ci: or build:',
+    );
+  });
+
   it('checks that build output and secrets are ignored', () => {
     const check = verification({
       parser: 'status-short',

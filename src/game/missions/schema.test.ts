@@ -545,6 +545,15 @@ describe('ActSchema', () => {
     );
     expect(verify('status-short', { kind: 'ignores', patterns: [] }).success).toBe(false);
     expect(verify('ls-files', { kind: 'clean' }).success).toBe(false);
+    expect(verify('ls-files', { kind: 'tracksPath', patterns: ['ci.yml'] }).success).toBe(true);
+    expect(verify('status-short', { kind: 'tracksPath', patterns: ['ci.yml'] }).success).toBe(
+      false,
+    );
+    expect(verify('gh-run-list', { kind: 'latestRunGreen' }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'latestRunGreen' }).success).toBe(false);
+    const typed = { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci'] };
+    expect(verify('log-oneline', typed).success).toBe(true);
+    expect(verify('log-oneline', { ...typed, types: ['wip'] }).success).toBe(false);
   });
 
   it('rejects duplicate checklist and verification ids', () => {
