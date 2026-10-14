@@ -545,6 +545,15 @@ describe('ActSchema', () => {
     );
     expect(verify('status-short', { kind: 'ignores', patterns: [] }).success).toBe(false);
     expect(verify('ls-files', { kind: 'clean' }).success).toBe(false);
+    expect(verify('status-long', { kind: 'pushed' }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'newestCommitType', type: 'docs' }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'newestCommitType', type: 'wip' }).success).toBe(false);
+    expect(verify('select-string', { kind: 'documentsRequest', file: 'README.md' }).success).toBe(
+      true,
+    );
+    expect(
+      problems(verify('status-long', { kind: 'documentsRequest', file: 'README.md' })),
+    ).toEqual(['A "documentsRequest" check needs select-string output.']);
   });
 
   it('rejects duplicate checklist and verification ids', () => {

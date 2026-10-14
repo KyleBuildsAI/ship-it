@@ -345,12 +345,42 @@ const BossSchema = z
   });
 
 // ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
-export const FIELD_PARSERS = ['status-short', 'status-long', 'log-oneline', 'ls-files'] as const;
+// select-string is PowerShell's Select-String, which shows the lines of a file that match.
+export const FIELD_PARSERS = [
+  'status-short',
+  'status-long',
+  'log-oneline',
+  'ls-files',
+  'select-string',
+] as const;
 export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('clean') }),
+  /** Clean, and nothing waiting to push or pull: the branch matches its copy on GitHub. */
+  z.strictObject({ kind: z.literal('pushed') }),
+  /** The newest commit listed has this Conventional Commit type, like `docs`. */
+  z.strictObject({
+    kind: z.literal('newestCommitType'),
+    type: z.enum([
+      'feat',
+      'fix',
+      'docs',
+      'style',
+      'refactor',
+      'perf',
+      'test',
+      'build',
+      'ci',
+      'chore',
+    ]),
+  }),
+  /**
+   * The matched lines of `file` name a request (`GET /health`) and a status code (`200`),
+   * so the README really documents one, rather than only having been committed.
+   */
+  z.strictObject({ kind: z.literal('documentsRequest'), file: NameSchema }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
@@ -370,6 +400,9 @@ export type FieldCheck = z.output<typeof FieldCheckSchema>;
  */
 export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[]> = {
   clean: ['status-short', 'status-long'],
+  pushed: ['status-short', 'status-long'],
+  newestCommitType: ['log-oneline'],
+  documentsRequest: ['select-string'],
   ignores: ['status-short', 'status-long'],
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   conventionalRatio: ['log-oneline'],

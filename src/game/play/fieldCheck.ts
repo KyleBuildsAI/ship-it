@@ -1,10 +1,15 @@
 import {
   buildOutputToIgnore,
+  commitTypeOf,
   conventionalRatio,
   detectPasteKind,
+  documentedRequest,
   isCleanStatus,
+  isFromFile,
+  isPushedStatus,
   parseLogOneline,
   parsePathList,
+  parseSelectString,
   parseStatusLong,
   parseStatusShort,
   trackedSecretPaths,
@@ -26,6 +31,7 @@ const PARSER_NAMES = {
   'status-long': 'git status',
   'log-oneline': 'git log --oneline',
   'ls-files': 'git ls-files',
+  'select-string': 'Select-String',
 } as const;
 
 function fail(message: string): FieldVerdict {
@@ -55,6 +61,22 @@ function unignored(status: ParsedStatus, patterns: readonly string[]): string[] 
   );
 }
 
+/** A Select-String paste: which lines of the file name a request and a status code. */
+function verifySelectString(verification: Verification, text: string): FieldVerdict {
+  const { check } = verification;
+  if (check.kind !== 'documentsRequest') return fail(`Run ${verification.command} and paste that.`);
+  const matches = parseSelectString(text).filter((match) => isFromFile(match, check.file));
+  if (matches.length === 0) {
+    return fail(
+      `No lines from ${check.file} in that paste. Run ${verification.command}, or ask your agent to run it and show you the exact output.`,
+    );
+  }
+  const { request, statusCode } = documentedRequest(matches.map((match) => match.text));
+  if (request === null) return fail(`${check.file} doesn't name a request like GET /health yet.`);
+  if (statusCode === null) return fail(`${check.file} names ${request}, but not its status code.`);
+  return { passed: true, message: `${check.file} documents ${request} and its ${statusCode}.` };
+}
+
 /**
  * Checks one pasted output against a Field Mission verification. Never throws: a paste
  * that isn't what was asked for gets a message saying which command to run instead.
@@ -74,6 +96,8 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       : fail(`Still tracked: ${secrets.join(', ')}. Untrack with git rm --cached, then commit.`);
   }
 
+  if (verification.parser === 'select-string') return verifySelectString(verification, text);
+
   if (verification.parser === 'log-oneline') {
     const kind = detectPasteKind(text);
     if (kind !== 'log-oneline') {
@@ -84,6 +108,18 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       return commits.length >= check.count
         ? { passed: true, message: `${String(commits.length)} commits. Nice.` }
         : fail(`Only ${String(commits.length)} commits; this needs ${String(check.count)}.`);
+    }
+    if (check.kind === 'newestCommitType') {
+      const [newest] = commits;
+      if (newest === undefined) {
+        return fail(`That paste lists no commits. Run ${verification.command}.`);
+      }
+      const type = commitTypeOf(newest.subject);
+      return type === check.type
+        ? { passed: true, message: `The newest one is a ${check.type}: commit.` }
+        : fail(
+            `The newest commit there is "${newest.subject}". It should start with ${check.type}:, so check it was merged and pulled.`,
+          );
     }
     if (check.kind === 'conventionalRatio') {
       const ratio = conventionalRatio(commits.slice(0, check.last));
@@ -109,6 +145,15 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       return isCleanStatus(status)
         ? { passed: true, message: 'Clean: nothing left to commit.' }
         : fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
+    case 'pushed':
+      if (!isCleanStatus(status)) {
+        return fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
+      }
+      return isPushedStatus(status)
+        ? { passed: true, message: 'Clean, and the same as the copy on GitHub.' }
+        : fail(
+            'Clean, but not the same as GitHub: git status should say it is up to date with origin. Push, or pull, then paste again.',
+          );
     case 'noTrackedSecrets': {
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0
