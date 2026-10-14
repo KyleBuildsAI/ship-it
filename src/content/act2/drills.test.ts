@@ -66,33 +66,6 @@ const ANSWERS: Record<string, string[][]> = {
     ['git add src/app.ts src/theme.ts', 'git commit -m "feat: add dark mode"'],
     ['git add src/theme.ts', 'git commit -am "feat: add dark mode"'],
   ],
-  // 2.4 The Ignore List
-  'ignore-dist-folder': [['echo "dist/" > .gitignore'], ['echo "/dist" > .gitignore']],
-  'ignore-logs-anywhere': [['echo "*.log" > .gitignore']],
-  'ignore-untrack-env': [
-    ['git rm --cached .env', 'git commit -m "chore: stop tracking .env"'],
-    [
-      'echo ".env" > .gitignore',
-      'git rm --cached .env',
-      'git add .gitignore',
-      'git commit -m "chore: stop tracking .env"',
-    ],
-  ],
-  'ignore-env-rule': [
-    ['echo ".env" >> .gitignore', 'git add .gitignore', 'git commit -m "chore: ignore .env"'],
-  ],
-  'ignore-tracked-dist': [
-    [
-      'echo "dist/" > .gitignore',
-      'git rm -r --cached dist',
-      'git add .gitignore',
-      'git commit -m "chore: stop tracking build output"',
-    ],
-  ],
-  'ignore-negate': [
-    ['echo ".env*" > .gitignore', 'echo "!.env.example" >> .gitignore'],
-    ['echo ".env" > .gitignore', 'echo ".env.local" >> .gitignore'],
-  ],
   // 2.5 Undo Everything
   'undo-discard-edit': [['git restore src/app.js']],
   'undo-restore-deleted': [['git restore README.md']],
@@ -111,19 +84,17 @@ const WRONG_ANSWERS: Record<string, string[]> = {
   'history-staged-surprise': ['git restore --staged src/api.ts src/search.ts'],
   'commits-type-fix': ['git commit -m "feat: round cart totals"'],
   'commits-am-trap': ['git commit -am "feat: add dark mode"'],
-  'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
-  'ignore-untrack-env': ['git rm .env', 'git commit -m "chore: remove .env"'],
   'undo-revert-shared': ['git reset --hard HEAD~2'],
   'undo-soft-reset': ['git reset HEAD~1'],
 };
 
-/** Act 2 is typed, so its drills are graded by state; the mission schema refuses any other. */
-function typed(drill: Drill): SandboxDrill {
-  if (isJudgmentDrill(drill)) throw new Error(`Act 2's drill "${drill.id}" should be typed.`);
-  return drill;
-}
-
-const drills = act2Missions.flatMap((mission) => mission.drills.map(typed));
+/**
+ * The drills Kyle types, graded by state. A directed mission's judgment drills are pinned
+ * in its own test file instead, like ignoreList.test.ts.
+ */
+const drills: SandboxDrill[] = act2Missions.flatMap((mission) =>
+  mission.drills.filter((drill: Drill): drill is SandboxDrill => !isJudgmentDrill(drill)),
+);
 
 describe('Act 2 No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {
