@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import { collectConsoleProblems } from './consoleProblems';
 
 test('the first-run tutorial moves on as the player does each thing', async ({ page }) => {
-  // Six steps and a reload: CI renders the 3D world in software, so allow extra time.
+  // Four steps and a reload: CI renders the 3D world in software, so allow extra time.
   test.slow();
   const problems = collectConsoleProblems(page);
   await page.goto('./');
@@ -11,15 +11,15 @@ test('the first-run tutorial moves on as the player does each thing', async ({ p
   });
   const card = page.getByRole('complementary', { name: 'Tutorial' });
   const canvas = page.locator('#scene canvas');
-  await expect(card).toContainText('step 1 of 6');
+  await expect(card).toContainText('step 1 of 4');
 
   await canvas.click({ position: { x: 5, y: 5 } });
   await page.keyboard.down('w');
-  await expect(card).toContainText('step 2 of 6');
+  await expect(card).toContainText('step 2 of 4');
   await page.keyboard.up('w');
 
   await page.keyboard.press('Space');
-  await expect(card).toContainText('step 3 of 6');
+  await expect(card).toContainText('step 3 of 4');
 
   const box = await canvas.boundingBox();
   if (!box) throw new Error('the 3D canvas has no size');
@@ -27,16 +27,12 @@ test('the first-run tutorial moves on as the player does each thing', async ({ p
   await page.mouse.down();
   await page.mouse.move(box.x + 340, box.y + 140, { steps: 8 });
   await page.mouse.up();
-  await expect(card).toContainText('step 4 of 6');
-
-  await page.locator('.xterm-helper-textarea').focus();
-  await page.keyboard.type('pwd');
-  await page.keyboard.press('Enter');
-  await expect(card).toContainText('step 5 of 6');
-
-  await page.keyboard.press('Control+Backquote');
-  await page.keyboard.press('Control+Backquote');
-  await expect(card).toContainText('step 6 of 6');
+  await expect(card).toContainText('step 4 of 4');
+  // No step makes the player type: the terminal stays put away.
+  await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
 
   await page.getByRole('button', { name: 'Acts', exact: true }).click();
   await expect(card).toContainText('You know the controls');
@@ -61,6 +57,6 @@ test('the tutorial can be skipped, and replayed from Settings', async ({ page })
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Replay tutorial' }).click();
   await expect(page.getByRole('dialog', { name: 'Settings' })).toBeHidden();
-  await expect(card).toContainText('step 1 of 6');
+  await expect(card).toContainText('step 1 of 4');
   expect(problems).toEqual([]);
 });
