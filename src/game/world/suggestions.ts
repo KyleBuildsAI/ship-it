@@ -1,3 +1,4 @@
+import { BUILD_OUTPUT_FOLDERS, isSecretPath } from '../../engine/verify/checks';
 import type { CrateArea, CrateLook } from './crateLayout';
 
 /** Something in the Git World the player clicked. */
@@ -23,6 +24,19 @@ export interface Suggestion {
 /** Paths with spaces need quotes, exactly as when typing them. */
 function quoted(path: string): string {
   return /\s/.test(path) ? `"${path}"` : path;
+}
+
+/**
+ * The .gitignore line for a file that should never be committed: a secret (its name),
+ * build output (its folder) or a log (every log). Null for real work.
+ */
+function ignorePatternFor(path: string): string | null {
+  if (isSecretPath(path)) return path.slice(path.lastIndexOf('/') + 1);
+  const folders = path.split('/').slice(0, -1);
+  const build = folders.find((folder) => BUILD_OUTPUT_FOLDERS.includes(folder));
+  if (build !== undefined) return `${build}/`;
+  if (path.toLowerCase().endsWith('.log')) return '*.log';
+  return null;
 }
 
 /**
@@ -57,11 +71,21 @@ export function suggestFor(target: WorldTarget): Suggestion {
     };
   }
   switch (target.look) {
-    case 'untracked':
+    case 'untracked': {
+      // "git add" on a secret or build output is exactly the move that loses the Act 2
+      // boss, so the click offers what a careful engineer does instead: ignore it.
+      const pattern = ignorePatternFor(target.path);
+      if (pattern !== null) {
+        return {
+          command: `echo "${pattern}" >> .gitignore`,
+          note: 'Secrets and build output never get committed. Ignore this instead of adding it.',
+        };
+      }
       return {
         command: `git add ${path}`,
         note: 'Start tracking this new file: move it to the Loading Dock.',
       };
+    }
     case 'modified':
       return { command: `git add ${path}`, note: 'Stage this edit: move it to the Loading Dock.' };
     case 'deleted':

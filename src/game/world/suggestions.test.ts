@@ -10,6 +10,21 @@ describe('suggestFor', () => {
     }
   });
 
+  it('offers to ignore a new secret, build output or log instead of adding it', () => {
+    const untracked = (path: string) =>
+      suggestFor({ kind: 'crate', path, area: 'bench', look: 'untracked' });
+    expect(untracked('node_modules/.package-lock.json').command).toBe(
+      'echo "node_modules/" >> .gitignore',
+    );
+    expect(untracked('dist/app.js').command).toBe('echo "dist/" >> .gitignore');
+    expect(untracked('.env').command).toBe('echo ".env" >> .gitignore');
+    expect(untracked('npm-debug.log').command).toBe('echo "*.log" >> .gitignore');
+    expect(untracked('.env').note).toContain('Ignore this instead');
+    // Real work is still staged, and a template like .env.example is real work.
+    expect(untracked('src/app.ts').command).toBe('git add src/app.ts');
+    expect(untracked('.env.example').command).toBe('git add .env.example');
+  });
+
   it('shows history for a clean file', () => {
     expect(suggestFor({ kind: 'crate', path: 'a.ts', area: 'bench', look: 'clean' }).command).toBe(
       'git log --oneline -- a.ts',

@@ -136,7 +136,13 @@ export function trackedSecretPaths(source: PathSource): string[] {
 // ---- Build output ----------------------------------------------------------------------
 
 // Folders that tools regenerate on every build or install. They belong in .gitignore.
-const BUILD_OUTPUT_FOLDERS = ['dist', 'build', 'node_modules', 'coverage'];
+/** Folders that hold generated files: rebuilt from source, so never committed. */
+export const BUILD_OUTPUT_FOLDERS: readonly string[] = [
+  'dist',
+  'build',
+  'node_modules',
+  'coverage',
+];
 
 /**
  * The .gitignore lines to add, like `dist/`, for build output that git can still see.
