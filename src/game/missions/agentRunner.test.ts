@@ -22,6 +22,7 @@ import {
   confirmAsked,
   decideGate,
   echoPlan,
+  failedUnplanned,
   finishScript,
   markHintRung3,
   nextAction,
@@ -187,6 +188,26 @@ describe('running a script', () => {
     expect(stopped.stage).toEqual({ at: 'direct', round: 'fix' });
     expect(ids(offeredPlans(stopped, step))).toEqual(['fix-full-path', 'guess']);
     expect(() => stopScript(stopped)).toThrow(MissionRunError);
+  });
+
+  it('stops after a failure the content did not plan, never after a planned one', () => {
+    const failed = { exitCode: 1, asking: false };
+    const run = { do: 'run', line: 'Copy-Item a b', onDeny: [] } as const;
+    expect(failedUnplanned(run, failed)).toBe(true);
+    expect(failedUnplanned({ ...run, fails: true }, failed)).toBe(false);
+    expect(failedUnplanned(run, { exitCode: 0, asking: false })).toBe(false);
+    // A line that asked is waiting on its answer, not failed.
+    expect(failedUnplanned(run, { exitCode: 1, asking: true })).toBe(false);
+    const edit = { do: 'edit', path: 'a.txt', find: 'x', replace: 'y', onDeny: [] } as const;
+    expect(failedUnplanned(edit, failed)).toBe(true);
+    const answer: AnswerAction = {
+      do: 'answer',
+      choice: 'L',
+      line: 'rm a',
+      onDeny: [],
+      refusal: true,
+    };
+    expect(failedUnplanned(answer, failed)).toBe(false);
   });
 });
 

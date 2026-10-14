@@ -408,6 +408,21 @@ export function stopScript(state: AgentStepState): AgentStepState {
   return { ...state, stage: stopAfter(planId, refusal) };
 }
 
+/**
+ * Whether Otto stops after an action play just drove: it failed, and the content didn't
+ * mean it to (`fails`). A real agent reads the error before going on, so he never runs
+ * the rest of a plan whose first step broke, then claims it all worked. He stops the way
+ * Stop does (stopScript), and Kyle directs what comes next. An answer never counts: its
+ * line already ran, and a refusal is Kyle's own No.
+ */
+export function failedUnplanned(
+  action: QueuedAction,
+  result: { readonly exitCode: number; readonly asking: boolean },
+): boolean {
+  if (action.do === 'answer' || result.exitCode === 0 || result.asking) return false;
+  return !(action.do === 'run' && action.fails === true);
+}
+
 /** Otto's queue is empty: he claims he's done, or waits for new directions. */
 export function finishScript(state: AgentStepState): AgentStepState {
   const { planId, queue, then } = expectStage(state, 'running', 'finish the script');

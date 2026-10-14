@@ -812,6 +812,34 @@ describe('gates and predictions in play', () => {
     ]);
   });
 
+  it('logs an edit by what it did, and stops Otto at a line that fails unplanned', () => {
+    const edit = { do: 'edit', path: `${API}/package.json`, find: '{', replace: '{ ' } as const;
+    const failing = { do: 'run', line: 'Copy-Item nope.json api.json' } as const;
+    const script = [edit, failing, { do: 'run', line: NOTES_LINE }];
+    directedCatalog(withStrongScript('sample-notes-fails', script));
+    startMission('sample-notes-fails');
+    endBriefing();
+    pickCard('full-path');
+    ottoWaits();
+    // Changing part of package.json still overwrites it, so the edit pauses like a write.
+    expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
+    decide(true);
+    ottoWaits();
+    // The Copy-Item failed, so Otto stops instead of running on and claiming success.
+    expect(mission().agent?.stage).toEqual({ at: 'direct', round: 'fix' });
+    expect(ottoRun.get().last).toEqual({ kind: 'stopped' });
+    expect(ottoRun.get().rows).toEqual([
+      {
+        text: 'Edited C:\\Users\\kyle\\quillwork\\api\\package.json',
+        typed: false,
+        answer: false,
+        status: 'ok',
+      },
+      { text: failing.line, typed: true, answer: false, status: 'failed' },
+    ]);
+    expect(holds(apiNotes)).toBe(false);
+  });
+
   it("drops an action's words once Otto moves on to one that has none", () => {
     const said = { do: 'run', line: 'Get-Location', say: 'Checking where I am.' } as const;
     directedCatalog(withStrongScript('sample-notes-say', [said, { do: 'run', line: NOTES_LINE }]));

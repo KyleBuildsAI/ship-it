@@ -15,6 +15,7 @@ import {
   choosePlan,
   confirmAsked,
   decideGate,
+  failedUnplanned,
   finishScript,
   nextAction,
   openGate,
@@ -135,6 +136,10 @@ export function playCard(
       });
     }
     if (result.asking) state = confirmAsked(state, action);
+    // As in play: a failure the content didn't plan stops Otto for new directions.
+    else if (failedUnplanned(action, result) && state.stage.at === 'running') {
+      state = stopScript(state);
+    }
   };
 
   for (let turns = 0; turns < 100 && state.stage.at === 'running'; turns++) {

@@ -23,6 +23,7 @@ import {
   confirmAsked,
   decideGate,
   echoPlan,
+  failedUnplanned,
   finishScript,
   nextAction,
   openFixRound,
@@ -437,7 +438,14 @@ function driveAction(action: QueuedAction): void {
       : feedOutcome(playback.feed, step, label);
   appendBeats(fed.beats, fed.state);
   const agent = missionActivity()?.agent;
-  if (step.asking && agent !== null && agent !== undefined) saveAgent(confirmAsked(agent, action));
+  if (agent === null || agent === undefined) return;
+  if (step.asking) saveAgent(confirmAsked(agent, action));
+  else if (failedUnplanned(action, step) && agent.stage.at === 'running') {
+    // A Stop Kyle pressed during this action is answered by this one: never carried over.
+    playback.stopAsked = false;
+    ottoDid({ kind: 'stopped' });
+    saveAgent(stopScript(agent));
+  }
 }
 
 /**
