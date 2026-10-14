@@ -180,7 +180,7 @@ Real tasks on Kyle's real repos. Primary target: the SandCastles working repo. F
 | 5 | Add tests and CI to the alpha (self-hosted runner). CI badge in README. Secret scanning on. |
 | 6 | Architecture diagram and a one-command setup doc a stranger can follow. |
 | 7 | Turn the Tidepool concept into a real eval suite. Prompt-injection hardening on one agent tool. |
-| 8 | SandCastles deep-dive: defend the architecture against the interviewer. |
+| 8 | **Tell the SandCastles Story** (built). Kyle directs his own AI agent to interview him and draft `docs/story.md` in STAR shape (five `##` headings: Situation, Task, Action, Result, What I would do differently), makes it true, links it from the README and commits it. Verified by pasting `git log --oneline -1 docs/story.md` (a Conventional line proves the story is committed) and a clean `git status`. The paste checks can't read headings, so the checklist has Kyle check them with `Select-String`. It prepares him for the deep-dive, where he defends the architecture against the interviewer. |
 
 ## 9. Sage (AI mentor)
 
@@ -304,6 +304,10 @@ Every card is set at Quillwork, with Sage running a mock loop and Otto, Marco, P
 - 8.4 **Customers and Your Story**: listening to a customer, fixing their real workflow, briefing Otto's reply, handling missed webhooks, the SandCastles deep-dive, honest credit for AI's part, disagreement and mistakes
 
 Final (the boss): **"The Mock Interview Loop"**, 6:00: one card per round, eight cards. Live coding with Pyodide (the Python Arena, M5) comes later.
+
+Placement test: twelve cards, three from each lesson (a judgment card, a reading-evidence card and a what-to-tell-Otto card), on an 8:00 clock (40 seconds a card, the final's pace). 85% tests out of the four lessons; the final stays open. Content: `src/content/act8/placement.ts`.
+
+Field Mission: **"Tell the SandCastles Story"** (section 8), in `src/content/act8/fieldMission.ts`. Played through, Act 8 is complete once the final is beaten and the story is verified; testing out completes it at once, as in Act 2.
 
 ### Cross-Act features
 - **Code Review mini-game (M2)**: diffs in a review panel. Click lines with bugs, pick the issue type, write a comment. Includes AI-written diffs with plausible-looking mistakes.
