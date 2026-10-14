@@ -228,7 +228,7 @@ export const releasesAndVersions = {
       options: [
         {
           id: 'move',
-          text: 'Move the tag. It’s only a typo.',
+          text: 'Move the tag to the fixed commit with git tag -f and push it again. It’s only a typo, so nobody will notice.',
           correct: false,
           feedback: 'People already downloaded 3.0.0. Now one name means two different things.',
         },

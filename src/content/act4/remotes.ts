@@ -82,7 +82,7 @@ export const remotesAndPushing = {
         },
         {
           id: 'wrong-branch',
-          text: 'She’s looking at the wrong branch on GitHub.',
+          text: 'She’s looking at the wrong branch on GitHub: the branch picker still shows main, not the branch you made.',
           correct: false,
           feedback:
             'Possible, but check the simpler thing first: did the commit ever leave your laptop?',

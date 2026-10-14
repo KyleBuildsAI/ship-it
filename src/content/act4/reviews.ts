@@ -34,7 +34,7 @@ export const reviewingPullRequests = {
       options: [
         {
           id: 'approve',
-          text: 'Approve. CI is green and Otto says it’s fixed.',
+          text: 'Approve. CI is green, every check passed, and Otto says in the PR that the flaky test is fixed now.',
           correct: false,
           feedback: 'CI is green because the test that catches the bug no longer runs.',
         },

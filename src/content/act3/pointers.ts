@@ -152,7 +152,7 @@ export const branchesArePointers = {
         },
         {
           id: 'merge-self',
-          text: 'Pull main, then create feat/csv-export from it. Build the button there in small commits. When the tests pass, merge it into main yourself and push, so it ships today.',
+          text: 'Pull main, then create feat/csv-export from it. Build the button there in small commits. When the tests pass, merge it into main yourself and push main, so the button ships to users today.',
           correct: false,
           feedback:
             'Right start, wrong finish. Main only changes through a reviewed PR, never an agent’s own merge.',

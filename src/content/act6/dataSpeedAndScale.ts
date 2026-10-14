@@ -68,7 +68,7 @@ export const dataSpeedAndScale = {
       options: [
         {
           id: 'bigger-server',
-          text: 'Move to a bigger database server.',
+          text: 'Move to a bigger database server with more memory, so the slow query has room to run.',
           correct: false,
           feedback: 'Reading 12 million rows is slow on any server. It only postpones the problem.',
         },
