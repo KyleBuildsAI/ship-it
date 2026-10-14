@@ -1,5 +1,8 @@
+import { describe, expect, it } from 'vitest';
+import { startLog, withEntry } from '../../game/agent/replay';
+import { stepPasses } from '../../game/missions/agentRunner';
 import { describeDirectedMission, describeJudgmentDrills } from './directed.test-helpers';
-import { missionById } from './play.test-helpers';
+import { missionById, queriesOf } from './play.test-helpers';
 
 /*
  * Mission 1.3, Secrets Stay Home, played card by card and drill by drill
@@ -65,6 +68,9 @@ describeDirectedMission(missionById('secrets-stay-home'), {
       'fill-the-template > start-over': { passed: true, check: 'filled' },
       'copy-then-set > start-over': { passed: true, check: 'filled' },
       'copy-then-set > copy-then-edit': { passed: true, check: 'filled' },
+      // The copy carries the filled template's PORT=3000, so the edit, which only fills a
+      // blank PORT line, finds nothing and Otto stops rather than writing PORT=30003000.
+      'fill-the-template > copy-then-edit': 'direct',
     },
     'keep-it-out-of-git': {
       'trust-it > add-the-rule': { passed: true, check: 'ignored' },
@@ -95,7 +101,7 @@ describeDirectedMission(missionById('secrets-stay-home'), {
     'make-the-env > copy-then-set > start-over > Copy-Item .env.example .env': false,
     [`make-the-env > copy-then-set > start-over > ${EDIT_ENV}`]: false,
     [`make-the-env > fill-the-template > copy-then-edit > ${COPY_TEMPLATE}`]: true,
-    [`make-the-env > fill-the-template > copy-then-edit > ${EDIT_ENV}`]: false,
+    // No pause for the edit after it: on the filled copy it changes nothing, so it fails.
     'make-the-env > fill-the-template > copy-then-set > Copy-Item .env.example .env': true,
     [`make-the-env > fill-the-template > start-over > ${WRITE_EXAMPLE}`]: false,
     'make-the-env > fill-the-template > start-over > Copy-Item .env.example .env': false,
@@ -151,4 +157,24 @@ describeJudgmentDrills(missionById('secrets-stay-home'), {
   'ssh-diagnose-claim-readme': { key: ['leaked'], wrong: 'names' },
   'ssh-diagnose-env-shared': { key: ['shared'], wrong: 'safe' },
   'ssh-fix-key-in-template': { key: ['rewrite'], wrong: 'edit-out' },
+});
+
+describe('secrets-stay-home grading', () => {
+  const mission = missionById('secrets-stay-home');
+  const [makeEnv] = mission.steps;
+  /** The mission's laptop with .env written as given, nothing else changed. */
+  const withEnv = (content: string) =>
+    queriesOf(
+      withEntry(startLog(mission.initialRepoState), {
+        kind: 'steps',
+        steps: [{ op: 'write', path: 'Users/kyle/quillwork/api/.env', content }],
+      }),
+    );
+
+  it('passes step 1 only when the whole PORT line reads 3000', () => {
+    if (makeEnv === undefined) throw new Error('Mission 1.3 has no steps.');
+    expect(stepPasses(makeEnv, withEnv('PORT=3000\nDATABASE_URL=\n'))).toBe(true);
+    // What an unanchored edit made of a .env copied from a filled template.
+    expect(stepPasses(makeEnv, withEnv('PORT=30003000\nDATABASE_URL=\n'))).toBe(false);
+  });
 });

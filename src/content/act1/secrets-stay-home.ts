@@ -53,7 +53,16 @@ const ENV_KEEPS_NAMES: Predicate = {
   of: [missing(ENV), has(ENV, 'DATABASE_URL=')],
   label: '.env keeps every name from the template',
 };
-const PORT_SET = has(ENV, 'PORT=3000');
+/**
+ * The whole PORT line reads 3000, not just some line containing it: an edit that lands on
+ * a line already set would leave PORT=30003000, which a contains check would pass.
+ */
+const PORT_SET: Predicate = {
+  kind: 'driveFile',
+  path: ENV,
+  pattern: '^PORT=3000\\r?$',
+  flags: 'm',
+};
 const NAMES_KEPT = has(ENV, 'DATABASE_URL=');
 
 const ENV_IGNORED: Predicate = { kind: 'ignored', paths: ['.env'] };
@@ -97,12 +106,16 @@ const withKey = () => ssh().write(ENV, `PORT=3000\nDATABASE_URL=\nQUILL_API_KEY=
 
 const IN_API = [{ op: 'cd', path: API }] as const;
 
-/** The small edit: only the PORT line of .env changes, so every other name stays. */
+/**
+ * The small edit: only the PORT line of .env changes, so every other name stays. It finds
+ * the blank line with its line end, so it can only fill an empty PORT: on a .env copied
+ * from a filled template it fails instead of making PORT=30003000.
+ */
 const PORT_EDIT = {
   do: 'edit',
   path: ENV,
-  find: 'PORT=',
-  replace: 'PORT=3000',
+  find: 'PORT=\n',
+  replace: 'PORT=3000\n',
   say: 'Setting only the PORT line.',
 } as const;
 
