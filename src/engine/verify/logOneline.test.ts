@@ -7,7 +7,7 @@ import freshError from './fixtures/log-oneline-fresh-error.txt?raw';
 import graph from './fixtures/log-oneline-graph.txt?raw';
 import graphColor from './fixtures/log-oneline-graph-color.txt?raw';
 import lastThree from './fixtures/log-oneline-n3.txt?raw';
-import { parseLogOneline, parseOnelineLine } from './logOneline';
+import { parseLogGraph, parseLogOneline, parseOnelineLine } from './logOneline';
 
 // The history capture.ps1 builds, newest first, with the labels `--decorate` adds.
 const HISTORY = [
@@ -138,5 +138,31 @@ describe('parseLogOneline robustness', () => {
       decorate.replace(/\n/g, '   \r\n') +
       '(END)\r\n';
     expect(parseLogOneline(pasted)).toEqual(HISTORY);
+  });
+});
+
+describe('parseLogGraph', () => {
+  it("keeps the column of each commit's star, so a merged branch's lane shows", () => {
+    const columns = parseLogGraph(graph).map(({ hash, column }) => [hash, column]);
+    expect(columns.slice(0, 5)).toEqual([
+      ['501437f', 0],
+      ['828673f', 0],
+      ['959c681', 2],
+      ['bfeb7e2', 2],
+      ['1c0066c', 0],
+    ]);
+  });
+
+  it('reads the same columns through color codes', () => {
+    expect(parseLogGraph(graphColor).map((commit) => commit.column)).toEqual(
+      parseLogGraph(graph).map((commit) => commit.column),
+    );
+  });
+
+  it('gives a null column to a paste without --graph', () => {
+    expect(parseLogGraph(plain).every((commit) => commit.column === null)).toBe(true);
+    expect(parseLogGraph(plain).map((commit) => commit.hash)).toEqual(
+      parseLogOneline(plain).map((commit) => commit.hash),
+    );
   });
 });

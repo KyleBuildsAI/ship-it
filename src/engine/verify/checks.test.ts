@@ -6,6 +6,9 @@ import {
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  isTypedBranchName,
+  mergedBranchName,
+  readTopMerge,
   trackedSecretPaths,
 } from './checks';
 import logDecorate from './fixtures/log-oneline-decorate.txt?raw';
@@ -23,7 +26,8 @@ import sbStagedUnborn from './fixtures/status-sb-staged-unborn.txt?raw';
 import shortClean from './fixtures/status-short-clean.txt?raw';
 import shortDeleted from './fixtures/status-short-deleted.txt?raw';
 import shortIgnored from './fixtures/status-short-ignored.txt?raw';
-import { parseLogOneline } from './logOneline';
+import { parseLogGraph, parseLogOneline } from './logOneline';
+import graph from './fixtures/log-oneline-graph.txt?raw';
 import { parseStatusLong } from './statusLong';
 import { parseStatusShort } from './statusShort';
 
@@ -235,5 +239,76 @@ describe('buildOutputToIgnore', () => {
   it('does not mistake a file named like a build folder for the folder', () => {
     expect(buildOutputToIgnore(['scripts/build', 'src/dist.ts', 'coverage.md'])).toEqual([]);
     expect(buildOutputToIgnore(['node_modules/react/index.js'])).toEqual(['node_modules/']);
+  });
+});
+
+describe('mergedBranchName', () => {
+  it('reads the branch from the subjects git and GitHub write', () => {
+    expect(mergedBranchName('Merge pull request #3 from kyle/feat/readme-fix')).toBe(
+      'feat/readme-fix',
+    );
+    expect(mergedBranchName("Merge branch 'feat/tide-chart'")).toBe('feat/tide-chart');
+    expect(mergedBranchName("Merge branch 'fix/deploy' into main")).toBe('fix/deploy');
+    expect(mergedBranchName("Merge remote-tracking branch 'origin/feat/x'")).toBe('feat/x');
+  });
+
+  it('finds no branch in other subjects', () => {
+    expect(mergedBranchName('feat: add tide charts')).toBeNull();
+    expect(mergedBranchName('Merge tag v1.0')).toBeNull();
+  });
+});
+
+describe('isTypedBranchName', () => {
+  it('accepts a type, a slash and a short name', () => {
+    expect(isTypedBranchName('feat/readme-fix')).toBe(true);
+    expect(isTypedBranchName('docs/setup.md')).toBe(true);
+  });
+
+  it('rejects untyped or empty names', () => {
+    expect(isTypedBranchName('readme-fix')).toBe(false);
+    expect(isTypedBranchName('feature')).toBe(false);
+    expect(isTypedBranchName('feat/')).toBe(false);
+    expect(isTypedBranchName('wip/thing')).toBe(false);
+  });
+});
+
+describe('readTopMerge', () => {
+  const MERGED = [
+    '*   4d7e1a0 (HEAD -> main, origin/main) Merge pull request #3 from kyle/feat/readme-fix',
+    '|\\  ',
+    '| * 9c2f6b1 docs: fix the readme',
+    '* | 7e8f9a0 fix: an older fix on main',
+    '|/  ',
+    '* 1a2b3c4 chore: start',
+  ].join('\n');
+
+  it("finds the merge and the newest commit on its branch's lane", () => {
+    const merge = readTopMerge(parseLogGraph(MERGED));
+    expect(merge).toMatchObject({
+      kind: 'merged',
+      branch: 'feat/readme-fix',
+      branchCommit: { hash: '9c2f6b1', subject: 'docs: fix the readme' },
+    });
+  });
+
+  it('says when the newest commit is not a merge, even with an older merge below', () => {
+    // The fixture's newest commit sits on top of a merge, which must not count.
+    expect(readTopMerge(parseLogGraph(graph))).toEqual({
+      kind: 'not-a-merge',
+      subject: 'docs(changelog): start a changelog',
+    });
+    expect(readTopMerge(parseLogGraph('* 1a2b3c4 Revert "feat: x"')).kind).toBe('not-a-merge');
+  });
+
+  it('cannot see the branch without the graph or without its commits', () => {
+    expect(readTopMerge(parseLogGraph("4d7e1a0 Merge branch 'feat/x'"))).toEqual({
+      kind: 'no-graph',
+      branch: 'feat/x',
+    });
+    expect(readTopMerge(parseLogGraph("*   4d7e1a0 Merge branch 'feat/x'"))).toEqual({
+      kind: 'no-branch-commit',
+      branch: 'feat/x',
+    });
+    expect(readTopMerge([])).toEqual({ kind: 'empty' });
   });
 });

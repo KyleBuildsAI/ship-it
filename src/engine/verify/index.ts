@@ -10,12 +10,16 @@ export {
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  isTypedBranchName,
+  mergedBranchName,
+  readTopMerge,
   trackedSecretPaths,
   type ParsedStatus,
   type PathSource,
+  type TopMerge,
 } from './checks';
 export { detectPasteKind, type PasteKind } from './detect';
-export { parseLogOneline, type OnelineCommit } from './logOneline';
+export { parseLogGraph, parseLogOneline, type GraphCommit, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';
 export {

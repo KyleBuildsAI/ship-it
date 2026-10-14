@@ -44,6 +44,33 @@ export function parseOnelineLine(line: string): OnelineCommit | 'graph' | null {
   return { hash, refs, subject };
 }
 
+/** A commit from `git log --oneline --graph`, with where its "*" sits in the drawing. */
+export interface GraphCommit extends OnelineCommit {
+  /**
+   * The column of the "*" that marks this commit, or null when the paste had no graph.
+   * Column 0 is the line main followed (a merge's first parent); a "*" further right sits
+   * on a lane that joined it, like the branch a merge brought in.
+   */
+  readonly column: number | null;
+}
+
+/**
+ * Parses `git log --oneline` output like parseLogOneline, but keeps each commit's place in
+ * the `--graph` drawing, so a check can tell a merged branch's commits from main's own.
+ */
+export function parseLogGraph(text: string): GraphCommit[] {
+  const commits: GraphCommit[] = [];
+  for (const line of normalizePaste(text).lines) {
+    const parsed = parseOnelineLine(line);
+    if (parsed === null || parsed === 'graph') continue;
+    // parseOnelineLine only accepts a graph prefix that holds a "*", so a line with any
+    // prefix at all has one, and a line with none came from a paste without --graph.
+    const hasGraph = GRAPH_PREFIX.exec(line)?.[0] !== '';
+    commits.push({ ...parsed, column: hasGraph ? line.indexOf('*') : null });
+  }
+  return commits;
+}
+
 /**
  * Parses `git log --oneline` output into commits, newest first, the order git prints them.
  * Graph drawing, blank lines, and anything that isn't a commit line are skipped.
