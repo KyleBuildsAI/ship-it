@@ -16,8 +16,8 @@ import { act2, act2Missions } from './index';
  *
  * The mission pauses only where something is lost (`destructive`). Its gates: plain
  * `git rm .env` deletes the file and is harmful, `git rm --cached .env` asks on purpose
- * and is safe, and rewriting a committed .gitignore or .env.example pauses but harms
- * nothing. 'direct' means Otto stopped for new directions.
+ * and is safe. Rewriting a committed .gitignore or .env.example doesn't pause: the old
+ * version is still in the Vault. 'direct' means Otto stopped for new directions.
  */
 
 const found = act2Missions.find((candidate) => candidate.id === 'ignore-list');
@@ -69,9 +69,6 @@ describeDirectedMission(mission, {
   // except the old commit: only Rewind restores Kyle's own settings file.
   rewindOnly: ['untrack-env > git-rm'],
   gates: {
-    // Rewriting a committed .gitignore loses nothing a guard protects.
-    'ignore-noise > ignore-debug > ignore-rules > write .gitignore': false,
-    'ignore-noise > ignore-debug > reload-dock > write .gitignore': false,
     // Plain git rm deletes .env from disk: the one harmful line.
     'untrack-env > git-rm > git rm .env': true,
     'untrack-env > rule-only > git-rm > git rm .env': true,
@@ -81,12 +78,6 @@ describeDirectedMission(mission, {
     'untrack-env > rule-only > untrack-now > git rm --cached .env': false,
     'untrack-env > git-rm > rm-cached > git rm --cached .env': false,
     'untrack-env > git-rm > untrack-now > git rm --cached .env': false,
-    'untrack-env > rm-cached > write .gitignore': false,
-    'untrack-env > rule-only > write .gitignore': false,
-    'untrack-env > git-rm > rule-only > write .gitignore': false,
-    // Blanking the leaked example rewrites a committed file: safe, since .env stays.
-    'commit-cleanup > copy-env > blank-example > write .env.example': false,
-    'commit-cleanup > copy-env > names-only > write .env.example': false,
   },
 });
 
@@ -117,17 +108,15 @@ describe('The Ignore List, directed', () => {
     expect(dry.broken).toEqual(['.env stays on your disk']);
     expect(describeChanges(dry.changes, (path) => path)).toEqual([
       'Deletes .env from the Workbench',
-      'Moves .env onto the Loading Dock',
+      'Marks .env for removal: the next commit drops it',
     ]);
   });
 
   it('asks before git rm --cached, which only takes .env off the dock, and Kyle allows it', () => {
     const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
     const played = playCard(mission, untrackEnv, begun, 'rm-cached', 'deny-harmful');
-    expect(played.gates).toEqual([
-      { line: 'git rm --cached .env', harmful: false },
-      { line: 'write .gitignore', harmful: false },
-    ]);
+    // One gate: the .gitignore rewrite after it loses nothing, so it doesn't pause.
+    expect(played.gates).toEqual([{ line: 'git rm --cached .env', harmful: false }]);
     expect(played.predicts).toEqual([
       { question: 'Before Otto runs it: where does .env end up?', trueOptions: ['on-disk'] },
     ]);

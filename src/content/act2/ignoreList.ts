@@ -616,7 +616,8 @@ export const ignoreList: MissionInput = {
     .untracked('debug.log', LOG_LINE)
     .untracked('server/logs/error.log', LOG_LINE)
     .toSpec(),
-  // Pauses only where something is lost: a deleted or rewritten file, or dropped commits.
+  // Pauses only where something is lost: a deleted file, edits git no longer holds, or
+  // dropped commits. Rewriting a committed .gitignore loses nothing, so it doesn't pause.
   // The one untrack that matters asks on purpose, so Kyle approves it knowingly.
   approvals: 'destructive',
   steps: [

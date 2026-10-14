@@ -78,10 +78,39 @@ describe('git changes, in Workbench, Loading Dock and Vault terms', () => {
     expect(changesOf(stagedThenEdited.write('app.ts', 'v2\n'), ['restore', 'app.ts'])).toEqual([]);
   });
 
-  it('git rm deletes the file from the Workbench and loads its removal', () => {
+  it('a staged edit wiped from the dock and the Workbench at once is unsaved work lost', () => {
+    const staged = repo().commit('first', { 'app.ts': 'v1\n' }).write('app.ts', 'v2\n');
+    const wipe = ['restore', '--source', 'HEAD', '--staged', '--worktree', 'app.ts'];
+    expect(changesOf(staged.stage('app.ts'), wipe)).toEqual([
+      { kind: 'dock', path: 'app.ts', how: 'unloaded' },
+      { kind: 'workbench', path: 'app.ts', how: 'changed', unsaved: true },
+    ]);
+  });
+
+  it('rewriting a committed file loses nothing, even to an older commit', () => {
+    const edited = twoCommits.commit('edit', { 'app.ts': 'v2\n' });
+    expect(changesOf(edited, ['restore', '--source', 'HEAD~2', 'app.ts'])).toEqual([
+      { kind: 'workbench', path: 'app.ts', how: 'changed', unsaved: false },
+    ]);
+  });
+
+  it('git rm deletes the file from the Workbench and stages its removal', () => {
     expect(changesOf(twoCommits, ['rm', 'login.ts'])).toEqual([
-      { kind: 'dock', path: 'login.ts', how: 'loaded' },
+      { kind: 'dock', path: 'login.ts', how: 'removed' },
       { kind: 'workbench', path: 'login.ts', how: 'deleted', unsaved: false },
+    ]);
+  });
+
+  it('git rm --cached stages the removal and leaves the Workbench alone', () => {
+    // Not 'loaded': the next commit drops login.ts, it doesn't carry it.
+    expect(changesOf(twoCommits, ['rm', '--cached', 'login.ts'])).toEqual([
+      { kind: 'dock', path: 'login.ts', how: 'removed' },
+    ]);
+  });
+
+  it('git add of a deleted file stages its removal too', () => {
+    expect(changesOf(twoCommits.delete('login.ts'), ['add', 'login.ts'])).toEqual([
+      { kind: 'dock', path: 'login.ts', how: 'removed' },
     ]);
   });
 
@@ -127,7 +156,11 @@ describe('git changes, in Workbench, Loading Dock and Vault terms', () => {
 
   it('before git init, every file is unsaved work', () => {
     const ws = folder().write('app.ts', 'hi\n').build(testDeps());
-    expect(snapshotGit(ws).unsaved).toEqual(new Set(['app.ts']));
+    expect(
+      changesIn(ws, () => {
+        ws.writeFile('app.ts', 'bye\n');
+      }),
+    ).toEqual([{ kind: 'workbench', path: 'app.ts', how: 'changed', unsaved: true }]);
   });
 
   it('can leave the files out, for a laptop whose drive is compared elsewhere', () => {

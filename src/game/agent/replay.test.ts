@@ -249,7 +249,7 @@ describe('dryRun', () => {
       testDeps(),
     );
     expect(dry.changes).toEqual([
-      { kind: 'dock', path: 'app.ts', how: 'loaded' },
+      { kind: 'dock', path: 'app.ts', how: 'removed' },
       { kind: 'workbench', path: 'app.ts', how: 'deleted', unsaved: false },
     ]);
     expect(dry.broken).toEqual(['app.ts exists']);
