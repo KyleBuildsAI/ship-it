@@ -159,6 +159,31 @@ describe('Act 7 placement test', () => {
     expect(perCard).toBeGreaterThanOrEqual(LESSON_PLACEMENT_SECONDS_PER_CARD);
   });
 
+  it('cannot be passed by always picking the longest answer', () => {
+    // A placement shows no feedback, so length is the only tell a guesser has. Each card
+    // needs a wrong option close in length to the right one, and across the test, the
+    // longest option must be wrong often enough that picking it fails.
+    const cards = placementLesson(act, lessons).cards.filter(isPickCard);
+    let longestRight = 0;
+    for (const card of cards) {
+      const right = card.options.find((option) => option.correct)?.text.length ?? 0;
+      const longestWrong = Math.max(
+        ...card.options.filter((option) => !option.correct).map((option) => option.text.length),
+      );
+      expect(right, card.id).toBeLessThanOrEqual(longestWrong * 1.3);
+      if (right > longestWrong) longestRight += 1;
+    }
+    expect(cards.length).toBe(act7Placement.cardIds.length);
+    expect(longestRight).toBeLessThanOrEqual(cards.length / 2);
+  });
+
+  it('says in misses, not just percent, how strict the pass mark is', () => {
+    // 85% of 12 is 11 right, so one miss: stricter than "85%" sounds.
+    const run = placementLesson(act, lessons);
+    expect(run.briefing.join(' ')).toContain('miss at most one of 12');
+    expect(act7Placement.pitch).toContain('Miss at most one');
+  });
+
   it('plays as one clocked run of the borrowed cards, in the order listed', () => {
     const run = placementLesson(act, lessons);
     expect(run.cards.map((card) => card.id)).toEqual(act7Placement.cardIds);

@@ -5,9 +5,12 @@ import type { LessonPlacementInput } from '../../game/missions/schema';
  * clock. Each lesson lends the cards closest to its core idea, so testing out means Kyle
  * can already brief Otto, read what Otto wrote, guard it with tests and evals, and limit
  * what Otto can reach. The final stays out: it's the boss, played on its own.
+ *
+ * Every card here has a wrong option about as long and specific as the right one, so
+ * picking the longest answer can't pass; act7.test.ts holds the cards to that.
  */
 export const act7Placement = {
-  pitch: 'Already brief, review and fence in an AI agent? 85% tests out.',
+  pitch: 'Already brief, review and fence in an AI agent? Miss at most one card to test out.',
   cardIds: [
     // 7.1 Brief the Agent: a spec Otto can follow, what done means, the context to give.
     'spec',
