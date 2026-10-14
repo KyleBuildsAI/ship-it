@@ -11,6 +11,13 @@ export const QW = `${HOME}/quillwork`;
 export const API = `${QW}/api`;
 export const WEB = `${QW}/web`;
 
+/**
+ * Sage's dev key, which Kyle pastes into the API's .env in Mission 1.3. Plainly fake on
+ * purpose: a real-looking key in the source would trip gitleaks, which scans every commit,
+ * and the game teaches that keys never land in git.
+ */
+export const DEV_KEY = 'dev-key-for-the-game-1234';
+
 const FILES: Readonly<Record<string, string>> = {
   [`${API}/package.json`]: '{\n  "name": "quillwork-api",\n  "version": "1.0.0"\n}\n',
   [`${API}/server.js`]: "require('dotenv').config();\nconsole.log('Quillwork API');\n",

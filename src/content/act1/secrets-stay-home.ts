@@ -1,6 +1,6 @@
 import type { Predicate } from '../../game/missions/predicates';
 import type { MissionInput } from '../../game/missions/schema';
-import { API, HOME, laptop } from './shared';
+import { API, DEV_KEY, HOME, laptop } from './shared';
 
 /**
  * Mission 1.3, Secrets Stay Home (docs/act1-directed.md section 3): code and templates are
@@ -23,11 +23,7 @@ const GITIGNORE = `${API}/.gitignore`;
 const README = `${API}/README.md`;
 const KEY_FILE = `${HOME}/Documents/keys/quill-dev.txt`;
 
-/**
- * Sage's dev key. Plainly fake on purpose: a real-looking key in the source would trip
- * gitleaks, which scans every commit, and the game teaches that keys never land in git.
- */
-const KEY = 'dev-key-for-the-game-1234';
+const KEY = DEV_KEY;
 
 /** The template as committed: names, never values. QUILL_API_KEY comes in step 3. */
 const TEMPLATE = 'PORT=\nDATABASE_URL=\n';
