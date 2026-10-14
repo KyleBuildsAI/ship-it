@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LessonSchema, type LessonCard } from '../../game/missions/lessonSchema';
+import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
 import { requireFieldMission } from '../../game/missions/schema';
 import { completeLesson, recordFieldMission } from '../../game/play/saveRules';
@@ -10,6 +11,21 @@ const NOW = new Date('2026-10-03T12:00:00.000Z');
 const { act, lessons } = act4;
 const regular = lessons.filter((lesson) => lesson.kind === 'lesson');
 const final = lessons.at(-1);
+
+type PickCard = Exclude<LessonCard, { kind: 'order' }>;
+
+function isPickCard(card: LessonCard): card is PickCard {
+  return card.kind !== 'order';
+}
+
+/** The right option's length in words, and the longest wrong option's. */
+function lengths(card: PickCard): { right: number; longestWrong: number } {
+  const right = countWords(card.options.find((option) => option.correct)?.text ?? '');
+  const longestWrong = Math.max(
+    ...card.options.filter((option) => !option.correct).map((option) => countWords(option.text)),
+  );
+  return { right, longestWrong };
+}
 
 function cardsOfKind(cards: readonly LessonCard[], kind: LessonCard['kind']): LessonCard[] {
   return cards.filter((card) => card.kind === kind);
@@ -85,6 +101,22 @@ describe('Act 4: GitHub Team Flow', () => {
       expect(card.options.some((option) => option.correct)).toBe(true);
       expect(card.options.some((option) => !option.correct)).toBe(true);
     }
+  });
+
+  it('never lets the longest option give the answer away', () => {
+    // Act 3's rule (DESIGN.md section 5): if the right option were usually the most
+    // detailed, picking the longest would pass without judging anything. So every prompt
+    // card has a detailed but flawed brief nearly as long as the right one, and the right
+    // answer is the longest on at most half the pick cards.
+    const pickCards = lessons.flatMap((lesson) => lesson.cards).filter(isPickCard);
+    let rightIsLongest = 0;
+    for (const card of pickCards) {
+      const { right, longestWrong } = lengths(card);
+      if (right > longestWrong) rightIsLongest++;
+      if (card.kind === 'prompt')
+        expect(longestWrong / right, card.id).toBeGreaterThanOrEqual(0.75);
+    }
+    expect(rightIsLongest / pickCards.length).toBeLessThanOrEqual(0.5);
   });
 
   it('shows an artifact to read on at least a third of its cards', () => {
