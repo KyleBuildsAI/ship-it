@@ -56,10 +56,12 @@ describe('the roadmap', () => {
     expect(act1?.status).not.toMatch(/Early access|not built/i);
   });
 
-  it('says Act 2 is directed, and that its boss is still typed', () => {
+  it('says Act 2 is directed, with a timed final, all by clicking', () => {
     const act2 = roadmapAct(2);
     expect(act2?.status).toContain('directed Missions 2.1 to 2.5');
-    expect(act2?.status).toContain('typed boss');
+    expect(act2?.status).toContain('timed final, all answered by clicking');
+    expect(act2?.status).not.toContain('typed');
+    expect(act2?.boss.title).toBe('The Dirty Tree');
   });
 
   it('says plainly that Acts 3 to 8 are played by clicking, with their finals as bosses', () => {

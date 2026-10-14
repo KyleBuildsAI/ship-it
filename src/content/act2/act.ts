@@ -1,5 +1,5 @@
 import type { ActInput, MissionInput } from '../../game/missions/schema';
-import { dirtyTree } from './dirtyTree';
+import { dirtyTreeFinal } from './dirtyTreeFinal';
 import { cleanTheDirtyTree } from './fieldMission';
 import { goodCommits } from './goodCommits';
 import { ignoreList } from './ignoreList';
@@ -16,10 +16,16 @@ export const act2MissionInputs: readonly MissionInput[] = [
   undoEverything,
 ];
 
+/**
+ * Act 2 plays its directed missions, then its timed final, which stands in for the boss
+ * like every other Act's (it was a typed boss fight before). Its placement test is
+ * judgment drills from the missions, so a pass tests out of all five and completes the Act.
+ */
 export const act2Input: ActInput = {
   act: 2,
   title: 'Git Core',
-  missionIds: act2MissionInputs.map((mission) => mission.id),
+  missionIds: [...act2MissionInputs, dirtyTreeFinal].map((part) => part.id),
+  finalLessonId: dirtyTreeFinal.id,
   placementTest: {
     pitch: 'Already know git? 85% tests out of the Act.',
     // Two or three judgment drills per mission, so testing out still proves every idea in
@@ -42,6 +48,5 @@ export const act2Input: ActInput = {
       'undo-reflog-rescue',
     ],
   },
-  boss: dirtyTree,
   fieldMission: cleanTheDirtyTree,
 };

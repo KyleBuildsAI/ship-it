@@ -676,16 +676,21 @@ describe('an Act made of lessons', () => {
     expect(lessonAct({ fieldMission: sampleActInput.fieldMission }).success).toBe(true);
   });
 
-  it('plays its final last, and has no boss fight or drill placement test besides', () => {
+  it('plays its final last, and has no boss fight besides', () => {
     const reordered = ['sample-final', 'sample-pr-review', 'sample-second-review'];
     expect(problems(lessonAct({ missionIds: reordered }))).toEqual([
       'The final lesson is played last, so list it last in missionIds.',
     ]);
-    const { boss, placementTest } = sampleActInput;
-    expect(problems(lessonAct({ boss, placementTest }))).toEqual([
+    const { boss } = sampleActInput;
+    expect(problems(lessonAct({ boss }))).toEqual([
       'The final lesson is this Act’s boss, so it has no boss fight as well.',
-      'A lesson Act’s placement test names cards: use cardIds.',
     ]);
+  });
+
+  it('may take a placement test of drills, when missions come before its final', () => {
+    // Act 2: directed missions with drills, then a final. validateAct checks the drill ids.
+    const { placementTest } = sampleActInput;
+    expect(lessonAct({ placementTest }).success).toBe(true);
   });
 
   const cardPlacement = {

@@ -1,7 +1,7 @@
 import type { Predicate } from '../../game/missions/predicates';
 
 /**
- * Commit message rules shared by every Act 2 mission and the boss. The type list and
+ * Commit message rules shared by every Act 2 mission. The type list and
  * the optional "(scope)" and "!" match the Field Mission's paste checker in
  * engine/verify, so a message that passes in the sandbox also passes on SandCastles.
  */

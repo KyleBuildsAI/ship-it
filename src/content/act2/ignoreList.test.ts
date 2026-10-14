@@ -6,7 +6,7 @@ import { answerCheck, beginAgentStep, openFixRound } from '../../game/missions/a
 import { validateAct } from '../../game/missions/validateAct';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
 import { canonicalStart, playCard, queriesOf, trueChecks } from '../act1/play.test-helpers';
-import { act2, act2Missions } from './index';
+import { act2, act2Lessons, act2Missions } from './index';
 
 /*
  * Mission 2.4, The Ignore List, played card by card and drill by drill
@@ -95,7 +95,7 @@ describeJudgmentDrills(mission, {
 
 describe('The Ignore List, directed', () => {
   it('fits the word budgets Act 2 checks', () => {
-    expect(validateAct(act2, act2Missions)).toEqual([]);
+    expect(validateAct(act2, act2Missions, act2Lessons)).toEqual([]);
     expect(mission.approvals).toBe('destructive');
   });
 
