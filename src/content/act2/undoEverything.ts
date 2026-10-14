@@ -39,8 +39,8 @@ const PLAYER_AUTOPLAY =
   "import { autoplay } from './autoplay.js';\n\nexport function play(video) {\n  autoplay(video);\n}\n";
 const AUTOPLAY = 'export function autoplay(video) {\n  video.muted = false;\n  video.play();\n}\n';
 
-/** The message git writes for reverting the confetti commit. */
-const REVERT_PATTERN = '^Revert "feat: add confetti on signup"';
+/** The reflog line the fire drill leaves: step 5 grades the rescue against it. */
+const DRILL_PATTERN = '^reset: moving to HEAD~2$';
 
 // ---- What the steps check -------------------------------------------------------------
 
@@ -77,10 +77,13 @@ const pushedKept: Predicate = {
   min: 4,
   label: 'Pushed commits stay in history',
 };
-/** Step 4 starts with five commits, and the team has all of them. */
+/**
+ * Step 4 starts with five commits. The team has the first four; the fifth, pricing, was
+ * redone in step 3 and never pushed, so dropping it alone is not harmful here.
+ */
 const sharedKept: Predicate = {
   kind: 'commitCount',
-  min: 5,
+  min: 4,
   label: 'Shared commits stay in history',
 };
 const confettiGone: Predicate = {
@@ -94,7 +97,17 @@ const appBack: Predicate = {
   equals: APP_V1,
   label: 'app.js is back to before confetti',
 };
-const headIsRevert: Predicate = { kind: 'headMessage', pattern: REVERT_PATTERN };
+/**
+ * main is back on the commit the fire drill left. Step 4 can end on a revert or on two
+ * fix commits, so step 5 asks where HEAD stood, never what its message says.
+ */
+const drillUndone: Predicate = {
+  kind: 'headBeforeReflog',
+  pattern: DRILL_PATTERN,
+  label: 'main is back where the drill started',
+};
+/** Both step 4 endings change app.js, so a soft drill always leaves it on the dock. */
+const drillOnDock: Predicate = { kind: 'staged', paths: ['src/app.js'] };
 /** notes.txt stays a loose file: reset --hard leaves files git never tracked alone. */
 const notesLoose: Predicate = {
   kind: 'untracked',
@@ -411,8 +424,8 @@ const redoWipTask = {
 // ---- Step 4: undo the shared confetti commit -----------------------------------------
 
 /**
- * The team already has the confetti commit, so the guard keeps every commit. The weak
- * card resets back past it, dropping three: harmful. The okay card deletes confetti.js
+ * The team already has the confetti commit, so the guard keeps every shared commit. The
+ * weak card resets back past it, dropping three, two of them shared: harmful. The okay card deletes confetti.js
  * but leaves app.js calling it.
  */
 const revertConfettiTask = {
@@ -457,7 +470,8 @@ const revertConfettiTask = {
       intents: ['go back to before confetti', 'undo confetti'],
       script: [{ do: 'run', line: 'git reset --hard HEAD~3', say: 'Rewinding past confetti.' }],
       claim: 'Done: confetti is gone.',
-      lesson: "reset --hard erased three shared commits. Every teammate's copy now disagrees.",
+      lesson:
+        "reset --hard erased three commits, two the team has. Every teammate's copy now disagrees.",
       slip: 'big-hammer',
     },
     {
@@ -499,7 +513,7 @@ const revertConfettiTask = {
         id: 'reverted',
         text: 'Yes: undone, every commit kept',
         truth: { kind: 'all', of: [sharedKept, confettiGone, appBack] },
-        feedback: 'git log --oneline lists every old commit, with a Revert on top.',
+        feedback: 'git log --oneline lists every old commit, with the undo on top.',
       },
       {
         id: 'half',
@@ -528,8 +542,9 @@ const revertConfettiTask = {
 // ---- Step 5: fire drill, then the reflog rescue --------------------------------------
 
 /**
- * A deliberate reset --hard on two unpushed commits. Its gate is safe: no guard protects
- * those commits, because the reflog still knows them. The weak card runs the drill and
+ * A deliberate reset --hard on the two newest commits, both unpushed. They are the revert
+ * and pricing, or after step 4's fix card, its two fix commits. Its gate is safe: no
+ * guard protects those commits, because the reflog still knows them. The weak card runs the drill and
  * stops; the okay card uses reset --soft, so the work waits on the dock instead.
  */
 const reflogRecoverTask = {
@@ -547,18 +562,18 @@ const reflogRecoverTask = {
           do: 'run',
           line: "git reset --hard 'HEAD@{1}'",
           predict: {
-            question: 'Before Otto runs it: what will be the newest commit?',
-            // Two options that split every state: is the revert back on top?
+            question: 'Before Otto runs it: where does main end up?',
+            // Two options that split every state: is main back where the drill started?
             options: [
               {
-                id: 'revert',
-                text: 'The revert commit, back again',
-                outcome: { state: headIsRevert },
+                id: 'back',
+                text: 'Back where it was before the drill',
+                outcome: { state: drillUndone },
               },
               {
-                id: 'older',
-                text: 'An older commit',
-                outcome: { state: { kind: 'not', predicate: headIsRevert } },
+                id: 'missing',
+                text: 'Still missing the two commits',
+                outcome: { state: { kind: 'not', predicate: drillUndone } },
               },
             ],
           },
@@ -611,18 +626,19 @@ const reflogRecoverTask = {
   hintPlan: 'drill-rescue',
   check: {
     question: 'Where are the two commits now?',
-    // Split by two questions: is the revert newest, and if not, is the work on the dock?
+    // Split by two questions: is main back where the drill started, and if not, is the work
+    // on the dock?
     options: [
       {
         id: 'back',
-        text: 'Back on main, the revert on top',
-        truth: headIsRevert,
-        feedback: 'git log --oneline starts with the Revert commit.',
+        text: 'Back on main, where they were',
+        truth: drillUndone,
+        feedback: 'git log --oneline lists both commits on top again.',
       },
       {
         id: 'dock',
         text: 'Off main, their changes on the dock',
-        truth: { kind: 'all', of: [{ kind: 'not', predicate: headIsRevert }, pricingStaged] },
+        truth: { kind: 'all', of: [{ kind: 'not', predicate: drillUndone }, drillOnDock] },
         feedback: 'git status lists their files under Changes to be committed.',
       },
       {
@@ -631,11 +647,12 @@ const reflogRecoverTask = {
         truth: {
           kind: 'all',
           of: [
-            { kind: 'not', predicate: headIsRevert },
-            { kind: 'not', predicate: pricingStaged },
+            { kind: 'not', predicate: drillUndone },
+            { kind: 'not', predicate: drillOnDock },
           ],
         },
-        feedback: 'git log --oneline starts with docs: add readme.',
+        feedback:
+          'git log --oneline is missing both, and nothing is under Changes to be committed.',
       },
     ],
   },
@@ -704,7 +721,7 @@ const drills = [
       },
       {
         id: 'commit',
-        text: 'Commit, then look in history',
+        text: 'git commit -am "docs: drop readme"',
         script: [{ do: 'run', line: 'git commit -am "docs: drop readme"' }],
       },
     ],
@@ -1011,17 +1028,17 @@ export const undoEverything: MissionInput = {
     {
       id: 'reflog-recover',
       instruction:
-        'Fire drill: reset --hard your two unpushed commits, then bring them back with the reflog.',
+        'Fire drill: reset --hard your two newest commits, both unpushed, then bring them back with the reflog.',
       success: {
         kind: 'all',
         of: [
+          { kind: 'reflogContains', pattern: DRILL_PATTERN, label: 'The fire drill ran' },
+          drillUndone,
           {
-            kind: 'reflogContains',
-            pattern: '^reset: moving to HEAD~2$',
-            label: 'The fire drill ran',
+            kind: 'tracked',
+            paths: ['src/pricing.js'],
+            label: 'Your pricing commit is in history',
           },
-          { ...headIsRevert, label: 'The revert is the newest commit again' },
-          { kind: 'tracked', paths: ['src/pricing.js'], label: 'Your pricing commit is back' },
         ],
       },
       hints: [

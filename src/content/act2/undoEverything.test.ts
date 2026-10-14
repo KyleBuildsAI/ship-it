@@ -2,12 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { gitQueries } from '../../engine/git/queries';
 import { testDeps } from '../../engine/git/testDeps';
 import { describeChanges } from '../../game/agent/effects';
-import { dryRun, replay } from '../../game/agent/replay';
-import { beginAgentStep } from '../../game/missions/agentRunner';
+import { dryRun, replay, type SandboxLog } from '../../game/agent/replay';
+import {
+  answerCheck,
+  beginAgentStep,
+  openFixRound,
+  stepPasses,
+  type AgentStepState,
+} from '../../game/missions/agentRunner';
 import { MissionSchema, type Mission, type MissionStep } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
-import { canonicalStart, playCard } from '../act1/play.test-helpers';
+import {
+  beginStep,
+  canonicalStart,
+  playCard,
+  queriesOf,
+  trueChecks,
+} from '../act1/play.test-helpers';
 import { act2, act2Missions } from '../index';
 import { undoEverything } from './undoEverything';
 
@@ -190,11 +202,17 @@ describe("Mission 2.5's gates say, in plain words, what each undo costs", () => 
     });
   });
 
-  it('resetting past the shared confetti commit drops three commits: harmful', () => {
+  it('resetting past the confetti commit drops three, two of them shared: harmful', () => {
     const gate = gateFor(3, 'git reset --hard HEAD~3');
     expect(gate.harmful).toBe(true);
     expect(gate.broken).toEqual(['Shared commits stay in history']);
     expect(gate.effects[0]).toBe('Takes 3 commits off main, newest "feat: add pricing calculator"');
+  });
+
+  it('dropping only the unpushed pricing commit breaks no shared history', () => {
+    const gate = gateFor(3, 'git reset --soft HEAD~1');
+    expect(gate.harmful).toBe(false);
+    expect(gate.effects[0]).toBe('Takes the commit "feat: add pricing calculator" off main');
   });
 
   it('git revert keeps every commit: it pauses for the files it rewrites, and is safe', () => {
@@ -233,5 +251,89 @@ describe('Mission 2.5 on the reference path', () => {
     expect(played.predicts).toEqual([
       { question: 'Before Otto runs it: what is in style.css after?', trueOptions: ['committed'] },
     ]);
+  });
+});
+
+describe('Mission 2.5 after step 4 is passed with the fix card instead of the revert', () => {
+  /*
+   * delete-file, then fix-app, passes step 4 with two fix commits on top and no revert.
+   * Step 5 must still be winnable from there, and its check must still tell the truth.
+   */
+  interface Played {
+    readonly log: SandboxLog;
+    readonly state: AgentStepState;
+  }
+  const revertStep = stepById('revert-confetti');
+  const drillStep = stepById('reflog-recover');
+
+  /** Answers the check with what is true, then opens the fix round, as Kyle would. */
+  function fixRound(step: MissionStep, played: Played): Played {
+    const [truth = ''] = trueChecks(step, played.log);
+    const checked = answerCheck(played.state, step, truth, queriesOf(played.log));
+    return { log: played.log, state: openFixRound(checked) };
+  }
+
+  function stepFiveStart(): Played {
+    const start = beginStep(canonicalStart(mission, 3), revertStep);
+    const begun = { log: start, state: beginAgentStep(revertStep) };
+    const deleted = playCard(mission, revertStep, begun, 'delete-file', 'allow-all');
+    const fixed = playCard(
+      mission,
+      revertStep,
+      fixRound(revertStep, deleted),
+      'fix-app',
+      'allow-all',
+    );
+    expect(stepPasses(revertStep, queriesOf(fixed.log))).toBe(true);
+    const log = beginStep(fixed.log, drillStep);
+    return { log, state: beginAgentStep(drillStep) };
+  }
+
+  function endOf(played: Played) {
+    return {
+      passed: stepPasses(drillStep, queriesOf(played.log)),
+      checks: trueChecks(drillStep, played.log),
+    };
+  }
+
+  it('starts step 5 with two fix commits on top, not a revert', () => {
+    const { shell } = replay(stepFiveStart().log, testDeps());
+    const messages = gitQueries(shell.ws)
+      .log()
+      .map((commit) => commit.message.trim());
+    expect(messages.slice(0, 3)).toEqual([
+      'fix: stop launching confetti',
+      'fix: remove confetti',
+      'feat: add pricing calculator',
+    ]);
+  });
+
+  it('passes with the drill and the reflog rescue, and the prediction has one answer', () => {
+    const played = playCard(mission, drillStep, stepFiveStart(), 'drill-rescue', 'allow-all');
+    expect(endOf(played)).toEqual({ passed: true, checks: ['back'] });
+    expect(played.predicts.map((predicted) => predicted.trueOptions)).toEqual([['back']]);
+  });
+
+  it('grades the weak and okay cards by where the work is', () => {
+    const start = stepFiveStart();
+    const only = playCard(mission, drillStep, start, 'drill-only', 'allow-all');
+    expect(endOf(only)).toEqual({ passed: false, checks: ['gone'] });
+    const soft = playCard(mission, drillStep, start, 'soft-drill', 'allow-all');
+    expect(endOf(soft)).toEqual({ passed: false, checks: ['dock'] });
+  });
+
+  it('mends the weak and okay cards with the reflog fix', () => {
+    const start = stepFiveStart();
+    for (const card of ['drill-only', 'soft-drill']) {
+      const missed = playCard(mission, drillStep, start, card, 'allow-all');
+      const fixed = playCard(
+        mission,
+        drillStep,
+        fixRound(drillStep, missed),
+        'reflog-back',
+        'allow-all',
+      );
+      expect(endOf(fixed), card).toEqual({ passed: true, checks: ['back'] });
+    }
   });
 });
