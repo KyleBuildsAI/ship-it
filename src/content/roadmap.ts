@@ -67,7 +67,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on your real repo.',
     missions: [
       { title: 'Remotes and Pushing' },
       { title: 'Issues and Pull Requests' },
@@ -75,6 +76,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Releases and Versions' },
     ],
     boss: { title: 'Rejected Push' },
+    fieldMission: { title: 'Ship It Through a Pull Request' },
   },
   {
     act: 5,

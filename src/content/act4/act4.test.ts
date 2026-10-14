@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { LessonSchema, type LessonCard } from '../../game/missions/lessonSchema';
 import { validateAct } from '../../game/missions/validateAct';
-import { completeLesson } from '../../game/play/saveRules';
+import { requireFieldMission } from '../../game/missions/schema';
+import { completeLesson, recordFieldMission } from '../../game/play/saveRules';
 import { createDefaultSave } from '../../game/save/schema';
 import { act4, act4Lessons } from '.';
 
@@ -21,9 +22,11 @@ describe('Act 4: GitHub Team Flow', () => {
     }
   });
 
-  it('is a complete lesson Act that validates', () => {
+  it('is a finished lesson Act with every part, and validates', () => {
     expect(act.title).toBe('GitHub Team Flow');
     expect(act.earlyAccess).toBe(false);
+    expect(act.placementTest).toBeDefined();
+    expect(act.fieldMission).toBeDefined();
     expect(validateAct(act, [], lessons)).toEqual([]);
   });
 
@@ -91,13 +94,25 @@ describe('Act 4: GitHub Team Flow', () => {
     expect(withArtifact.length / cards.length).toBeGreaterThanOrEqual(1 / 3);
   });
 
-  it('pays XP once per lesson and completes the Act when every lesson is played', () => {
-    const save = lessons.reduce(
+  it('pays XP once per lesson, and completes the Act once the Field Mission is verified too', () => {
+    const played = lessons.reduce(
       (next, lesson) => completeLesson(next, act, lesson, 100, NOW),
       createDefaultSave(NOW),
     );
-    expect(save.acts['4']).toMatchObject({ completedAt: NOW.toISOString() });
+    // The final is the boss, so it's beaten, but a finished Act needs its real-world work.
+    expect(played.acts['4']).toMatchObject({
+      bossCompletedAt: NOW.toISOString(),
+      completedAt: null,
+    });
     const xp = lessons.reduce((total, lesson) => total + lesson.xp, 0);
-    expect(save.profile.xp).toBe(xp);
+    expect(played.profile.xp).toBe(xp);
+    const field = requireFieldMission(act);
+    const verified = recordFieldMission(
+      played,
+      act,
+      field.verifications.map((check) => check.id),
+      NOW,
+    );
+    expect(verified.acts['4']).toMatchObject({ completedAt: NOW.toISOString() });
   });
 });
