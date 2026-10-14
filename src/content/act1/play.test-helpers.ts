@@ -30,6 +30,7 @@ import type { AgentTask } from '../../game/missions/agentSchema';
 import { evaluate, type SandboxQueries } from '../../game/missions/predicates';
 import { sandboxQueries } from '../../game/missions/sandbox';
 import type { Mission, MissionStep } from '../../game/missions/schema';
+import { act1Missions } from './index';
 
 /*
  * Test-only helpers for playing Act 1 the way the game does, with no browser: Otto's
@@ -167,7 +168,7 @@ export function playCard(
       drive(action);
       continue;
     }
-    const line = action.do === 'run' || action.do === 'answer' ? action.line : action.do;
+    const line = gateLine(action);
     gates.push({ line, harmful: dry.harmful });
     const kind = action.do === 'answer' ? 'confirm' : 'line';
     state = openGate(state, action, { kind, line, changes: dry.changes, harmful: dry.harmful });
@@ -178,6 +179,12 @@ export function playCard(
     if (allow) drive(action);
   }
   return { log, state, lines, gates, predicts, driven: drivenCount };
+}
+
+/** How a gate names what it holds: the line, or for Otto's file tool, the file it writes. */
+function gateLine(action: QueuedAction): string {
+  if (action.do === 'run' || action.do === 'answer') return action.line;
+  return action.do === 'write' ? `write ${action.path}` : action.do;
 }
 
 /**
@@ -201,4 +208,11 @@ export function trueChecks(step: MissionStep, log: SandboxLog): string[] {
   return taskOf(step)
     .check.options.filter((option) => evaluate(option.truth, queries))
     .map((option) => option.id);
+}
+
+/** An Act 1 mission by id, parsed as the game loads it. Throws if Act 1 doesn't have it. */
+export function missionById(id: string): Mission {
+  const found = act1Missions.find((mission) => mission.id === id);
+  if (found === undefined) throw new Error(`Act 1 has no mission "${id}"`);
+  return found;
 }
