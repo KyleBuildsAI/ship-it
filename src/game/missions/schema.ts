@@ -471,7 +471,12 @@ export const ActSchema = z
     title: NameSchema,
     /** Ships before it is finished. It never counts as complete while this is true. */
     earlyAccess: z.boolean().default(false),
-    missionIds: z.array(IdSchema).min(1).max(MAX_MISSIONS),
+    // One more than the mission limit, for a lesson Act's final: it's the boss, not a
+    // mission, so the refinement below leaves it out of the count.
+    missionIds: z
+      .array(IdSchema)
+      .min(1)
+      .max(MAX_MISSIONS + 1),
     /** Titles of missions still being built, shown as "Coming soon" in early access. */
     upcoming: z.array(NameSchema).default([]),
     placementTest: PlacementSchema.optional(),
@@ -487,7 +492,8 @@ export const ActSchema = z
     const problem = (path: string, message: string) => {
       ctx.addIssue({ code: 'custom', path: [path], message });
     };
-    if (act.missionIds.length + act.upcoming.length > MAX_MISSIONS) {
+    const missionCount = act.missionIds.filter((id) => id !== act.finalLessonId).length;
+    if (missionCount + act.upcoming.length > MAX_MISSIONS) {
       problem('upcoming', 'An Act has at most 6 missions, counting the upcoming ones.');
     }
     if (act.finalLessonId !== undefined) {

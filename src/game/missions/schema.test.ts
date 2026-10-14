@@ -624,6 +624,16 @@ describe('an Act made of lessons', () => {
     ]);
   });
 
+  it('leaves its final out of the 6-mission limit, since the final is the boss', () => {
+    // Act 1 has six missions and lessons, then its final: seven ids, six missions.
+    const six = Array.from({ length: 6 }, (_, i) => `part-${String(i)}`);
+    expect(lessonAct({ missionIds: [...six, 'sample-final'] }).success).toBe(true);
+    expect(lessonAct({ missionIds: [...six, 'extra', 'sample-final'] }).success).toBe(false);
+    expect(
+      problems(lessonAct({ missionIds: [...six, 'sample-final'], upcoming: ['More'] })),
+    ).toContain('An Act has at most 6 missions, counting the upcoming ones.');
+  });
+
   it('needs 3 to 6 lessons and nothing upcoming once finished, but not in early access', () => {
     const short = { missionIds: ['sample-final'], upcoming: ['More'] };
     expect(problems(lessonAct(short))).toEqual([
