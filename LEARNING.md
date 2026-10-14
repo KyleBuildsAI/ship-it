@@ -2267,3 +2267,19 @@ https://github.com/KyleBuildsAI/ship-it/pull/159
 2. Act 2 has a final now, so it would have been treated like a card-tested Act. A placement pass would no longer complete Act 2 until its Field Mission was verified. That's a silent behaviour change, and a drills test proves more than guessable cards do.
 3. It's general code that runs any Act's `boss` (a timed typed fight with twists), and its tests use a sample Act, not Act 2. Deleting it would remove a working feature that a future Act could use. Only the Act 2 content that nothing else used was removed.
 </details>
+
+---
+
+## #161 fix: the terminal's welcome line fits every island
+
+https://github.com/KyleBuildsAI/ship-it/pull/161
+
+1. Why was "start with git init" wrong for Act 1?
+2. What do `\x1b[36m` and `\x1b[0m` do?
+3. Why doesn't this change need a new unit test?
+<details><summary>Answers</summary>
+
+1. Act 1's terminal is a Windows laptop running PowerShell commands such as cd and mkdir, and its missions never use git. Pointing there at git init sends a beginner the wrong way.
+2. They're ANSI escape codes. The first sets the text colour to cyan, and the second resets it to normal, so only "help" is highlighted.
+3. It changes a fixed string, not logic. No test checked the old text, and the browser check confirms the new line shows.
+</details>
