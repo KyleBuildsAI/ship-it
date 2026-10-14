@@ -24,6 +24,8 @@ test('a boss fight opened from a scrolled Act menu starts at its top', async ({ 
   const problems = collectConsoleProblems(page);
   await page.goto('./');
   await expect(page.getByLabel('Developer status')).toContainText('saved');
+  // An open terminal makes the panel short enough that Fight needs scrolling to.
+  await page.keyboard.press('Control+Backquote');
   await openAct2(page);
 
   const fight = page.getByRole('button', { name: 'Fight' });
