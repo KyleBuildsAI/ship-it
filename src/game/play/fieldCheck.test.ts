@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { cleanTheDirtyTree } from '../../content/act2/fieldMission';
 import { verifyPaste, type Verification } from './fieldCheck';
 
 function verification(overrides: Partial<Verification>): Verification {
@@ -97,5 +98,17 @@ describe('verifyPaste', () => {
     // With --ignored, git lists ignored files behind !!, which is a pass.
     expect(verifyPaste(check, '!! .env\n!! dist/\n').passed).toBe(true);
     expect(verifyPaste(check, '').message).toContain('Copy the line');
+  });
+
+  it("fails the Act 2 Field Mission's ignore check while .env is still visible", () => {
+    const check = cleanTheDirtyTree?.verifications.find(
+      (entry) => entry.id === 'build-output-ignored',
+    );
+    if (check === undefined) throw new Error('the Act 2 Field Mission checks ignored files');
+    const visible = verifyPaste(check, '?? .env\n!! dist/\n!! node_modules/\n');
+    expect(visible.passed).toBe(false);
+    expect(visible.message).toContain('.env');
+    const ignored = verifyPaste(check, '!! .env\n!! dist/\n!! node_modules/\n');
+    expect(ignored).toEqual({ passed: true, message: 'Git ignores .env, dist/, node_modules/.' });
   });
 });
