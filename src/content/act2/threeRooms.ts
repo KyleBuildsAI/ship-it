@@ -125,8 +125,9 @@ const startTracking: AgentTaskInput = {
         },
         { do: 'run', line: 'git status' },
       ],
-      claim: 'Done: repository made, four new files waiting.',
-      lesson: 'git status proved it: four new crates on the Workbench, todo.txt among them.',
+      claim: 'Done: repository made, nothing committed yet.',
+      lesson:
+        'git status proved it: README.md, src/ and todo.txt wait untracked. It folds a new folder into one line.',
     },
   ],
   fixes: [
@@ -150,10 +151,11 @@ const startTracking: AgentTaskInput = {
     options: [
       {
         id: 'four-new',
-        text: 'A new repository: four files, nothing committed yet',
+        text: 'A new repository, with nothing committed yet',
         // Not "nothing staged": Kyle can Stop Otto and pick a card that stages.
         truth: { kind: 'all', of: [{ kind: 'isRepo' }, noCommits] },
-        feedback: 'git status says "No commits yet" and lists the four files.',
+        feedback:
+          'git status says "No commits yet" and lists README.md, src/ and todo.txt as untracked.',
       },
       {
         id: 'no-repo',
