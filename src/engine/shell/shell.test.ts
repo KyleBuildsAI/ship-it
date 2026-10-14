@@ -195,6 +195,17 @@ describe('Shell extras', () => {
     expect(text(shell.run('frobnicate'))).toContain("Type 'help'");
   });
 
+  it("points PowerShell's file cmdlets to the echo forms this shell knows", () => {
+    const shell = shellFor();
+    expect(text(shell.run('Set-Content src/tax.ts "x"'))).toContain('echo "text" > notes.txt');
+    expect(text(shell.run('Add-Content .gitignore "*.log"'))).toContain('echo "text" >> notes.txt');
+    expect(text(shell.run('New-Item .gitignore'))).toContain('echo "" > notes.txt');
+    expect(text(shell.run('Out-File notes.txt'))).toContain('echo "text" > notes.txt');
+    for (const copy of ['cp .env .env.example', 'Copy-Item .env .env.example']) {
+      expect(text(shell.run(copy))).toContain('Write the new file with echo "text" > file');
+    }
+  });
+
   it('explains an unclosed quote', () => {
     expect(text(shellFor().run('git commit -m "oops'))).toBe(
       'The string is missing closing double quote.\nClose the quote and try again.',
