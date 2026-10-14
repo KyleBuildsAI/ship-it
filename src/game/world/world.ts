@@ -86,7 +86,7 @@ export function createWorld(
   const campus = createCampus(openActs());
   const gitWorld = createGitWorld();
   const machine = createMachineIsland();
-  const actIslands = perActIsland(createActIsland);
+  const actIslands = perActIsland((data) => createActIsland(data, reducedMotion));
   const avatar = createAvatar(motion);
   // The stars follow the camera (see update), so the sky surrounds whichever island you're on.
   const stars = createStars(1400);
@@ -222,6 +222,20 @@ export function createWorld(
     worldState.update({ destination: null });
     if (destination !== zone) travel(destination);
   });
+
+  // A lesson card cues a scene on its Act's island (DESIGN.md section 5.5); every other
+  // island goes back to its idle look. The nonce tells a new card from the same one.
+  let beatNonce: number | null = null;
+  const playBeats = () => {
+    const { beat } = worldState.get();
+    if ((beat?.nonce ?? null) === beatNonce) return;
+    beatNonce = beat?.nonce ?? null;
+    for (const [island, built] of Object.entries(actIslands)) {
+      built.playBeat(beat !== null && beat.zone === island ? beat.id : null);
+    }
+  };
+  playBeats();
+  const stopBeats = worldState.subscribe(playBeats);
 
   // The Git World mirrors the sandbox: any engine event marks the crates and the commit
   // path for a redraw, done at most once per frame however many events a command produced.
@@ -370,6 +384,12 @@ export function createWorld(
   const removeTestHooks = installTestHooks({
     avatarHeight: () => jump.height,
     zone: () => zone,
+    beat: () => {
+      const playing = Object.values(actIslands)
+        .map((built) => built.currentBeat())
+        .find((id) => id !== null);
+      return playing ?? null;
+    },
     portalPoint: (act) => {
       const portal = campus.portals.find((candidate) => candidate.act === act);
       if (!portal || zone !== 'campus') return null;
@@ -450,6 +470,7 @@ export function createWorld(
       stopWatching();
       stopSandbox();
       stopDestinations();
+      stopBeats();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointermove', onPointerMove);
