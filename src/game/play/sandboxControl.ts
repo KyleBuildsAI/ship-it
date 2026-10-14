@@ -2,12 +2,14 @@ import { defaultDeps, type FixtureStep } from '../../engine/fixtures';
 import type { RepositoryDeps } from '../../engine/git/repository';
 import { drive, type ConfirmLetter, type DriverStep } from '../../engine/shell/driver';
 import { Shell } from '../../engine/shell/shell';
+import type { WorkbenchData } from '../../engine/workbench';
 import type { Workspace } from '../../engine/workspace';
 import {
   dryRun,
   dryRunRefused,
   playAction,
   replay,
+  restoredLog,
   startLog,
   withEntry,
   type DryRun,
@@ -72,16 +74,17 @@ export function loadSandbox(
 
 /**
  * Swaps in a sandbox that comes back from the save (a mission being resumed), and says so
- * in the terminal. Its log starts empty: there is no setup that rebuilds it, and only a
- * directed step (Act 1's laptop, which is never saved this way) replays the log.
+ * in the terminal. Its log starts from the saved Workbench, so a directed git step's dry
+ * runs and rewind replay the same project, commit ids included. Throws, changing nothing,
+ * when the saved data can't be rebuilt.
  */
 export function resumeSandbox(
-  ws: Workspace,
+  saved: WorkbenchData,
   notice: string,
   makeDeps: () => RepositoryDeps = defaultDeps,
 ): Workspace {
-  const shell = new Shell(ws, DISPLAY_ROOT);
-  return swapIn({ shell, transcript: [] }, startLog([]), makeDeps, notice);
+  const log = restoredLog(saved);
+  return swapIn(replay(log, makeDeps()), log, makeDeps, notice);
 }
 
 export function currentWorkspace(): Workspace {

@@ -1,6 +1,4 @@
-import { defaultDeps } from '../../engine/fixtures';
 import { runGit } from '../../engine/git/cli/runGit';
-import { loadWorkbench } from '../../engine/workbench';
 import { askHint, gradeQuestion } from '../../mentor/client';
 import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import type { Pace } from '../agent/pace';
@@ -119,15 +117,16 @@ function resumeMission(mission: Mission, saved: MissionResume): boolean {
   if (run === null) return false;
   if (run.phase === 'sim') {
     if (saved.workbench === null) return false;
-    let ws;
+    const step = String(run.stepIndex + 1);
     try {
-      ws = loadWorkbench(saved.workbench, defaultDeps());
+      resumeSandbox(
+        saved.workbench,
+        `${mission.title}: picked up at step ${step}, as you left it.`,
+      );
     } catch (error) {
       console.error('[ship-it] the saved sandbox could not be rebuilt; starting over', error);
       return false;
     }
-    const step = String(run.stepIndex + 1);
-    resumeSandbox(ws, `${mission.title}: picked up at step ${step}, as you left it.`);
   } else {
     // Each drill loads its own sandbox, so the starting project is only a backdrop here.
     loadSandbox(mission.initialRepoState, `${mission.title}: picked up where you left off.`);
