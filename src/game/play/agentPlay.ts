@@ -636,9 +636,9 @@ export function nextStep(): void {
   const { current } = now;
   const run = completeAgentStep(current.run, current.mission, currentQueries());
   const completed = run.steps.filter((step) => step.completed).map((step) => step.stepId);
-  saveProgressNow((save) => recordSteps(save, current.mission, completed, run.stepIndex));
-  const xpEarned = current.mission.steps
-    .filter((step) => completed.includes(step.id))
-    .reduce((total, step) => total + step.xp, 0);
-  setMission(beginDirectedStep({ ...current, run, hint: null, xpEarned }));
+  // What the save paid: a replayed step was paid the first time and pays nothing now.
+  const paid = saveProgressNow((save) =>
+    recordSteps(save, current.mission, completed, run.stepIndex),
+  );
+  setMission(beginDirectedStep({ ...current, run, hint: null, xpEarned: current.xpEarned + paid }));
 }

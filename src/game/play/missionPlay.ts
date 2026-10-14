@@ -110,12 +110,6 @@ export function endBriefing(): void {
   setActivity(beginDirectedStep({ ...current, run: finishBriefing(current.run) }));
 }
 
-function stepXp(current: MissionActivity, completedIds: readonly string[]): number {
-  return current.mission.steps
-    .filter((step) => completedIds.includes(step.id))
-    .reduce((total, step) => total + step.xp, 0);
-}
-
 /**
  * Loads the next unplayed drill's sandbox and starts its clock. Sage goes quiet. A judgment
  * drill with a history plays its scene first, and its clock starts when the scene ends.
@@ -198,8 +192,8 @@ function finishDrill(
     ...(keyId === undefined ? {} : { keyId }),
   };
   // A miss joins the review queue here (recordDrill calls addMiss), by the drill's id.
-  saveProgressNow((save) => recordDrill(save, drill, outcome, new Date(nowMs)));
-  setActivity({ ...current, run, lastDrill });
+  const paid = saveProgressNow((save) => recordDrill(save, drill, outcome, new Date(nowMs)));
+  setActivity({ ...current, run, lastDrill, xpEarned: current.xpEarned + paid });
 }
 
 /**
@@ -221,12 +215,14 @@ export function missionSandboxChanged(nowMs: number = Date.now()): void {
     const next = checkStep(run, mission, currentQueries());
     const completed = next.steps.filter((step) => step.completed).map((step) => step.stepId);
     const before = run.steps.filter((step) => step.completed).length;
-    if (completed.length > before) {
-      saveProgressNow((save) => recordSteps(save, mission, completed, next.stepIndex));
-    }
+    // What the save paid, not what the steps are worth: a replay pays nothing for them.
+    const paid =
+      completed.length > before
+        ? saveProgressNow((save) => recordSteps(save, mission, completed, next.stepIndex))
+        : 0;
     // A finished step retires its hint; the next step starts at the bottom of the ladder.
     const hint = next.stepIndex === run.stepIndex ? current.hint : null;
-    setActivity({ ...current, run: next, hint, xpEarned: stepXp(current, completed) });
+    setActivity({ ...current, run: next, hint, xpEarned: current.xpEarned + paid });
     return;
   }
   if (run.phase === 'drills' && run.activeDrill !== null) {
@@ -362,7 +358,7 @@ export function submitQuestionRound(
     (total, earned) => total + starXp(earned),
     0,
   );
-  saveProgressNow((save) =>
+  const paid = saveProgressNow((save) =>
     completeMission(
       save,
       getAct(current.mission.act).act,
@@ -377,7 +373,7 @@ export function submitQuestionRound(
     run,
     questionScore: score,
     freeTextGrade: question === null ? null : { state: 'grading' },
-    xpEarned: current.xpEarned + current.mission.xp + xpFromQuestions + directingXp,
+    xpEarned: current.xpEarned + paid,
   });
   if (question !== null) void gradeFreeText(question);
 }

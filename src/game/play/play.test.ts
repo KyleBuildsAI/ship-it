@@ -173,6 +173,42 @@ describe('playing a mission', () => {
   });
 });
 
+describe('the XP a mission shows', () => {
+  /** Plays the sample mission through, passing the first drill, and returns its Done XP. */
+  function playThrough(at: number): number {
+    startMission(sampleMission.id);
+    endBriefing();
+    run('git init', 'git add app.ts', 'git commit -m "feat: add app"');
+    missionSandboxChanged(at);
+    startNextDrill(at);
+    run('git init');
+    missionSandboxChanged(at + 5_000);
+    for (let index = 1; index < sampleMission.drills.length; index++) {
+      startNextDrill(at + index * 200_000);
+      missionTick(at + index * 200_000 + 999_000);
+    }
+    submitQuestionRound(['when-lost', 'done-means', 'how-many'], '', at + 2_000_000);
+    return mission().xpEarned;
+  }
+
+  function savedXp(): number {
+    return progress.get().save?.profile.xp ?? 0;
+  }
+
+  it('matches what the save paid, on the first play and on a replay', () => {
+    const first = playThrough(T0);
+    expect(first).toBe(savedXp());
+    // The first play pays drill XP too, which the Done line once left out.
+    expect(first).toBeGreaterThanOrEqual(sampleMission.xp + XP_AWARDS.drillCorrect);
+
+    const beforeReplay = savedXp();
+    const replay = playThrough(T0 + 10_000_000);
+    expect(replay).toBe(savedXp() - beforeReplay);
+    // Steps, the mission and its questions pay once, so a replay shows only the drill.
+    expect(replay).toBe(XP_AWARDS.drillCorrect);
+  });
+});
+
 describe('late Sage replies', () => {
   it('never land on a replay of the same mission', async () => {
     startMission(sampleMission.id);

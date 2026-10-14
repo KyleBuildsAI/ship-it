@@ -315,12 +315,17 @@ export function updateSave(change: (save: SaveData) => SaveData): void {
  * For play milestones (a finished step, drill, or mission): apply the change and store it
  * straight away, so closing the browser a moment later loses nothing (DESIGN.md pillar 7).
  * Quick settings changes use updateSave and ride the autosave debounce instead.
+ *
+ * Returns the XP the change actually paid, so a "+N XP" line shows what the save got
+ * rather than working it out again (and disagreeing on replays, which pay less).
  */
-export function saveProgressNow(change: (save: SaveData) => SaveData): void {
+export function saveProgressNow(change: (save: SaveData) => SaveData): number {
+  const before = progress.get().save?.profile.xp ?? 0;
   updateSave(change);
   flushProgress().catch((error: unknown) => {
     console.error('[ship-it] saving progress failed', error);
   });
+  return (progress.get().save?.profile.xp ?? before) - before;
 }
 
 /**
