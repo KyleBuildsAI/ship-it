@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placementLesson } from '../../game/missions/lessonPlacement';
+import { cardsToPass, placementLesson } from '../../game/missions/lessonPlacement';
 import { isPickCard } from '../../game/missions/lessonSchema';
 import {
   LESSON_PLACEMENT_SECONDS_PER_CARD,
@@ -47,11 +47,43 @@ describe('Act 5 placement test', () => {
     expect(placement.cardIds.filter((id) => finalCards.some((card) => card.id === id))).toEqual([]);
   });
 
-  it('asks what to tell Otto, not only what a log says', () => {
+  it('asks what to tell Otto, what a log says, and what comes first, in every lesson', () => {
     const cards = placementLesson(act, lessons).cards;
     expect(cards.map((card) => card.id)).toEqual(placement.cardIds);
     expect(cards.filter((card) => card.kind === 'prompt').length).toBeGreaterThanOrEqual(4);
-    expect(cards.every(isPickCard)).toBe(true);
+    for (const lesson of teaching) {
+      const own = lesson.cards.filter((card) => placement.cardIds.includes(card.id));
+      expect(
+        own.map((card) => card.kind),
+        lesson.id,
+      ).toContain('order');
+    }
+  });
+
+  it("doesn't let 'pick the longest answer', or the shortest, pass", () => {
+    const picks = placementLesson(act, lessons).cards.filter(isPickCard);
+    /** Cards where the right answer is strictly longer (1) or shorter (-1) than every other. */
+    const giveaways = (sign: 1 | -1) =>
+      picks.filter((card) => {
+        const right = card.options.find((option) => option.correct)?.text.length ?? 0;
+        return card.options.every(
+          (option) => option.correct || sign * (right - option.text.length) > 0,
+        );
+      });
+    // At most 40% of the cards each way, so neither shortcut gets near the 85% bar.
+    for (const sign of [1, -1] as const) {
+      const found = giveaways(sign);
+      expect(found.length / picks.length, found.map((card) => card.id).join()).toBeLessThanOrEqual(
+        0.4,
+      );
+    }
+  });
+
+  it('says exactly how many cards a pass needs: 11 of 12', () => {
+    expect(placement.cardIds).toHaveLength(12);
+    expect(cardsToPass(placement.cardIds.length, placement.passPercent)).toBe(11);
+    expect(placement.pitch).toContain('get 11 right');
+    expect(placementLesson(act, lessons).briefing[1]).toContain('Get 11 of 12 right');
   });
 
   it('gives each card more than the fewest seconds, and less than the final does', () => {

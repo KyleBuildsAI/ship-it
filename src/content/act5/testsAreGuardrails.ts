@@ -122,20 +122,20 @@ export const testsAreGuardrails = {
         },
         {
           id: 'change-test',
-          text: 'The test is wrong. Change toBe(2) to toBe(3).',
+          text: 'The test expects the wrong number: the code says 3, so update the assertion to toBe(3) and move on.',
           correct: false,
           feedback:
             '“Well-known author” is two words to any reader. The test describes what users expect.',
         },
         {
           id: 'rerun',
-          text: 'The test runner glitched. Run it again.',
+          text: 'The runner glitched: 213 other tests passed, so one red is noise. Run the suite again before reading it.',
           correct: false,
           feedback: 'It failed with a precise wrong number. That’s a real result, not a glitch.',
         },
         {
           id: 'all-broken',
-          text: 'The text module is broken. Rewrite it.',
+          text: 'The whole text module is broken if it can’t count three words. Have Otto rewrite wordCount from scratch.',
           correct: false,
           feedback: '213 tests passed. One case is wrong, so fix that case.',
         },
@@ -152,20 +152,20 @@ export const testsAreGuardrails = {
       options: [
         {
           id: 'fix-it',
-          text: 'Fix the word count bug Marco reported.',
+          text: 'Fix the word count bug Marco reported: a document of only spaces shows “1 word”. Make it show 0, and tell me when you’re done.',
           correct: false,
           feedback:
             'You’ll get a change, but no proof it works, and nothing stops the bug coming back.',
         },
         {
           id: 'test-everything',
-          text: 'Write tests for every function in src/text, then fix anything that fails.',
+          text: 'Write tests for every function in src/text first, so we have full coverage. Then fix anything that fails, Marco’s bug included, and show me the results.',
           correct: false,
           feedback: 'Far too wide. You want one test that pins down this bug.',
         },
         {
           id: 'test-later',
-          text: 'Fix it, and add a test afterwards if there’s time.',
+          text: 'Fix wordCount so a document of only spaces counts 0 words, show me the fix, and add a test for it afterwards if there’s time.',
           correct: false,
           feedback:
             'There’s never time later. And a test written after the fix may never have failed.',
