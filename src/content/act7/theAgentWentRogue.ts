@@ -12,6 +12,7 @@ export const theAgentWentRogue = {
   kind: 'final',
   timeLimitSeconds: 360,
   xp: 150,
+  briefingBeat: 'diff-inspected',
   briefing: [
     'Friday, 4pm. Otto’s PR #212, “fix refund rounding”, is green. Priya is out, and Dex wants to deploy at five.',
     'You’re the only reviewer. Find what’s wrong before it ships. Six minutes, every card on one clock.',
@@ -19,6 +20,7 @@ export const theAgentWentRogue = {
   cards: [
     {
       id: 'green-not-right',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'CI is green on PR #212. Here’s the main change.',
       artifact: {
@@ -59,6 +61,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'claims-vs-diff',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'You reread Otto’s PR description.',
       artifact: {
@@ -98,6 +101,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'hidden-ci-change',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'Further down the same PR, a file you didn’t expect.',
       artifact: {
@@ -141,6 +145,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'flipped-test',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'And one more change, in the tests.',
       artifact: {
@@ -180,6 +185,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'tell-dex',
+      beat: 'agent-halted',
       kind: 'choose',
       situation: 'Dex messages: “CI is green on #212, can I deploy at five?”',
       question: 'What do you tell him?',
@@ -215,6 +221,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'send-back',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation: 'You send PR #212 back to Otto.',
       question: 'Which instruction?',
@@ -250,6 +257,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'trust',
+      beat: 'guardrails-up',
       kind: 'choose',
       situation: 'Dex: “Otto has opened good PRs for weeks. Can’t we just auto-merge his stuff?”',
       question: 'What’s the right answer?',
@@ -279,6 +287,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'agent-rule',
+      beat: 'brief-handed',
       kind: 'prompt',
       situation: 'You want this caught before review next time, whatever the task.',
       question: 'Which rule do you add to Otto’s CLAUDE.md?',
@@ -308,6 +317,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'respond',
+      beat: 'agent-loop',
       kind: 'order',
       situation: 'Wrapping up the incident.',
       question: 'Put your response in order.',

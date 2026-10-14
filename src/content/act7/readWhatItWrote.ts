@@ -9,6 +9,7 @@ export const readWhatItWrote = {
   act: 7,
   title: 'Read What It Wrote',
   xp: 70,
+  briefingBeat: 'diff-inspected',
   briefing: [
     'Otto opens a PR. It compiles, the description sounds sure, and the code looks tidy.',
     'Your job is to read what the code actually does. Bugs in AI code are rarely loud; they’re small and confident.',
@@ -16,6 +17,7 @@ export const readWhatItWrote = {
   cards: [
     {
       id: 'swallowed-error',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'Otto’s PR description: “made getUser more robust.”',
       artifact: {
@@ -60,6 +62,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'auth-check',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'Otto “simplified” the check for who can edit a document.',
       artifact: {
@@ -104,6 +107,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'scope-drift',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'You asked Otto to fix a typo on the pricing page.',
       artifact: {
@@ -145,6 +149,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'ask-for-evidence',
+      beat: 'test-gate',
       kind: 'prompt',
       situation: 'Otto: “Done! Everything works and all tests pass ✅”',
       question: 'Which reply gets you proof?',
@@ -173,6 +178,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'invented-api',
+      beat: 'test-gate',
       kind: 'choose',
       situation: 'Otto says the export uses Stripe’s built-in CSV feature. You run the type check.',
       artifact: {
@@ -219,6 +225,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'new-dependency',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'Otto’s PR to format phone numbers adds a package.',
       artifact: {
@@ -257,6 +264,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'review-order',
+      beat: 'diff-inspected',
       kind: 'order',
       situation: 'Priya asks how you review one of Otto’s PRs.',
       question: 'Put your review in order.',
@@ -271,6 +279,7 @@ export const readWhatItWrote = {
     },
     {
       id: 'review-comment',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation: 'You found the canEdit bug in PR #191. You leave a review for Otto.',
       question: 'Which comment gets it fixed right?',
