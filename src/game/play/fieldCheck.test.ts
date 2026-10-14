@@ -35,7 +35,91 @@ const LOG = [
   'd4e5f60 wip',
 ].join('\n');
 
+const MERGE_GRAPH = [
+  'PS C:\\repos\\sandcastles> git log --oneline --graph -5',
+  "*   4d7e1a0 (HEAD -> main, origin/main) Merge branch 'feat/tide-chart'",
+  '|\\  ',
+  '| * 9c2f6b1 feat: add tide charts',
+  '|/  ',
+  '* 1a2b3c4 chore: start',
+].join('\r\n');
+
+describe('verifyPaste: mergeCommit', () => {
+  const check = verification({
+    parser: 'log-oneline',
+    command: 'git log --oneline --graph -5',
+    check: { kind: 'mergeCommit' },
+  });
+
+  it('passes a merge of a typed branch whose commit is Conventional', () => {
+    expect(verifyPaste(check, MERGE_GRAPH)).toEqual({
+      passed: true,
+      message: 'Main has a merge commit from feat/tide-chart.',
+    });
+  });
+
+  it('explains a squash, a missing graph, and an untyped branch', () => {
+    expect(verifyPaste(check, '* 4d7e1a0 feat: add tide charts (#3)').message).toContain(
+      'Create a merge commit',
+    );
+    expect(verifyPaste(check, "4d7e1a0 Merge branch 'feat/tide-chart'").message).toContain(
+      '--graph',
+    );
+    expect(verifyPaste(check, MERGE_GRAPH.replace('feat/tide-chart', 'tides')).message).toContain(
+      'feat/readme-fix',
+    );
+    expect(verifyPaste(check, MERGE_GRAPH.replace('feat: add', 'added')).message).toContain(
+      'Conventional',
+    );
+    const unnamed = MERGE_GRAPH.replace("Merge branch 'feat/tide-chart'", "Merge commit 'abc1234'");
+    expect(verifyPaste(check, unnamed).message).toContain('name its branch');
+    expect(verifyPaste(check, "*   4d7e1a0 Merge branch 'feat/x'").message).toContain('no commit');
+    expect(verifyPaste(check, CLEAN_LONG).passed).toBe(false);
+  });
+});
+
+describe('verifyPaste: clean on a branch, up to date', () => {
+  const check = verification({ check: { kind: 'clean', branch: 'main', upToDate: true } });
+
+  it('passes main when it is clean and matches its remote', () => {
+    expect(verifyPaste(check, CLEAN_LONG)).toEqual({
+      passed: true,
+      message: 'Clean, and it matches GitHub.',
+    });
+  });
+
+  it('fails another branch, unpushed work, or a paste without the branch', () => {
+    const onBranch = CLEAN_LONG.replace('On branch main', 'On branch feat/x');
+    expect(verifyPaste(check, onBranch).message).toBe("That's feat/x. Switch to main first.");
+    const ahead = CLEAN_LONG.replace(
+      "Your branch is up to date with 'origin/main'.",
+      "Your branch is ahead of 'origin/main' by 2 commits.",
+    );
+    expect(verifyPaste(check, ahead).message).toContain('Not on GitHub yet');
+    const noUpstream = CLEAN_LONG.replace("Your branch is up to date with 'origin/main'.", '');
+    expect(verifyPaste(check, noUpstream).passed).toBe(false);
+    const short = verification({
+      parser: 'status-short',
+      command: 'git status -sb',
+      check: { kind: 'clean', branch: 'main', upToDate: true },
+    });
+    expect(verifyPaste(short, '## main...origin/main').passed).toBe(true);
+    expect(verifyPaste(short, '## main...origin/main [ahead 1]').passed).toBe(false);
+    expect(verifyPaste(short, 'git status -s').message).toContain('show the branch');
+  });
+});
+
 describe('verifyPaste', () => {
+  it('counts commits with the right plural', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1',
+      check: { kind: 'minCommits', count: 2 },
+    });
+    expect(verifyPaste(check, 'a1b2c3d feat: one').message).toBe('Only 1 commit; this needs 2.');
+    expect(verifyPaste(check, LOG).message).toBe('4 commits. Nice.');
+  });
+
   it('passes a clean status and explains a dirty one', () => {
     expect(verifyPaste(verification({}), CLEAN_LONG)).toMatchObject({ passed: true });
     const dirty = verifyPaste(

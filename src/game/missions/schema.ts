@@ -350,7 +350,15 @@ export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('clean') }),
+  /**
+   * Nothing left to commit. With `branch`, the paste must also show that branch checked
+   * out; with `upToDate`, it must match its remote branch exactly, so the work is pushed.
+   */
+  z.strictObject({
+    kind: z.literal('clean'),
+    branch: NameSchema.optional(),
+    upToDate: z.literal(true).optional(),
+  }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
@@ -359,6 +367,12 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
+  /**
+   * The newest commit is a merge (not a squash or a rebase) of a typed branch like
+   * `feat/x`, and the branch's own newest commit is a Conventional Commit. Needs
+   * `git log --oneline --graph`, whose drawing shows which commits the branch brought in.
+   */
+  z.strictObject({ kind: z.literal('mergeCommit') }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
@@ -374,6 +388,7 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
+  mergeCommit: ['log-oneline'],
 };
 
 const VerificationSchema = z

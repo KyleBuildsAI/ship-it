@@ -3,14 +3,18 @@ import {
   conventionalRatio,
   detectPasteKind,
   isCleanStatus,
+  isConventionalSubject,
+  isTypedBranchName,
+  parseLogGraph,
   parseLogOneline,
   parsePathList,
   parseStatusLong,
   parseStatusShort,
+  readTopMerge,
   trackedSecretPaths,
   type ParsedStatus,
 } from '../../engine/verify';
-import type { FieldMission } from '../missions/schema';
+import type { FieldCheck, FieldMission } from '../missions/schema';
 
 /** One paste check from a Field Mission (DESIGN.md section 8). */
 export type Verification = FieldMission['verifications'][number];
@@ -55,6 +59,94 @@ function unignored(status: ParsedStatus, patterns: readonly string[]): string[] 
   );
 }
 
+function plural(count: number, word: string): string {
+  return `${String(count)} ${word}${count === 1 ? '' : 's'}`;
+}
+
+/**
+ * Judges a `git log --oneline --graph` paste for a landed branch. Each failure names the
+ * likely cause in plain words, since the usual one is a merge that went the wrong way
+ * (a squash, a rebase, or a commit straight on main), not a typo.
+ */
+function verifyMerge(command: string, text: string): FieldVerdict {
+  const merge = readTopMerge(parseLogGraph(text));
+  switch (merge.kind) {
+    case 'empty':
+      return fail(`That paste shows no commits. Run ${command}.`);
+    case 'not-a-merge':
+      return fail(
+        'The newest commit on main isn’t a merge commit. A squashed or rebased pull request leaves none, so merge with "Create a merge commit". Not merged yet? Merge it on GitHub, then git pull.',
+      );
+    case 'no-graph':
+      return fail(
+        `That paste has no graph, so the branch's commits can't be told apart. Run ${command}, with --graph.`,
+      );
+    case 'no-branch-commit':
+      return fail(
+        'That merge brought in no commit the paste shows. Paste all five lines, and make sure the branch had its own commit.',
+      );
+    case 'merged':
+      break;
+  }
+  const { branch, branchCommit } = merge;
+  if (branch === null) {
+    return fail('That merge commit doesn’t name its branch. Merge the pull request on GitHub.');
+  }
+  if (!isTypedBranchName(branch)) {
+    return fail(`The merged branch is "${branch}". Name branches by type, like feat/readme-fix.`);
+  }
+  if (!isConventionalSubject(branchCommit.subject)) {
+    return fail(
+      `The branch's commit "${branchCommit.subject}" isn't a Conventional Commit. Start it with a type like feat: or docs:.`,
+    );
+  }
+  return { passed: true, message: `Main has a merge commit from ${branch}.` };
+}
+
+/** True when the branch tracks a remote branch and neither is ahead of the other. */
+function isUpToDate(status: ParsedStatus): boolean {
+  if (status.format === 'long') return status.upstream?.state === 'up-to-date';
+  const branch = status.branch;
+  return (
+    branch?.upstream !== undefined &&
+    branch.upstreamGone !== true &&
+    (branch.ahead ?? 0) === 0 &&
+    (branch.behind ?? 0) === 0
+  );
+}
+
+/**
+ * Checks a status paste for the "clean" check. The branch and upToDate options also need
+ * the branch line, which plain `git status` and `git status -sb` print but `-s` doesn't.
+ */
+function verifyClean(
+  check: Extract<FieldCheck, { kind: 'clean' }>,
+  status: ParsedStatus,
+): FieldVerdict {
+  const needsBranch = check.branch !== undefined || check.upToDate === true;
+  const branch = status.format === 'long' ? status.branch : (status.branch?.name ?? null);
+  if (needsBranch && branch === null) {
+    return fail('That paste doesn’t show the branch. Paste everything plain git status prints.');
+  }
+  if (check.branch !== undefined && branch !== check.branch) {
+    return fail(`That's ${branch ?? 'no branch'}. Switch to ${check.branch} first.`);
+  }
+  if (!isCleanStatus(status)) {
+    return fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
+  }
+  if (check.upToDate === true && !isUpToDate(status)) {
+    // Ahead means merged here but never pushed; behind means GitHub has work not pulled.
+    return fail(
+      `Not on GitHub yet: ${branch ?? 'this branch'} doesn't match its remote. Pull, then push.`,
+    );
+  }
+  return {
+    passed: true,
+    message:
+      check.upToDate === true ? 'Clean, and it matches GitHub.' : 'Clean: nothing left to commit.',
+  };
+}
+
 /**
  * Checks one pasted output against a Field Mission verification. Never throws: a paste
  * that isn't what was asked for gets a message saying which command to run instead.
@@ -79,11 +171,12 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
     if (kind !== 'log-oneline') {
       return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
     }
+    if (check.kind === 'mergeCommit') return verifyMerge(verification.command, text);
     const commits = parseLogOneline(text);
     if (check.kind === 'minCommits') {
       return commits.length >= check.count
-        ? { passed: true, message: `${String(commits.length)} commits. Nice.` }
-        : fail(`Only ${String(commits.length)} commits; this needs ${String(check.count)}.`);
+        ? { passed: true, message: `${plural(commits.length, 'commit')}. Nice.` }
+        : fail(`Only ${plural(commits.length, 'commit')}; this needs ${String(check.count)}.`);
     }
     if (check.kind === 'conventionalRatio') {
       const ratio = conventionalRatio(commits.slice(0, check.last));
@@ -106,9 +199,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
   }
   switch (check.kind) {
     case 'clean':
-      return isCleanStatus(status)
-        ? { passed: true, message: 'Clean: nothing left to commit.' }
-        : fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
+      return verifyClean(check, status);
     case 'noTrackedSecrets': {
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0
