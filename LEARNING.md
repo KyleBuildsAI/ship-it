@@ -2179,3 +2179,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/154
 3. A folder folds into one line only when nothing tracked or untracked lives inside it. Everything in `dist/` is ignored, but `src/` also holds tracked source files, so the logger is listed on its own.
 
 </details>
+
+---
+
+## #156 fix: the terminal stays closed unless a mission needs typing
+
+https://github.com/KyleBuildsAI/ship-it/pull/156
+
+1. When does the terminal open by itself now?
+2. Where do you see Otto's commands in Act 1 if the terminal is closed?
+3. Why did the tutorial lose two steps?
+
+<details><summary>Answers</summary>
+
+1. Only for missions where you type (Act 2's git missions) and for the Laptop sandbox. Otherwise you open it with its button or Ctrl+`.
+2. In the run log in the mission panel, and on the machine island, where his lantern moves and new folders rise.
+3. They taught typing a command and toggling the terminal, which a vibe coder doesn't need to get started.
+
+</details>

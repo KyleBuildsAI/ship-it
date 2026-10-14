@@ -5,11 +5,13 @@ import { worldState, type ZoneId } from './worldState';
 
 /**
  * The first-run tutorial: a short card that teaches the controls by having the player use
- * them. Each step waits for the player to actually do the thing (walk, jump, run a command)
+ * them. Each step waits for the player to actually do the thing (walk, jump, look, enter an Act)
  * and moves on by itself, so there is nothing to read twice and no "Next" button to hunt for.
  */
 
-export type TutorialStepId = 'walk' | 'jump' | 'look' | 'command' | 'terminal' | 'portal';
+// No terminal steps: the game is for directing an agent and seeing what changed, so a new
+// player never has to type a command or manage the terminal to get started.
+export type TutorialStepId = 'walk' | 'jump' | 'look' | 'portal';
 
 export interface TutorialStep {
   readonly id: TutorialStepId;
@@ -33,18 +35,6 @@ export const TUTORIAL_STEPS: readonly TutorialStep[] = [
     id: 'look',
     title: 'Look around',
     instruction: 'Hold the left mouse button and drag to turn the camera.',
-  },
-  {
-    id: 'command',
-    title: 'Run a command',
-    instruction:
-      'Click the terminal at the bottom, type pwd and press Enter. pwd prints the folder you are in.',
-  },
-  {
-    id: 'terminal',
-    title: 'Hide the terminal',
-    instruction:
-      'Press Ctrl and ` (the key above Tab) to hide the terminal, then press them again to bring it back.',
   },
   {
     id: 'portal',
@@ -80,11 +70,6 @@ export function isStepDone(
       return now.jumps > atStart.jumps;
     case 'look':
       return now.looks > atStart.looks;
-    case 'command':
-      return now.commandsRun > atStart.commandsRun;
-    case 'terminal':
-      // Hidden and shown again, or opened if it started closed: either way it ends up open.
-      return now.terminalToggles > atStart.terminalToggles && now.terminalOpen;
     case 'portal':
       return now.zone !== 'campus' || now.actMenuOpen;
   }
