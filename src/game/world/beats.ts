@@ -28,7 +28,15 @@ export const ISLAND_BEATS = {
   act4: [],
   act5: [],
   act6: [],
-  act7: [],
+  act7: [
+    'brief-handed',
+    'agent-loop',
+    'diff-inspected',
+    'test-gate',
+    'eval-scores',
+    'guardrails-up',
+    'agent-halted',
+  ],
   act8: [],
 } as const satisfies Record<ActIslandZone, readonly string[]>;
 
