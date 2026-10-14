@@ -59,13 +59,13 @@ export const testsAndEvals = {
       options: [
         {
           id: 'build',
-          text: 'Add the refund limits and write some tests for them.',
+          text: 'Add the refund limits first, so the tests have real code to call. Then write tests for over-refunds and the 60-day cutoff, and show me them passing.',
           correct: false,
           feedback: 'Tests written after the code tend to test what the code does, bugs included.',
         },
         {
           id: 'no-tests',
-          text: 'Add the refund limits. Skip tests, we’re in a hurry.',
+          text: 'Add the refund limits now, and we’ll add tests in a follow-up PR next sprint: the rule is small, and the deadline is this week.',
           correct: false,
           feedback: 'The hurry is exactly when an unguarded money rule breaks.',
         },
@@ -104,13 +104,13 @@ export const testsAndEvals = {
         },
         {
           id: 'fixed',
-          text: 'Fixed an outdated test.',
+          text: 'Fixed an outdated test: its expected total was wrong, so he corrected it.',
           correct: false,
           feedback: 'Nobody changed the tax rule. $100 plus 8% is still $108.',
         },
         {
           id: 'rounding',
-          text: 'Fixed a rounding problem.',
+          text: 'Fixed a rounding problem in how the test compares the two totals.',
           correct: false,
           feedback: '108 to 100 isn’t rounding. It’s removing the tax.',
         },
@@ -201,13 +201,13 @@ export const testsAndEvals = {
       options: [
         {
           id: 'vibes',
-          text: 'Try three documents and compare.',
+          text: 'Try three of your own documents with both prompts, side by side, and compare.',
           correct: false,
           feedback: 'Three examples can’t show it got worse on the other two hundred kinds.',
         },
         {
           id: 'ship',
-          text: 'Ship it and watch for complaints.',
+          text: 'Ship it to a small group of users first, and watch support for complaints.',
           correct: false,
           feedback: 'Then your customers are your test suite.',
         },

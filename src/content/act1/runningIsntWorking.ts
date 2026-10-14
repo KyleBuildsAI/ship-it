@@ -51,7 +51,7 @@ export const runningIsntWorking = {
         },
         {
           id: 'firewall',
-          text: 'The firewall is blocking port 3000.',
+          text: 'The Windows firewall is blocking port 3000, so the API can’t open it until you allow Node through.',
           correct: false,
           feedback:
             'A firewall drops connections. It never stops a program from listening, and EADDRINUSE is about who already listens.',
@@ -189,13 +189,13 @@ export const runningIsntWorking = {
         },
         {
           id: 'other-port',
-          text: 'Deny. Start the API on port 3001 instead.',
+          text: 'Deny. Leave that process alone and start the API on port 3001 instead, then update every URL that points at 3000.',
           correct: false,
           feedback: 'Marco’s web app calls port 3000. Changing the goal isn’t fixing the problem.',
         },
         {
           id: 'reboot',
-          text: 'Deny. Restart the laptop to clear everything.',
+          text: 'Deny. Restart the laptop to clear every process at once, then start the API first so it gets port 3000 back.',
           correct: false,
           feedback:
             'It ends everything you have open, and a login script may start the culprit again.',
@@ -341,7 +341,7 @@ export const runningIsntWorking = {
       options: [
         {
           id: 'wrong-fix',
-          text: 'The new DATABASE_URL must be wrong too.',
+          text: 'The new DATABASE_URL must be wrong too: check the user, password, host and database name in it once more.',
           correct: false,
           feedback: 'Maybe, but you can’t tell yet. The API hasn’t read it.',
         },
@@ -353,7 +353,7 @@ export const runningIsntWorking = {
         },
         {
           id: 'cache',
-          text: 'curl is showing a cached answer.',
+          text: 'curl is showing a cached answer from before the fix. Clear its cache, or add a header so it asks the API again.',
           correct: false,
           feedback: 'curl asks fresh every time. The server gave the same answer.',
         },

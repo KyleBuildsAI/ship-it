@@ -191,9 +191,10 @@ export const briefTheAgent = {
       options: [
         {
           id: 'ping',
-          text: 'Let me know when you’re done.',
+          text: 'Let me know when you’re done, with a short summary of what you changed and anything you weren’t sure about.',
           correct: false,
-          feedback: 'Done by whose standard? Otto will decide, and say so with confidence.',
+          feedback:
+            'A summary is Otto’s opinion of his own work. Done by whose standard? He’ll decide, and say so with confidence.',
         },
         {
           id: 'done-means',
@@ -203,9 +204,10 @@ export const briefTheAgent = {
         },
         {
           id: 'perfect',
-          text: 'Make sure it’s perfect and handles every possible case.',
+          text: 'Make sure it’s production-ready: handle every edge case you can think of, tidy anything nearby, and keep going until it’s perfect.',
           correct: false,
-          feedback: '“Every case” has no finish line, and no way to check it.',
+          feedback:
+            '“Every case” and “perfect” have no finish line and no way to check them, and “anything nearby” invites scope drift.',
         },
       ],
       explanation:
@@ -220,13 +222,13 @@ export const briefTheAgent = {
       options: [
         {
           id: 'more',
-          text: 'Paste last week’s logs too, so nothing is missing.',
+          text: 'Paste last week’s logs and the database schema too, so Otto has the full picture and nothing is missing.',
           correct: false,
           feedback: 'More noise buries the signal deeper, and costs more for every step.',
         },
         {
           id: 'model',
-          text: 'Switch to a bigger model that can hold more text.',
+          text: 'Switch to a bigger model with a longer context window, so it can hold the whole log and repo at once.',
           correct: false,
           feedback: 'It can hold more, but the clue is still lost in the pile.',
         },

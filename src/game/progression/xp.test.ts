@@ -121,13 +121,19 @@ describe('completedActNumbers', () => {
     expect(completedActNumbers(acts)).toEqual([1, 3]);
   });
 
-  it('counts an Act the player tested out of', () => {
-    const testedOut = {
-      ...createActProgress(),
-      placement: { attempts: 1, bestPercent: 90, testedOut: true },
-    };
+  it('counts a tested-out Act only once its completion is stamped', () => {
+    const placement = { attempts: 1, bestPercent: 90, testedOut: true };
+    const testedOut = { ...createActProgress(), placement };
 
-    expect(completedActNumbers({ '2': testedOut })).toEqual([2]);
+    // Act 1's placement covers only its lessons, so a pass alone doesn't complete it.
+    expect(completedActNumbers({ '1': testedOut })).toEqual([]);
+    expect(completedActNumbers({ '2': { ...done, placement } })).toEqual([2]);
+
+    // A lesson Act with an open Field Mission is tested out but not yet complete.
+    expect(completedActNumbers({ '7': testedOut })).toEqual([]);
+    expect(completedActNumbers({ '7': { ...testedOut, completedAt: done.completedAt } })).toEqual([
+      7,
+    ]);
   });
 
   it('returns an empty list for a new game', () => {

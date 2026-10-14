@@ -88,7 +88,7 @@ export const readingCi = {
       options: [
         {
           id: 'reinstall',
-          text: 'npm ci failed, so the packages need reinstalling.',
+          text: 'npm ci didn’t install the packages properly, so typecheck couldn’t find the types. Clear the cache and reinstall.',
           correct: false,
           feedback: 'npm ci has a tick. It installed 812 packages fine.',
         },
@@ -100,13 +100,13 @@ export const readingCi = {
         },
         {
           id: 'github-down',
-          text: 'Exit code 2 means GitHub had an outage.',
+          text: 'Exit code 2 means the runner itself crashed, likely a GitHub outage. Our code didn’t change, so re-run the job.',
           correct: false,
           feedback: 'Exit code 2 is just the typecheck saying “I found errors”.',
         },
         {
           id: 'tests-fail',
-          text: 'The tests failed too, so it’s badly broken.',
+          text: 'Typecheck and the tests both failed, so the change is badly broken. Close PR #57 and start over.',
           correct: false,
           feedback: 'Look again: the tests were skipped, not failed.',
         },
@@ -249,9 +249,10 @@ export const readingCi = {
       options: [
         {
           id: 'merge',
-          text: 'Great, merging.',
+          text: 'Great, thanks. You’ve fixed type errors like this before, so I trust it. Merge as soon as you’ve pushed, and we’ll keep an eye on main.',
           correct: false,
-          feedback: '“Should pass” is a guess. You haven’t seen anything run.',
+          feedback:
+            '“Should pass” is a guess. You haven’t seen anything run, and main is where everyone pays.',
         },
         {
           id: 'show-me',
@@ -261,7 +262,7 @@ export const readingCi = {
         },
         {
           id: 'sure',
-          text: 'Are you sure?',
+          text: 'Are you sure it passes? Double-check your change, and tell me again once you’re confident.',
           correct: false,
           feedback: 'He’ll say yes. Agents are confident. Ask for proof, not confidence.',
         },

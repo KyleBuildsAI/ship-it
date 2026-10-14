@@ -34,14 +34,14 @@ export const lintAndTypes = {
       options: [
         {
           id: 'as-any',
-          text: 'Add “as any” after form.seats so it compiles.',
+          text: 'TypeScript can’t see that form.seats is already a number. Add “as any” after form.seats so it compiles, and move on.',
           correct: false,
           feedback:
             'That hides a real bug. If priceFor adds seats anywhere, "3" + 1 makes "31", not 4. And "abc" seats makes NaN.',
         },
         {
           id: 'strict-off',
-          text: 'Turn off strict mode in tsconfig.json.',
+          text: 'Strict mode is too fussy for form code like this. Turn it off in tsconfig.json so the typecheck passes again.',
           correct: false,
           feedback: 'That silences this error and every future one like it.',
         },
@@ -53,7 +53,7 @@ export const lintAndTypes = {
         },
         {
           id: 'optional',
-          text: 'Types are only hints. Ignore it and merge.',
+          text: 'Types are only hints that vanish when the code runs, so the page still works. Note the warning and merge.',
           correct: false,
           feedback: 'It’s a gate because it catches real bugs, like this one.',
         },
@@ -69,7 +69,7 @@ export const lintAndTypes = {
       options: [
         {
           id: 'sure',
-          text: 'Sure, whatever gets us green fastest.',
+          text: 'Sure, add the @ts-ignore so CI goes green today, and leave a comment above it so we remember to come back and fix it properly.',
           correct: false,
           feedback: 'Green with a known bug inside is worse than red: nobody is looking any more.',
         },
@@ -81,13 +81,13 @@ export const lintAndTypes = {
         },
         {
           id: 'widen',
-          text: 'Change priceFor to accept any type so it stops complaining.',
+          text: 'No ts-ignore. Instead, change priceFor to accept a string or a number, so it works wherever seats come from, and run the unit tests.',
           correct: false,
           feedback: 'Same bug, moved into priceFor, where every caller now gets it.',
         },
         {
           id: 'remove-ts',
-          text: 'TypeScript keeps getting in the way. Convert the file to plain JavaScript.',
+          text: 'TypeScript keeps getting in the way here. Convert seats.ts to plain JavaScript, run the existing unit tests, and show me they still pass.',
           correct: false,
           feedback: 'You’d delete the one check that found this bug.',
         },

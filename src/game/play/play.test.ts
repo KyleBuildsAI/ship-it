@@ -19,6 +19,7 @@ import { flushProgress, progress, startProgress, type ProgressStorage } from '..
 import { createReviewItem } from '../progression/reviewQueue';
 import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
+import { closeTerminal, hud } from '../hud';
 import { createDefaultSave } from '../save/schema';
 import { bossTick, bossSandboxChanged, startBossFight } from './bossPlay';
 import { setCatalog } from './catalog';
@@ -321,6 +322,64 @@ describe('the placement test', () => {
     passPlacement();
     expect(series().placement).toEqual({ percent: 100, testedOut: true });
     expect(progress.get().save?.acts['2']?.completedAt).toEqual(expect.any(String));
+  });
+});
+
+describe('the placement attempt', () => {
+  it('counts once its first drill starts, so leaving partway is still a try', () => {
+    startPlacement(sampleAct.act);
+    leavePlay();
+    // Leaving before any drill showed isn't an attempt: nothing was seen.
+    expect(progress.get().save?.acts['2']?.placement.attempts ?? 0).toBe(0);
+    startPlacement(sampleAct.act);
+    startNextSeriesDrill(T0);
+    leavePlay();
+    expect(progress.get().save?.acts['2']?.placement).toMatchObject({
+      attempts: 1,
+      bestPercent: null,
+      testedOut: false,
+    });
+  });
+
+  it('counts a finished run once, not again when it ends', () => {
+    startPlacement(sampleAct.act);
+    passPlacement();
+    expect(progress.get().save?.acts['2']?.placement.attempts).toBe(1);
+  });
+});
+
+describe('the terminal for the typed parts of an Act', () => {
+  it('opens for a typed placement test, a boss and a typed review', async () => {
+    closeTerminal();
+    startPlacement(sampleAct.act);
+    expect(hud.get().terminalOpen).toBe(true);
+
+    closeTerminal();
+    startBossFight(sampleAct.act, T0);
+    expect(hud.get().terminalOpen).toBe(true);
+
+    const save = {
+      ...createDefaultSave(NOW),
+      reviewQueue: [createReviewItem('sample-init', '2026-09-20')],
+    };
+    await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
+    closeTerminal();
+    startReview(NOW);
+    expect(hud.get().terminalOpen).toBe(true);
+  });
+
+  it('stays put away for a review of judgment drills, which are answered in the panel', async () => {
+    directedCatalog(directedMission);
+    const first = directedMission.drills[0];
+    if (first === undefined) throw new Error('the directed sample needs a drill');
+    const save = {
+      ...createDefaultSave(NOW),
+      reviewQueue: [createReviewItem(first.id, '2026-09-20')],
+    };
+    await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
+    startReview(NOW);
+    expect(series().drills).toHaveLength(1);
+    expect(hud.get().terminalOpen).toBe(false);
   });
 });
 

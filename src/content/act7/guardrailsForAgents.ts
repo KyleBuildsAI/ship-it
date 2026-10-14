@@ -41,15 +41,15 @@ export const guardrailsForAgents = {
         },
         {
           id: 'approved',
-          text: 'An approved task from the owner.',
+          text: 'An approved task from the owner, since the comment says the owner signed off.',
           correct: false,
           feedback: 'Anyone can type “approved”. The owner didn’t.',
         },
         {
           id: 'typo',
-          text: 'Just a typo report.',
+          text: 'Just a typo report; the HTML comment is left over from an issue template.',
           correct: false,
-          feedback: 'Look at the hidden comment under it.',
+          feedback: 'Look at what the hidden comment under it asks for.',
         },
       ],
       explanation:
@@ -141,13 +141,13 @@ export const guardrailsForAgents = {
         },
         {
           id: 'code',
-          text: 'Here’s the key. Put it in config.ts so it always works.',
+          text: 'Here’s the key. Put it in config.ts so it always works, and I’ll make the repo private so nobody else sees it.',
           correct: false,
           feedback: 'Now it’s in the code, in git history forever, and soon on GitHub.',
         },
         {
           id: 'chat',
-          text: 'I’ll paste the key in chat so you can remember it.',
+          text: 'I’ll paste the key here in chat, so you can save it in your notes and use it for every local test you run.',
           correct: false,
           feedback: 'Chats get logged and shared. Keys go in .env, put there by a person.',
         },

@@ -1,11 +1,30 @@
 import { LessonSchema, type Lesson, type LessonInput } from '../game/missions/lessonSchema';
-import { ActSchema, type Act, type Mission } from '../game/missions/schema';
+import {
+  ActSchema,
+  type Act,
+  type FieldMissionInput,
+  type LessonPlacementInput,
+  type Mission,
+} from '../game/missions/schema';
 
 /** An Act taught by lessons, shaped like any Act in the catalog: it just has no missions. */
 export interface LessonActContent {
   readonly act: Act;
   readonly missions: readonly Mission[];
   readonly lessons: readonly Lesson[];
+}
+
+/**
+ * The optional parts of a lesson Act. Each is checked like any Act's: the schema checks
+ * its shape, and validateAct checks a placement's cards exist in the Act's lessons.
+ */
+export interface LessonActParts {
+  /** Cards borrowed from the lessons, answered on one clock; 85% tests out. */
+  readonly placementTest?: LessonPlacementInput;
+  /** Real work on one of Kyle's real repos, verified by pasted output. */
+  readonly fieldMission?: FieldMissionInput;
+  /** Ships before it's finished, so it never counts as complete. */
+  readonly earlyAccess?: boolean;
 }
 
 /**
@@ -18,6 +37,7 @@ export function lessonAct(
   number: number,
   title: string,
   inputs: readonly LessonInput[],
+  parts: LessonActParts = {},
 ): LessonActContent {
   const lessons = inputs.map((input) => LessonSchema.parse(input));
   const act = ActSchema.parse({
@@ -26,6 +46,7 @@ export function lessonAct(
     missionIds: lessons.map((lesson) => lesson.id),
     // The last lesson is the final. If it isn't one, validateAct says so in the tests.
     finalLessonId: lessons.at(-1)?.id,
+    ...parts,
   });
   return { act, missions: [], lessons };
 }

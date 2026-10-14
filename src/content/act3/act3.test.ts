@@ -7,7 +7,7 @@ import {
 } from '../../game/missions/lessonSchema';
 import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
-import { act3, act3Lessons } from './index';
+import { act3, act3Lessons, act3Placement } from './index';
 
 /*
  * Act 3's content checks. The schema already holds every word budget; these tests hold
@@ -147,6 +147,12 @@ describe('Act 3: Branching', () => {
       }
     }
     expect(meaning.size).toBeGreaterThan(10);
+  });
+
+  it('is complete with every part: placement test, final as boss, Field Mission', () => {
+    expect(act3.act.placementTest).toEqual({ ...act3Placement, passPercent: 85 });
+    expect(act3.act.fieldMission?.id).toBe('land-a-real-branch');
+    expect(act3.act.boss).toBeUndefined();
   });
 
   it('happens at Quillwork, with Otto and the team', () => {

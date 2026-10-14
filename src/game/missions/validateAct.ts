@@ -7,13 +7,15 @@ import {
   type AgentTask,
   type BaseAction,
 } from './agentSchema';
-import type { Lesson } from './lessonSchema';
+import { bestLengthStrategy } from './lessonPlacement';
+import type { Lesson, LessonCard } from './lessonSchema';
 import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
 import {
   countWords,
   directedProblems,
   isJudgmentDrill,
+  isLessonPlacement,
   MAX_SCREEN_WORDS,
   type Act,
   type Drill,
@@ -277,9 +279,88 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
     }
     for (const check of fieldMission.verifications) {
       add(`field mission > verification ${check.id}`, check.instruction);
+      if (check.whenEmpty !== undefined) {
+        add(`field mission > verification ${check.id} > whenEmpty`, check.whenEmpty);
+      }
+      if (check.advice !== undefined) {
+        add(`field mission > verification ${check.id} > advice`, check.advice);
+      }
     }
   }
   return texts;
+}
+
+// "That query..." or "Given that error..." reads fine in a lesson, right after the card
+// that showed it, but a placement test borrows cards one at a time and shuffles them.
+const POINTS_BACK = /^(?:that|given that|this)\b/i;
+
+/** True for a card that refers to an earlier card's code or log and shows none of its own. */
+function leansOnEarlierCard(card: Lesson['cards'][number]): boolean {
+  if (card.artifact !== undefined) return false;
+  return POINTS_BACK.test(card.situation) || POINTS_BACK.test(card.question);
+}
+
+/**
+ * A placement test shows no feedback, so the length of the options is the one clue a
+ * player who never reads them has. If one length rule (always the longest, always the
+ * second shortest, ...) picks the right option on more than half the pick cards, the
+ * test leaks its answers, so the wrong options need rewriting to match.
+ */
+function lengthTellProblem(cards: readonly LessonCard[]): string | null {
+  const best = bestLengthStrategy(cards);
+  const pickCards = cards.filter((card) => card.kind !== 'order').length;
+  if (best === null || best.right <= Math.floor(pickCards / 2)) return null;
+  const place = best.rank === 1 ? best.from : `number ${String(best.rank)} from the ${best.from}`;
+  return `The right option is the ${place} on ${String(best.right)} of ${String(pickCards)} pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.`;
+}
+
+/**
+ * Checks a lesson Act's placement test against its lessons. It names cards by id alone,
+ * so each must be exactly one card of a lesson in this Act. The final is the boss: it
+ * stays playable for its XP after a test-out, so its cards aren't borrowed, and testing
+ * out completes the Act without it. Every other lesson lends at least two, so testing out
+ * of a lesson means answering something from it.
+ */
+function lessonPlacementIssues(
+  cardIds: readonly string[],
+  act: Act,
+  lessons: readonly Lesson[],
+): ContentIssue[] {
+  const issues: ContentIssue[] = [];
+  const report = (problem: string) => issues.push({ where: 'placement test', problem });
+  const taught = lessons.filter(
+    (lesson) => lesson.id !== act.finalLessonId && act.missionIds.includes(lesson.id),
+  );
+  for (const id of duplicates(cardIds)) report(`Card "${id}" is listed more than once.`);
+  const borrowed = new Map<string, number>();
+  const cards: LessonCard[] = [];
+  for (const id of new Set(cardIds)) {
+    const owners = taught.filter((lesson) => lesson.cards.some((card) => card.id === id));
+    const [owner] = owners;
+    if (owner === undefined) {
+      report(`No lesson in this Act (the final aside) has a card "${id}".`);
+    } else if (owners.length > 1) {
+      report(`Card "${id}" is in more than one lesson; give each card its own id.`);
+    } else {
+      borrowed.set(owner.id, (borrowed.get(owner.id) ?? 0) + 1);
+      const card = owner.cards.find((entry) => entry.id === id);
+      if (card !== undefined && leansOnEarlierCard(card)) {
+        report(
+          `Card "${id}" points back at something ("That...") the placement test never shows. Make it self-contained or give it an artifact.`,
+        );
+      }
+      cards.push(...owner.cards.filter((card) => card.id === id));
+    }
+  }
+  for (const lesson of taught) {
+    const count = borrowed.get(lesson.id) ?? 0;
+    if (count < 2) {
+      report(`Borrow at least 2 cards from lesson ${lesson.id}; it lends ${String(count)}.`);
+    }
+  }
+  const lengthProblem = lengthTellProblem(cards);
+  if (lengthProblem !== null) report(lengthProblem);
+  return issues;
 }
 
 /**
@@ -366,12 +447,17 @@ export function validateAct(
     report(`drill ${id}`, 'Two drills in this Act share this id.');
   }
   const knownDrills = new Set(drillIds);
-  const placementIds = act.placementTest?.drillIds ?? [];
+  const { placementTest } = act;
+  const placementIds =
+    placementTest === undefined || isLessonPlacement(placementTest) ? [] : placementTest.drillIds;
   for (const id of duplicates(placementIds)) {
     report('placement test', `Drill "${id}" is listed more than once.`);
   }
   for (const id of placementIds) {
     if (!knownDrills.has(id)) report('placement test', `No drill in this Act has the id "${id}".`);
+  }
+  if (placementTest !== undefined && isLessonPlacement(placementTest)) {
+    issues.push(...lessonPlacementIssues(placementTest.cardIds, act, lessons));
   }
 
   const reportLaptop = (where: string, problem: string | null) => {

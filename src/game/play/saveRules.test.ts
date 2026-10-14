@@ -13,20 +13,23 @@ import {
   sampleSecondLesson,
 } from '../missions/sample.test-lesson';
 import type { Act } from '../missions/schema';
-import { XP_AWARDS } from '../progression/xp';
+import { placementTestOutXp, XP_AWARDS } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
 import {
   completeBoss,
   completeLesson,
   completeMission,
+  countPlacementAttempt,
   missionDone,
   questionXp,
   recordDrill,
   recordFieldMission,
+  recordGitHubCheck,
   recordPlacement,
   recordReview,
   recordSteps,
   startMissionProgress,
+  tickFieldTask,
 } from './saveRules';
 
 const NOW = new Date('2026-09-27T12:00:00.000Z');
@@ -122,13 +125,61 @@ describe('act milestones', () => {
   it('tests out once: half the mission XP, missions marked, act complete', () => {
     const passed = { percent: 90, testedOut: true };
     const save = recordPlacement(fresh(), sampleAct, missions, passed, NOW);
-    const missionXp = missions.reduce((total, entry) => total + entry.xp, 0);
-    expect(save.profile.xp).toBe(Math.round(missionXp / 2));
+    const halves = missions.map((entry) => placementTestOutXp([entry.xp]));
+    expect(save.profile.xp).toBe(halves.reduce((total, xp) => total + xp, 0));
+    expect(save.missions[sampleMission.id]?.xpEarned).toBe(halves[0]);
     expect(missionDone(save, sampleMission.id)).toBe(true);
     expect(save.acts[String(sampleAct.act)]?.completedAt).toBe(NOW.toISOString());
     const again = recordPlacement(save, sampleAct, missions, passed, LATER);
     expect(again.profile.xp).toBe(save.profile.xp);
-    expect(again.acts[String(sampleAct.act)]?.placement.attempts).toBe(2);
+  });
+
+  it('counts attempts when a run begins, and records only the score when it ends', () => {
+    const begun = countPlacementAttempt(countPlacementAttempt(fresh(), sampleAct.act), 2);
+    expect(begun.acts['2']?.placement).toEqual({
+      attempts: 2,
+      bestPercent: null,
+      testedOut: false,
+    });
+    const missed = { percent: 40, testedOut: false };
+    const ended = recordPlacement(begun, sampleAct, missions, missed, NOW);
+    expect(ended.acts['2']?.placement).toEqual({
+      attempts: 2,
+      bestPercent: 40,
+      testedOut: false,
+    });
+  });
+
+  it('pays test-out XP only for missions not already finished', () => {
+    const done = completeMission(
+      fresh(),
+      sampleAct,
+      sampleMission,
+      { drillPercent: 100, questionXp: 0, directingXp: 0 },
+      NOW,
+    );
+    const save = recordPlacement(done, sampleAct, missions, { percent: 90, testedOut: true }, NOW);
+    const rest = [secondMission, thirdMission].map((entry) => placementTestOutXp([entry.xp]));
+    expect(save.profile.xp - done.profile.xp).toBe(rest.reduce((total, xp) => total + xp, 0));
+    expect(save.missions[sampleMission.id]?.status).toBe('completed');
+  });
+
+  it('pays only the other half when a tested-out mission is finished later, and once', () => {
+    const testedOut = recordPlacement(
+      fresh(),
+      sampleAct,
+      missions,
+      { percent: 90, testedOut: true },
+      NOW,
+    );
+    const result = { drillPercent: 100, questionXp: 0, directingXp: 0 };
+    const played = completeMission(testedOut, sampleAct, sampleMission, result, LATER);
+    expect(played.profile.xp - testedOut.profile.xp).toBe(
+      sampleMission.xp - placementTestOutXp([sampleMission.xp]),
+    );
+    expect(played.missions[sampleMission.id]?.xpEarned).toBe(sampleMission.xp);
+    const replayed = completeMission(played, sampleAct, sampleMission, result, LATER);
+    expect(replayed.profile.xp).toBe(played.profile.xp);
   });
 
   it('records a failed placement without completing anything', () => {
@@ -141,7 +192,7 @@ describe('act milestones', () => {
     );
     expect(save.profile.xp).toBe(0);
     expect(save.acts[String(sampleAct.act)]).toMatchObject({
-      placement: { attempts: 1, bestPercent: 50, testedOut: false },
+      placement: { attempts: 0, bestPercent: 50, testedOut: false },
       completedAt: null,
     });
   });
@@ -185,6 +236,47 @@ describe('act milestones', () => {
     const entry = partial.fieldMissions[sampleAct.fieldMission.id];
     expect(entry?.checklist[first.id]).toBe(true);
     expect(entry?.verifiedAt).toBe(rest.length === 0 ? NOW.toISOString() : null);
+  });
+
+  it('remembers the GitHub check, which never completes the mission or the Act', () => {
+    const id = sampleAct.fieldMission.id;
+    const failed = recordGitHubCheck(fresh(), sampleAct, 'kyle/sandcastles', null);
+    expect(failed.fieldMissions[id]).toEqual({
+      checklist: {},
+      verifiedAt: null,
+      githubRepo: 'kyle/sandcastles',
+    });
+    const passed = recordGitHubCheck(failed, sampleAct, 'kyle/sandcastles', NOW);
+    expect(passed.fieldMissions[id]?.githubVerifiedAt).toBe(NOW.toISOString());
+    expect(passed.acts[String(sampleAct.act)]?.fieldMissionCompletedAt ?? null).toBeNull();
+    // A later failed check keeps the pass; naming another repo clears it.
+    const again = recordGitHubCheck(passed, sampleAct, 'kyle/sandcastles', null);
+    expect(again.fieldMissions[id]?.githubVerifiedAt).toBe(NOW.toISOString());
+    const other = recordGitHubCheck(passed, sampleAct, 'kyle/other', null);
+    expect(other.fieldMissions[id]?.githubVerifiedAt).toBeUndefined();
+    // Passing pastes later keeps the repo Kyle named.
+    const ids = sampleAct.fieldMission.verifications.map((check) => check.id);
+    expect(recordFieldMission(passed, sampleAct, ids, LATER).fieldMissions[id]?.githubRepo).toBe(
+      'kyle/sandcastles',
+    );
+  });
+
+  it('saves a ticked task, unticks it, and never completes the mission by ticks alone', () => {
+    const field = sampleAct.fieldMission;
+    const [task] = field.checklist;
+    if (task === undefined) throw new Error('need a checklist task');
+    let save = fresh();
+    for (const item of field.checklist) save = tickFieldTask(save, sampleAct, item.id, true);
+    expect(save.fieldMissions[field.id]?.checklist[task.id]).toBe(true);
+    expect(save.fieldMissions[field.id]?.verifiedAt).toBeNull();
+    expect(save.acts[String(sampleAct.act)]?.fieldMissionCompletedAt ?? null).toBeNull();
+    save = tickFieldTask(save, sampleAct, task.id, false);
+    expect(save.fieldMissions[field.id]?.checklist[task.id]).toBe(false);
+  });
+
+  it('ignores a tick for a task the Field Mission doesn’t have', () => {
+    const save = fresh();
+    expect(tickFieldTask(save, sampleAct, 'no-such-task', true)).toBe(save);
   });
 });
 

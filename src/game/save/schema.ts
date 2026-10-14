@@ -179,6 +179,10 @@ const reviewQueueSchema = z
 export const fieldMissionProgressSchema = z.object({
   checklist: z.record(idSchema, z.boolean()),
   verifiedAt: timestampSchema.nullable(),
+  // The opt-in GitHub check: the public repo Kyle named, like "kyle/sandcastles", and
+  // when it last passed. Optional rather than a new schemaVersion, so older saves load.
+  githubRepo: z.string().optional(),
+  githubVerifiedAt: timestampSchema.optional(),
 });
 
 // Never add a secret here, such as the GitHub token planned for M3. exportSave() copies the

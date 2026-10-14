@@ -51,6 +51,9 @@ describe('the roadmap', () => {
     expect(act1?.boss.title).toBe('Works on My Machine');
     expect(act1?.fieldMission?.title).toBe('Brief Your Real Agent');
     expect(act1?.tryouts).toEqual([]);
+    // Act 1 is finished, so its status no longer says anything is still to come.
+    expect(act1?.status).toContain('the Field Mission');
+    expect(act1?.status).not.toMatch(/Early access|not built/i);
   });
 
   it('says plainly that Acts 3 to 8 are played by clicking, with their finals as bosses', () => {
@@ -62,6 +65,13 @@ describe('the roadmap', () => {
       expect(entry?.missions.length).toBeLessThanOrEqual(5);
       expect(entry?.status).not.toContain('Not built yet');
     }
+  });
+
+  it('says Act 5 has its placement test and its Field Mission on SandCastles', () => {
+    const act5 = roadmapAct(5);
+    expect(act5?.status).toContain('placement test');
+    expect(act5?.status).toContain('Field Mission');
+    expect(act5?.fieldMission?.title).toBe('Green on Every Push');
   });
 });
 

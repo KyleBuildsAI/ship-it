@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LessonSchema, isPickCard } from '../../game/missions/lessonSchema';
+import { requireFieldMission, requireLessonPlacement } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
-import { act6, act6Lessons } from './index';
+import { verifyPaste } from '../../game/play/fieldCheck';
+import { act6, act6Lessons, act6Placement, documentOneRequest } from './index';
 
 /*
  * Act 6's own content checks, on top of the shared ones every lesson Act gets in
@@ -22,7 +24,7 @@ describe('Act 6: How Systems Work', () => {
     }
   });
 
-  it('passes validateAct, with every lesson in missionIds in play order', () => {
+  it('passes validateAct, placement and Field Mission included, lessons in play order', () => {
     expect(validateAct(act, [], lessons)).toEqual([]);
     expect(act.missionIds).toEqual(lessons.map((lesson) => lesson.id));
     expect(act.missionIds).toEqual([
@@ -99,6 +101,139 @@ describe('Act 6: How Systems Work', () => {
     }
   });
 
+  it('is a finished Act, with a placement test and a Field Mission', () => {
+    expect(act.earlyAccess).toBe(false);
+    expect(act.placementTest).toBeDefined();
+    expect(act.fieldMission?.id).toBe('document-one-request');
+  });
+
+  it('borrows three placement cards from each lesson, none from the final', () => {
+    const test = requireLessonPlacement(act);
+    const lenders = test.cardIds.map(
+      (id) => lessons.find((lesson) => lesson.cards.some((card) => card.id === id))?.id,
+    );
+    expect(lenders).not.toContain(final?.id);
+    for (const lesson of regular) {
+      expect(lenders.filter((id) => id === lesson.id).length, lesson.id).toBe(3);
+    }
+    // The final's pace, 40 seconds a card, since these cards have code and logs to read.
+    expect(test.timeLimitSeconds).toBe(test.cardIds.length * 40);
+    expect(test.passPercent).toBe(85);
+  });
+
+  it('asks a placement card that briefs Otto from every lesson', () => {
+    for (const lesson of regular) {
+      const borrowed = lesson.cards.filter((card) => act6Placement.cardIds.includes(card.id));
+      expect(
+        borrowed.some((card) => card.kind === 'prompt'),
+        lesson.id,
+      ).toBe(true);
+    }
+  });
+});
+
+describe('Act 6 Field Mission: Document One Request', () => {
+  const field = requireFieldMission(act6.act);
+  const verification = (id: string) => {
+    const found = field.verifications.find((check) => check.id === id);
+    if (found === undefined) throw new Error(`no verification ${id}`);
+    return found;
+  };
+  const synced = [
+    'On branch main',
+    "Your branch is up to date with 'origin/main'.",
+    '',
+    'nothing to commit, working tree clean',
+    '',
+  ].join('\n');
+
+  it('happens on SandCastles, through a docs branch and a pull request', () => {
+    expect(field.repoName).toBe('SandCastles');
+    const text = field.checklist.map((item) => item.text).join(' ');
+    for (const words of ['agent', 'README', 'status code', 'docs/', 'pull request', '/health']) {
+      expect(text, words).toContain(words);
+    }
+  });
+
+  it('lets the agent run every check, as long as Kyle sees the exact output', () => {
+    // A vibe coder may never open PowerShell, so no check depends on typing it himself.
+    for (const check of field.verifications) {
+      expect(check.instruction, check.id).toContain('ask your agent');
+      expect(check.instruction, check.id).toContain('exact output');
+    }
+  });
+
+  it('asks for fake values and a read-through for secrets, since no paste can see them', () => {
+    const text = field.checklist.map((item) => item.text).join(' ');
+    expect(text).toContain('obvious fakes');
+    expect(text).toContain('no keys, tokens, cookies');
+    expect(text).not.toContain('not a guess');
+  });
+
+  it('passes a documented request, merged as docs:, synced, with no secret file', () => {
+    const readme = 'README.md:12:GET /health\nREADME.md:14:Returns 200 and {"status":"ok"}.\n';
+    expect(verifyPaste(verification('readme-documents-request'), readme)).toMatchObject({
+      passed: true,
+    });
+    expect(
+      verifyPaste(verification('merged-docs-commit'), 'a1b2c3d docs: document GET /health (#7)\n'),
+    ).toMatchObject({ passed: true });
+    expect(verifyPaste(verification('synced-with-github'), synced)).toMatchObject({
+      passed: true,
+    });
+    expect(
+      verifyPaste(verification('no-secret-file'), 'README.md\n.env.example\nsrc/server.ts\n'),
+    ).toMatchObject({ passed: true });
+  });
+
+  it('fails an untouched repo that only passed Act 2', () => {
+    // After Clean the Dirty Tree, the repo is clean and its commits Conventional, so only
+    // the README itself and the type of its newest change show this mission was done.
+    const noApi = 'README.md:3:Built in 2024 on port 3000.\n';
+    expect(verifyPaste(verification('readme-documents-request'), noApi)).toMatchObject({
+      passed: false,
+    });
+    expect(
+      verifyPaste(verification('merged-docs-commit'), 'a1b2c3d chore: ignore build output\n'),
+    ).toMatchObject({ passed: false });
+  });
+
+  it('fails an unpushed commit, leftover changes and a committed .env', () => {
+    const ahead = synced.replace(
+      "Your branch is up to date with 'origin/main'.",
+      "Your branch is ahead of 'origin/main' by 1 commit.",
+    );
+    expect(verifyPaste(verification('synced-with-github'), ahead)).toMatchObject({
+      passed: false,
+    });
+    const dirty = [
+      'On branch main',
+      "Your branch is up to date with 'origin/main'.",
+      '',
+      'Changes not staged for commit:',
+      '  (use "git add <file>..." to update what will be committed)',
+      '\tmodified:   README.md',
+      '',
+      'no changes added to commit (use "git add" and/or "git commit -a")',
+      '',
+    ].join('\n');
+    expect(verifyPaste(verification('synced-with-github'), dirty)).toMatchObject({
+      passed: false,
+    });
+    expect(verifyPaste(verification('no-secret-file'), 'README.md\n.env\n')).toMatchObject({
+      passed: false,
+    });
+  });
+
+  it('never asks for a GitHub token or a key', () => {
+    // It works with no token: every check reads output Kyle pastes from his own terminal.
+    const text = JSON.stringify(documentOneRequest).toLowerCase();
+    expect(text).not.toContain('token:');
+    expect(text).not.toMatch(/ghp_|sk-ant-/);
+  });
+});
+
+describe('Act 6 topics', () => {
   it('covers the topics DESIGN.md section 11 lists for this Act', () => {
     // A loose check that each topic shows up somewhere a player will read it.
     const text = JSON.stringify(act6Lessons).toLowerCase();

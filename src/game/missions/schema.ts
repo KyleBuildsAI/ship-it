@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { FixtureStep } from '../../engine/fixtures';
 import { isMachineStep } from '../../engine/machine/fixtures';
+import { CONVENTIONAL_TYPES } from '../../engine/verify';
 import {
   AgentTaskSchema,
   APPROVAL_MODES,
@@ -345,21 +346,82 @@ const BossSchema = z
   });
 
 // ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
-export const FIELD_PARSERS = ['status-short', 'status-long', 'log-oneline', 'ls-files'] as const;
+// gh-run-list is GitHub's own word on a CI run, read through the player's gh login, so
+// the game never needs a token to see a green check.
+// select-string is PowerShell's Select-String, which shows the lines of a file that match,
+// like a README's request lines or `Select-String '^## '`'s Markdown headings.
+export const FIELD_PARSERS = [
+  'status-short',
+  'status-long',
+  'log-oneline',
+  'ls-files',
+  'gh-run-list',
+  'select-string',
+] as const;
 export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('clean') }),
-  /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
+  /**
+   * Nothing left to commit. A clean tree alone can't prove work landed (a feature branch is
+   * clean too), so a check can also require the branch; `pushed`, that nothing waits to go
+   * to GitHub (`git status -sb`'s `##` line or a long status); or `upstream`, that it
+   * matches its remote branch exactly, which `git status` only knows after a fetch. With
+   * `paths`, only those files count, so unrelated work in progress elsewhere in the repo
+   * doesn't have to be touched to pass.
+   */
+  z.strictObject({
+    kind: z.literal('clean'),
+    branch: NameSchema.optional(),
+    pushed: z.literal(true).optional(),
+    upstream: z.literal('up-to-date').optional(),
+    paths: z.array(NameSchema).min(1).optional(),
+  }),
+  /**
+   * The matched lines of `file` name a request (`GET /health`) and a status code (`200`),
+   * so the README really documents one, rather than only having been committed.
+   */
+  z.strictObject({ kind: z.literal('documentsRequest'), file: NameSchema }),
+  /**
+   * At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages,
+   * and only of these `types` when it's given, like ['ci'].
+   */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
     min: z.number().min(0).max(1),
     last: z.int().positive(),
+    types: z.array(z.enum(CONVENTIONAL_TYPES)).min(1).optional(),
   }),
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
+  /** Git tracks a file matching one of `patterns` (a path, or a folder ending in /), and no secret. */
+  z.strictObject({ kind: z.literal('tracksPath'), patterns: z.array(NameSchema).min(1) }),
+  /** The newest run in a `gh run list` paste finished green. */
+  z.strictObject({ kind: z.literal('latestRunGreen') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
+  /**
+   * The newest commit is a merge (not a squash or a rebase) of a typed branch like
+   * `feat/x`, and the branch's own newest commit is a Conventional Commit. Needs
+   * `git log --oneline --graph`, whose drawing shows which commits the branch brought in.
+   */
+  z.strictObject({ kind: z.literal('mergeCommit') }),
+  /** The newest commit is a squash-merged PR: a Conventional title ending in " (#N)". */
+  z.strictObject({ kind: z.literal('squashMergedPr') }),
+  /**
+   * No commit on any branch ever touched `path`: `git log --all --oneline -- <path>`
+   * printed nothing. Pushing publishes history, so a file removed later still leaks.
+   */
+  z.strictObject({ kind: z.literal('noCommits'), path: NameSchema }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
+  /** At least one of these files is tracked, e.g. the CLAUDE.md or AGENTS.md just written. */
+  z.strictObject({ kind: z.literal('tracksAny'), paths: z.array(NameSchema).min(1) }),
+  /** The newest commit someone wrote has this Conventional type, e.g. `docs`. */
+  z.strictObject({ kind: z.literal('newestCommitType'), type: z.enum(CONVENTIONAL_TYPES) }),
+  /** The newest commit listed is GitHub's merge of a pull request, squashed or not. */
+  z.strictObject({ kind: z.literal('viaPullRequest') }),
+  /** Every one of `paths` is tracked by git, and (as ls-files lists them all) no secret is. */
+  z.strictObject({ kind: z.literal('tracked'), paths: z.array(NameSchema).min(1) }),
+  /** A Markdown file has these `##` headings, in this order. Other headings may sit between. */
+  z.strictObject({ kind: z.literal('headings'), headings: z.array(NameSchema).min(1) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
 
@@ -370,10 +432,22 @@ export type FieldCheck = z.output<typeof FieldCheckSchema>;
  */
 export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[]> = {
   clean: ['status-short', 'status-long'],
+  documentsRequest: ['select-string'],
   ignores: ['status-short', 'status-long'],
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
+  tracksPath: ['ls-files'],
+  latestRunGreen: ['gh-run-list'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
+  newestCommitType: ['log-oneline'],
+  // A status lists only changed files, so only ls-files can show an unchanged one is tracked.
+  tracksAny: ['ls-files'],
+  mergeCommit: ['log-oneline'],
+  squashMergedPr: ['log-oneline'],
+  noCommits: ['log-oneline'],
+  viaPullRequest: ['log-oneline'],
+  tracked: ['ls-files'],
+  headings: ['select-string'],
 };
 
 const VerificationSchema = z
@@ -384,6 +458,14 @@ const VerificationSchema = z
     command: NameSchema,
     parser: z.enum(FIELD_PARSERS),
     check: FieldCheckSchema,
+    /**
+     * What to say when the command printed nothing. Some commands, like
+     * `git log -- docs/specs`, print nothing until the work exists, so "paste it first"
+     * would wrongly suggest Kyle forgot to paste.
+     */
+    whenEmpty: ScreenTextSchema.optional(),
+    /** What to do about a failure, in place of the general advice, when this mission needs other advice. */
+    advice: ScreenTextSchema.optional(),
   })
   .superRefine((verification, ctx) => {
     const usable = PARSERS_FOR_CHECK[verification.check.kind];
@@ -403,15 +485,50 @@ const FieldMissionSchema = z
     /** The real repository this happens in, e.g. "SandCastles". */
     repoName: NameSchema,
     briefing: CaptionsSchema,
-    checklist: z.array(z.strictObject({ id: IdSchema, text: ScreenTextSchema })).min(1),
+    checklist: z
+      .array(
+        z.strictObject({
+          id: IdSchema,
+          text: ScreenTextSchema,
+          /**
+           * Words to give an AI agent, shown apart from `text` with a Copy button, so a
+           * vibe coder pastes the exact brief instead of selecting it out of a sentence.
+           */
+          prompt: ScreenTextSchema.optional(),
+        }),
+      )
+      .min(1),
     verifications: z.array(VerificationSchema).min(1),
+    /**
+     * An opt-in check through GitHub's API (DESIGN.md section 8), beside the paste checks
+     * and never instead of them: they alone finish the mission. It reads the newest PR
+     * merged into main, needs the description to have these section headings, and needs
+     * no token, since a public repo's PRs are readable by anyone.
+     */
+    github: z
+      .strictObject({
+        instruction: ScreenTextSchema,
+        sections: z.array(NameSchema).min(1),
+      })
+      .optional(),
   })
   .superRefine((field, ctx) => {
     checkUniqueIds(field.checklist, 'checklist', ctx);
     checkUniqueIds(field.verifications, 'verifications', ctx);
+    // Ticked tasks and passed checks are saved in one record by id, so they must not clash.
+    const checkIds = new Set(field.verifications.map((check) => check.id));
+    field.checklist.forEach((item, index) => {
+      if (checkIds.has(item.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Checklist item "${item.id}" has the same id as a verification.`,
+          path: ['checklist', index, 'id'],
+        });
+      }
+    });
   });
 
-const PlacementSchema = z.strictObject({
+const DrillPlacementSchema = z.strictObject({
   /** One line in the Act menu for players who may know this already. */
   pitch: z.string().min(1),
   /** Drills borrowed from this Act's missions (DESIGN.md section 5: 8-12 scenarios). */
@@ -419,16 +536,57 @@ const PlacementSchema = z.strictObject({
   passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
 });
 
+/**
+ * The fewest seconds a lesson placement gives each card. A lesson final's tests hold it to
+ * 40; a placement is a little brisker, since it's for players who know this already.
+ */
+export const LESSON_PLACEMENT_SECONDS_PER_CARD = 30;
+
+/**
+ * A lesson Act's placement test: cards borrowed from its lessons, answered by clicking on
+ * one shared clock, like a final. Lessons have no drills, so it names cards instead.
+ * validateAct checks every card exists in one of the Act's lessons (not the final, which
+ * is the boss) and that each of those lessons lends at least two.
+ */
+const LessonPlacementSchema = z
+  .strictObject({
+    pitch: z.string().min(1),
+    /** Card ids from this Act's lessons, in the order they're asked. */
+    cardIds: z.array(IdSchema).min(4).max(18),
+    /** One clock for every card, starting when the briefing ends. */
+    timeLimitSeconds: z.int().positive().max(1800),
+    passPercent: z.literal(PLACEMENT_PASS_PERCENT).default(PLACEMENT_PASS_PERCENT),
+  })
+  .superRefine((test, ctx) => {
+    const fewest = test.cardIds.length * LESSON_PLACEMENT_SECONDS_PER_CARD;
+    if (test.timeLimitSeconds < fewest) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['timeLimitSeconds'],
+        message: `Give each card at least ${String(LESSON_PLACEMENT_SECONDS_PER_CARD)} seconds: ${String(fewest)} for these.`,
+      });
+    }
+  });
+
+// Both sides are strict objects, and only one has drillIds and only one has cardIds, so a
+// placement test can only ever match one of them.
+const PlacementSchema = z.union([DrillPlacementSchema, LessonPlacementSchema]);
+
 /** DESIGN.md section 5: an Act has 3 to 6 missions. In early access it may have fewer so far. */
 const MIN_MISSIONS = 3;
 const MAX_MISSIONS = 6;
 
+/** Whether a placement test names lesson cards, rather than mission drills. */
+export function isLessonPlacement(test: PlacementTest): test is LessonPlacementTest {
+  return 'cardIds' in test;
+}
+
 /**
  * The rules for an Act taught by lessons, which ends in a final lesson instead of a boss
  * fight (DESIGN.md section 5, Lessons). The final stands in for the boss, so there's no
- * boss as well. There's no placement test either: a placement test borrows drills from
- * missions, and lessons have none, so a few lessons are played instead of tested out of.
- * A Field Mission is optional; when there is one, it's needed to complete the Act.
+ * boss as well. Its placement test, when it has one, borrows cards from its lessons
+ * (lessons have no drills to borrow). A placement test and a Field Mission are optional;
+ * a Field Mission, when there is one, is needed to complete the Act.
  */
 function checkLessonAct(
   act: {
@@ -436,9 +594,9 @@ function checkLessonAct(
     readonly missionIds: readonly string[];
     readonly upcoming: readonly string[];
     readonly finalLessonId?: string;
-    // Only whether these exist matters here, so their shapes aren't needed.
+    readonly placementTest?: PlacementTest;
+    // Only whether a boss exists matters here, so its shape isn't needed.
     readonly boss?: unknown;
-    readonly placementTest?: unknown;
   },
   problem: (path: string, message: string) => void,
 ): void {
@@ -448,10 +606,17 @@ function checkLessonAct(
   if (act.boss !== undefined) {
     problem('boss', 'The final lesson is this Act’s boss, so it has no boss fight as well.');
   }
-  if (act.placementTest !== undefined) {
-    problem('placementTest', 'A lesson Act has no placement test: lessons have no drills.');
+  const { placementTest } = act;
+  if (placementTest !== undefined && !isLessonPlacement(placementTest)) {
+    problem('placementTest', 'A lesson Act’s placement test names cards: use cardIds.');
   }
-  if (act.earlyAccess) return;
+  if (act.earlyAccess) {
+    // Testing out skips every lesson, and some of this Act's aren't built yet.
+    if (placementTest !== undefined) {
+      problem('placementTest', 'An early-access Act has no placement test yet.');
+    }
+    return;
+  }
   if (act.missionIds.length < MIN_MISSIONS) {
     problem('missionIds', 'A finished Act needs 3 to 6 missions. Set earlyAccess until then.');
   }
@@ -500,6 +665,9 @@ export const ActSchema = z
       checkLessonAct(act, problem);
       return;
     }
+    if (act.placementTest !== undefined && isLessonPlacement(act.placementTest)) {
+      problem('placementTest', 'Only a lesson Act’s placement test names cards: use drillIds.');
+    }
     if (act.earlyAccess) {
       // Testing out completes every mission, and some of this Act's aren't built yet.
       if (act.placementTest !== undefined) {
@@ -522,12 +690,20 @@ export const ActSchema = z
 export type Act = z.output<typeof ActSchema>;
 export type ActInput = z.input<typeof ActSchema>;
 export type PlacementTest = NonNullable<Act['placementTest']>;
+/** A placement test of drills from an Act's missions, like Act 2's. */
+export type DrillPlacementTest = z.output<typeof DrillPlacementSchema>;
+/** A placement test of cards from a lesson Act's lessons. */
+export type LessonPlacementTest = z.output<typeof LessonPlacementSchema>;
 export type Boss = NonNullable<Act['boss']>;
 export type BossTwist = Boss['twists'][number];
 export type FieldMission = NonNullable<Act['fieldMission']>;
-/** A finished Act, with every part there. Act 2 is one. */
+/** What a content file writes for a Field Mission, in any Act. */
+export type FieldMissionInput = NonNullable<ActInput['fieldMission']>;
+/** What a content file writes for a lesson Act's placement test. */
+export type LessonPlacementInput = z.input<typeof LessonPlacementSchema>;
+/** A finished Act with missions, with every part there. Act 2 is one. */
 export type CompleteAct = Act & {
-  placementTest: PlacementTest;
+  placementTest: DrillPlacementTest;
   boss: Boss;
   fieldMission: FieldMission;
 };
@@ -552,6 +728,24 @@ export function requirePlacement(act: Act): PlacementTest {
   return act.placementTest;
 }
 
+/** The placement test of an Act with missions: drills to play in the terminal. */
+export function requireDrillPlacement(act: Act): DrillPlacementTest {
+  const test = requirePlacement(act);
+  if (isLessonPlacement(test)) {
+    throw new ContentError(`Act ${String(act.act)}'s placement test is cards, not drills.`);
+  }
+  return test;
+}
+
+/** The placement test of a lesson Act: cards to answer by clicking. */
+export function requireLessonPlacement(act: Act): LessonPlacementTest {
+  const test = requirePlacement(act);
+  if (!isLessonPlacement(test)) {
+    throw new ContentError(`Act ${String(act.act)}'s placement test is drills, not cards.`);
+  }
+  return test;
+}
+
 export function requireBoss(act: Act): Boss {
   if (act.boss === undefined) throw missing(act, 'boss');
   return act.boss;
@@ -566,7 +760,7 @@ export function requireFieldMission(act: Act): FieldMission {
 export function requireComplete(act: Act): CompleteAct {
   return {
     ...act,
-    placementTest: requirePlacement(act),
+    placementTest: requireDrillPlacement(act),
     boss: requireBoss(act),
     fieldMission: requireFieldMission(act),
   };

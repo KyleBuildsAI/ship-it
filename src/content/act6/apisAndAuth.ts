@@ -78,7 +78,7 @@ export const apisAndAuth = {
         },
         {
           id: 'owner-missing',
-          text: 'owner is missing, so the API is broken.',
+          text: 'owner is missing from this response, so the backend is broken. Ask the backend team to always send a full owner object.',
           correct: false,
           feedback: 'owner is there, with the value null. Missing and null are different things.',
         },
@@ -223,10 +223,10 @@ export const apisAndAuth = {
       options: [
         {
           id: 'env-ok',
-          text: 'Looks good: the key comes from an environment variable, not the code.',
+          text: 'Approve it: the key comes from an environment variable, not the code, and .env is gitignored, so the secret never reaches GitHub or the public.',
           correct: false,
           feedback:
-            'On a server, yes. But Vite bakes VITE_ variables into the browser bundle, which anyone can read.',
+            'Gitignoring .env keeps it off GitHub, but Vite bakes VITE_ variables into the browser bundle, which anyone can read.',
         },
         {
           id: 'server-side',

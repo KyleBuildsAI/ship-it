@@ -204,7 +204,7 @@ export const twoWaysToMerge = {
         },
         {
           id: 'release',
-          text: 'Only release/2.4, because it matters most to keep tidy.',
+          text: 'Only release/2.4, because a release branch matters most to keep tidy and in a straight line.',
           correct: false,
           feedback: 'Backwards: the more people hold a branch, the more a rewrite hurts.',
         },

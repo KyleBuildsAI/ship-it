@@ -545,6 +545,48 @@ describe('ActSchema', () => {
     );
     expect(verify('status-short', { kind: 'ignores', patterns: [] }).success).toBe(false);
     expect(verify('ls-files', { kind: 'clean' }).success).toBe(false);
+    expect(verify('ls-files', { kind: 'tracksPath', patterns: ['ci.yml'] }).success).toBe(true);
+    expect(verify('status-short', { kind: 'tracksPath', patterns: ['ci.yml'] }).success).toBe(
+      false,
+    );
+    expect(verify('gh-run-list', { kind: 'latestRunGreen' }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'latestRunGreen' }).success).toBe(false);
+    const typed = { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci'] };
+    expect(verify('log-oneline', typed).success).toBe(true);
+    expect(verify('log-oneline', { ...typed, types: ['wip'] }).success).toBe(false);
+    expect(verify('log-oneline', { kind: 'newestCommitType', type: 'docs' }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'newestCommitType', type: 'wip' }).success).toBe(false);
+    expect(verify('select-string', { kind: 'documentsRequest', file: 'README.md' }).success).toBe(
+      true,
+    );
+    expect(
+      problems(verify('status-long', { kind: 'documentsRequest', file: 'README.md' })),
+    ).toEqual(['A "documentsRequest" check needs select-string output.']);
+    expect(verify('ls-files', { kind: 'tracked', paths: ['README.md'] }).success).toBe(true);
+    expect(problems(verify('status-short', { kind: 'tracked', paths: ['README.md'] }))).toEqual([
+      'A "tracked" check needs ls-files output.',
+    ]);
+    expect(verify('select-string', { kind: 'headings', headings: ['Task'] }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'headings', headings: ['Task'] }).success).toBe(false);
+    expect(verify('status-short', { kind: 'clean', paths: ['README.md'] }).success).toBe(true);
+    expect(verify('status-short', { kind: 'clean', paths: [] }).success).toBe(false);
+  });
+
+  it('keeps checklist ids apart from verification ids, since one save record holds both', () => {
+    const field = sampleActInput.fieldMission;
+    const check = first(field.verifications);
+    const result = act({
+      fieldMission: { ...field, checklist: [{ id: check.id, text: 'Do the thing.' }] },
+    });
+    expect(problems(result)).toEqual([
+      `Checklist item "${check.id}" has the same id as a verification.`,
+    ]);
+  });
+
+  it('lets a checklist task carry a brief to copy for an AI agent', () => {
+    const field = sampleActInput.fieldMission;
+    const withPrompt = [{ id: 'brief', text: 'Brief your agent.', prompt: 'Write the README.' }];
+    expect(act({ fieldMission: { ...field, checklist: withPrompt } }).success).toBe(true);
   });
 
   it('rejects duplicate checklist and verification ids', () => {
@@ -612,7 +654,7 @@ describe('an Act made of lessons', () => {
     expect(lessonAct({ fieldMission: sampleActInput.fieldMission }).success).toBe(true);
   });
 
-  it('plays its final last, and has no boss or placement test besides', () => {
+  it('plays its final last, and has no boss fight or drill placement test besides', () => {
     const reordered = ['sample-final', 'sample-pr-review', 'sample-second-review'];
     expect(problems(lessonAct({ missionIds: reordered }))).toEqual([
       'The final lesson is played last, so list it last in missionIds.',
@@ -620,7 +662,33 @@ describe('an Act made of lessons', () => {
     const { boss, placementTest } = sampleActInput;
     expect(problems(lessonAct({ boss, placementTest }))).toEqual([
       'The final lesson is this Act’s boss, so it has no boss fight as well.',
-      'A lesson Act has no placement test: lessons have no drills.',
+      'A lesson Act’s placement test names cards: use cardIds.',
+    ]);
+  });
+
+  const cardPlacement = {
+    pitch: 'Know this already?',
+    cardIds: ['read-the-diff', 'brief-the-fix', 'merge-steps', 'red-ci'],
+    timeLimitSeconds: 160,
+  };
+
+  it('takes a placement test of cards, with at least 30 seconds a card', () => {
+    const parsed = ActSchema.parse({ ...lessonActInput, placementTest: cardPlacement });
+    expect(parsed.placementTest).toEqual({ ...cardPlacement, passPercent: 85 });
+    expect(
+      problems(lessonAct({ placementTest: { ...cardPlacement, timeLimitSeconds: 119 } })),
+    ).toEqual(['Give each card at least 30 seconds: 120 for these.']);
+    const tooFew = { ...cardPlacement, cardIds: ['read-the-diff', 'brief-the-fix', 'red-ci'] };
+    expect(lessonAct({ placementTest: tooFew }).success).toBe(false);
+  });
+
+  it('has no placement test in early access, and only a lesson Act names cards', () => {
+    expect(
+      problems(lessonAct({ placementTest: cardPlacement, earlyAccess: true, upcoming: ['More'] })),
+    ).toEqual(['An early-access Act has no placement test yet.']);
+    const missionAct = ActSchema.safeParse({ ...sampleActInput, placementTest: cardPlacement });
+    expect(problems(missionAct)).toEqual([
+      'Only a lesson Act’s placement test names cards: use drillIds.',
     ]);
   });
 

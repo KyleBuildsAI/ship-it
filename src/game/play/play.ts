@@ -2,12 +2,14 @@ import { endDrill } from '../../mentor/drillGuard';
 import type { Pace } from '../agent/pace';
 import { frameAgent } from './agentPlay';
 import { bossSandboxChanged, bossTick } from './bossPlay';
-import { lessonTick } from './lessonPlay';
+import { isLessonPlacement, requirePlacement } from '../missions/schema';
+import { getAct } from './catalog';
+import { lessonTick, startLessonPlacement } from './lessonPlay';
 import { frameMissionScene, missionSandboxChanged, missionTick } from './missionPlay';
 import { play } from './playStore';
 import { endScene } from './scenePlay';
 import { watchSandbox } from './sandboxControl';
-import { frameSeriesScene, seriesSandboxChanged, seriesTick } from './seriesPlay';
+import { frameSeriesScene, seriesSandboxChanged, seriesTick, startPlacement } from './seriesPlay';
 
 /** Routes a sandbox change to whatever is being played. */
 function sandboxChanged(): void {
@@ -41,6 +43,15 @@ export function framePlay(elapsedMs: number, pace: Pace, nowMs: number = Date.no
   } else if (kind === 'placement' || kind === 'review') {
     frameSeriesScene(elapsedMs, pace, nowMs);
   }
+}
+
+/**
+ * Takes an Act's placement test, whichever kind it has: an Act with missions has drills,
+ * played in the sandbox; a lesson Act has cards, answered by clicking in the lesson view.
+ */
+export function startActPlacement(act: number): void {
+  if (isLessonPlacement(requirePlacement(getAct(act).act))) startLessonPlacement(act);
+  else startPlacement(act);
 }
 
 /** Leaves whatever is being played. The sandbox stays as it is, for free play. */

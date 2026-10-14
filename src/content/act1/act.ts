@@ -1,7 +1,9 @@
 import type { ActInput, MissionInput } from '../../game/missions/schema';
 import { deletesAreForever } from './deletes-are-forever';
 import { everyTerminal } from './every-terminal';
+import { briefYourRealAgent } from './fieldMission';
 import { act1LessonInputs } from './lessons';
+import { act1Placement } from './placement';
 import { secretsStayHome } from './secrets-stay-home';
 import { whereThingsLive } from './whereThingsLive';
 
@@ -15,13 +17,14 @@ export const act1MissionInputs: readonly MissionInput[] = [
 
 /**
  * Act 1 plays its directed missions, then its lessons, with the timed final last. The
- * final stands in for the boss. It stays in early access because its Field Mission,
- * "Brief Your Real Agent", isn't built yet, so finishing it can't complete the Act.
+ * final stands in for the boss. With its placement test and its Field Mission, "Brief
+ * Your Real Agent", every part is built, so Act 1 is finished: completing it counts.
  */
 export const act1Input: ActInput = {
   act: 1,
   title: 'The Machine',
-  earlyAccess: true,
   missionIds: [...act1MissionInputs, ...act1LessonInputs].map((part) => part.id),
   finalLessonId: act1LessonInputs.at(-1)?.id,
+  placementTest: act1Placement,
+  fieldMission: briefYourRealAgent,
 };

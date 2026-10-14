@@ -18,7 +18,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       'What every engineer who directs AI agents needs to know about the machine they run on, learned with Otto on a laptop.',
     stage: 'playable',
     status:
-      'Early access: Missions 1.1 to 1.4 are directed, 1.5, 1.6 and the timed final are lessons answered by clicking, and the laptop sandbox is open. The Field Mission is not built yet.',
+      'Playable: the placement test, directed Missions 1.1 to 1.4, lessons 1.5 and 1.6 and the timed final answered by clicking, the laptop sandbox, and the Field Mission.',
     missions: [
       { title: 'Where Things Live' },
       { title: 'Deletes Are Forever' },
@@ -52,7 +52,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on your real repo.',
     missions: [
       { title: 'Branches Are Pointers' },
       { title: 'Two Ways to Merge' },
@@ -60,6 +61,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Tools for Bad Days' },
     ],
     boss: { title: 'Conflict Storm' },
+    fieldMission: { title: 'Land a Real Branch' },
   },
   {
     act: 4,
@@ -67,7 +69,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Remotes, fetch/pull/push, forks, issues, PRs, review etiquette, protected branches, CODEOWNERS, releases, semantic versioning, changelogs.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on your real repo.',
     missions: [
       { title: 'Remotes and Pushing' },
       { title: 'Issues and Pull Requests' },
@@ -75,6 +78,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Releases and Versions' },
     ],
     boss: { title: 'Rejected Push' },
+    fieldMission: { title: 'Ship It Through a Pull Request' },
   },
   {
     act: 5,
@@ -82,7 +86,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Unit, integration, and end-to-end tests. Linting, types, GitHub Actions, self-hosted runners, deploys, secrets management, dependency updates.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission.',
     missions: [
       { title: 'Tests Are Guardrails' },
       { title: 'Lint and Types' },
@@ -90,6 +95,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Secrets and Updates' },
     ],
     boss: { title: 'Red CI' },
+    fieldMission: { title: 'Green on Every Push' },
   },
   {
     act: 6,
@@ -97,7 +103,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'HTTP, REST, JSON, auth (API keys, OAuth, sessions), SQL basics, indexes, caching, queues, containers, cloud basics, logs, reading stack traces.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, then the Field Mission on your real repo.',
     missions: [
       { title: 'Requests and Responses' },
       { title: 'APIs and Auth' },
@@ -105,6 +112,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Logs and Stack Traces' },
     ],
     boss: { title: 'The 3am Page' },
+    fieldMission: { title: 'Document One Request' },
   },
   {
     act: 7,
@@ -112,7 +120,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Writing specs for agents, reviewing AI-written diffs, tests as guardrails, evals, tool use, context management, prompt injection, secrets and permissions, cost and latency trade-offs.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on your real repo with your own AI agent.',
     missions: [
       { title: 'Brief the Agent' },
       { title: 'Read What It Wrote' },
@@ -120,6 +129,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Guardrails for Agents' },
     ],
     boss: { title: 'The Agent Went Rogue' },
+    fieldMission: { title: 'Spec It, Then Ship It' },
   },
   {
     act: 8,
@@ -127,7 +137,8 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
     topics:
       'Live Python coding (no AI), debugging round, system design, customer scenario (forward-deployed style), project deep-dive (SandCastles), values round.',
     stage: 'playable',
-    status: 'Playable: four lessons and the timed final, all answered by clicking.',
+    status:
+      'Playable: the placement test, four lessons and the timed final, all answered by clicking, and the Field Mission on SandCastles.',
     missions: [
       { title: 'Think Out Loud' },
       { title: 'Debug From Symptoms' },
@@ -135,6 +146,7 @@ const ROADMAP_INPUT: readonly RoadmapActInput[] = [
       { title: 'Customers and Your Story' },
     ],
     boss: { title: 'The Mock Interview Loop' },
+    fieldMission: { title: 'Tell the SandCastles Story' },
   },
 ];
 
