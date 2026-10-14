@@ -1,9 +1,8 @@
 import { openMenu } from '../../game/hud';
 import { findDrill } from '../../game/play/catalog';
-import { startReview } from '../../game/play/seriesPlay';
+import { startReview, todaysItems } from '../../game/play/seriesPlay';
 import { progress } from '../../game/progress';
 import { compareDays, localDay } from '../../game/progression/days';
-import { dailySet } from '../../game/progression/reviewQueue';
 import { useStore } from '../useStore';
 import { Overlay } from './Overlay';
 
@@ -11,7 +10,8 @@ function drillPrompt(id: string): string {
   try {
     return findDrill(id).prompt;
   } catch {
-    // A drill from content this build no longer has; show its id rather than hide it.
+    // todaysItems already leaves out drills this build no longer has, so this is only a
+    // guard: an id is still better than a board that fails to open.
     return id;
   }
 }
@@ -20,8 +20,10 @@ function drillPrompt(id: string): string {
 export function StandupBoard() {
   const { save } = useStore(progress);
   if (save === null) return null;
-  const today = localDay(new Date());
-  const items = dailySet(save.reviewQueue, today);
+  const now = new Date();
+  const today = localDay(now);
+  // The same set the Act menu counts and Start review plays, so all three agree.
+  const items = todaysItems(now);
   const due = items.filter((item) => compareDays(item.dueOn, today) <= 0).length;
 
   return (
