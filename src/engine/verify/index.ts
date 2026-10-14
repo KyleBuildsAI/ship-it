@@ -5,8 +5,10 @@
  */
 export {
   buildOutputToIgnore,
+  commitTypeOf,
   conventionalRatio,
   isCleanStatus,
+  isPushedStatus,
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
@@ -18,6 +20,13 @@ export { detectPasteKind, type PasteKind } from './detect';
 export { parseLogOneline, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';
+export {
+  documentedRequest,
+  isFromFile,
+  parseSelectString,
+  type DocumentedRequest,
+  type SelectStringMatch,
+} from './selectString';
 export {
   parseStatusLong,
   type ChangeKind,

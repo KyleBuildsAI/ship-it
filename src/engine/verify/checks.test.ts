@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildOutputToIgnore,
+  commitTypeOf,
   conventionalRatio,
   isCleanStatus,
+  isPushedStatus,
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
@@ -16,10 +18,16 @@ import longIgnored from './fixtures/status-long-ignored.txt?raw';
 import longMergeConflict from './fixtures/status-long-merge-conflict.txt?raw';
 import longMixed from './fixtures/status-long-mixed.txt?raw';
 import longStagedUnborn from './fixtures/status-long-staged-unborn.txt?raw';
+import longGone from './fixtures/status-long-gone.txt?raw';
 import longSubdir from './fixtures/status-long-subdir.txt?raw';
+import longUpToDate from './fixtures/status-long-up-to-date.txt?raw';
+import sbAhead from './fixtures/status-sb-ahead.txt?raw';
+import sbBehind from './fixtures/status-sb-behind.txt?raw';
 import sbClean from './fixtures/status-sb-clean.txt?raw';
+import sbGone from './fixtures/status-sb-gone.txt?raw';
 import sbMixed from './fixtures/status-sb-mixed.txt?raw';
 import sbStagedUnborn from './fixtures/status-sb-staged-unborn.txt?raw';
+import sbUpToDate from './fixtures/status-sb-up-to-date.txt?raw';
 import shortClean from './fixtures/status-short-clean.txt?raw';
 import shortDeleted from './fixtures/status-short-deleted.txt?raw';
 import shortIgnored from './fixtures/status-short-ignored.txt?raw';
@@ -92,6 +100,44 @@ describe('conventionalRatio', () => {
   it('gives 0 when there is nothing to judge', () => {
     expect(conventionalRatio([])).toBe(0);
     expect(conventionalRatio([{ subject: "Merge branch 'x'" }])).toBe(0);
+  });
+});
+
+describe('commitTypeOf', () => {
+  it('names the type of a Conventional Commit, scope and all', () => {
+    expect(commitTypeOf('docs: document GET /health (#4)')).toBe('docs');
+    expect(commitTypeOf('feat(api)!: drop v1')).toBe('feat');
+  });
+
+  it('is null for anything else', () => {
+    expect(commitTypeOf('update readme')).toBeNull();
+    expect(commitTypeOf('Merge pull request #4 from kyle/docs')).toBeNull();
+  });
+});
+
+describe('isPushedStatus', () => {
+  it('passes a clean branch that matches its upstream, in both formats', () => {
+    expect(isPushedStatus(parseStatusLong(longUpToDate))).toBe(true);
+    expect(isPushedStatus(parseStatusShort(sbUpToDate))).toBe(true);
+  });
+
+  it('fails a commit that was never pushed, even when the tree is clean', () => {
+    expect(isCleanStatus(parseStatusLong(longAheadClean))).toBe(true);
+    expect(isPushedStatus(parseStatusLong(longAheadClean))).toBe(false);
+    expect(isPushedStatus(parseStatusShort(sbAhead))).toBe(false);
+    expect(isPushedStatus(parseStatusShort(sbBehind))).toBe(false);
+  });
+
+  it('fails when the paste never names an upstream, or it was deleted', () => {
+    expect(isPushedStatus(parseStatusLong(longClean))).toBe(false);
+    expect(isPushedStatus(parseStatusShort(sbClean))).toBe(false);
+    expect(isPushedStatus(parseStatusLong(longGone))).toBe(false);
+    expect(isPushedStatus(parseStatusShort(sbGone))).toBe(false);
+  });
+
+  it('fails a dirty tree, pushed or not', () => {
+    expect(isPushedStatus(parseStatusLong(longMixed))).toBe(false);
+    expect(isPushedStatus(parseStatusShort(sbMixed))).toBe(false);
   });
 });
 

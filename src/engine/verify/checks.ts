@@ -27,6 +27,12 @@ export function isConventionalSubject(subject: string): boolean {
   return CONVENTIONAL_SUBJECT.test(subject);
 }
 
+/** The Conventional Commit type of a subject, like `docs` for `docs(api): add GET`, else null. */
+export function commitTypeOf(subject: string): string | null {
+  if (!isConventionalSubject(subject)) return null;
+  return /^[a-z]+/.exec(subject)?.[0] ?? null;
+}
+
 /** True for a subject git wrote itself, like `Merge branch 'feature'`. */
 export function isGeneratedSubject(subject: string): boolean {
   return GENERATED_SUBJECT.test(subject);
@@ -52,6 +58,19 @@ export function conventionalRatio(commits: readonly { readonly subject: string }
  */
 export function isCleanStatus(status: ParsedStatus): boolean {
   return status.clean;
+}
+
+/**
+ * True when there is nothing to commit and nothing waiting to push or pull: the branch
+ * matches the copy on GitHub. A paste that never names an upstream can't prove that, so
+ * it fails, as does a branch whose upstream was deleted.
+ */
+export function isPushedStatus(status: ParsedStatus): boolean {
+  if (!status.clean) return false;
+  if (status.format === 'long') return status.upstream?.state === 'up-to-date';
+  const { branch } = status;
+  if (branch?.upstream === undefined || branch.upstreamGone === true) return false;
+  return (branch.ahead ?? 0) === 0 && (branch.behind ?? 0) === 0;
 }
 
 /** A conflict in short format: a U in either column, or AA / DD (both added or deleted). */
