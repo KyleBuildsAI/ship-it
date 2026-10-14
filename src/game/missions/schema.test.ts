@@ -545,6 +545,31 @@ describe('ActSchema', () => {
     );
     expect(verify('status-short', { kind: 'ignores', patterns: [] }).success).toBe(false);
     expect(verify('ls-files', { kind: 'clean' }).success).toBe(false);
+    expect(verify('ls-files', { kind: 'tracked', paths: ['README.md'] }).success).toBe(true);
+    expect(problems(verify('status-short', { kind: 'tracked', paths: ['README.md'] }))).toEqual([
+      'A "tracked" check needs ls-files output.',
+    ]);
+    expect(verify('select-string', { kind: 'headings', headings: ['Task'] }).success).toBe(true);
+    expect(verify('log-oneline', { kind: 'headings', headings: ['Task'] }).success).toBe(false);
+    expect(verify('status-short', { kind: 'clean', paths: ['README.md'] }).success).toBe(true);
+    expect(verify('status-short', { kind: 'clean', paths: [] }).success).toBe(false);
+  });
+
+  it('keeps checklist ids apart from verification ids, since one save record holds both', () => {
+    const field = sampleActInput.fieldMission;
+    const check = first(field.verifications);
+    const result = act({
+      fieldMission: { ...field, checklist: [{ id: check.id, text: 'Do the thing.' }] },
+    });
+    expect(problems(result)).toEqual([
+      `Checklist item "${check.id}" has the same id as a verification.`,
+    ]);
+  });
+
+  it('lets a checklist task carry a brief to copy for an AI agent', () => {
+    const field = sampleActInput.fieldMission;
+    const withPrompt = [{ id: 'brief', text: 'Brief your agent.', prompt: 'Write the README.' }];
+    expect(act({ fieldMission: { ...field, checklist: withPrompt } }).success).toBe(true);
   });
 
   it('rejects duplicate checklist and verification ids', () => {

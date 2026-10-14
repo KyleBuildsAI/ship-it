@@ -345,12 +345,23 @@ const BossSchema = z
   });
 
 // ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
-export const FIELD_PARSERS = ['status-short', 'status-long', 'log-oneline', 'ls-files'] as const;
+// select-string is `Select-String '^## '` output: the Markdown headings of a file.
+export const FIELD_PARSERS = [
+  'status-short',
+  'status-long',
+  'log-oneline',
+  'ls-files',
+  'select-string',
+] as const;
 export type FieldParser = (typeof FIELD_PARSERS)[number];
 
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('clean') }),
+  /**
+   * Nothing left to commit. With `paths`, only those files count, so unrelated work in
+   * progress elsewhere in the repo doesn't have to be touched to pass.
+   */
+  z.strictObject({ kind: z.literal('clean'), paths: z.array(NameSchema).min(1).optional() }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
     kind: z.literal('conventionalRatio'),
@@ -360,6 +371,10 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('noTrackedSecrets') }),
   z.strictObject({ kind: z.literal('minCommits'), count: z.int().positive() }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
+  /** Every one of `paths` is tracked by git, and (as ls-files lists them all) no secret is. */
+  z.strictObject({ kind: z.literal('tracked'), paths: z.array(NameSchema).min(1) }),
+  /** A Markdown file has these `##` headings, in this order. Other headings may sit between. */
+  z.strictObject({ kind: z.literal('headings'), headings: z.array(NameSchema).min(1) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
 
@@ -374,6 +389,8 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   noTrackedSecrets: ['ls-files', 'status-short', 'status-long'],
   conventionalRatio: ['log-oneline'],
   minCommits: ['log-oneline'],
+  tracked: ['ls-files'],
+  headings: ['select-string'],
 };
 
 const VerificationSchema = z
@@ -403,12 +420,35 @@ const FieldMissionSchema = z
     /** The real repository this happens in, e.g. "SandCastles". */
     repoName: NameSchema,
     briefing: CaptionsSchema,
-    checklist: z.array(z.strictObject({ id: IdSchema, text: ScreenTextSchema })).min(1),
+    checklist: z
+      .array(
+        z.strictObject({
+          id: IdSchema,
+          text: ScreenTextSchema,
+          /**
+           * Words to give an AI agent, shown apart from `text` with a Copy button, so a
+           * vibe coder pastes the exact brief instead of selecting it out of a sentence.
+           */
+          prompt: ScreenTextSchema.optional(),
+        }),
+      )
+      .min(1),
     verifications: z.array(VerificationSchema).min(1),
   })
   .superRefine((field, ctx) => {
     checkUniqueIds(field.checklist, 'checklist', ctx);
     checkUniqueIds(field.verifications, 'verifications', ctx);
+    // Ticked tasks and passed checks are saved in one record by id, so they must not clash.
+    const checkIds = new Set(field.verifications.map((check) => check.id));
+    field.checklist.forEach((item, index) => {
+      if (checkIds.has(item.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Checklist item "${item.id}" has the same id as a verification.`,
+          path: ['checklist', index, 'id'],
+        });
+      }
+    });
   });
 
 const DrillPlacementSchema = z.strictObject({
