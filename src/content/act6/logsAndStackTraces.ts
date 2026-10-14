@@ -65,8 +65,17 @@ export const logsAndStackTraces = {
     {
       id: 'what-was-undefined',
       kind: 'choose',
-      situation: 'Line 42 of send.ts reads: const to = invite.user.email;',
-      question: 'Given that error, what was undefined?',
+      situation:
+        'Inviting a teammate crashes with this error. Line 42 of send.ts reads: const to = invite.user.email;',
+      artifact: {
+        kind: 'error',
+        label: 'invite-api',
+        text: [
+          "TypeError: Cannot read properties of undefined (reading 'email')",
+          '    at sendInvite (src/invites/send.ts:42:31)',
+        ].join('\n'),
+      },
+      question: 'What was undefined?',
       options: [
         {
           id: 'user',
@@ -163,7 +172,7 @@ export const logsAndStackTraces = {
         },
         {
           id: 'logging-off',
-          text: 'Logging is turned off in production.',
+          text: 'Logging is switched off in production to save money, so failures from the mailer, and everything else, never reach the logs.',
           correct: false,
           feedback: 'Other errors still show up in the logs. Only this one vanished.',
         },
