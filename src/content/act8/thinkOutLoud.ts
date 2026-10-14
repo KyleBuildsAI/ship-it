@@ -23,10 +23,10 @@ export const thinkOutLoud = {
       options: [
         {
           id: 'start',
-          text: 'Nothing yet. Start writing the loop so there’s code on the screen.',
+          text: 'Nothing yet. Write a loop that keeps each email the first time it appears, so code is on the screen.',
           correct: false,
           feedback:
-            'Fast code for the wrong rule is still wrong. You don’t know what counts as a duplicate.',
+            'Fast code for the wrong rule is still wrong. You don’t know yet what counts as a duplicate, or which copy wins.',
         },
         {
           id: 'ask',
@@ -69,7 +69,7 @@ export const thinkOutLoud = {
         },
         {
           id: 'crash',
-          text: 'The slice crashes on the last page, when there aren’t 20 items left.',
+          text: 'The slice crashes on the last page, because start + size - 1 runs past the end when fewer than 20 customers are left.',
           correct: false,
           feedback: 'Python slices stop quietly at the end of a list. No crash.',
         },
@@ -197,13 +197,14 @@ export const thinkOutLoud = {
       options: [
         {
           id: 'works',
-          text: 'Make sure it works.',
+          text: 'Make sure it works: run the full test suite, open the customers table, click through every page to check each one looks full, then tell me it’s done.',
           correct: false,
-          feedback: 'Otto will say it works. Nothing in that instruction asks for proof.',
+          feedback:
+            'A page of 19 looks full at a glance, and no test is left behind. Nothing in that instruction asks for proof that lasts.',
         },
         {
           id: 'edge-tests',
-          text: 'Add tests: 45 customers, size 20; pages 0 and 1 must each return 20 with nobody skipped, page 2 returns 5, an empty list returns nothing. Show me the full-page tests fail without your fix and all pass with it.',
+          text: 'Add tests for 45 customers at size 20: pages 0 and 1 return 20 each, page 2 returns 5, an empty list returns none. Show they fail without your fix and pass with it.',
           correct: true,
           feedback:
             'Named cases plus fail-then-pass on the full pages, where people went missing, proves the tests catch the bug and keep it caught.',
@@ -217,7 +218,7 @@ export const thinkOutLoud = {
         },
         {
           id: 'clean-up',
-          text: 'While you’re in there, clean up the whole customers module.',
+          text: 'While you’re in there, move paging to a library and clean up the whole customers module, with tests for what you change.',
           correct: false,
           feedback:
             'A one-line fix grows into a big diff nobody can review. Keep the PR to the bug.',

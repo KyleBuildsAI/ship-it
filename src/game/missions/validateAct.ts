@@ -7,7 +7,8 @@ import {
   type AgentTask,
   type BaseAction,
 } from './agentSchema';
-import type { Lesson } from './lessonSchema';
+import { bestLengthStrategy } from './lessonPlacement';
+import type { Lesson, LessonCard } from './lessonSchema';
 import { isMachinePredicate } from './machinePredicates';
 import type { Predicate } from './predicates';
 import {
@@ -284,6 +285,20 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
 }
 
 /**
+ * A placement test shows no feedback, so the length of the options is the one clue a
+ * player who never reads them has. If one length rule (always the longest, always the
+ * second shortest, ...) picks the right option on more than half the pick cards, the
+ * test leaks its answers, so the wrong options need rewriting to match.
+ */
+function lengthTellProblem(cards: readonly LessonCard[]): string | null {
+  const best = bestLengthStrategy(cards);
+  const pickCards = cards.filter((card) => card.kind !== 'order').length;
+  if (best === null || best.right <= Math.floor(pickCards / 2)) return null;
+  const place = best.rank === 1 ? best.from : `number ${String(best.rank)} from the ${best.from}`;
+  return `The right option is the ${place} on ${String(best.right)} of ${String(pickCards)} pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.`;
+}
+
+/**
  * Checks a lesson Act's placement test against its lessons. It names cards by id alone,
  * so each must be exactly one card of a lesson in this Act. The final is the boss, and
  * testing out doesn't skip it, so its cards aren't borrowed. Every other lesson lends at
@@ -301,6 +316,7 @@ function lessonPlacementIssues(
   );
   for (const id of duplicates(cardIds)) report(`Card "${id}" is listed more than once.`);
   const borrowed = new Map<string, number>();
+  const cards: LessonCard[] = [];
   for (const id of new Set(cardIds)) {
     const owners = taught.filter((lesson) => lesson.cards.some((card) => card.id === id));
     const [owner] = owners;
@@ -310,6 +326,7 @@ function lessonPlacementIssues(
       report(`Card "${id}" is in more than one lesson; give each card its own id.`);
     } else {
       borrowed.set(owner.id, (borrowed.get(owner.id) ?? 0) + 1);
+      cards.push(...owner.cards.filter((card) => card.id === id));
     }
   }
   for (const lesson of taught) {
@@ -318,6 +335,8 @@ function lessonPlacementIssues(
       report(`Borrow at least 2 cards from lesson ${lesson.id}; it lends ${String(count)}.`);
     }
   }
+  const lengthProblem = lengthTellProblem(cards);
+  if (lengthProblem !== null) report(lengthProblem);
   return issues;
 }
 

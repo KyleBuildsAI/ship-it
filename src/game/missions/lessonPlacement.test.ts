@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { finishLessonBriefing, nextCard, pickOption, startLessonRun } from './lessonRunner';
-import { isPickCard, type Lesson } from './lessonSchema';
+import { isPickCard, type Lesson, type LessonCard } from './lessonSchema';
 import {
+  bestLengthStrategy,
   lessonPlacementResult,
   placementLesson,
   placementLessonId,
@@ -191,6 +192,62 @@ describe('the placement run', () => {
       percent: Math.round((100 * half) / picks.cards.length),
       testedOut: false,
     });
+  });
+});
+
+/** A pick card whose options have these lengths; the one marked `right` is correct. */
+function cardWithLengths(id: string, lengths: readonly number[], right: number): LessonCard {
+  return {
+    id,
+    kind: 'choose',
+    situation: 'A situation.',
+    question: 'Which?',
+    explanation: 'Because.',
+    options: lengths.map((length, index) => ({
+      id: `${id}-${String(index)}`,
+      text: 'x'.repeat(length),
+      correct: index === right,
+      feedback: 'Feedback.',
+    })),
+  };
+}
+
+describe('a placement test that picking by length could pass', () => {
+  it('finds the best rule that never reads the card, counted from either end', () => {
+    const cards = [
+      cardWithLengths('a', [10, 40, 20], 1),
+      cardWithLengths('b', [50, 30, 20], 0),
+      cardWithLengths('c', [10, 30, 20], 2),
+    ];
+    expect(bestLengthStrategy(cards)).toEqual({ from: 'longest', rank: 1, right: 2 });
+    expect(bestLengthStrategy([cardWithLengths('d', [5, 9], 0)])).toMatchObject({ right: 1 });
+  });
+
+  it('ignores a right option that ties another in length, and order cards', () => {
+    const tied = cardWithLengths('tied', [20, 20, 5], 0);
+    const order = full.lessons[0]?.cards.find((card) => card.kind === 'order');
+    expect(bestLengthStrategy(order ? [tied, order] : [tied])).toBeNull();
+  });
+
+  it('fails validation when the right option is the longest on most cards', () => {
+    // Pad every right answer so it is by far the longest: the classic tell.
+    const padded = full.lessons.map((lesson) => ({
+      ...lesson,
+      cards: lesson.cards.map((card) =>
+        isPickCard(card)
+          ? {
+              ...card,
+              options: card.options.map((option) =>
+                option.correct ? { ...option, text: `${option.text} ${'x'.repeat(200)}` } : option,
+              ),
+            }
+          : card,
+      ),
+    }));
+    const problems = validateAct(full.act, [], padded).map((issue) => issue.problem);
+    expect(problems).toEqual([
+      'The right option is the longest on 5 of 5 pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.',
+    ]);
   });
 });
 

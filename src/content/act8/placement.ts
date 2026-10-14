@@ -10,10 +10,10 @@ import type { LessonPlacementInput } from '../../game/missions/schema';
 
 /** The cards it asks, by lesson, in the order the lessons are played. */
 export const act8PlacementCards = {
-  'think-out-loud': ['off-by-one', 'reading-order', 'prove-the-fix'],
+  'think-out-loud': ['clarify', 'off-by-one', 'prove-the-fix'],
   'debug-from-symptoms': ['read-traceback', 'what-changed', 'repro-first'],
   'design-trade-offs': ['requirements-first', 'read-heavy', 'brief-a-design'],
-  'customers-and-your-story': ['listen-first', 'draft-reply', 'disagree'],
+  'customers-and-your-story': ['listen-first', 'prep-partner', 'disagree'],
 } as const;
 
 const cardIds = Object.values(act8PlacementCards).flat();

@@ -29,13 +29,13 @@ export const designTradeOffs = {
         },
         {
           id: 'database',
-          text: 'Pick the database first, since everything else sits on it.',
+          text: 'Pick the database first, since everything else sits on it: Postgres, with a links table keyed by token.',
           correct: false,
           feedback: 'You don’t know yet what it must store or how fast it must answer.',
         },
         {
           id: 'diagram',
-          text: 'Draw a big diagram with a load balancer, cache and queue straight away.',
+          text: 'Draw the full diagram straight away: a load balancer, two app servers, a cache and a queue, so the interviewer sees it can scale.',
           correct: false,
           feedback:
             'Boxes before requirements are guesses, and they may solve problems you don’t have.',
@@ -63,19 +63,20 @@ export const designTradeOffs = {
       options: [
         {
           id: 'writes',
-          text: 'Add servers for creating links.',
+          text: 'Add servers and a separate write database for creating links, since 12,400 new links a week is where the load comes from.',
           correct: false,
-          feedback: 'Creating is about 1% of the traffic. It isn’t what’s hurting.',
+          feedback:
+            'Creating is about 1% of the traffic. Views are the other 99%, and the top query is the view lookup.',
         },
         {
           id: 'rewrite',
-          text: 'Rewrite the service in a faster language.',
+          text: 'Rewrite the view service in Go, since 840ms at p95 means each request needs a faster language.',
           correct: false,
           feedback: 'The database is at 92%. The language isn’t the bottleneck.',
         },
         {
           id: 'index-cache',
-          text: 'Index share_token, then cache doc lookups by token. Say the cost: a revoked link may work until the cache entry expires.',
+          text: 'Index share_token, then cache lookups by token. The cost: a revoked link may work until its cache entry expires.',
           correct: true,
           feedback: 'You fixed the busy path and named the trade-off.',
         },
@@ -184,13 +185,14 @@ export const designTradeOffs = {
         },
         {
           id: 'best',
-          text: 'Design the best rate limiter possible, ready for millions of users.',
+          text: 'Design and build the best rate limiter possible: ready for millions of users in every region, a Redis cluster, a limit for each endpoint, and a dashboard so Marco can tune them all.',
           correct: false,
-          feedback: 'Quillwork has two servers. “Millions” invites a design you can’t run.',
+          feedback:
+            'Quillwork has two servers. “Millions” invites a design you can’t run, and “build” skips the choice that should be yours.',
         },
         {
           id: 'options',
-          text: 'Propose two rate-limit designs for our API: a limit of about 50 requests a second per customer, 2 servers. For each, say how it works, what happens if Redis goes down, and the cost. No code yet.',
+          text: 'Propose two rate-limit designs for about 50 requests a second per customer on our 2 servers. For each: how it works, what happens if Redis goes down, the cost. No code yet.',
           correct: true,
           feedback: 'Real numbers, a failure question, and a choice for you to make.',
         },
