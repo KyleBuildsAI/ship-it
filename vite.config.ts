@@ -72,6 +72,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts'],
+    // Vitest blanks CSS by default; a layout test reads theme.css's numbers (panelLayout.test.ts).
+    css: { include: [/theme\.css/] },
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}', 'server/**/*.ts'],

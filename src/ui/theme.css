@@ -413,7 +413,12 @@ body {
   position: absolute;
   top: 140px;
   left: 16px;
-  max-height: calc(100vh - 156px);
+  /*
+   * Stops 64px above the bottom: the Terminal button and the HUD menu sit in that strip
+   * (16px up, about 32px tall), and with the terminal closed by default the button is how
+   * a player finds it. 140 top + 64 bottom = 204.
+   */
+  max-height: calc(100vh - 204px);
   box-sizing: border-box;
   width: min(400px, 34vw);
   padding: 14px 16px;
