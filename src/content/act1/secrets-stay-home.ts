@@ -196,15 +196,17 @@ export const secretsStayHome: MissionInput = {
           },
           {
             id: 'copy-then-edit',
-            text: 'Copy .env.example to .env, set only PORT=3000, then show .env.',
+            text: 'Copy .env.example to .env, set only PORT=3000, then show the template.',
             quality: 'strong',
             covers: ['goal', 'place', 'limits', 'check'],
-            intents: ['copy then set only the port', 'set only port then show env'],
+            intents: ['copy then set only the port', 'set only port then show the template'],
             script: [
               { do: 'run', line: `Copy-Item ${API_PATH}\\.env.example ${API_PATH}\\.env` },
               PORT_EDIT,
-              // Safe to show: .env has no secret in it yet.
-              { do: 'run', line: `Get-Content ${API_PATH}\\.env` },
+              // Otto checks the names, never .env: it holds no secret yet, but the drills
+              // grade printing .env to Otto as a leak, so the strong card builds that habit.
+              // Kyle can look at .env himself with the look chip.
+              { do: 'run', line: `Get-Content ${API_PATH}\\.env.example` },
             ],
             claim: 'Done: .env has PORT=3000, and the template holds names only.',
             lesson: 'The template stayed names only, and a one-line edit kept every name in .env.',
