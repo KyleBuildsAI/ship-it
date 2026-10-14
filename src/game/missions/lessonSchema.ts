@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { beatsForAct } from '../world/beats';
 import { ACT_COUNT } from './roadmapSchema';
 import { checkUniqueIds, countWords, IdSchema, NameSchema } from './schemaParts';
 
@@ -83,6 +84,11 @@ const cardBase = {
   question: words(LESSON_WORDS.question),
   /** Shown after the card is solved: why, in plain words. */
   explanation: words(LESSON_WORDS.explanation),
+  /**
+   * The lesson scene to play on the Act's island while this card is on screen (a beat id
+   * from src/game/world/beats.ts). The lesson checks it's one its island knows.
+   */
+  beat: IdSchema.optional(),
 };
 
 /** One option of a choose or prompt card. Its feedback shows when it's picked. */
@@ -195,6 +201,34 @@ export const DEFAULT_LESSON_XP = 60;
 export const LESSON_KINDS = ['lesson', 'final'] as const;
 export type LessonKind = (typeof LESSON_KINDS)[number];
 
+/**
+ * Every beat a lesson names must be one its Act's island can play, or the card would ask
+ * the world for a scene that isn't there. The message lists the island's beats to pick from.
+ */
+function checkBeats(
+  lesson: {
+    act: number;
+    briefingBeat?: string | undefined;
+    cards: readonly { beat?: string | undefined }[];
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const known = beatsForAct(lesson.act);
+  const check = (beat: string | undefined, path: (string | number)[]) => {
+    if (beat === undefined || known.includes(beat)) return;
+    const choices = known.length === 0 ? 'none yet' : known.join(', ');
+    ctx.addIssue({
+      code: 'custom',
+      path,
+      message: `Act ${String(lesson.act)}'s island has no beat "${beat}". Its beats: ${choices}.`,
+    });
+  };
+  check(lesson.briefingBeat, ['briefingBeat']);
+  lesson.cards.forEach((card, index) => {
+    check(card.beat, ['cards', index, 'beat']);
+  });
+}
+
 export const LessonSchema = z
   .strictObject({
     id: IdSchema,
@@ -203,6 +237,8 @@ export const LessonSchema = z
     /** 'final' is the Act's timed final challenge: every card shares one clock. */
     kind: z.enum(LESSON_KINDS).default('lesson'),
     briefing: z.array(words(LESSON_WORDS.caption)).min(2).max(3),
+    /** The lesson scene the island plays while the briefing is read, like a card's beat. */
+    briefingBeat: IdSchema.optional(),
     cards: z.array(CardSchema).min(6).max(10),
     xp: z.int().positive().default(DEFAULT_LESSON_XP),
     /** Only a final has a clock, and it's for the whole lesson, not each card. */
@@ -210,6 +246,7 @@ export const LessonSchema = z
   })
   .superRefine((lesson, ctx) => {
     checkUniqueIds(lesson.cards, 'cards', ctx);
+    checkBeats(lesson, ctx);
     if (lesson.kind === 'final' && lesson.timeLimitSeconds === undefined) {
       ctx.addIssue({
         code: 'custom',
