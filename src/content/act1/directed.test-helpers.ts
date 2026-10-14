@@ -342,6 +342,28 @@ export function describeDirectedMission(mission: Mission, spec: DirectedSpec): v
         }
       });
 
+      // Every other test here starts the step from the reference path. A step that passes
+      // another way can leave a different project behind, so each passing end is carried
+      // into the next step, whose hint card must still pass and have one true answer.
+      const next = mission.steps[index + 1];
+      if (next !== undefined) {
+        it('hands every passing end to the next step, whose hint card still passes', () => {
+          const passing = checked.filter((path) => passes(step, path.played.log));
+          expect(passing.length).toBeGreaterThan(0);
+          for (const path of passing) {
+            const where = `${path.cards.join(' > ')} (${path.policy}), then ${next.id}`;
+            const begun = { log: beginStep(path.played.log, next), state: beginAgentStep(next) };
+            const played = playCard(mission, next, begun, taskOf(next).hintPlan, 'allow-all');
+            expect(played.state.stage.at, where).toBe('check');
+            expect(passes(next, played.log), where).toBe(true);
+            expect(trueChecks(next, played.log), where).toHaveLength(1);
+            for (const predicted of played.predicts) {
+              expect(predicted.trueOptions, where).toHaveLength(1);
+            }
+          }
+        });
+      }
+
       it('has looks that only look: no events, and nothing changed', () => {
         for (const path of checked) {
           for (const look of task.looks) {
