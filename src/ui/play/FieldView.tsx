@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { requireFieldMission } from '../../game/missions/schema';
 import { getAct } from '../../game/play/catalog';
 import type { FieldVerdict } from '../../game/play/fieldCheck';
-import { submitFieldPaste } from '../../game/play/fieldPlay';
+import { checkFieldOnGitHub, submitFieldPaste } from '../../game/play/fieldPlay';
 import { leavePlay } from '../../game/play/play';
 import type { FieldActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
@@ -13,7 +13,7 @@ import { useStore } from '../useStore';
  * repos, then paste checks that verify it. Any Act can have one. Passed checks are saved,
  * so it can be done over days. Checking a paste happens here in the browser, so it needs
  * no GitHub token or API key, and the panel says so before anyone goes looking for one.
- * DESIGN.md section 8's planned GitHub API checks (M3+) would be opt-in, beside these.
+ * A mission can add an opt-in GitHub check below them, for a public repo, also tokenless.
  */
 export function FieldView({ activity }: { activity: FieldActivity }) {
   const field = requireFieldMission(getAct(activity.act).act);
@@ -91,6 +91,75 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
           </div>
         );
       })}
+      {field.github ? (
+        <GitHubCheck
+          instruction={field.github.instruction}
+          savedRepo={saved?.githubRepo ?? ''}
+          verified={saved?.githubVerifiedAt !== undefined}
+        />
+      ) : null}
     </>
+  );
+}
+
+interface GitHubCheckProps {
+  readonly instruction: string;
+  readonly savedRepo: string;
+  readonly verified: boolean;
+}
+
+/** The opt-in check: Kyle names his public repo, and GitHub's API confirms the PR. */
+function GitHubCheck({ instruction, savedRepo, verified }: GitHubCheckProps) {
+  const [repo, setRepo] = useState(savedRepo);
+  const [checking, setChecking] = useState(false);
+  const [verdict, setVerdict] = useState<FieldVerdict | null>(null);
+
+  async function check(): Promise<void> {
+    setChecking(true);
+    try {
+      setVerdict(await checkFieldOnGitHub(repo));
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <div className="field-check">
+      <p className="play-panel__instruction">
+        <span className={verified ? 'checklist__done' : ''}>{verified ? '✓ ' : ''}</span>
+        {instruction}
+      </p>
+      <p className="play-panel__muted">
+        No sign-in or token: the game asks api.github.com about this repo name and nothing else.
+      </p>
+      <input
+        type="text"
+        className="field-check__repo"
+        aria-label="Your GitHub repo, as owner/repo"
+        placeholder="owner/repo"
+        spellCheck={false}
+        value={repo}
+        onChange={(event) => {
+          setRepo(event.target.value);
+        }}
+      />
+      <div className="play-panel__actions">
+        <button
+          type="button"
+          className="play-button"
+          disabled={checking || repo.trim() === ''}
+          onClick={() => {
+            void check();
+          }}
+        >
+          {checking ? 'Checking…' : 'Check on GitHub'}
+        </button>
+        {verdict ? (
+          <span className={verdict.passed ? 'drill-result drill-result--pass' : 'drill-result'}>
+            {verdict.message}
+          </span>
+        ) : null}
+      </div>
+    </div>
   );
 }

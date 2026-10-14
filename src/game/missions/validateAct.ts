@@ -285,9 +285,10 @@ function screenTexts(act: Act, missions: readonly Mission[]): ScreenText[] {
 
 /**
  * Checks a lesson Act's placement test against its lessons. It names cards by id alone,
- * so each must be exactly one card of a lesson in this Act. The final is the boss, and
- * testing out doesn't skip it, so its cards aren't borrowed. Every other lesson lends at
- * least two, so testing out of a lesson means answering something from it.
+ * so each must be exactly one card of a lesson in this Act. The final is the boss: it
+ * stays playable for its XP after a test-out, so its cards aren't borrowed, and testing
+ * out completes the Act without it. Every other lesson lends at least two, so testing out
+ * of a lesson means answering something from it.
  */
 function lessonPlacementIssues(
   cardIds: readonly string[],

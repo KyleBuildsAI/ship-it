@@ -13,18 +13,30 @@ export {
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  isSquashMergedSubject,
   isTypedBranchName,
   mergedBranchName,
   newestWrittenCommit,
   readTopMerge,
+  searchesAllHistoryFor,
+  statusPosition,
   trackedSecretPaths,
   unpushedCommits,
   type ConventionalType,
   type ParsedStatus,
   type PathSource,
+  type StatusPosition,
   type TopMerge,
 } from './checks';
 export { detectPasteKind, type PasteKind } from './detect';
+export {
+  latestMergedPull,
+  linkedIssueNumber,
+  parseRepoSlug,
+  pullRequestProblems,
+  type PullRequestSummary,
+  type RepoSlug,
+} from './github';
 export { parseLogGraph, parseLogOneline, type GraphCommit, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';

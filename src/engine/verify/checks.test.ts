@@ -8,23 +8,37 @@ import {
   isConventionalSubject,
   isGeneratedSubject,
   isSecretPath,
+  isSquashMergedSubject,
   isTypedBranchName,
   mergedBranchName,
   newestWrittenCommit,
   readTopMerge,
+  searchesAllHistoryFor,
+  statusPosition,
   trackedSecretPaths,
   unpushedCommits,
 } from './checks';
 import logDecorate from './fixtures/log-oneline-decorate.txt?raw';
 import longAheadClean from './fixtures/status-long-ahead-clean.txt?raw';
+import longBehind from './fixtures/status-long-behind.txt?raw';
 import longClean from './fixtures/status-long-clean.txt?raw';
+import longDetached from './fixtures/status-long-detached.txt?raw';
+import longDiverged from './fixtures/status-long-diverged.txt?raw';
+import longGone from './fixtures/status-long-gone.txt?raw';
+import longUpToDate from './fixtures/status-long-up-to-date.txt?raw';
 import longDeleted from './fixtures/status-long-deleted.txt?raw';
 import longIgnored from './fixtures/status-long-ignored.txt?raw';
 import longMergeConflict from './fixtures/status-long-merge-conflict.txt?raw';
 import longMixed from './fixtures/status-long-mixed.txt?raw';
 import longStagedUnborn from './fixtures/status-long-staged-unborn.txt?raw';
 import longSubdir from './fixtures/status-long-subdir.txt?raw';
+import sbAhead from './fixtures/status-sb-ahead.txt?raw';
+import sbBehind from './fixtures/status-sb-behind.txt?raw';
 import sbClean from './fixtures/status-sb-clean.txt?raw';
+import sbDetached from './fixtures/status-sb-detached.txt?raw';
+import sbDiverged from './fixtures/status-sb-diverged.txt?raw';
+import sbGone from './fixtures/status-sb-gone.txt?raw';
+import sbUpToDate from './fixtures/status-sb-up-to-date.txt?raw';
 import sbMixed from './fixtures/status-sb-mixed.txt?raw';
 import sbStagedUnborn from './fixtures/status-sb-staged-unborn.txt?raw';
 import shortClean from './fixtures/status-short-clean.txt?raw';
@@ -34,6 +48,35 @@ import { parseLogGraph, parseLogOneline } from './logOneline';
 import graph from './fixtures/log-oneline-graph.txt?raw';
 import { parseStatusLong } from './statusLong';
 import { parseStatusShort } from './statusShort';
+
+describe('isSquashMergedSubject', () => {
+  it('passes the commit a squash merge writes from a Conventional PR title', () => {
+    expect(isSquashMergedSubject('fix: round tide heights (#12)')).toBe(true);
+    expect(isSquashMergedSubject('feat(map)!: drop old tiles (#3)')).toBe(true);
+  });
+
+  it('fails a direct commit, a plain merge, and a vague title, even with a number', () => {
+    // A Conventional commit made straight on main has no PR number, so no PR merged it.
+    expect(isSquashMergedSubject('fix: round tide heights')).toBe(false);
+    expect(isSquashMergedSubject('Merge pull request #12 from kyle/fix/tide')).toBe(false);
+    expect(isSquashMergedSubject('Update tides.ts (#12)')).toBe(false);
+    expect(isSquashMergedSubject('fix: round tide heights (#12) later')).toBe(false);
+    expect(isSquashMergedSubject('fix: round tide heights (#0)')).toBe(false);
+  });
+});
+
+describe('searchesAllHistoryFor', () => {
+  it('accepts git log over every branch that names the path', () => {
+    expect(searchesAllHistoryFor('git log --all --oneline -- .env', '.env')).toBe(true);
+    expect(searchesAllHistoryFor("git log --oneline --all -- '.env'", '.env')).toBe(true);
+  });
+
+  it('rejects a search of one branch, another path, or another command', () => {
+    expect(searchesAllHistoryFor('git log --oneline -- .env', '.env')).toBe(false);
+    expect(searchesAllHistoryFor('git log --all --oneline -- .env.example', '.env')).toBe(false);
+    expect(searchesAllHistoryFor('git status --all .env', '.env')).toBe(false);
+  });
+});
 
 describe('isConventionalSubject', () => {
   it.each([
@@ -130,6 +173,41 @@ describe('isCleanStatus', () => {
 
   it('never calls a tree with a conflict clean', () => {
     expect(isCleanStatus(parseStatusLong(longMergeConflict))).toBe(false);
+  });
+});
+
+describe('statusPosition', () => {
+  it('reads the branch and upstream from the long format', () => {
+    expect(statusPosition(parseStatusLong(longUpToDate))).toEqual({
+      branch: 'main',
+      upstream: 'up-to-date',
+    });
+    expect(statusPosition(parseStatusLong(longBehind)).upstream).toBe('behind');
+    expect(statusPosition(parseStatusLong(longDiverged)).upstream).toBe('diverged');
+    expect(statusPosition(parseStatusLong(longGone))).toEqual({
+      branch: 'feature/old',
+      upstream: 'gone',
+    });
+    expect(statusPosition(parseStatusLong(longDetached)).branch).toBeNull();
+    // No upstream line: a branch that tracks nothing, so nobody can say it is in sync.
+    expect(statusPosition(parseStatusLong(longClean)).upstream).toBeNull();
+  });
+
+  it('reads the same from git status -sb', () => {
+    expect(statusPosition(parseStatusShort(sbUpToDate))).toEqual({
+      branch: 'main',
+      upstream: 'up-to-date',
+    });
+    expect(statusPosition(parseStatusShort(sbBehind)).upstream).toBe('behind');
+    expect(statusPosition(parseStatusShort(sbAhead)).upstream).toBe('ahead');
+    expect(statusPosition(parseStatusShort(sbDiverged)).upstream).toBe('diverged');
+    expect(statusPosition(parseStatusShort(sbGone)).upstream).toBe('gone');
+    expect(statusPosition(parseStatusShort(sbDetached)).branch).toBeNull();
+    expect(statusPosition(parseStatusShort(sbClean))).toEqual({ branch: 'main', upstream: null });
+  });
+
+  it('knows nothing about the branch from a plain git status -s', () => {
+    expect(statusPosition(parseStatusShort(shortClean))).toEqual({ branch: null, upstream: null });
   });
 });
 

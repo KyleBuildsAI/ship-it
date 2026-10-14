@@ -6,6 +6,7 @@ import {
   createActProgress,
   createMissionProgress,
   type ActProgress,
+  type FieldMissionProgress,
   type MissionProgress,
   type MissionResume,
   type SaveData,
@@ -294,7 +295,7 @@ export function recordFieldMission(
   const verifiedAt = previous.verifiedAt ?? (allPassed ? now.toISOString() : null);
   let next: SaveData = {
     ...save,
-    fieldMissions: { ...save.fieldMissions, [field.id]: { checklist, verifiedAt } },
+    fieldMissions: { ...save.fieldMissions, [field.id]: { ...previous, checklist, verifiedAt } },
   };
   const current = act(next, target.act);
   if (allPassed && current.fieldMissionCompletedAt === null) {
@@ -302,6 +303,31 @@ export function recordFieldMission(
     next = addXp(next, XP_AWARDS.fieldMission);
   }
   return refreshAct(next, target, now);
+}
+
+/**
+ * Remembers the repo Kyle named for the opt-in GitHub check, and when it passed. It never
+ * completes anything: the paste checks alone finish a Field Mission, so the game works
+ * the same for a private repo or with no network.
+ */
+export function recordGitHubCheck(
+  save: SaveData,
+  target: Act,
+  repo: string,
+  passedAt: Date | null,
+): SaveData {
+  const field = requireFieldMission(target);
+  const previous = save.fieldMissions[field.id] ?? { checklist: {}, verifiedAt: null };
+  // A pass on one repo says nothing about another, so naming a new repo clears it.
+  const kept = previous.githubRepo === repo ? previous.githubVerifiedAt : undefined;
+  const githubVerifiedAt = passedAt?.toISOString() ?? kept;
+  const next: FieldMissionProgress = {
+    checklist: previous.checklist,
+    verifiedAt: previous.verifiedAt,
+    githubRepo: repo,
+  };
+  if (githubVerifiedAt !== undefined) next.githubVerifiedAt = githubVerifiedAt;
+  return { ...save, fieldMissions: { ...save.fieldMissions, [field.id]: next } };
 }
 
 /** Whether a mission counts as done for unlocking the boss: finished or tested out. */

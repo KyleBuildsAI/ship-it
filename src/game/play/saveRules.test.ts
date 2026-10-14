@@ -24,6 +24,7 @@ import {
   questionXp,
   recordDrill,
   recordFieldMission,
+  recordGitHubCheck,
   recordPlacement,
   recordReview,
   recordSteps,
@@ -234,6 +235,29 @@ describe('act milestones', () => {
     const entry = partial.fieldMissions[sampleAct.fieldMission.id];
     expect(entry?.checklist[first.id]).toBe(true);
     expect(entry?.verifiedAt).toBe(rest.length === 0 ? NOW.toISOString() : null);
+  });
+
+  it('remembers the GitHub check, which never completes the mission or the Act', () => {
+    const id = sampleAct.fieldMission.id;
+    const failed = recordGitHubCheck(fresh(), sampleAct, 'kyle/sandcastles', null);
+    expect(failed.fieldMissions[id]).toEqual({
+      checklist: {},
+      verifiedAt: null,
+      githubRepo: 'kyle/sandcastles',
+    });
+    const passed = recordGitHubCheck(failed, sampleAct, 'kyle/sandcastles', NOW);
+    expect(passed.fieldMissions[id]?.githubVerifiedAt).toBe(NOW.toISOString());
+    expect(passed.acts[String(sampleAct.act)]?.fieldMissionCompletedAt ?? null).toBeNull();
+    // A later failed check keeps the pass; naming another repo clears it.
+    const again = recordGitHubCheck(passed, sampleAct, 'kyle/sandcastles', null);
+    expect(again.fieldMissions[id]?.githubVerifiedAt).toBe(NOW.toISOString());
+    const other = recordGitHubCheck(passed, sampleAct, 'kyle/other', null);
+    expect(other.fieldMissions[id]?.githubVerifiedAt).toBeUndefined();
+    // Passing pastes later keeps the repo Kyle named.
+    const ids = sampleAct.fieldMission.verifications.map((check) => check.id);
+    expect(recordFieldMission(passed, sampleAct, ids, LATER).fieldMissions[id]?.githubRepo).toBe(
+      'kyle/sandcastles',
+    );
   });
 });
 

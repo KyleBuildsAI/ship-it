@@ -40,11 +40,21 @@ describe('a Field Mission outside Act 2', () => {
         'sample-full-field': {
           checklist: { 'sample-full-clean': true, 'sample-full-history': true },
           verifiedAt: TEST_NOW.toISOString(),
+          githubRepo: 'kyle/sandcastles',
+          githubVerifiedAt: TEST_NOW.toISOString(),
         },
       },
     };
     const markup = view(save);
     expect(markup).toContain('✓ Run git status in your repo');
     expect(markup).toContain('Verified. Real work, really done.');
+    expect(markup).toContain('✓ Optional: let GitHub confirm the PR that landed it.');
+  });
+
+  it('offers the GitHub check as an extra that needs no sign-in', () => {
+    const markup = view();
+    expect(markup).toContain('Check on GitHub');
+    expect(markup).toContain('No sign-in or token');
+    expect(markup).not.toContain('✓ Optional');
   });
 });

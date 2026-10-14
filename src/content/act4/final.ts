@@ -63,10 +63,11 @@ export const rejectedPush = {
       question: 'Which instruction?',
       options: [
         {
-          id: 'broad',
-          text: 'Fix all the rounding in the whole app while you’re there.',
+          id: 'tidy-nearby',
+          text: 'On branch fix/refund-rounding, make refunds round to the nearest cent, and tidy any other rounding you spot nearby. Add a test that a 10.005 refund comes out as 10.01. Open a PR closing #88, then tell me.',
           correct: false,
-          feedback: 'On release day, a big diff is a big risk.',
+          feedback:
+            'One loose line widens the diff on release day: “tidy nearby” invites changes nobody asked for. Say “change nothing else”.',
         },
         {
           id: 'tight',
@@ -203,9 +204,10 @@ export const rejectedPush = {
       options: [
         {
           id: 'ours',
-          text: 'Resolve the conflicts by keeping our side everywhere.',
+          text: 'Merge main into the fix branch and resolve each conflict by keeping our side, since Priya approved our version. Run the tests, then push.',
           correct: false,
-          feedback: 'That throws away the fix that just landed on main.',
+          feedback:
+            'Priya approved before the other fix landed. Keeping our side everywhere silently throws that fix away.',
         },
         {
           id: 'new-pr',

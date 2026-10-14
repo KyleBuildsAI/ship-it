@@ -352,16 +352,16 @@ export type FieldParser = (typeof FIELD_PARSERS)[number];
 /** What a Field Mission verifies in pasted PowerShell output. Evaluated by the parser module. */
 export const FieldCheckSchema = z.discriminatedUnion('kind', [
   /**
-   * Nothing left to commit. With `branch`, the paste must also show that branch checked
-   * out. With `pushed`, the branch must be level with its remote branch (`git status -sb`'s
-   * `##` line or a long status), so the work is on GitHub; `upToDate` also refuses being
-   * behind, so nothing on GitHub is left unpulled.
+   * Nothing left to commit. A clean tree alone can't prove work landed (a feature branch is
+   * clean too), so a check can also require the branch; `pushed`, that nothing waits to go
+   * to GitHub (`git status -sb`'s `##` line or a long status); or `upstream`, that it
+   * matches its remote branch exactly, which `git status` only knows after a fetch.
    */
   z.strictObject({
     kind: z.literal('clean'),
     branch: NameSchema.optional(),
     pushed: z.literal(true).optional(),
-    upToDate: z.literal(true).optional(),
+    upstream: z.literal('up-to-date').optional(),
   }),
   /** At least `min` (0 to 1) of the newest `last` commits use Conventional Commit messages. */
   z.strictObject({
@@ -377,6 +377,13 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
    * `git log --oneline --graph`, whose drawing shows which commits the branch brought in.
    */
   z.strictObject({ kind: z.literal('mergeCommit') }),
+  /** The newest commit is a squash-merged PR: a Conventional title ending in " (#N)". */
+  z.strictObject({ kind: z.literal('squashMergedPr') }),
+  /**
+   * No commit on any branch ever touched `path`: `git log --all --oneline -- <path>`
+   * printed nothing. Pushing publishes history, so a file removed later still leaks.
+   */
+  z.strictObject({ kind: z.literal('noCommits'), path: NameSchema }),
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
   /** At least one of these files is tracked, e.g. the CLAUDE.md or AGENTS.md just written. */
   z.strictObject({ kind: z.literal('tracksAny'), paths: z.array(NameSchema).min(1) }),
@@ -400,6 +407,8 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   // A status lists only changed files, so only ls-files can show an unchanged one is tracked.
   tracksAny: ['ls-files'],
   mergeCommit: ['log-oneline'],
+  squashMergedPr: ['log-oneline'],
+  noCommits: ['log-oneline'],
 };
 
 const VerificationSchema = z
@@ -431,6 +440,18 @@ const FieldMissionSchema = z
     briefing: CaptionsSchema,
     checklist: z.array(z.strictObject({ id: IdSchema, text: ScreenTextSchema })).min(1),
     verifications: z.array(VerificationSchema).min(1),
+    /**
+     * An opt-in check through GitHub's API (DESIGN.md section 8), beside the paste checks
+     * and never instead of them: they alone finish the mission. It reads the newest PR
+     * merged into main, needs the description to have these section headings, and needs
+     * no token, since a public repo's PRs are readable by anyone.
+     */
+    github: z
+      .strictObject({
+        instruction: ScreenTextSchema,
+        sections: z.array(NameSchema).min(1),
+      })
+      .optional(),
   })
   .superRefine((field, ctx) => {
     checkUniqueIds(field.checklist, 'checklist', ctx);

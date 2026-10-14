@@ -79,29 +79,29 @@ describe('verifyPaste: mergeCommit', () => {
 });
 
 describe('verifyPaste: clean on a branch, up to date', () => {
-  const check = verification({ check: { kind: 'clean', branch: 'main', upToDate: true } });
+  const check = verification({ check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' } });
 
   it('passes main when it is clean and matches its remote', () => {
     expect(verifyPaste(check, CLEAN_LONG)).toEqual({
       passed: true,
-      message: 'Clean, and it matches GitHub.',
+      message: 'Clean, and in step with GitHub.',
     });
   });
 
   it('fails another branch, unpushed work, or a paste without the branch', () => {
     const onBranch = CLEAN_LONG.replace('On branch main', 'On branch feat/x');
-    expect(verifyPaste(check, onBranch).message).toBe("That's feat/x. Switch to main first.");
+    expect(verifyPaste(check, onBranch).message).toContain('git switch main');
     const ahead = CLEAN_LONG.replace(
       "Your branch is up to date with 'origin/main'.",
       "Your branch is ahead of 'origin/main' by 2 commits.",
     );
-    expect(verifyPaste(check, ahead).message).toContain('Not on GitHub yet');
+    expect(verifyPaste(check, ahead).message).toContain('GitHub doesn’t');
     const noUpstream = CLEAN_LONG.replace("Your branch is up to date with 'origin/main'.", '');
     expect(verifyPaste(check, noUpstream).passed).toBe(false);
     const short = verification({
       parser: 'status-short',
       command: 'git status -sb',
-      check: { kind: 'clean', branch: 'main', upToDate: true },
+      check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' },
     });
     expect(verifyPaste(short, '## main...origin/main').passed).toBe(true);
     expect(verifyPaste(short, '## main...origin/main [ahead 1]').passed).toBe(false);
@@ -253,5 +253,76 @@ describe('verifyPaste', () => {
     expect(verifyPaste(check, local).message).toContain('can’t show the push');
     const dirty = verifyPaste(check, '## main...origin/main\n?? CLAUDE.md');
     expect(dirty.message).toContain('Not clean');
+  });
+});
+
+describe('a clean check that also asks for the branch and upstream', () => {
+  const inSync = verification({ check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' } });
+
+  function status(...lines: string[]): string {
+    return [...lines, '', 'nothing to commit, working tree clean'].join('\n');
+  }
+
+  it('passes main in step with origin/main, from either format', () => {
+    expect(verifyPaste(inSync, CLEAN_LONG)).toEqual({
+      passed: true,
+      message: 'Clean, and in step with GitHub.',
+    });
+    const short = verification({
+      parser: 'status-short',
+      command: 'git status -sb',
+      check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' },
+    });
+    expect(verifyPaste(short, '## main...origin/main\n').passed).toBe(true);
+  });
+
+  it('says what to do about each way main can be out of step', () => {
+    const ahead = status('On branch main', "Your branch is ahead of 'origin/main' by 1 commit.");
+    expect(verifyPaste(inSync, ahead).message).toContain('move them onto a branch');
+    const diverged = status(
+      'On branch main',
+      "Your branch and 'origin/main' have diverged,",
+      'and have 1 and 1 different commits each, respectively.',
+    );
+    expect(verifyPaste(inSync, diverged).message).toContain('without force');
+    const gone = status(
+      'On branch main',
+      "Your branch is based on 'origin/main', but the upstream is gone.",
+    );
+    expect(verifyPaste(inSync, gone).message).toContain('git fetch');
+  });
+
+  it('fails a detached HEAD, naming where to go', () => {
+    const detached = 'HEAD detached at 340bbf0\nnothing to commit, working tree clean\n';
+    expect(verifyPaste(inSync, detached).message).toContain('not on a branch');
+  });
+});
+
+describe('the squash-merge and history checks', () => {
+  const squash = verification({
+    command: 'git log --oneline -1',
+    parser: 'log-oneline',
+    check: { kind: 'squashMergedPr' },
+  });
+  const history = verification({
+    command: 'git log --all --oneline -- .env',
+    parser: 'log-oneline',
+    check: { kind: 'noCommits', path: '.env' },
+  });
+
+  it('names a plain merge commit as the reason a squash check failed', () => {
+    const merged = verifyPaste(squash, 'b2c3d4e Merge pull request #12 from kyle/fix');
+    expect(merged.message).toContain('Squash and merge');
+    expect(verifyPaste(squash, 'a1b2c3d fix: round tides (#12)').message).toBe(
+      'Squash-merged: “fix: round tides (#12)”.',
+    );
+  });
+
+  it('reads a history search, whatever it prints', () => {
+    expect(
+      verifyPaste(history, 'PS> git log --all --oneline -- .env\nfatal: oops').message,
+    ).toContain('doesn’t look like git log');
+    expect(verifyPaste(history, 'a1b2c3d chore: add .env').message).toMatch(/^A commit touched/);
+    expect(verifyPaste(history, 'git status').message).toContain('copy the line');
   });
 });

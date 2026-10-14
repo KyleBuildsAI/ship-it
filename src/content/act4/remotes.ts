@@ -93,6 +93,13 @@ export const remotesAndPushing = {
           correct: true,
           feedback: 'Right. Commit saves on your laptop; push sends it to GitHub.',
         },
+        {
+          id: 'needs-pr',
+          text: 'GitHub hides a branch until it has a pull request, so open a PR for it first.',
+          correct: false,
+          feedback:
+            'A pushed branch shows on GitHub with or without a PR. The status says this commit never left.',
+        },
       ],
       explanation:
         'Committing and sharing are two separate steps. Commit records the change in your copy. Push uploads it to the remote, where teammates can see it.',
@@ -152,10 +159,11 @@ export const remotesAndPushing = {
           feedback: 'A hard reset throws away anything you hadn’t pushed, with no undo.',
         },
         {
-          id: 'just-pull',
-          text: 'Pull and start the task.',
+          id: 'pull-then-report',
+          text: 'Pull from origin so main is current, then tell me how many commits came in, summarise what they change, and start the task.',
           correct: false,
-          feedback: 'It probably works, but you skip knowing what changed under you.',
+          feedback:
+            'A good report, but it comes after the merge: your files changed before you looked. Fetch, report, then wait.',
         },
         {
           id: 'reclone',
@@ -200,7 +208,7 @@ export const remotesAndPushing = {
         },
         {
           id: 'conflict-files',
-          text: 'Your files have merge conflicts.',
+          text: 'Your branch and GitHub’s copy changed the same lines, so the files have merge conflicts to fix first.',
           correct: false,
           feedback: 'Not yet. Conflicts only show up once you bring the other commits in.',
         },
@@ -233,9 +241,10 @@ export const remotesAndPushing = {
         },
         {
           id: 'lease',
-          text: 'Use --force-with-lease instead. That one is always safe.',
+          text: 'Use --force-with-lease, not plain --force: it refuses if anyone pushed since your last fetch. So fetch first to refresh that view, then force-push with lease and report back.',
           correct: false,
-          feedback: 'Safer, not safe: it still overwrites a shared branch once you’ve fetched.',
+          feedback:
+            'Fetching first defeats the lease: it now matches GitHub, so the force deletes the new commits anyway. No force on a shared branch.',
         },
         {
           id: 'integrate',

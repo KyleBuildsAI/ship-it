@@ -7,17 +7,22 @@ import {
   firstTracked,
   isCleanStatus,
   isConventionalSubject,
+  isSquashMergedSubject,
   isTypedBranchName,
   newestWrittenCommit,
+  normalizePaste,
   parseLogGraph,
   parseLogOneline,
   parsePathList,
   parseStatusLong,
   parseStatusShort,
   readTopMerge,
+  searchesAllHistoryFor,
+  statusPosition,
   trackedSecretPaths,
   unpushedCommits,
   type ParsedStatus,
+  type UpstreamState,
 } from '../../engine/verify';
 import type { FieldCheck, FieldMission } from '../missions/schema';
 
@@ -125,49 +130,92 @@ function verifyMerge(command: string, text: string): FieldVerdict {
   return { passed: true, message: `Main has a merge commit from ${branch}.` };
 }
 
-/** True when the branch tracks a remote branch and neither is ahead of the other. */
-function isUpToDate(status: ParsedStatus): boolean {
-  if (status.format === 'long') return status.upstream?.state === 'up-to-date';
-  const branch = status.branch;
-  return (
-    branch?.upstream !== undefined &&
-    branch.upstreamGone !== true &&
-    (branch.ahead ?? 0) === 0 &&
-    (branch.behind ?? 0) === 0
-  );
+type CleanCheck = Extract<FieldCheck, { kind: 'clean' }>;
+
+// What to do about each way a branch can be out of step with GitHub, in plain words.
+const UPSTREAM_ADVICE: Record<UpstreamState, string> = {
+  'up-to-date': '',
+  behind: 'GitHub has commits you don’t have yet. Run git pull, then git status again.',
+  ahead:
+    'Your copy has commits GitHub doesn’t. Main should only change through merged PRs, so ask your agent to move them onto a branch.',
+  diverged:
+    'Your copy and GitHub’s have both moved. Ask your agent to bring them together without force, then check again.',
+  gone: 'The branch this tracks is gone from GitHub. Run git fetch, then git status again.',
+};
+
+/** A short status run without -b has no `##` line, so it can't say which branch it is. */
+function hidesBranch(status: ParsedStatus): boolean {
+  return status.format === 'short' && status.branch === null;
 }
 
 /**
- * Checks a status paste for the "clean" check. The branch and upToDate options also need
- * the branch line, which plain `git status` and `git status -sb` print but `-s` doesn't.
+ * Clean, and, when the check asks, on the right branch, pushed, or fully in step with
+ * GitHub. The branch and upstream options need the branch line, which plain `git status`
+ * and `git status -sb` print but `-s` doesn't.
  */
-function verifyClean(
-  check: Extract<FieldCheck, { kind: 'clean' }>,
-  status: ParsedStatus,
-): FieldVerdict {
-  const needsBranch = check.branch !== undefined || check.upToDate === true;
-  const branch = status.format === 'long' ? status.branch : (status.branch?.name ?? null);
-  if (needsBranch && branch === null) {
-    return fail('That paste doesn’t show the branch. Paste everything plain git status prints.');
-  }
-  if (check.branch !== undefined && branch !== check.branch) {
-    return fail(`That's ${branch ?? 'no branch'}. Switch to ${check.branch} first.`);
-  }
+function verifyClean(check: CleanCheck, status: ParsedStatus): FieldVerdict {
   if (!isCleanStatus(status)) {
     return fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
   }
-  if (check.pushed === true) return checkPushed(status);
-  if (check.upToDate === true && !isUpToDate(status)) {
-    // Ahead means merged here but never pushed; behind means GitHub has work not pulled.
+  const needsBranch = check.branch !== undefined || check.upstream !== undefined;
+  if (needsBranch && hidesBranch(status)) {
+    return fail('That paste doesn’t show the branch. Paste everything plain git status prints.');
+  }
+  const position = statusPosition(status);
+  if (check.branch !== undefined && position.branch !== check.branch) {
+    const where = position.branch === null ? 'not on a branch' : `on ${position.branch}`;
     return fail(
-      `Not on GitHub yet: ${branch ?? 'this branch'} doesn't match its remote. Pull, then push.`,
+      `Clean, but you’re ${where}. Run git switch ${check.branch}, then git pull, and check again.`,
     );
   }
-  return {
-    passed: true,
-    message:
-      check.upToDate === true ? 'Clean, and it matches GitHub.' : 'Clean: nothing left to commit.',
-  };
+  if (check.pushed === true) return checkPushed(status);
+  if (check.upstream === 'up-to-date') {
+    if (position.upstream === 'up-to-date') {
+      return { passed: true, message: 'Clean, and in step with GitHub.' };
+    }
+    return fail(
+      position.upstream === null
+        ? 'This paste doesn’t say whether you match GitHub. Run git fetch, then git status (not -s), and paste all of it.'
+        : UPSTREAM_ADVICE[position.upstream],
+    );
+  }
+  return { passed: true, message: 'Clean: nothing left to commit.' };
+}
+
+/**
+ * A history search prints nothing when it finds nothing, so an empty paste passes only
+ * when the copied command line shows the right search ran.
+ */
+function verifyNoCommits(verification: Verification, path: string, text: string): FieldVerdict {
+  const commits = parseLogOneline(text);
+  if (commits.length > 0) {
+    const count = commits.length === 1 ? 'A commit' : `${String(commits.length)} commits`;
+    return fail(
+      `${count} touched ${path}, so it is still in the history and a push would publish it. Don’t push. Change every key that file held, then ask for help removing it from history.`,
+    );
+  }
+  const { lines, command } = normalizePaste(text);
+  if (lines.some((line) => line.trim() !== '')) {
+    return fail(`That doesn’t look like git log output. Run ${verification.command}.`);
+  }
+  if (command === null || !searchesAllHistoryFor(command, path)) {
+    return fail(
+      `It prints nothing when ${path} was never committed, so copy the line where you typed ${verification.command} along with it.`,
+    );
+  }
+  return { passed: true, message: `No commit on any branch ever held ${path}. Safe to push.` };
+}
+
+/** The newest commit should be a squash-merged PR, whose title GitHub ends with (#N). */
+function verifySquashMerge(subject: string): FieldVerdict {
+  if (isSquashMergedSubject(subject)) {
+    return { passed: true, message: `Squash-merged: “${subject}”.` };
+  }
+  return fail(
+    subject.startsWith('Merge pull request')
+      ? 'That PR was merged with a merge commit. Next time pick “Squash and merge”.'
+      : 'The newest commit should be your squash-merged PR: a Conventional title ending in its number, like “fix: round tide heights (#12)”. Pull main first if you haven’t.',
+  );
 }
 
 /** Checks a `git ls-files` paste, which lists every tracked file. */
@@ -200,6 +248,8 @@ function checkLog(verification: Verification, text: string): FieldVerdict {
       return commits.length >= check.count
         ? { passed: true, message: `${plural(commits.length, 'commit')}. Nice.` }
         : fail(`Only ${plural(commits.length, 'commit')}; this needs ${String(check.count)}.`);
+    case 'squashMergedPr':
+      return verifySquashMerge(commits[0]?.subject ?? '');
     case 'conventionalRatio': {
       const ratio = conventionalRatio(commits.slice(0, check.last));
       const percent = Math.round(ratio * 100);
@@ -236,6 +286,10 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       clearPaste: true,
       message: `That paste looked like it held a ${secret}, so it was cleared and not checked. Treat it as leaked: rotate it (make a new one and delete the old), then paste only what the command prints.`,
     };
+  }
+  // A history search that finds nothing prints nothing, so it judges an empty paste itself.
+  if (verification.check.kind === 'noCommits') {
+    return verifyNoCommits(verification, verification.check.path, text);
   }
   if (text.trim() === '' && verification.parser !== 'status-short') {
     return fail(`Paste the output of ${verification.command} first.`);

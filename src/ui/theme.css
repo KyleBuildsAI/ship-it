@@ -1121,7 +1121,8 @@ body {
   user-select: all;
 }
 
-.field-check textarea {
+.field-check textarea,
+.field-check__repo {
   box-sizing: border-box;
   width: 100%;
   padding: 6px 8px;

@@ -75,7 +75,7 @@ export const landARealBranch = {
       instruction: `Run git status and paste everything it prints. It should say "On branch main", "up to date with 'origin/main'" and "nothing to commit, working tree clean". ${RAW_OUTPUT}`,
       command: 'git status',
       parser: 'status-long',
-      check: { kind: 'clean', branch: 'main', upToDate: true },
+      check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' },
     },
   ],
 } satisfies FieldMissionInput;

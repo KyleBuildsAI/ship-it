@@ -141,11 +141,11 @@ describe('Act 3 Field Mission: Land a Real Branch', () => {
       '',
       'nothing to commit, working tree clean',
     ].join('\n');
-    expect(verifyPaste(status, unpushed).message).toContain('Not on GitHub yet');
+    expect(verifyPaste(status, unpushed).message).toContain('GitHub doesn’t');
     const onBranch = CLEAN_MAIN.replace('On branch main', 'On branch feat/readme-fix').replace(
       'origin/main',
       'origin/feat/readme-fix',
     );
-    expect(verifyPaste(status, onBranch).message).toContain('Switch to main');
+    expect(verifyPaste(status, onBranch).message).toContain('git switch main');
   });
 });

@@ -34,9 +34,10 @@ export const issuesAndPullRequests = {
         },
         {
           id: 'branch',
-          text: 'Create a branch called pdf-export.',
+          text: 'Create a branch called feat/pdf-export, and have Otto put the plan in its first commit message.',
           correct: false,
-          feedback: 'A branch name says where the work goes, not what it must do.',
+          feedback:
+            'A branch says where the work goes, and a commit comes after the work. Neither records why, or what done means.',
         },
       ],
       explanation:
@@ -56,9 +57,10 @@ export const issuesAndPullRequests = {
         },
         {
           id: 'and-build',
-          text: 'Write the issue, then start building it straight away to save time.',
+          text: 'Draft an issue for PDF export: the user’s problem, a checklist of what done looks like, and what’s out of scope. Then open a branch and start building it.',
           correct: false,
-          feedback: 'Building before Marco reads the issue means building a guess.',
+          feedback:
+            'A good issue, but building starts before Marco reads it, so nobody asks the open questions. Draft, then stop.',
         },
         {
           id: 'structured',
@@ -229,9 +231,10 @@ export const issuesAndPullRequests = {
         },
         {
           id: 'confident',
-          text: 'Write a description that sounds confident, so it gets approved fast.',
+          text: 'Write the PR description with what changed, why and step-by-step test instructions, and link it with “Closes #57”. Keep it confident: skip the parts you weren’t sure about.',
           correct: false,
-          feedback: 'You want the doubts out in the open. Hidden doubts become bugs.',
+          feedback:
+            'Nearly, but the doubts are what the reviewer most needs to see. Hidden doubts become bugs.',
         },
       ],
       explanation:
@@ -257,6 +260,13 @@ export const issuesAndPullRequests = {
           feedback: 'Small, ordered, each green on its own, and you approve the plan first.',
         },
         {
+          id: 'by-file-type',
+          text: 'Split this into 3-4 PRs under 400 lines each: one for the UI files, one for the export code, one for the tests. Open them all today so Priya can start.',
+          correct: false,
+          feedback:
+            'Split by file type, the code lands without its tests and no PR works on its own. Split into working slices, in order.',
+        },
+        {
           id: 'squash',
           text: 'Squash it into one commit so it looks smaller.',
           correct: false,
@@ -274,7 +284,7 @@ export const issuesAndPullRequests = {
       options: [
         {
           id: 'now',
-          text: 'It closes issue #57 as soon as the PR is opened.',
+          text: 'It links the PR to issue #57 and closes the issue as soon as the PR is opened on GitHub.',
           correct: false,
           feedback: 'Opening a PR doesn’t finish the work. Only merging does.',
         },

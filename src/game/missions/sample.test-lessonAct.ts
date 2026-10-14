@@ -68,6 +68,10 @@ export const fullSampleFieldMission = {
       check: { kind: 'minCommits', count: 3 },
     },
   ],
+  github: {
+    instruction: 'Optional: let GitHub confirm the PR that landed it.',
+    sections: ['What changed', 'Why'],
+  },
 } satisfies FieldMissionInput;
 
 /** The finished sample Act, parsed the way a real lesson Act is (src/content/lessonAct.ts). */
