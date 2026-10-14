@@ -35,8 +35,9 @@ const THEME = {
 
 const FONT_SIZES = { normal: 14, large: 16, 'x-large': 18 } as const;
 
-const WELCOME =
-  'SHIP IT sandbox. Type \x1b[36mhelp\x1b[0m for commands, or start with \x1b[36mgit init\x1b[0m.';
+// One line for every island: the same terminal serves Act 1's laptop and Act 2's git, so
+// it names no command that only works in one of them.
+const WELCOME = 'SHIP IT sandbox. Type \x1b[36mhelp\x1b[0m to see what this terminal can do.';
 
 /**
  * The page can load before it has its real width (a window still opening, a background
