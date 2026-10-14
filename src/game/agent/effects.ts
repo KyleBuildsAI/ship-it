@@ -53,9 +53,10 @@ export function weighChange(change: SandboxChange): ChangeWeight {
       // like a laptop file being replaced, even when a commit still has an older one.
       return change.how === 'created' ? 'additive' : 'destructive';
     case 'dock':
-      // Loading or unloading a crate changes what the next commit holds, but the file
-      // itself stays on the Workbench either way: nothing is lost.
-      return 'additive';
+      // Loading or unloading a crate changes what the next commit holds, and the version
+      // it carried is still on the Workbench or in a commit. A discarded crate's version
+      // is nowhere now: a staged edit thrown away.
+      return change.how === 'discarded' ? 'destructive' : 'additive';
     case 'dropped':
       // Commits leave the branch's history: the work in them is off the record.
       return 'destructive';
@@ -183,7 +184,8 @@ function groupDock(changes: readonly SandboxChange[]): Shown[] {
   const shown: Shown[] = [];
   const placed = new Set<DockGroup['how']>();
   for (const change of changes) {
-    if (change.kind !== 'dock') {
+    // A discarded crate is a loss, so it keeps a line of its own.
+    if (change.kind !== 'dock' || change.how === 'discarded') {
       shown.push(change);
       continue;
     }
@@ -251,9 +253,7 @@ function describeGitChange(change: Exclude<Shown, MachineChange>): string {
     case 'workbench':
       return describeWorkbench(change);
     case 'dock':
-      return change.how === 'loaded'
-        ? `Moves ${change.path} onto the Loading Dock`
-        : `Takes ${change.path} off the Loading Dock`;
+      return describeDock(change);
     case 'dockGroup':
       return change.how === 'loaded'
         ? `Moves ${counted(change.paths.length, 'file')} onto the Loading Dock`
@@ -262,6 +262,17 @@ function describeGitChange(change: Exclude<Shown, MachineChange>): string {
       return `Seals ${counted(change.files, 'file')} into a new commit: "${change.message}"`;
     case 'dropped':
       return describeDropped(change);
+  }
+}
+
+function describeDock(change: Extract<GitChange, { kind: 'dock' }>): string {
+  switch (change.how) {
+    case 'loaded':
+      return `Moves ${change.path} onto the Loading Dock`;
+    case 'unloaded':
+      return `Takes ${change.path} off the Loading Dock`;
+    case 'discarded':
+      return `Throws away the staged edits to ${change.path}`;
   }
 }
 

@@ -11,26 +11,6 @@ import { enter, sandboxShell } from './play.test-helpers';
  * pass. Some drills have a second answer, to prove any valid path to the state counts.
  */
 const ANSWERS: Record<string, string[][]> = {
-  // 2.2 Reading History
-  'history-old-port': [
-    ['git log --oneline -- config.json', 'git restore --source=HEAD~2 config.json'],
-    ['git show HEAD~2:config.json > config.json'],
-  ],
-  'history-deleted-doc': [
-    ['git log --oneline -- docs/setup.md', 'git restore --source=HEAD~1 docs/setup.md'],
-    ['git show HEAD~1:docs/setup.md > docs/setup.md'],
-  ],
-  'history-staged-surprise': [
-    ['git diff --staged', 'git restore --staged src/api.ts'],
-    ['git reset src/api.ts'],
-  ],
-  'history-debug-print': [
-    ['git diff', 'git add src/cart.ts', 'git commit -m "feat: add free delivery threshold"'],
-  ],
-  'history-save-log': [['git log --oneline > history.txt'], ['git log > history.txt']],
-  'history-staged-vs-unstaged': [
-    ['git diff', 'git diff --staged', 'git commit -m "fix: normalize search queries"'],
-  ],
   // 2.3 Good Commits
   'commits-type-fix': [['git commit -m "fix: round cart totals to the cent"']],
   'commits-scope': [['git commit -m "docs(readme): fix install command"']],
@@ -93,7 +73,6 @@ const ANSWERS: Record<string, string[][]> = {
 
 /** Answers that reach the wrong state, to prove the drill really checks what it says. */
 const WRONG_ANSWERS: Record<string, string[]> = {
-  'history-staged-surprise': ['git restore --staged src/api.ts src/search.ts'],
   'commits-type-fix': ['git commit -m "feat: round cart totals"'],
   'commits-am-trap': ['git commit -am "feat: add dark mode"'],
   'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
@@ -103,7 +82,7 @@ const WRONG_ANSWERS: Record<string, string[]> = {
 };
 
 /**
- * Act 2's typed drills. Directed missions (2.1 so far) have judgment drills instead, which
+ * Act 2's typed drills. Directed missions have judgment drills instead, which
  * their own test files prove with describeJudgmentDrills.
  */
 function typed(drill: Drill): drill is SandboxDrill {
@@ -112,7 +91,7 @@ function typed(drill: Drill): drill is SandboxDrill {
 
 const drills = act2Missions.flatMap((mission) => mission.drills.filter(typed));
 
-describe('Act 2 No-AI Drills', () => {
+describe('Act 2 typed No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {
     expect(Object.keys(ANSWERS).sort()).toEqual(drills.map((drill) => drill.id).sort());
   });

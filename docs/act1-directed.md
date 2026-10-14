@@ -145,8 +145,8 @@ Speed (`game/agent/pace.ts`):
 
 | Slip | Missions |
 |---|---|
-| `wrong-place`: ran where its terminal happened to stand | 1.1, 1.3, 1.5 |
-| `overclaim`: "done" after an error, without checking, or over what the printout showed | 1.1, 1.3, 1.4, 1.6 |
+| `wrong-place`: ran where its terminal happened to stand, or acted on the wrong file | 1.1, 1.3, 1.5, 2.2 |
+| `overclaim`: "done" after an error, without checking, or over what the printout showed | 1.1, 1.3, 1.4, 1.6, 2.2 |
 | `too-broad`: a wildcard, `-Recurse`, the parent folder, answering A | 1.2 |
 | `wrong-verb`: replace instead of append, move instead of copy | 1.2, 1.3 |
 | `leak`: printed or copied a secret, or asked for one in chat | 1.3 |

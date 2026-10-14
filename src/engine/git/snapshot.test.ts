@@ -98,6 +98,42 @@ describe('git changes, in Workbench, Loading Dock and Vault terms', () => {
     ]);
   });
 
+  it('git reset --hard discards a staged edit that nothing else holds', () => {
+    // 'two' lived only on the dock and the Workbench; reset --hard empties both.
+    const staged = repo().commit('init', { 'a.ts': 'one' }).write('a.ts', 'two').stage('a.ts');
+    expect(changesOf(staged, ['reset', '--hard'])).toEqual([
+      { kind: 'dock', path: 'a.ts', how: 'discarded' },
+      { kind: 'workbench', path: 'a.ts', how: 'changed', unsaved: false },
+    ]);
+  });
+
+  it('a staged version a commit still holds is only unloaded', () => {
+    // The first commit still holds 'v1', the version on the dock, so git can hand it back.
+    const back = repo()
+      .commit('first', { 'app.ts': 'v1\n' })
+      .commit('second', { 'app.ts': 'v2\n' })
+      .write('app.ts', 'v1\n')
+      .stage('app.ts');
+    expect(changesOf(back, ['reset', '--hard'])).toEqual([
+      { kind: 'dock', path: 'app.ts', how: 'unloaded' },
+      { kind: 'workbench', path: 'app.ts', how: 'changed', unsaved: false },
+    ]);
+  });
+
+  it('a new file taken off the dock is still on the Workbench, even with files left out', () => {
+    const ws = twoCommits.write('b.ts', 'b\n').stage('b.ts').build(testDeps());
+    expect(changesIn(ws, () => git(ws, ['restore', '--staged', 'b.ts']), false)).toEqual([
+      { kind: 'dock', path: 'b.ts', how: 'unloaded' },
+    ]);
+  });
+
+  it('taking a staged delete off the dock loses nothing', () => {
+    const removed = twoCommits.delete('login.ts').stage('login.ts');
+    expect(changesOf(removed, ['restore', '--staged', 'login.ts'])).toEqual([
+      { kind: 'dock', path: 'login.ts', how: 'unloaded' },
+    ]);
+  });
+
   it('git reset --soft drops the commit and loads its files back onto the dock', () => {
     const changes = changesOf(twoCommits, ['reset', '--soft', 'HEAD~1']);
     expect(changes.map((change) => change.kind)).toEqual(['dropped', 'dock']);

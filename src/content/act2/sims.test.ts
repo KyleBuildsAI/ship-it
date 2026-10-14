@@ -16,25 +16,6 @@ import { enter, sandboxShell } from './play.test-helpers';
 
 /** The reference solution: command lines for each step, keyed by mission id then step id. */
 const SOLUTIONS: Record<string, Record<string, string[]>> = {
-  'reading-history': {
-    'restore-tax': [
-      'git log --oneline',
-      'git show HEAD~1',
-      'git show HEAD~2:src/tax.ts',
-      'git restore --source=HEAD~2 src/tax.ts',
-    ],
-    'clear-dock': ['git diff --staged', 'git restore --staged src/checkout.ts'],
-    'commit-fix': [
-      'git add src/tax.ts',
-      'git diff --staged',
-      'git commit -m "fix: restore 8% sales tax"',
-    ],
-    'commit-real-change': [
-      'git diff',
-      'git add src/cart.ts',
-      'git commit -m "feat: add free delivery threshold"',
-    ],
-  },
   'good-commits': {
     'commit-fix': [
       'git status',
@@ -71,7 +52,7 @@ const SOLUTIONS: Record<string, Record<string, string[]>> = {
 };
 
 /**
- * Act 2's typed missions. A directed one (2.1 so far) has no sim to type into: its own
+ * Act 2's typed missions. A directed one has no sim to type into: its own
  * test file plays every card through describeDirectedMission instead.
  */
 const typedMissions = act2Missions.filter((mission) =>
@@ -80,7 +61,7 @@ const typedMissions = act2Missions.filter((mission) =>
 
 function missionById(id: string): Mission {
   const mission = typedMissions.find((candidate) => candidate.id === id);
-  if (mission === undefined) throw new Error(`Act 2 has no mission "${id}".`);
+  if (mission === undefined) throw new Error(`Act 2 has no typed mission "${id}".`);
   return mission;
 }
 
@@ -141,18 +122,6 @@ describe('Act 2 sims accept other valid paths', () => {
     const { run, shell } = startSim(mission);
     return { run: play(mission, run, shell, commands), shell };
   }
-
-  it('reading-history: redirect git show into the file, and unstage with reset', () => {
-    const { run } = playThrough('reading-history', [
-      'git show HEAD~2:src/tax.ts > src/tax.ts',
-      'git reset src/checkout.ts',
-      'git add src/tax.ts',
-      'git commit -m "fix: restore 8% sales tax"',
-      'git add src/cart.ts',
-      'git commit -m "feat: add free delivery threshold"',
-    ]);
-    expect(run.phase).toBe('drills');
-  });
 
   it('good-commits: committing the fix together with the docs change is not atomic', () => {
     const mission = missionById('good-commits');
