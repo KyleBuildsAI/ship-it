@@ -12,7 +12,8 @@ export default defineConfig({
   // Hard ceilings so a stuck browser fails the run instead of hanging it forever. Software
   // rendering makes CI several times slower: a multi-screen test there takes 1-2 minutes.
   timeout: isCI ? 120_000 : 30_000,
-  globalTimeout: isCI ? 15 * 60_000 : 5 * 60_000,
+  // The suite outgrew 15 minutes on CI; 22 stays under the job's 25-minute limit.
+  globalTimeout: isCI ? 22 * 60_000 : 5 * 60_000,
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   reporter: isCI ? [['github'], ['html', { open: 'never' }]] : 'list',
