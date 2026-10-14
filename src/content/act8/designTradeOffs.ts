@@ -9,6 +9,7 @@ export const designTradeOffs = {
   id: 'design-trade-offs',
   act: 8,
   title: 'Design Trade-offs',
+  briefingBeat: 'design-on-board',
   briefing: [
     'The design round: Sage plays the interviewer, and the systems are Quillwork’s own.',
     'There’s no single right answer. Start from the requirements, keep it simple, and say what each choice costs.',
@@ -16,6 +17,7 @@ export const designTradeOffs = {
   cards: [
     {
       id: 'requirements-first',
+      beat: 'think-aloud',
       kind: 'choose',
       situation:
         'Marco wants a feature: “Anyone with the link can view a Quillwork doc.” Sage says: “Design it.”',
@@ -46,6 +48,7 @@ export const designTradeOffs = {
     },
     {
       id: 'read-heavy',
+      beat: 'design-on-board',
       kind: 'choose',
       situation: 'Sage shows a week of numbers for shared links.',
       artifact: {
@@ -86,6 +89,7 @@ export const designTradeOffs = {
     },
     {
       id: 'slow-work',
+      beat: 'design-on-board',
       kind: 'choose',
       situation:
         'Exporting a long doc to PDF takes about 40 seconds. Requests time out at 30, so big exports fail every time.',
@@ -121,6 +125,7 @@ export const designTradeOffs = {
     },
     {
       id: 'design-order',
+      beat: 'design-on-board',
       kind: 'order',
       situation: 'Sage asks how you run any design round from start to finish.',
       question: 'Put the steps in order.',
@@ -136,6 +141,7 @@ export const designTradeOffs = {
     },
     {
       id: 'why-postgres',
+      beat: 'think-aloud',
       kind: 'choose',
       situation: 'Sage pushes back: “Why did Quillwork pick Postgres and not a NoSQL database?”',
       question: 'Which answer is strongest?',
@@ -171,6 +177,7 @@ export const designTradeOffs = {
     },
     {
       id: 'brief-a-design',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'Customers hammer the public API, and Marco wants rate limits. You ask Otto for a design before any code.',
@@ -202,6 +209,7 @@ export const designTradeOffs = {
     },
     {
       id: 'right-size',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'Otto’s design for the share feature splits Quillwork’s app into nine microservices. The whole team is four people.',
@@ -231,6 +239,7 @@ export const designTradeOffs = {
     },
     {
       id: 'single-point',
+      beat: 'design-on-board',
       kind: 'choose',
       situation: 'Sage shows Quillwork’s whole setup and asks: “What keeps you up at night?”',
       artifact: {

@@ -13,6 +13,7 @@ export const theMockLoop = {
   // Six minutes for eight cards: 45 seconds each, enough to read an artifact and think.
   timeLimitSeconds: 360,
   xp: 150,
+  briefingBeat: 'think-aloud',
   briefing: [
     'Sage runs the whole loop back to back: coding, debugging, design, customer, deep-dive, working with AI, and values.',
     'Six minutes on one clock. Answer the way you would in the room.',
@@ -20,6 +21,7 @@ export const theMockLoop = {
   cards: [
     {
       id: 'loop-coding',
+      beat: 'spot-the-bug',
       kind: 'choose',
       situation:
         'Coding round, no AI. Otto’s word counter for Quillwork’s search page runs on the text “a b a”.',
@@ -66,6 +68,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-debugging',
+      beat: 'trace-evidence',
       kind: 'choose',
       situation:
         'Debugging round: Quillwork’s usage reports got slower all month, then started timing out.',
@@ -107,6 +110,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-debug-agent',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation: 'Sage hands you Otto for the next step on the slow reports.',
       question: 'What do you tell him?',
@@ -136,6 +140,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-design',
+      beat: 'design-on-board',
       kind: 'choose',
       situation:
         'Design round: Quillwork users will upload images into docs, and thumbnails must appear within a minute.',
@@ -165,6 +170,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-customer',
+      beat: 'listen-first',
       kind: 'choose',
       situation:
         'Customer round: “Your export dropped half our rows! Our finance team is furious.” You don’t know the cause yet.',
@@ -200,6 +206,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-deep-dive',
+      beat: 'tell-your-story',
       kind: 'choose',
       situation: 'Deep-dive: “What was the hardest bug in SandCastles?”',
       question: 'Which answer is strongest?',
@@ -228,6 +235,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-ai',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'AI round: Sage gives you Otto and a ticket, “Add CSV export to the invoices page.”',
@@ -257,6 +265,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-values',
+      beat: 'tell-your-story',
       kind: 'order',
       situation: 'Values round: “Tell me about a time you broke something in production.”',
       question: 'Put your answer in order.',
