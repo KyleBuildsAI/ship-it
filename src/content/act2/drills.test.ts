@@ -24,26 +24,6 @@ const ANSWERS: Record<string, string[][]> = {
     ['git add .', 'git commit -m "feat: add footer and new title"'],
     ['git add -A', 'git commit -m "feat: add footer and new title"'],
   ],
-  // 2.2 Reading History
-  'history-old-port': [
-    ['git log --oneline -- config.json', 'git restore --source=HEAD~2 config.json'],
-    ['git show HEAD~2:config.json > config.json'],
-  ],
-  'history-deleted-doc': [
-    ['git log --oneline -- docs/setup.md', 'git restore --source=HEAD~1 docs/setup.md'],
-    ['git show HEAD~1:docs/setup.md > docs/setup.md'],
-  ],
-  'history-staged-surprise': [
-    ['git diff --staged', 'git restore --staged src/api.ts'],
-    ['git reset src/api.ts'],
-  ],
-  'history-debug-print': [
-    ['git diff', 'git add src/cart.ts', 'git commit -m "feat: add free delivery threshold"'],
-  ],
-  'history-save-log': [['git log --oneline > history.txt'], ['git log > history.txt']],
-  'history-staged-vs-unstaged': [
-    ['git diff', 'git diff --staged', 'git commit -m "fix: normalize search queries"'],
-  ],
   // 2.3 Good Commits
   'commits-type-fix': [['git commit -m "fix: round cart totals to the cent"']],
   'commits-scope': [['git commit -m "docs(readme): fix install command"']],
@@ -108,7 +88,6 @@ const ANSWERS: Record<string, string[][]> = {
 const WRONG_ANSWERS: Record<string, string[]> = {
   'rooms-stage-one': ['git add .'],
   'rooms-commit-staged-only': ['git commit -am "docs: add run command"'],
-  'history-staged-surprise': ['git restore --staged src/api.ts src/search.ts'],
   'commits-type-fix': ['git commit -m "feat: round cart totals"'],
   'commits-am-trap': ['git commit -am "feat: add dark mode"'],
   'ignore-logs-anywhere': ['echo "*log*" > .gitignore'],
@@ -117,15 +96,15 @@ const WRONG_ANSWERS: Record<string, string[]> = {
   'undo-soft-reset': ['git reset HEAD~1'],
 };
 
-/** Act 2 is typed, so its drills are graded by state; the mission schema refuses any other. */
-function typed(drill: Drill): SandboxDrill {
-  if (isJudgmentDrill(drill)) throw new Error(`Act 2's drill "${drill.id}" should be typed.`);
-  return drill;
-}
+/**
+ * Typed drills are graded by state here. A directed mission's judgment drills are played
+ * by its own test (Mission 2.2's in readingHistory.test.ts), which proves each drill's key.
+ */
+const typed = (drill: Drill): drill is SandboxDrill => !isJudgmentDrill(drill);
 
-const drills = act2Missions.flatMap((mission) => mission.drills.map(typed));
+const drills = act2Missions.flatMap((mission) => mission.drills.filter(typed));
 
-describe('Act 2 No-AI Drills', () => {
+describe('Act 2 typed No-AI Drills', () => {
   it('has reference answers for exactly the drills in Act 2', () => {
     expect(Object.keys(ANSWERS).sort()).toEqual(drills.map((drill) => drill.id).sort());
   });
