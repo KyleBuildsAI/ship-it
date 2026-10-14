@@ -190,7 +190,7 @@ describe('Act 7 placement test', () => {
     expect(run.timeLimitSeconds).toBe(act7Placement.timeLimitSeconds);
   });
 
-  it('tests out of every lesson at half XP, completes the Act, and leaves the final open', () => {
+  it('tests out of every lesson at half XP, and leaves the final and Field Mission open', () => {
     const save = recordPlacement(
       createDefaultSave(NOW),
       act,
@@ -200,9 +200,13 @@ describe('Act 7 placement test', () => {
     );
     for (const lesson of regular) expect(save.missions[lesson.id]?.status).toBe('tested-out');
     expect(save.missions[final?.id ?? '']).toBeUndefined();
-    expect(save.acts['7']?.completedAt).toBe(NOW.toISOString());
+    // Cards can be guessed; the Field Mission is the real agent practice, so it still counts.
+    expect(save.acts['7']?.completedAt).toBeNull();
     const half = regular.reduce((total, lesson) => total + placementTestOutXp([lesson.xp]), 0);
     expect(save.profile.xp).toBe(half);
+    const ids = act.fieldMission?.verifications.map((check) => check.id) ?? [];
+    const verified = recordFieldMission(save, act, ids, NOW);
+    expect(verified.acts['7']?.completedAt).toBe(NOW.toISOString());
   });
 });
 

@@ -218,7 +218,8 @@ export function countPlacementAttempt(save: SaveData, actNumber: number): SaveDa
  * Testing out marks the Act's unfinished missions (or a lesson Act's unfinished lessons)
  * tested out at half their XP, once. A part already completed paid its full XP, so it
  * adds nothing here. A lesson Act's final is its boss, so like a boss it isn't skipped:
- * it stays there to play, and the Act completes without it.
+ * it stays there to play, and the Act completes without it, once any Field Mission it
+ * has is verified too (refreshAct).
  */
 export function recordPlacement(
   save: SaveData,
@@ -317,6 +318,8 @@ export function missionDone(save: SaveData, missionId: string): boolean {
  *
  * A lesson Act's final is listed in missionIds and stands in for the boss, so finishing
  * every lesson beats it. Its Field Mission is optional, and only counts when it exists.
+ * When it does, a placement pass skips the lessons but not the Field Mission: cards can be
+ * guessed, and the Field Mission is the one part done on a real repo.
  */
 function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   if (target.earlyAccess) return save;
@@ -326,6 +329,8 @@ function refreshAct(save: SaveData, target: Act, now: Date): SaveData {
   const fieldDone = target.fieldMission === undefined || current.fieldMissionCompletedAt !== null;
   const everything =
     target.missionIds.every((id) => missionDone(save, id)) && bossBeaten && fieldDone;
-  if (!everything && !current.placement.testedOut) return save;
+  const lessonFieldLeft = target.finalLessonId !== undefined && !fieldDone;
+  const testedOut = current.placement.testedOut && !lessonFieldLeft;
+  if (!everything && !testedOut) return save;
   return withAct(save, target.act, { ...current, completedAt: now.toISOString() });
 }

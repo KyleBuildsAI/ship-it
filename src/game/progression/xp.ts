@@ -85,12 +85,13 @@ export function nextRank(
 }
 
 /**
- * The Act numbers the player has completed, in order. An Act the player tested out of counts
- * as complete (DESIGN.md section 5), even if something forgot to stamp its completedAt.
+ * The Act numbers the player has completed, in order. Testing out stamps completedAt
+ * itself (DESIGN.md section 5), except in a lesson Act whose Field Mission is still open:
+ * that Act isn't complete yet, so it doesn't count toward a rank either.
  */
 export function completedActNumbers(acts: SaveData['acts']): number[] {
   return Object.entries(acts)
-    .filter(([, act]) => act.completedAt !== null || act.placement.testedOut)
+    .filter(([, act]) => act.completedAt !== null)
     .map(([actKey]) => Number(actKey))
     .toSorted((a, b) => a - b);
 }
