@@ -34,16 +34,16 @@ export const debugFromSymptoms = {
       options: [
         {
           id: 'line-41',
-          text: 'Line 41 is broken: the list comprehension is wrong.',
+          text: 'Line 41 is broken: the list comprehension hands build_row the wrong thing for each customer, so fix the loop.',
           correct: false,
           feedback: 'Line 41 only made the call. Read from the bottom: line 12 is where it failed.',
         },
         {
           id: 'deleted',
-          text: 'Someone deleted the vat_number column for every customer.',
+          text: 'Someone deleted the vat_number column from the customers table, so restore it from last night’s backup and rerun the export.',
           correct: false,
           feedback:
-            'Maybe, but nothing here says every customer. The traceback only proves at least one is missing it. Check the data before assuming.',
+            'Maybe, but nothing here says every customer. The traceback only proves at least one is missing it. Check the data before restoring anything.',
         },
         {
           id: 'missing-key',
@@ -114,14 +114,14 @@ export const debugFromSymptoms = {
       options: [
         {
           id: 'servers',
-          text: 'The server’s CPU, to see if it needs more power.',
+          text: 'The server’s CPU and memory graphs around 14:02, to see whether it needs more power for the extra traffic.',
           correct: false,
           feedback:
-            'Maybe later. Something specific happened at 14:02, and it’s right there in the log.',
+            'Maybe later. Nothing shows more traffic. Something specific happened at 14:02, and it’s right there in the log.',
         },
         {
           id: 'network',
-          text: 'Priya’s Wi-Fi.',
+          text: 'Priya’s Wi-Fi and browser, since she’s the only one who has said the page feels slow.',
           correct: false,
           feedback: 'The server’s own log shows slow responses, so it isn’t her network.',
         },
@@ -133,7 +133,7 @@ export const debugFromSymptoms = {
         },
         {
           id: 'deploy',
-          text: 'The diff of a91f3c2, the deploy at 14:02, since the slowdown starts right after it.',
+          text: 'The diff of a91f3c2, deployed at 14:02. The slowdown starts right after it.',
           correct: true,
           feedback: 'Yes. Ask what changed, and the log already answered.',
         },
@@ -172,20 +172,21 @@ export const debugFromSymptoms = {
         },
         {
           id: 'retry',
-          text: 'Add a retry to login so it fails less often.',
+          text: 'Add a retry with backoff to the login request, up to three tries, so Safari users get in and the ticket closes. Write a test for the retry.',
           correct: false,
-          feedback: 'That hides the symptom and doubles the requests. You still won’t know why.',
+          feedback:
+            'That hides the symptom and multiplies the requests. The test proves the retry, not the bug. You still won’t know why.',
         },
         {
           id: 'evidence',
-          text: 'Don’t change code yet. Pull today’s failed logins from the auth log, list what the Safari ones have in common, and suggest how to reproduce it.',
+          text: 'Don’t change code yet. Read today’s failed logins in the auth log, find what the Safari ones share, and suggest a way to reproduce it.',
           correct: true,
           feedback:
             'Evidence first. Otto is fast at reading logs, and nothing breaks while he does.',
         },
         {
           id: 'new-library',
-          text: 'Replace our auth library with a newer one.',
+          text: 'Upgrade our auth library to its newest version, which fixed some Safari cookie bugs last year, then run the login tests to confirm.',
           correct: false,
           feedback: 'A huge change for an unknown cause, and the bug might come along with it.',
         },

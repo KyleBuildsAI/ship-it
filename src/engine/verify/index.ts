@@ -39,6 +39,7 @@ export {
   type PullRequestSummary,
   type RepoSlug,
 } from './github';
+export { headingProblems, parseMarkdownHeadings, type HeadingProblems } from './headings';
 export { parseLogGraph, parseLogOneline, type GraphCommit, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
 export { parsePathList } from './pathList';

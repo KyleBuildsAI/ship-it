@@ -348,7 +348,8 @@ const BossSchema = z
 // ls-files lists every tracked file, changed or not, so only it can prove no secret is tracked.
 // gh-run-list is GitHub's own word on a CI run, read through the player's gh login, so
 // the game never needs a token to see a green check.
-// select-string is PowerShell's Select-String, which shows the lines of a file that match.
+// select-string is PowerShell's Select-String, which shows the lines of a file that match,
+// like a README's request lines or `Select-String '^## '`'s Markdown headings.
 export const FIELD_PARSERS = [
   'status-short',
   'status-long',
@@ -365,13 +366,16 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
    * Nothing left to commit. A clean tree alone can't prove work landed (a feature branch is
    * clean too), so a check can also require the branch; `pushed`, that nothing waits to go
    * to GitHub (`git status -sb`'s `##` line or a long status); or `upstream`, that it
-   * matches its remote branch exactly, which `git status` only knows after a fetch.
+   * matches its remote branch exactly, which `git status` only knows after a fetch. With
+   * `paths`, only those files count, so unrelated work in progress elsewhere in the repo
+   * doesn't have to be touched to pass.
    */
   z.strictObject({
     kind: z.literal('clean'),
     branch: NameSchema.optional(),
     pushed: z.literal(true).optional(),
     upstream: z.literal('up-to-date').optional(),
+    paths: z.array(NameSchema).min(1).optional(),
   }),
   /**
    * The matched lines of `file` name a request (`GET /health`) and a status code (`200`),
@@ -414,6 +418,10 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('newestCommitType'), type: z.enum(CONVENTIONAL_TYPES) }),
   /** The newest commit listed is GitHub's merge of a pull request, squashed or not. */
   z.strictObject({ kind: z.literal('viaPullRequest') }),
+  /** Every one of `paths` is tracked by git, and (as ls-files lists them all) no secret is. */
+  z.strictObject({ kind: z.literal('tracked'), paths: z.array(NameSchema).min(1) }),
+  /** A Markdown file has these `##` headings, in this order. Other headings may sit between. */
+  z.strictObject({ kind: z.literal('headings'), headings: z.array(NameSchema).min(1) }),
 ]);
 export type FieldCheck = z.output<typeof FieldCheckSchema>;
 
@@ -438,6 +446,8 @@ export const PARSERS_FOR_CHECK: Record<FieldCheck['kind'], readonly FieldParser[
   squashMergedPr: ['log-oneline'],
   noCommits: ['log-oneline'],
   viaPullRequest: ['log-oneline'],
+  tracked: ['ls-files'],
+  headings: ['select-string'],
 };
 
 const VerificationSchema = z
@@ -475,7 +485,19 @@ const FieldMissionSchema = z
     /** The real repository this happens in, e.g. "SandCastles". */
     repoName: NameSchema,
     briefing: CaptionsSchema,
-    checklist: z.array(z.strictObject({ id: IdSchema, text: ScreenTextSchema })).min(1),
+    checklist: z
+      .array(
+        z.strictObject({
+          id: IdSchema,
+          text: ScreenTextSchema,
+          /**
+           * Words to give an AI agent, shown apart from `text` with a Copy button, so a
+           * vibe coder pastes the exact brief instead of selecting it out of a sentence.
+           */
+          prompt: ScreenTextSchema.optional(),
+        }),
+      )
+      .min(1),
     verifications: z.array(VerificationSchema).min(1),
     /**
      * An opt-in check through GitHub's API (DESIGN.md section 8), beside the paste checks
@@ -493,6 +515,17 @@ const FieldMissionSchema = z
   .superRefine((field, ctx) => {
     checkUniqueIds(field.checklist, 'checklist', ctx);
     checkUniqueIds(field.verifications, 'verifications', ctx);
+    // Ticked tasks and passed checks are saved in one record by id, so they must not clash.
+    const checkIds = new Set(field.verifications.map((check) => check.id));
+    field.checklist.forEach((item, index) => {
+      if (checkIds.has(item.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Checklist item "${item.id}" has the same id as a verification.`,
+          path: ['checklist', index, 'id'],
+        });
+      }
+    });
   });
 
 const DrillPlacementSchema = z.strictObject({

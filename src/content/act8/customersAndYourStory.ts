@@ -23,13 +23,14 @@ export const customersAndYourStory = {
       options: [
         {
           id: 'promise',
-          text: 'We’ll make it ten times faster by next week.',
+          text: 'We hear you. We’ll add caching and more servers this week, and the API will be ten times faster by Monday.',
           correct: false,
-          feedback: 'A promise before facts. If you can’t keep it, you lose them anyway.',
+          feedback:
+            'A promise and a fix before facts. If it isn’t the real problem, you lose them anyway.',
         },
         {
           id: 'network',
-          text: 'It’s fast for everyone else, so it may be your network.',
+          text: 'It’s fast for everyone else, so it may be your network. Can you run a speed test and send us the results?',
           correct: false,
           feedback: 'It could be, but you don’t know yet, and it sounds defensive.',
         },
@@ -176,14 +177,14 @@ export const customersAndYourStory = {
       options: [
         {
           id: 'grill',
-          text: 'Here are my notes on SandCastles. Ask me the follow-ups a tough interviewer would ask, one at a time, and tell me where my answers are vague. Don’t write my answers for me.',
+          text: 'Here are my SandCastles notes. Ask the follow-ups a tough interviewer would, one at a time, and tell me where I’m vague. Don’t write my answers.',
           correct: true,
           feedback:
             'The story stays yours, and you find the weak spots before the interviewer does.',
         },
         {
           id: 'write-it',
-          text: 'Write my SandCastles story so it sounds as impressive as possible.',
+          text: 'Turn my notes into a polished SandCastles story that sounds as impressive as possible, and I’ll practise it until it sounds natural.',
           correct: false,
           feedback: 'You’d be reciting someone else’s words, and the follow-ups would expose it.',
         },
@@ -240,19 +241,20 @@ export const customersAndYourStory = {
         },
         {
           id: 'won',
-          text: 'A time you were right, they were wrong, and you proved it.',
+          text: 'A time you were sure the tests were too thin, Priya shipped anyway, and you were proved right when it broke in production.',
           correct: false,
-          feedback: 'It’s about how you handled it, not who won.',
+          feedback:
+            'It’s about how you handled it, not who won. Being proved right by an outage isn’t a win.',
         },
         {
           id: 'manager',
-          text: 'A time you went to the manager to settle it.',
+          text: 'A time you and Priya disagreed about a release, so you took it to the manager straight away to settle it.',
           correct: false,
           feedback: 'Sometimes needed, but they want to hear you tried working it out first.',
         },
         {
           id: 'real',
-          text: 'A real one: Priya wanted to ship, you wanted more tests. You listened, compared the risk with evidence, and agreed a smaller release.',
+          text: 'A real one: Priya wanted to ship, you wanted more tests. You listened, weighed the risk with evidence and agreed a smaller release.',
           correct: true,
           feedback: 'Respect, evidence and a shared outcome. That’s what they’re listening for.',
         },

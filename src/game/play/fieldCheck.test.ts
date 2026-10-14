@@ -466,3 +466,59 @@ describe('the squash-merge and history checks', () => {
     expect(verifyPaste(history, 'git status').message).toContain('copy the line');
   });
 });
+
+describe('verifyPaste: scoped clean, tracked files and headings', () => {
+  it('scopes a clean check to named files, in either status format', () => {
+    const check = verification({
+      parser: 'status-long',
+      command: 'git status',
+      check: { kind: 'clean', paths: ['docs/story.md'] },
+    });
+    const otherWork = [
+      'On branch main',
+      'Changes not staged for commit:',
+      '\tmodified:   src/app.ts',
+      '',
+      'Untracked files:',
+      '\tnotes.txt',
+    ].join('\n');
+    expect(verifyPaste(check, otherWork).passed).toBe(true);
+    const storyLeft = [
+      'On branch main',
+      'Changes to be committed:',
+      '\trenamed:    docs/draft.md -> docs/story.md',
+    ].join('\n');
+    const verdict = verifyPaste(check, storyLeft);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('docs/story.md');
+  });
+
+  it('matches a tracked file however its slashes are written', () => {
+    const check = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'tracked', paths: ['docs\\story.md'] },
+    });
+    expect(verifyPaste(check, 'docs/story.md\nREADME.md').passed).toBe(true);
+  });
+
+  it('gives an empty log without a file the plain paste-it message', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -3',
+      check: { kind: 'minCommits', count: 3 },
+    });
+    expect(verifyPaste(check, '').message).toBe('Paste the output of git log --oneline -3 first.');
+    // Only the copied prompt, and no output: still nothing to check.
+    expect(verifyPaste(check, 'PS C:\\repo> git log --oneline -3').message).toContain('Paste');
+  });
+
+  it('refuses a Select-String paste checked against the wrong kind of check', () => {
+    const check = verification({
+      parser: 'select-string',
+      command: "Select-String -Path docs/story.md -Pattern '^## '",
+      check: { kind: 'clean' },
+    });
+    expect(verifyPaste(check, '## Situation').passed).toBe(false);
+  });
+});

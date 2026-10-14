@@ -6,6 +6,7 @@ import {
   documentedRequest,
   findSecretLike,
   firstTracked,
+  headingProblems,
   isCleanStatus,
   isConventionalSubject,
   isFromFile,
@@ -18,6 +19,7 @@ import {
   normalizePaste,
   parseLogGraph,
   parseLogOneline,
+  parseMarkdownHeadings,
   parsePathList,
   parseRunList,
   parseSelectString,
@@ -108,6 +110,7 @@ function plural(count: number, word: string): string {
 /** A Select-String paste: which lines of the file name a request and a status code. */
 function verifySelectString(verification: Verification, text: string): FieldVerdict {
   const { check } = verification;
+  if (check.kind === 'headings') return verifyHeadings(verification, text);
   if (check.kind !== 'documentsRequest') return fail(`Run ${verification.command} and paste that.`);
   const matches = parseSelectString(text).filter((match) => isFromFile(match, check.file));
   if (matches.length === 0) {
@@ -119,6 +122,79 @@ function verifySelectString(verification: Verification, text: string): FieldVerd
   if (request === null) return fail(`${check.file} doesn't name a request like GET /health yet.`);
   if (statusCode === null) return fail(`${check.file} names ${request}, but not its status code.`);
   return { passed: true, message: `${check.file} documents ${request} and its ${statusCode}.` };
+}
+
+/** Paths as git prints them, so `docs\story.md` and `docs/story.md` are the same file. */
+function samePath(a: string, b: string): boolean {
+  return a.replaceAll('\\', '/') === b.replaceAll('\\', '/');
+}
+
+/** Every file a status paste lists as changed, staged, untracked or conflicted. */
+function changedPaths(status: ParsedStatus): string[] {
+  if (status.format === 'short') {
+    return status.entries
+      .filter((entry) => entry.index !== '!')
+      .flatMap((entry) => [entry.path, ...(entry.originalPath ? [entry.originalPath] : [])]);
+  }
+  const changes = [...status.staged, ...status.unstaged];
+  return [
+    ...changes.flatMap((change) => [change.path, ...(change.from ? [change.from] : [])]),
+    ...status.untracked,
+    ...status.unmerged.map((entry) => entry.path),
+  ];
+}
+
+/** The files a `git log ... <path>` command names, for saying what an empty log means. */
+function loggedPaths(command: string): string[] {
+  const [program, subcommand, ...rest] = command.split(/\s+/);
+  if (program !== 'git' || subcommand !== 'log') return [];
+  return rest.filter((word) => word !== '' && !word.startsWith('-'));
+}
+
+/** What a paste with no output in it means for this check: sometimes a pass, usually a nudge. */
+function verifyEmptyPaste(verification: Verification): FieldVerdict {
+  const { check, command } = verification;
+  // Some commands print nothing until the work exists, so a mission can say so itself.
+  if (verification.whenEmpty !== undefined) return fail(verification.whenEmpty);
+  // A status limited to some files prints nothing when those files have nothing left to
+  // commit, so for a check scoped to paths, no output is the clean answer.
+  if (check.kind === 'clean' && check.paths !== undefined) {
+    return {
+      passed: true,
+      message: `Nothing printed: ${check.paths.join(' and ')} have nothing left to commit.`,
+    };
+  }
+  const [file] = loggedPaths(command);
+  if (verification.parser === 'log-oneline' && file !== undefined) {
+    return fail(
+      `No line means no commit has touched ${file} yet. Ask your agent to commit it, then run it again.`,
+    );
+  }
+  // A clean short status prints nothing, so only the copied command line shows what ran.
+  if (verification.parser === 'status-short') {
+    return fail(`Copy the line where you typed ${command} along with its output.`);
+  }
+  return fail(`Paste the output of ${command} first.`);
+}
+
+/** The headings check: a Select-String paste shows the wanted `##` headings, in order. */
+function verifyHeadings(verification: Verification, text: string): FieldVerdict {
+  const { check } = verification;
+  if (check.kind !== 'headings') return fail(`Run ${verification.command} and paste that.`);
+  const found = parseMarkdownHeadings(text);
+  if (found.length === 0) {
+    return fail('No ## headings in that paste. Is the file committed, and did you copy it all?');
+  }
+  const { missing, outOfOrder } = headingProblems(found, check.headings);
+  if (missing.length > 0) {
+    return fail(`Missing: ${missing.join(', ')}. Ask your agent to add only that, and commit.`);
+  }
+  if (outOfOrder.length > 0) {
+    return fail(
+      `Out of order: ${outOfOrder.join(', ')}. The order is ${check.headings.join(', ')}.`,
+    );
+  }
+  return { passed: true, message: `All ${String(check.headings.length)} headings, in order.` };
 }
 
 /**
@@ -185,6 +261,17 @@ function hidesBranch(status: ParsedStatus): boolean {
  * and `git status -sb` print but `-s` doesn't.
  */
 function verifyClean(check: CleanCheck, status: ParsedStatus): FieldVerdict {
+  const { paths } = check;
+  if (paths !== undefined) {
+    // Only the named files count, so unrelated work in progress never has to be
+    // stashed, reverted or swept into a commit just to pass.
+    const left = changedPaths(status).filter((path) =>
+      paths.some((wanted) => samePath(path, wanted)),
+    );
+    return left.length === 0
+      ? { passed: true, message: `${paths.join(' and ')} have nothing left to commit.` }
+      : fail(`Not committed yet: ${left.join(', ')}. Ask your agent to commit only those.`);
+  }
   if (!isCleanStatus(status)) {
     return fail('Not clean yet. Commit what belongs in the repo and ignore what doesn’t.');
   }
@@ -260,6 +347,12 @@ function checkTrackedFiles(verification: Verification, text: string): FieldVerdi
       ? fail(`Git doesn’t track ${check.paths.join(' or ')} yet. Commit it first.`)
       : { passed: true, message: `Git tracks ${found}.` };
   }
+  if (check.kind === 'tracked') {
+    const untracked = check.paths.filter((wanted) => !paths.some((path) => samePath(path, wanted)));
+    if (untracked.length > 0) {
+      return fail(`Git doesn’t track ${untracked.join(', ')} yet. Ask your agent to commit it.`);
+    }
+  }
   const secrets = trackedSecretPaths(paths);
   if (secrets.length > 0) {
     return fail(
@@ -275,7 +368,9 @@ function checkTrackedFiles(verification: Verification, text: string): FieldVerdi
           `${check.patterns.join(' or ')} isn't on that list yet. Commit it, then run ${verification.command} again.`,
         );
   }
-  return { passed: true, message: 'No secret files are tracked.' };
+  return check.kind === 'tracked'
+    ? { passed: true, message: `Git tracks ${check.paths.join(' and ')}, and no secret files.` }
+    : { passed: true, message: 'No secret files are tracked.' };
 }
 
 /** Checks a `gh run list` paste: GitHub's own word on whether the newest CI run went green. */
@@ -371,9 +466,10 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
   if (verification.check.kind === 'noCommits') {
     return verifyNoCommits(verification, verification.check.path, text);
   }
-  if (text.trim() === '' && verification.parser !== 'status-short') {
-    // Some commands print nothing until the work exists, so a mission can say so itself.
-    return fail(verification.whenEmpty ?? `Paste the output of ${verification.command} first.`);
+  // A copied `git status --short` line with nothing under it is a clean tree, not nothing.
+  const typedShortStatus = detectPasteKind(text) === 'status-short';
+  if (normalizePaste(text).lines.length === 0 && !typedShortStatus) {
+    return verifyEmptyPaste(verification);
   }
   if (verification.parser === 'ls-files') return checkTrackedFiles(verification, text);
   if (verification.parser === 'log-oneline') return checkLog(verification, text);
@@ -383,10 +479,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
   const { check } = verification;
   const status = parseStatus(text);
   if (status === null) {
-    // A clean short status prints nothing, so only the copied command line shows what ran.
-    return text.trim() === ''
-      ? fail(`Copy the line where you typed ${verification.command} along with its output.`)
-      : fail(`That doesn't look like git status output. Run ${verification.command}.`);
+    return fail(`That doesn't look like git status output. Run ${verification.command}.`);
   }
   switch (check.kind) {
     case 'clean':

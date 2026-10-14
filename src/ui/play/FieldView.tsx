@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { requireFieldMission } from '../../game/missions/schema';
 import { getAct } from '../../game/play/catalog';
 import type { FieldVerdict } from '../../game/play/fieldCheck';
-import { checkFieldOnGitHub, submitFieldPaste } from '../../game/play/fieldPlay';
+import { checkFieldOnGitHub, setFieldTaskDone, submitFieldPaste } from '../../game/play/fieldPlay';
 import { leavePlay } from '../../game/play/play';
 import type { FieldActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
+import { CopyButton } from './CopyButton';
 
 /**
  * The Field Mission (DESIGN.md section 8): a checklist of real work on one of Kyle's real
@@ -14,6 +15,10 @@ import { useStore } from '../useStore';
  * so it can be done over days. Checking a paste happens here in the browser, so it needs
  * no GitHub token or API key, and the panel says so before anyone goes looking for one.
  * A mission can add an opt-in GitHub check below them, for a public repo, also tokenless.
+ *
+ * It's made for vibe coders: a brief for Kyle's AI agent and every command have a Copy
+ * button, so nothing long is selected by hand, and the tasks are checkboxes he can tick
+ * as he goes, saved with the rest of the mission.
  */
 export function FieldView({ activity }: { activity: FieldActivity }) {
   const field = requireFieldMission(getAct(activity.act).act);
@@ -42,9 +47,32 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
         </p>
       ))}
       <ul className="field-tasks">
-        {field.checklist.map((item) => (
-          <li key={item.id}>{item.text}</li>
-        ))}
+        {field.checklist.map((item, index) => {
+          const ticked = saved?.checklist[item.id] === true;
+          return (
+            <li key={item.id} className={ticked ? 'field-task field-task--done' : 'field-task'}>
+              <label className="field-task__label">
+                <input
+                  type="checkbox"
+                  checked={ticked}
+                  onChange={(event) => {
+                    setFieldTaskDone(item.id, event.target.checked);
+                  }}
+                />
+                <span>{item.text}</span>
+              </label>
+              {item.prompt === undefined ? null : (
+                <div className="field-task__prompt">
+                  <p>{item.prompt}</p>
+                  <CopyButton
+                    text={item.prompt}
+                    label={`Copy the agent brief for step ${String(index + 1)}`}
+                  />
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
       {saved?.verifiedAt ? (
         <p className="drill-result drill-result--pass">Verified. Real work, really done.</p>
@@ -58,7 +86,10 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
               <span className={done ? 'checklist__done' : ''}>{done ? '✓ ' : ''}</span>
               {check.instruction}
             </p>
-            <code className="field-check__command">{check.command}</code>
+            <div className="field-check__run">
+              <code className="field-check__command">{check.command}</code>
+              <CopyButton text={check.command} label={`Copy the command ${check.command}`} />
+            </div>
             <textarea
               aria-label={`Output of ${check.command}`}
               placeholder="Paste the output here"

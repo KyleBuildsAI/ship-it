@@ -7,7 +7,7 @@ import { getAct } from './catalog';
 import { verifyPaste, type FieldVerdict } from './fieldCheck';
 import { browserGet, checkMergedPullRequest, type GitHubGet } from './githubCheck';
 import { play } from './playStore';
-import { recordFieldMission, recordGitHubCheck } from './saveRules';
+import { recordFieldMission, recordGitHubCheck, tickFieldTask } from './saveRules';
 
 /**
  * The Field Mission happens outside the game, on Kyle's real repo, in any Act that has
@@ -76,4 +76,12 @@ export async function checkFieldOnGitHub(
   const repo = `${slug.owner}/${slug.repo}`;
   saveProgressNow((save) => recordGitHubCheck(save, act, repo, verdict.passed ? now : null));
   return verdict;
+}
+
+/** Ticks or unticks a checklist task of the open Field Mission, saved at once. */
+export function setFieldTaskDone(taskId: string, done: boolean): void {
+  const current = play.get().activity;
+  if (current?.kind !== 'field') return;
+  const { act } = getAct(current.act);
+  saveProgressNow((save) => tickFieldTask(save, act, taskId, done));
 }

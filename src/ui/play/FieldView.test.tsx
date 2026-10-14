@@ -6,6 +6,7 @@ import { progress } from '../../game/progress';
 import { createDefaultSave, type SaveData } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
 import type { Store } from '../../game/store';
+import { act8 } from '../../content/act8';
 import { FieldView } from './FieldView';
 
 // Rendered to a string, so the hook just reads the store (as in ActMenu.test.tsx).
@@ -56,5 +57,31 @@ describe('a Field Mission outside Act 2', () => {
     expect(markup).toContain('Check on GitHub');
     expect(markup).toContain('No sign-in or token');
     expect(markup).not.toContain('✓ Optional');
+  });
+
+  it('makes every task a checkbox, ticked from the save, and every command copyable', () => {
+    const base = createDefaultSave(TEST_NOW);
+    const ticked: SaveData = {
+      ...base,
+      fieldMissions: { 'sample-full-field': { checklist: { branch: true }, verifiedAt: null } },
+    };
+    setCatalog({ acts: [full] });
+    progress.update({ status: 'ready', save: ticked, problem: null });
+    const html = renderToStaticMarkup(<FieldView activity={{ kind: 'field', act: 6 }} />);
+    expect(html).toMatch(/<input type="checkbox" checked=""/);
+    expect(html).toContain('field-task--done');
+    expect(html).toContain('aria-label="Copy the command git status"');
+    expect(html).toContain('aria-label="Copy the command git log --oneline -3"');
+  });
+});
+
+describe('the Act 8 Field Mission panel', () => {
+  it('sets the agent brief apart with its own Copy button', () => {
+    setCatalog({ acts: [act8] });
+    progress.update({ status: 'ready', save: createDefaultSave(TEST_NOW), problem: null });
+    const html = renderToStaticMarkup(<FieldView activity={{ kind: 'field', act: 8 }} />);
+    expect(html).toContain('field-task__prompt');
+    expect(html).toContain('aria-label="Copy the agent brief for step 1"');
+    expect(html).toContain('Interview me about SandCastles one question at a time.');
   });
 });

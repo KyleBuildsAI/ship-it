@@ -331,6 +331,29 @@ export function recordGitHubCheck(
   return { ...save, fieldMissions: { ...save.fieldMissions, [field.id]: next } };
 }
 
+/**
+ * Ticks or unticks one of the Field Mission's checklist tasks. A tick is Kyle's own note
+ * of where he got to, saved so a mission done over days picks up where he left off. It
+ * never completes the mission: only the paste checks can do that.
+ */
+export function tickFieldTask(
+  save: SaveData,
+  target: Act,
+  taskId: string,
+  done: boolean,
+): SaveData {
+  const field = requireFieldMission(target);
+  if (!field.checklist.some((item) => item.id === taskId)) return save;
+  const previous = save.fieldMissions[field.id] ?? { checklist: {}, verifiedAt: null };
+  return {
+    ...save,
+    fieldMissions: {
+      ...save.fieldMissions,
+      [field.id]: { ...previous, checklist: { ...previous.checklist, [taskId]: done } },
+    },
+  };
+}
+
 /** Whether a mission counts as done for unlocking the boss: finished or tested out. */
 export function missionDone(save: SaveData, missionId: string): boolean {
   const status = save.missions[missionId]?.status;

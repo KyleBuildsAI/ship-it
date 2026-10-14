@@ -52,6 +52,55 @@ export function cardsToPass(total: number, passPercent: number): number {
   return Math.ceil((total * passPercent) / 100);
 }
 
+/** A guessing rule that ignores the question: always pick the option at this length rank. */
+export interface LengthStrategy {
+  /** Counted from the longest option (`longest`, 1 = longest) or the shortest. */
+  readonly from: 'longest' | 'shortest';
+  readonly rank: number;
+  /** How many pick cards this rule answers right. */
+  readonly right: number;
+}
+
+/**
+ * Where the right option sits by length on one card, counted from both ends, or null when
+ * its length ties another option's, since then no length rule can single it out.
+ */
+function rightLengthRanks(options: readonly { text: string; correct: boolean }[]) {
+  const right = options.find((option) => option.correct);
+  if (right === undefined) return null;
+  const length = right.text.length;
+  if (options.filter((option) => option.text.length === length).length > 1) return null;
+  return {
+    longest: 1 + options.filter((option) => option.text.length > length).length,
+    shortest: 1 + options.filter((option) => option.text.length < length).length,
+  };
+}
+
+/**
+ * The best a player could score on these cards by never reading them: always picking the
+ * longest option, or the second longest, or the shortest, and so on. Writers make right
+ * answers longer without meaning to, because the right answer needs the detail. A
+ * placement test hides its feedback, so a length habit like that is the one clue left,
+ * and validateAct keeps the best rule here to half the cards at most.
+ */
+export function bestLengthStrategy(cards: readonly LessonCard[]): LengthStrategy | null {
+  const counts = new Map<string, LengthStrategy>();
+  for (const card of cards.filter(isPickCard)) {
+    const ranks = rightLengthRanks(card.options);
+    if (ranks === null) continue;
+    for (const from of ['longest', 'shortest'] as const) {
+      const key = `${from}:${String(ranks[from])}`;
+      const right = (counts.get(key)?.right ?? 0) + 1;
+      counts.set(key, { from, rank: ranks[from], right });
+    }
+  }
+  let best: LengthStrategy | null = null;
+  for (const strategy of counts.values()) {
+    if (best === null || strategy.right > best.right) best = strategy;
+  }
+  return best;
+}
+
 /** The id of an Act's placement run. It's never saved as a lesson, only as a placement. */
 export function placementLessonId(act: number): string {
   return `placement-act-${String(act)}`;
