@@ -38,12 +38,24 @@ describe('directed check feedback', () => {
   });
 
   it('never points at what only the closed terminal shows', () => {
-    // Otto's own output ("the PATH Otto printed") and the terminal's tab strip are drawn
-    // only in the terminal. That Otto printed a secret is a fact about his context, not a
-    // place to look, so it may still be said.
-    const terminalOnly = /Directory line|tab strip|the \S+ Otto printed/i;
+    // Otto's own output ("the PATH Otto printed", "the listing of ..\web") and the
+    // terminal's tab strip are drawn only in the terminal. That Otto printed a secret is a
+    // fact about his context, not a place to look, so it may still be said.
+    const terminalOnly = /Directory line|tab strip|the \S+ Otto printed|the listing\b/i;
     for (const { name, task } of steps) {
       for (const text of afterTheCheck(task)) expect(text, name).not.toMatch(terminalOnly);
+    }
+  });
+
+  it('sends a hint, read before any look can run, to the island rather than the prompt', () => {
+    // Hints come while Kyle picks a card: no look has run, so no prompt is on screen yet.
+    for (const mission of [...act1Missions, ...act2Missions]) {
+      for (const step of mission.steps) {
+        if (step.agent === undefined) continue;
+        for (const hint of step.hints) {
+          expect(hint, `${mission.id} > ${step.id}`).not.toMatch(/\bthe prompt\b/i);
+        }
+      }
     }
   });
 

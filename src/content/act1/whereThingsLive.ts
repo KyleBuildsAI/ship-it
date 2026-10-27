@@ -57,7 +57,7 @@ export const whereThingsLive: MissionInput = {
         "The API lives under your home folder. Get Otto's terminal standing in its folder.",
       success: { ...standsIn(API), label: 'The terminal stands in the API' },
       hints: [
-        'Read the prompt. Which folder does the terminal stand in right now?',
+        "Find Otto's PS 1 lantern on the island. Which folder does it stand on right now?",
         'A bare name like api starts in that folder. A full path works from anywhere.',
         'Pick the card with the full path C:\\Users\\kyle\\quillwork\\api.',
       ],
@@ -351,7 +351,7 @@ export const whereThingsLive: MissionInput = {
               id: 'next-door',
               text: 'Next door, in quillwork\\web\\notes',
               truth: { kind: 'all', of: [webNotes, missing(apiWeb)] },
-              feedback: 'Right: the listing of ..\\web shows notes.',
+              feedback: 'Right: List the web app shows its notes folder.',
             },
             {
               id: 'inside',
