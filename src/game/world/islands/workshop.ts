@@ -16,7 +16,7 @@ import {
 /*
  * Act 7's island: a workbench with Otto, the AI agent, on it and gears on the wall behind.
  * Its beats act out the Act's ideas with things a non-coder can follow: a brief card goes
- * in and the right blocks come out, a loop circles the bench, a magnifier finds the bad
+ * up beside Otto and the right blocks come out, a loop circles the bench, a magnifier finds the bad
  * line on a PR card, a test gate lets one block through and stops another (or is knocked
  * flat so a bad one rolls over it), eval scores rise as bars, a fence stops the errand a
  * stranger's note sends Otto on, with the key locked outside it, and a stop sign halts a
@@ -142,22 +142,29 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
   };
 
   return {
-    // A clear brief goes in, the right thing comes out: a spec card flies to Otto, he
-    // takes it, and three blocks land on the bench one by one.
+    // A clear brief goes in, the right thing comes out: a spec card is handed to Otto and
+    // propped up beside him, its lines light as he reads them, and three blocks land on the
+    // bench one by one. The brief stays up: the spec is what the work is checked against,
+    // and a rule in the repo's instructions file is there for every session, not used up.
     'brief-handed': {
       seconds: 2.8,
       start: () => {
-        const handedFrom = new THREE.Vector3(4, 2.2, 3);
-        const brief = card(handedFrom, 3, colors.light, colors.glow);
-        const nearOtto = new THREE.Vector3(0.9, 2.4, -0.5);
+        // From the camera's side, where Kyle stands, as if he handed it over.
+        const handedFrom = new THREE.Vector3(0.5, 2.8, 4.5);
+        // On the bench at Otto's left, clear of his arm, facing the camera.
+        const propped = new THREE.Vector3(-1.4, BENCH_TOP + 0.85, -0.5);
+        const brief = card(handedFrom, 3);
+        // At the bench's front edge, so they aren't read against the glowing gear behind.
         const blocks = [1.1, 1.65, 2.2].map((x) =>
-          hidden(BLOCK, colors.glow, new THREE.Vector3(x, BENCH_TOP + 0.23, -0.8)),
+          hidden(BLOCK, colors.glow, new THREE.Vector3(x, BENCH_TOP + 0.23, -0.3)),
         );
         return run(stage, [], (progress) => {
-          slide(brief.group, handedFrom, nearOtto, phase(progress, 0.1, 0.45), 0.8);
-          // The card shrinks away as Otto reads it in.
-          const read = phase(progress, 0.45, 0.6);
-          popIn(brief.group, Math.min(phase(progress, 0, 0.15), 1 - read), 1.2);
+          popIn(brief.group, phase(progress, 0, 0.12), 0.9);
+          slide(brief.group, handedFrom, propped, phase(progress, 0.08, 0.4), 0.6);
+          // Otto reads every line before he builds anything.
+          brief.lines.forEach((line, index) => {
+            line.material = progress >= 0.45 + index * 0.06 ? colors.glow : colors.base;
+          });
           blocks.forEach((block, index) => {
             const start = 0.6 + index * 0.12;
             popIn(block, phase(progress, start, start + 0.15));
