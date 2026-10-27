@@ -145,11 +145,28 @@ function changedPaths(status: ParsedStatus): string[] {
   ];
 }
 
-/** The files a `git log ... <path>` command names, for saying what an empty log means. */
-function loggedPaths(command: string): string[] {
+interface LoggedTarget {
+  /** The branch or commit the log starts from, like `origin/main`, when the command names one. */
+  readonly revision: string | undefined;
+  readonly path: string | undefined;
+}
+
+/**
+ * What a `git log [<revision>] [-- <path>]` command names, for saying what an empty log
+ * means. Everything after `--` is a path; before it, a word is the revision. Without
+ * `--`, a lone word in these missions' commands is the file.
+ */
+function loggedTarget(command: string): LoggedTarget {
   const [program, subcommand, ...rest] = command.split(/\s+/);
-  if (program !== 'git' || subcommand !== 'log') return [];
-  return rest.filter((word) => word !== '' && !word.startsWith('-'));
+  if (program !== 'git' || subcommand !== 'log') return { revision: undefined, path: undefined };
+  const named = (words: readonly string[]) =>
+    words.filter((word) => word !== '' && !word.startsWith('-'));
+  const separator = rest.indexOf('--');
+  if (separator === -1) return { revision: undefined, path: named(rest)[0] };
+  return {
+    revision: named(rest.slice(0, separator))[0],
+    path: named(rest.slice(separator + 1))[0],
+  };
 }
 
 /** What a paste with no output in it means for this check: sometimes a pass, usually a nudge. */
@@ -165,10 +182,14 @@ function verifyEmptyPaste(verification: Verification): FieldVerdict {
       message: `Nothing printed: ${check.paths.join(' and ')} have nothing left to commit.`,
     };
   }
-  const [file] = loggedPaths(command);
-  if (verification.parser === 'log-oneline' && file !== undefined) {
+  const { revision, path } = loggedTarget(command);
+  if (verification.parser === 'log-oneline' && path !== undefined) {
+    // A log of GitHub's main (origin/main) gets its commits from a merged pull request, so
+    // "commit it" would send the player straight to main.
     return fail(
-      `No line means no commit has touched ${file} yet. Ask your agent to commit it, then run it again.`,
+      revision === undefined
+        ? `No line means no commit has touched ${path} yet. Ask your agent to commit it, then run it again.`
+        : `No line means ${revision} has no commit that touched ${path} yet. Merge it through a pull request, run git fetch, then run this again.`,
     );
   }
   // A clean short status prints nothing, so only the copied command line shows what ran.

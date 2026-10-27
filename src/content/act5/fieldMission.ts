@@ -70,6 +70,8 @@ export const greenOnEveryPush: FieldMissionInput = {
       command: 'git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml',
       parser: 'log-oneline',
       check: { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci'] },
+      whenEmpty:
+        'Nothing printed: GitHub’s main has no commit that touches gitleaks.yml yet. Merge the pull request, run git fetch, then run this again.',
     },
     {
       id: 'run-green',

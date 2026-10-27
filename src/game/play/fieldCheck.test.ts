@@ -536,6 +536,23 @@ describe('verifyPaste: scoped clean, tracked files and headings', () => {
     expect(verifyPaste(check, 'PS C:\\repo> git log --oneline -3').message).toContain('Paste');
   });
 
+  it('names the file after --, not the branch before it, when a scoped log prints nothing', () => {
+    const remote = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml',
+      check: { kind: 'conventionalRatio', min: 1, last: 1 },
+    });
+    const verdict = verifyPaste(remote, '');
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toBe(
+      'No line means origin/main has no commit that touched .github/workflows/gitleaks.yml yet. Merge it through a pull request, run git fetch, then run this again.',
+    );
+    const local = { ...remote, command: 'git log --oneline -1 -- docs/story.md' };
+    expect(verifyPaste(local, '').message).toBe(
+      'No line means no commit has touched docs/story.md yet. Ask your agent to commit it, then run it again.',
+    );
+  });
+
   it('refuses a Select-String paste checked against the wrong kind of check', () => {
     const check = verification({
       parser: 'select-string',

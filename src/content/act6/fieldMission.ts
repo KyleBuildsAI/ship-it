@@ -68,6 +68,8 @@ export const documentOneRequest = {
       command: 'git log --oneline -1 origin/main -- README.md',
       parser: 'log-oneline',
       check: { kind: 'newestCommitType', type: 'docs' },
+      whenEmpty:
+        'Nothing printed: GitHub’s main has no commit that touches README.md yet. Merge your pull request, run git fetch, then run this again.',
     },
     {
       id: 'synced-with-github',

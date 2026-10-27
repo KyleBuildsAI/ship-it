@@ -217,6 +217,13 @@ describe('Act 6 Field Mission: Document One Request', () => {
     ).toMatchObject({ passed: false });
   });
 
+  it('says to merge and fetch, not to commit, when GitHub’s main has no README change', () => {
+    const verdict = verifyPaste(verification('merged-docs-commit'), '');
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('Merge your pull request, run git fetch');
+    expect(verdict.message).not.toContain('commit it');
+  });
+
   it('fails an unpushed commit, leftover changes and a committed .env', () => {
     const ahead = synced.replace(
       "Your branch is up to date with 'origin/main'.",

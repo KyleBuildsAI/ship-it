@@ -184,7 +184,11 @@ describe('Act 5 Field Mission: Green on Every Push', () => {
     const pushed = verification('workflow-pushed');
     const empty =
       'PS C:\\code\\sandcastles> git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml\n';
-    expect(verifyPaste(pushed, empty).passed).toBe(false);
+    const verdict = verifyPaste(pushed, empty);
+    expect(verdict.passed).toBe(false);
+    // It says to merge the pull request, never to commit, which would land on main itself.
+    expect(verdict.message).toContain('Merge the pull request, run git fetch');
+    expect(verdict.message).not.toContain('commit it');
   });
 
   it('proves the run went green with gh, and says what to do when it did not', () => {
