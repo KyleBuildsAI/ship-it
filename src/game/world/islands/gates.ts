@@ -27,13 +27,17 @@ const LIGHT_Y = 2.95;
 const BEAM_Y = 2.5;
 /** How far before a gate a stopped change waits, so it doesn't sit inside the arch. */
 const WAIT_GAP = 0.9;
-/** The gate that catches trouble in the beats: the second one, so the first can pass. */
-const CHECK_GATE = 1;
 /**
- * The right tower is the secret store, and keys float in front of it. Not the left one:
- * the lesson panel covers the left of the screen.
+ * The gate that stops a change in the beats: the last one, nearest the camera. From the
+ * lesson view the road runs away up the screen, so a crate stopped at a farther gate, and
+ * the boom dropped there, would hide behind the nearer gates' beams.
  */
-const VAULT = new THREE.Vector3(5.5, 4, -1.9);
+const CHECK_GATE = 3;
+/**
+ * The right tower is the secret store, and keys float in front of its body, below the
+ * cap. Not the left tower: the lesson panel covers the left of the screen.
+ */
+const VAULT = new THREE.Vector3(5.5, 3.1, -1.6);
 /** Where a leaked key lies: out on the road, in plain view of everyone passing. */
 const LEAK_SPOT = new THREE.Vector3(0, 0.5, 2.8);
 
@@ -146,7 +150,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         });
       },
     },
-    // A check fails: the change passes the first gate, the second goes red, the boom drops,
+    // A check fails: the change passes the first gates, the last goes red, the boom drops,
     // and the change bounces back. Nothing gets further until that check is green.
     'gate-blocks': {
       seconds: 2.4,
@@ -287,23 +291,24 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       },
     },
     // A secret stays in the vault: the change stops at the gate that needs it, the key
-    // floats over from the tower, the check passes, and the key goes home. It never rides
-    // along on the road, so it's never in the code.
+    // floats over from the tower into the gate's arch, the check passes, and the key goes
+    // home. It never rides along on the road, so it's never in the code.
     'secret-vault': {
       seconds: 3,
       start: () => {
         const lights = signals();
         const change = crate(colors.light);
         const vaultKey = key(colors.glow, VAULT);
-        const keyGate = 2;
+        const keyGate = CHECK_GATE;
         const stopped = waitBefore(keyGate);
-        const overGate = new THREE.Vector3(0, LIGHT_Y + 0.7, GATE_Z[keyGate]);
+        // In the arch, above the crate and under the beam, like a key in a lock.
+        const inGate = new THREE.Vector3(0, 1.5, GATE_Z[keyGate]);
         return run(stage, [], (progress) => {
           popIn(vaultKey, phase(progress, 0, 0.15));
           popIn(change, phase(progress, 0, 0.1));
           slide(change, ENTRY, stopped, phase(progress, 0.05, 0.35));
-          slide(vaultKey, VAULT, overGate, phase(progress, 0.35, 0.55), 1);
-          if (progress >= 0.65) slide(vaultKey, overGate, VAULT, phase(progress, 0.65, 0.85), 1);
+          slide(vaultKey, VAULT, inGate, phase(progress, 0.35, 0.55), 1);
+          if (progress >= 0.65) slide(vaultKey, inGate, VAULT, phase(progress, 0.65, 0.85), 1);
           if (progress >= 0.6) slide(change, stopped, EXIT, phase(progress, 0.6, 1));
           passedGates(lights, change.position.z, keyGate);
           const keyLight = lights[keyGate];
