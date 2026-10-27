@@ -123,6 +123,32 @@ describe("Act 8's hall", () => {
     }
   });
 
+  it('plays every beat where the player can see it', () => {
+    const { group, beats } = buildHall();
+    const idleMeshes = new Set<THREE.Object3D>();
+    group.traverse((object) => idleMeshes.add(object));
+    const where = new THREE.Vector3();
+    for (const id of HALL_BEATS) {
+      const run = beats[id]?.start();
+      if (run === undefined) throw new Error(`The hall has no beat "${id}".`);
+      for (let step = 0; step <= 20; step++) {
+        run.frame(step / 20);
+        group.traverseVisible((object) => {
+          if (!(object instanceof THREE.Mesh) || idleMeshes.has(object)) return;
+          object.getWorldPosition(where);
+          // The lesson panel covers the left of the screen, and nothing may sink behind
+          // the whiteboard's face (z -6.45) or come up past the player's spot.
+          expect(where.x, id).toBeGreaterThanOrEqual(-6);
+          expect(where.x, id).toBeLessThanOrEqual(10);
+          expect(where.z, id).toBeGreaterThanOrEqual(-6.45);
+          expect(where.z, id).toBeLessThanOrEqual(7);
+          expect(where.y, id).toBeGreaterThan(0);
+        });
+      }
+      run.reset();
+    }
+  });
+
   it('goes back to idle when the lesson ends, whichever beats played before', () => {
     for (const reducedMotion of [false, true]) {
       const { group, beats } = buildHall();
