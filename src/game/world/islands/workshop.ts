@@ -50,6 +50,17 @@ const KEY_RING = new THREE.TorusGeometry(0.22, 0.07, 8, 20);
 const KEY_SHAFT = new THREE.BoxGeometry(0.09, 0.5, 0.09);
 const STOP_SIGN = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 8);
 
+/**
+ * A check that passed. This island's glow is pink, too close to the alert red to tell a
+ * pass from a failure at a glance, and the cards call passing CI "green". Made once and
+ * shared like the geometry, so a beat swaps to it without making a material.
+ */
+const PASSED = new THREE.MeshStandardMaterial({
+  color: 0x5be38a,
+  emissive: 0x3ddc77,
+  emissiveIntensity: 1.6,
+});
+
 /** How high a card's line of "text" sits on it, by its place from the top. */
 function lineY(index: number): number {
   return 0.4 - index * 0.26;
@@ -225,8 +236,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         });
       },
     },
-    // Tests are a gate: a good block passes and the gate glows; a bad one is stopped,
-    // the gate turns red, and the block is sent back.
+    // Tests are a gate: a good block passes and it and the gate turn green; a bad one,
+    // which looked just like it, is stopped, the gate turns red, and the block is sent back.
     'test-gate': {
       seconds: 3,
       start: () => {
@@ -245,14 +256,17 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           } else {
             slide(bad, AT_GATE, sentBack, phase(progress, 0.78, 1), 0.3);
           }
+          // About when the good block's slide carries it through the gate.
+          const goodPassed = progress >= 0.3;
           const caught = progress >= 0.72;
-          checks.paint(caught ? colors.alert : progress >= 0.3 ? colors.glow : colors.base);
+          checks.paint(caught ? colors.alert : goodPassed ? PASSED : colors.base);
+          good.material = goodPassed ? PASSED : colors.glow;
           bad.material = caught ? colors.alert : colors.glow;
         });
       },
     },
     // Green isn't proof: the gate stops a bad block and turns red, then it's knocked flat
-    // (a test bent to agree with the bug, or CI told to ignore failures), glows "passing"
+    // (a test bent to agree with the bug, or CI told to ignore failures), glows green
     // again, and the red block rolls straight over it.
     'gate-bent': {
       seconds: 3,
@@ -275,7 +289,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           checks.group.rotation.x = (knockedDown * Math.PI) / 2;
           checks.group.position.y = knockedDown * 0.11;
           const caught = progress >= 0.34;
-          checks.paint(knockedDown >= 1 ? colors.glow : caught ? colors.alert : colors.base);
+          checks.paint(knockedDown >= 1 ? PASSED : caught ? colors.alert : colors.base);
           bad.material = caught ? colors.alert : colors.glow;
         });
       },
