@@ -250,7 +250,6 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'too-big',
-      beat: 'review-changes',
       kind: 'prompt',
       situation:
         'Even trimmed, the PDF export PR is 1,800 lines. Priya says she can’t review it properly.',

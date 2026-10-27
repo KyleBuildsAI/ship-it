@@ -168,14 +168,28 @@ describe('Act 4: GitHub Team Flow', () => {
     for (const beat of known) expect(used).toContain(beat);
   });
 
+  /** A card by id from any Act 4 lesson; throws if it's gone, so no check passes vacuously. */
+  function cardById(id: string): LessonCard {
+    const card = lessons.flatMap((lesson) => lesson.cards).find((each) => each.id === id);
+    if (card === undefined) throw new Error(`Act 4 has no card "${id}".`);
+    return card;
+  }
+
   it('shows the two kinds of rejected push as two different pictures', () => {
     // 4.3 teaches that "fetch first" and "protected branch" are different refusals, so the
     // island must not act them out the same way.
-    const beatOf = (id: string) =>
-      lessons.flatMap((lesson) => lesson.cards).find((card) => card.id === id)?.beat;
-    expect(beatOf('push-rejected')).toBe('push-behind');
-    expect(beatOf('otto-push-rejected')).toBe('push-behind');
-    expect(beatOf('protected-main')).toBe('main-protected');
-    expect(beatOf('protected-reject')).toBe('main-protected');
+    expect(cardById('push-rejected').beat).toBe('push-behind');
+    expect(cardById('otto-push-rejected').beat).toBe('push-behind');
+    expect(cardById('protected-main').beat).toBe('main-protected');
+    expect(cardById('protected-reject').beat).toBe('main-protected');
+  });
+
+  it('leaves bare the cards no town beat can picture honestly', () => {
+    // Each beat would show the opposite of the card's answer: changes requested on a
+    // non-blocking nit, one PR patched and passed when the answer is to split it, checks
+    // passing on a card about a red check. No beat shows a self-review or a conflict with main.
+    for (const id of ['nit', 'too-big', 'flaky-or-real', 'self-review', 'brief-the-conflict']) {
+      expect(cardById(id).beat, id).toBeUndefined();
+    }
   });
 });
