@@ -43,24 +43,41 @@ const DRUM = new THREE.CylinderGeometry(1, 1, 0.55, 32);
 
 const point = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
+/*
+ * Where things go. Every path a beat moves along is built once here, so drawing a frame
+ * allocates nothing.
+ */
+
 /** Where packets leave and reach the writer's screen: just over its top edge. */
 const CLIENT = point(2.5, 1.9, 4.4);
 /** The front of the rack (x = 2) that answers requests. */
 const RACK_DOOR = point(2, 1.4, -1.2);
+const TO_RACK = [CLIENT, RACK_DOOR];
+const FROM_RACK = [RACK_DOOR, CLIENT];
 /** A query's way to the database: down to the pipe, along it, and along the drop. */
 const RACK_FOOT = point(2, 0.5, -0.8);
 const PIPE_BEND = point(5, 0.5, -0.8);
 const DRUM_EDGE = point(5, 0.5, 0.8);
 const TO_DATABASE = [RACK_FOOT, PIPE_BEND, DRUM_EDGE];
 const FROM_DATABASE = [DRUM_EDGE, PIPE_BEND, RACK_FOOT];
+const DATABASE_ROUND_TRIP = [...TO_DATABASE, PIPE_BEND, RACK_FOOT];
 /** The gate stands across the request's path, halfway between screen and rack. */
 const GATE = point(2.25, 0, 1.6);
 const GATE_FRONT = point(2.25, 1.65, 2.3);
+const TO_GATE = [CLIENT, GATE_FRONT];
+const TURNED_BACK = [GATE_FRONT, CLIENT];
 const CACHE_SPOT = point(3.3, 0.3, -0.2);
 const CACHE_TOP = point(3.3, 0.8, -0.2);
+const TO_CACHE = [CLIENT, RACK_DOOR, CACHE_TOP];
+const FROM_CACHE = [CACHE_TOP, CLIENT];
 /** The rack (x = -2) that works through the queue, and the belt's slots, nearest first. */
 const WORKER_DOOR = point(-2, 0.6, -1.2);
 const QUEUE_SLOTS = [point(-1, 0.3, 0.9), point(-0.2, 0.3, 0.9), point(0.6, 0.3, 0.9)];
+/** Each job's two legs: from the screen onto its slot, then from its slot into the worker. */
+const QUEUE_PATHS = QUEUE_SLOTS.map((slot) => ({
+  toSlot: [CLIENT, slot],
+  toWorker: [slot, WORKER_DOOR],
+}));
 /** The log hangs to the right of the drum: lines stacked upward from LOG_BASE. */
 const LOG_X = 7;
 const LOG_BASE_Y = 0.4;
@@ -85,7 +102,8 @@ interface ServerParts {
 
 /**
  * Moves an object along a path of points by `amount` (0 to 1) of its whole length, with an
- * optional hop over the middle, so a packet can follow the pipe round its corners.
+ * optional hop over the middle, so a packet can follow the pipe round its corners. It runs
+ * every frame, so it walks the path with plain loops instead of building arrays.
  */
 function travel(
   object: THREE.Object3D,
@@ -93,20 +111,26 @@ function travel(
   amount: number,
   hop = 0,
 ): void {
-  const lengths = points.slice(1).map((to, index) => to.distanceTo(points[index] ?? to));
-  const total = lengths.reduce((sum, length) => sum + length, 0);
-  let left = Math.min(1, Math.max(0, amount)) * total;
-  for (const [index, length] of lengths.entries()) {
-    const from = points[index];
-    const to = points[index + 1];
+  const clamped = Math.min(1, Math.max(0, amount));
+  let total = 0;
+  for (let index = 1; index < points.length; index++) {
+    const from = points[index - 1];
+    const to = points[index];
+    if (from !== undefined && to !== undefined) total += from.distanceTo(to);
+  }
+  let left = clamped * total;
+  for (let index = 1; index < points.length; index++) {
+    const from = points[index - 1];
+    const to = points[index];
     if (from === undefined || to === undefined) break;
-    if (left <= length || index === lengths.length - 1) {
+    const length = from.distanceTo(to);
+    if (left <= length || index === points.length - 1) {
       slide(object, from, to, length === 0 ? 1 : Math.min(1, left / length));
       break;
     }
     left -= length;
   }
-  object.position.y += Math.sin(Math.min(1, Math.max(0, amount)) * Math.PI) * hop;
+  object.position.y += Math.sin(clamped * Math.PI) * hop;
 }
 
 /** A beat's run that, on reset, clears the stage and puts the moved parts back. */
@@ -159,10 +183,10 @@ function act6Beats(
         const response = packet(colors.light);
         return run(stage, [answering, screen], (progress) => {
           popIn(request, phase(progress, 0, 0.08) - phase(progress, 0.4, 0.48));
-          travel(request, [CLIENT, RACK_DOOR], phase(progress, 0.05, 0.4), 0.5);
+          travel(request, TO_RACK, phase(progress, 0.05, 0.4), 0.5);
           answering.material = progress >= 0.4 && progress < 0.6 ? colors.base : colors.dark;
           popIn(response, phase(progress, 0.5, 0.58));
-          travel(response, [RACK_DOOR, CLIENT], phase(progress, 0.55, 0.9), 0.5);
+          travel(response, FROM_RACK, phase(progress, 0.55, 0.9), 0.5);
           screen.material = progress >= 0.9 ? colors.glow : colors.light;
         });
       },
@@ -192,12 +216,12 @@ function act6Beats(
           const turnedBack = progress >= 0.35;
           stranger.material = turnedBack ? colors.alert : colors.glow;
           if (turnedBack) {
-            travel(stranger, [GATE_FRONT, CLIENT], phase(progress, 0.38, 0.55));
+            travel(stranger, TURNED_BACK, phase(progress, 0.38, 0.55));
           } else {
-            travel(stranger, [CLIENT, GATE_FRONT], phase(progress, 0.1, 0.33));
+            travel(stranger, TO_GATE, phase(progress, 0.1, 0.33));
           }
           popIn(member, phase(progress, 0.55, 0.62));
-          travel(member, [CLIENT, RACK_DOOR], phase(progress, 0.6, 0.95));
+          travel(member, TO_RACK, phase(progress, 0.6, 0.95));
           const refusing = progress >= 0.33 && progress < 0.58;
           const letIn = progress >= 0.68;
           bar.material = refusing ? colors.alert : letIn ? colors.glow : colors.base;
@@ -217,7 +241,7 @@ function act6Beats(
         const lit = parts.drums.filter((_, index) => index !== 1);
         return run(stage, [screen, ...lit], (progress) => {
           popIn(request, phase(progress, 0, 0.05) - phase(progress, 0.22, 0.27));
-          travel(request, [CLIENT, RACK_DOOR], phase(progress, 0, 0.22), 0.4);
+          travel(request, TO_RACK, phase(progress, 0, 0.22), 0.4);
           popIn(query, phase(progress, 0.24, 0.3) - phase(progress, 0.5, 0.55));
           travel(query, TO_DATABASE, phase(progress, 0.25, 0.5));
           const reading = progress >= 0.5 && progress < 0.65;
@@ -227,7 +251,7 @@ function act6Beats(
           popIn(rows, phase(progress, 0.6, 0.65) - phase(progress, 0.8, 0.84));
           travel(rows, FROM_DATABASE, phase(progress, 0.62, 0.8));
           popIn(response, phase(progress, 0.8, 0.85));
-          travel(response, [RACK_DOOR, CLIENT], phase(progress, 0.82, 0.98), 0.4);
+          travel(response, FROM_RACK, phase(progress, 0.82, 0.98), 0.4);
           screen.material = progress >= 0.98 ? colors.glow : colors.light;
         });
       },
@@ -245,14 +269,14 @@ function act6Beats(
         const response = packet(colors.light);
         return run(stage, [screen], (progress) => {
           popIn(query, phase(progress, 0, 0.04) - phase(progress, 0.38, 0.42));
-          travel(query, [...TO_DATABASE, PIPE_BEND, RACK_FOOT], phase(progress, 0, 0.4));
+          travel(query, DATABASE_ROUND_TRIP, phase(progress, 0, 0.4));
           popIn(cache, phase(progress, 0.38, 0.5));
           popIn(request, phase(progress, 0.5, 0.55) - phase(progress, 0.72, 0.76));
-          travel(request, [CLIENT, RACK_DOOR, CACHE_TOP], phase(progress, 0.5, 0.74));
+          travel(request, TO_CACHE, phase(progress, 0.5, 0.74));
           const hit = progress >= 0.72 && progress < 0.82;
           cache.material = hit ? colors.light : colors.glow;
           popIn(response, phase(progress, 0.76, 0.8));
-          travel(response, [CACHE_TOP, CLIENT], phase(progress, 0.78, 0.95), 0.6);
+          travel(response, FROM_CACHE, phase(progress, 0.78, 0.95), 0.6);
           screen.material = progress >= 0.95 ? colors.glow : colors.light;
         });
       },
@@ -265,20 +289,21 @@ function act6Beats(
         const belt = part(BELT, colors.base, 0.2, 0.05, 0.9);
         belt.visible = false;
         stage.add(belt);
-        const jobs = QUEUE_SLOTS.map(() => packet(colors.glow));
+        const jobs = QUEUE_PATHS.map(() => packet(colors.glow));
         return run(stage, [worker, screen], (progress) => {
           popIn(belt, phase(progress, 0, 0.1));
           jobs.forEach((job, index) => {
-            const slot = QUEUE_SLOTS[index] ?? CLIENT;
+            const paths = QUEUE_PATHS[index];
+            if (paths === undefined) return;
             const queuedAt = 0.04 + index * 0.08;
             const takenAt = 0.4 + index * 0.18;
             const taken = phase(progress, takenAt, takenAt + 0.12);
             const done = phase(progress, takenAt + 0.12, takenAt + 0.18);
             popIn(job, phase(progress, queuedAt, queuedAt + 0.06) - done, 0.8);
             if (progress >= takenAt) {
-              travel(job, [slot, WORKER_DOOR], taken, 0.4);
+              travel(job, paths.toWorker, taken, 0.4);
             } else {
-              travel(job, [CLIENT, slot], phase(progress, queuedAt, queuedAt + 0.16), 0.8);
+              travel(job, paths.toSlot, phase(progress, queuedAt, queuedAt + 0.16), 0.8);
             }
           });
           // The worker lights up while it has a job inside.
