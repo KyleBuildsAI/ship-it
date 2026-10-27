@@ -2317,3 +2317,19 @@ https://github.com/KyleBuildsAI/ship-it/pull/162
 2. three.js's WebGPU renderer keeps a record for every object it has drawn, including GPU buffers. It hooks that record onto the shared colours (materials) and shapes (geometry), and only lets go when those are disposed. The island's palette is never disposed, so a scene that made new objects on every play leaked a few more each time, for the whole session. The stage keeps a pile of spare objects, hands them out as if new, and takes them back when the scene resets. A replay draws on the same objects, so the renderer reuses its records.
 3. Because the type check has a gap. TypeScript lets a table typed with plain string keys (`Record<string, Beat>`) pass where a table with specific keys is expected. An island could return such a table, even an empty one, and still typecheck, and its cards would silently have no scene. The test builds each island the way the world does and compares its ids with the list, so that mistake fails a test.
 </details>
+
+---
+
+## #167 test: run e2e tests one at a time everywhere
+
+https://github.com/KyleBuildsAI/ship-it/pull/167
+
+1. Why did the cross-tab test pass alone but fail when 8 copies ran at once?
+2. What evidence showed the save handover code itself was working?
+3. Why does a real player with two tabs never run into this?
+<details><summary>Answers</summary>
+
+1. Each copy opens two tabs that both draw the 3D world, so 8 copies meant 16 full 3D scenes on one GPU. The older tab's main thread couldn't get time to run, so it missed the 20-second limit.
+2. When the starved tab finally answered, its status said "other tab" and it showed the notice. That's exactly the handover the test expects, just very late.
+3. A real browser stops drawing a tab you can't see (`requestAnimationFrame` pauses), so the hidden tab uses almost no GPU. Playwright keeps every tab "visible", so nothing pauses there.
+</details>
