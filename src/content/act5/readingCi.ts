@@ -179,6 +179,7 @@ export const readingCi = {
     },
     {
       id: 'flaky',
+      beat: 'flaky-check',
       kind: 'choose',
       situation:
         'A test about autosave fails about one run in ten, on random PRs. People have started clicking “Re-run jobs” without reading.',

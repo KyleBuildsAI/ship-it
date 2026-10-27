@@ -15,8 +15,9 @@ import {
 /*
  * Act 5's island: a road through a row of gates, each with a light, and two watchtowers.
  * Its beats act out the lessons on that road: a change (a crate) rolls through the gates,
- * one check stops it, a fix lets it through, a switched-off gate lets a bug slip past, and the
- * right tower is the vault where secrets stay.
+ * one check stops it, a fix lets it through, a switched-off gate lets a bug slip past, a
+ * flaky gate answers the same change two ways, and the right tower is the vault where
+ * secrets stay.
  */
 
 /** Where the gates stand along the road, far end first. The camera looks up the road. */
@@ -219,6 +220,41 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
           // The other gates only check what they're built for, so they pass it too. The
           // switched-off gate's light stays dark: nothing there looked.
           passedGates(lights, bug.position.z, switchedOff);
+        });
+      },
+    },
+    // A flaky check: two identical changes roll up to the same gate. It waves the first
+    // through, then flickers on the second and stops it. Same code, a different answer:
+    // that's how a team learns to stop trusting red.
+    'flaky-check': {
+      seconds: 3,
+      start: () => {
+        const lights = signals();
+        const first = crate(colors.light);
+        const second = crate(colors.light);
+        const boom = barrier(CHECK_GATE);
+        const stopped = waitBefore(CHECK_GATE);
+        const checkLight = lights[CHECK_GATE];
+        /** Green for the first crate, then it can't make up its mind, then red. */
+        const flakyLight = (progress: number, firstPassed: boolean): THREE.Material => {
+          if (progress >= 0.88) return colors.alert;
+          // Before it settles, it flips between the two answers a few times a second.
+          const flickerRed = Math.floor(progress * 25) % 2 === 0;
+          if (progress >= 0.72) return flickerRed ? colors.alert : parts.pass;
+          return firstPassed ? parts.pass : colors.dark;
+        };
+        return run(stage, [], (progress) => {
+          popIn(first, phase(progress, 0, 0.08));
+          slide(first, ENTRY, EXIT, phase(progress, 0.05, 0.5));
+          popIn(second, phase(progress, 0.45, 0.55));
+          slide(second, ENTRY, stopped, phase(progress, 0.5, 0.75));
+          // The first crate rolled furthest, so it sets every light but the flaky one.
+          passedGates(lights, first.position.z, CHECK_GATE);
+          if (checkLight) {
+            const firstPassed = first.position.z > (GATE_Z[CHECK_GATE] ?? 0);
+            checkLight.material = flakyLight(progress, firstPassed);
+          }
+          popIn(boom, phase(progress, 0.88, 1));
         });
       },
     },

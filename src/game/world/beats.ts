@@ -31,6 +31,7 @@ export const ISLAND_BEATS = {
     'gate-blocks',
     'red-to-green',
     'gate-bypassed',
+    'flaky-check',
     'test-layers',
     'secret-vault',
     'key-revoked',
