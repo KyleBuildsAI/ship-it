@@ -891,7 +891,9 @@ body {
 /*
  * Terminal evidence in the panel (TerminalEvidence.tsx): Kyle's looks and a drill scene's
  * lines, each after its prompt and followed by its output, because the terminal itself
- * stays put away. Long output scrolls inside the box, so the answers stay near.
+ * stays put away. Long output scrolls inside the box, so the answers stay near. A long
+ * line wraps, as it does in the terminal: the panel is about 48 characters wide, and a
+ * Get-ChildItem row puts the Name column past that, where a sideways scroll would hide it.
  */
 .evidence {
   margin: 8px 0;
@@ -912,7 +914,8 @@ body {
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.35);
   font: 13px/1.45 var(--font-mono);
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .evidence pre:focus-visible {
