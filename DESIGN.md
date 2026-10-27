@@ -106,7 +106,7 @@ For Acts whose systems the game doesn't simulate (GitHub's team flow, CI, HTTP, 
 
 ## 6. Progression and systems
 
-- **XP** for every completed step. Ranks by Act completion: Intern (Acts 1-2), Junior (3-4), Mid (5-6), Senior (7), Staff (8). The rank comes from the highest completed Act, so finishing Act 2 promotes to Junior, Act 4 to Mid, Act 6 to Senior, and Act 7 to Staff. Testing out of an Act grants 50% of its mission XP.
+- **XP** for every completed step. Ranks by Act completion: Intern (Acts 1-2), Junior (3-4), Mid (5-6), Senior (7), Staff (8). The rank comes from the highest completed Act, so finishing Act 2 promotes to Junior, Act 4 to Mid, Act 6 to Senior, and Act 7 to Staff. Testing out of an Act grants 50% of its mission XP. A drill pays its XP once, on its first pass, wherever that is: a mission, a placement test or a Standup Board review (the save lists paid drills in `paidDrillIds`). So mission replays, placement retakes and reviews of a drill already passed practise for free, and a missed drill still pays when a review first gets it right. Reviews follow the same rule because the Standup Board can top up a day's set with items not due yet, so paying every review pass would make it an XP farm.
 - **Review queue**: missed drill items scheduled with a simple SM-2 style algorithm. Surfaced at the Standup Board as a daily set of 5-10 items. Gaps between reviews are capped at one year.
 - **Stats**: drill accuracy, average time per drill, days practiced. No punishment for missed days.
 - **Skill tree** (M2+): one node per concept. Lit when mastered (90%+ drill accuracy over the last 10 attempts; a concept with fewer than 10 attempts is not mastered yet).

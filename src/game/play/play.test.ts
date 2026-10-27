@@ -206,8 +206,9 @@ describe('the XP a mission shows', () => {
     const beforeReplay = savedXp();
     const replay = playThrough(T0 + 10_000_000);
     expect(replay).toBe(savedXp() - beforeReplay);
-    // Steps, the mission and its questions pay once, so a replay shows only the drill.
-    expect(replay).toBe(XP_AWARDS.drillCorrect);
+    // Steps, the mission, its questions and its drills all pay once, so a replay practises
+    // for free, even passing the same drill again.
+    expect(replay).toBe(0);
   });
 });
 
@@ -322,6 +323,16 @@ describe('the placement test', () => {
     passPlacement();
     expect(series().placement).toEqual({ percent: 100, testedOut: true });
     expect(progress.get().save?.acts['2']?.completedAt).toEqual(expect.any(String));
+  });
+
+  it('pays drill XP on the first pass only, so a retake practises for free', () => {
+    startPlacement(sampleAct.act);
+    passPlacement();
+    const afterFirst = progress.get().save?.profile.xp ?? 0;
+    startPlacement(sampleAct.act);
+    passPlacement();
+    expect(series().placement).toEqual({ percent: 100, testedOut: true });
+    expect(progress.get().save?.profile.xp).toBe(afterFirst);
   });
 });
 

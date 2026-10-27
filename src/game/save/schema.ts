@@ -217,6 +217,9 @@ export const saveDataSchema = z.object({
   missions: z.record(idSchema, missionProgressSchema),
   acts: z.record(actKeySchema, actProgressSchema),
   drillHistory: z.array(drillAttemptSchema).max(DRILL_HISTORY_LIMIT),
+  // Every drill that has paid its XP: a drill pays on its first pass only. The capped
+  // history can't say that forever. A default, so a save from before it existed loads.
+  paidDrillIds: z.array(idSchema).default([]),
   reviewQueue: reviewQueueSchema,
   fieldMissions: z.record(idSchema, fieldMissionProgressSchema),
   settings: settingsSchema,
@@ -281,6 +284,7 @@ export function createDefaultSave(now: Date): SaveData {
     missions: {},
     acts: {},
     drillHistory: [],
+    paidDrillIds: [],
     reviewQueue: [],
     fieldMissions: {},
     settings: createDefaultSettings(),

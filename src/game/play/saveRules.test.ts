@@ -119,6 +119,35 @@ describe('drills and reviews', () => {
     const reviewed = recordReview(missed, drill, { passed: false, seconds: 5 }, NOW);
     expect(reviewed.reviewQueue[0]).toMatchObject({ repetitions: 0, dueOn: '2026-09-28' });
   });
+
+  it("pays a drill's XP on its first pass only, so a replay or retake practises for free", () => {
+    const first = recordDrill(fresh(), drill, { passed: true, seconds: 12 }, NOW);
+    expect(first.paidDrillIds).toEqual([drill.id]);
+    const again = recordDrill(first, drill, { passed: true, seconds: 8 }, LATER);
+    expect(again.profile.xp).toBe(XP_AWARDS.drillCorrect);
+    expect(again.paidDrillIds).toEqual([drill.id]);
+    // The attempt itself still counts for stats and practice days.
+    expect(again.drillHistory).toHaveLength(2);
+    expect(again.profile.practiceDays).toEqual(['2026-09-27', '2026-09-28']);
+  });
+
+  it('pays a missed drill once a review gets it right, and no review after that', () => {
+    const missed = recordDrill(fresh(), drill, { passed: false, seconds: 200 }, NOW);
+    expect(missed.paidDrillIds).toEqual([]);
+    const learned = recordReview(missed, drill, { passed: true, seconds: 5 }, NOW);
+    expect(learned.profile.xp).toBe(XP_AWARDS.drillCorrect);
+    const reviewedAgain = recordReview(learned, drill, { passed: true, seconds: 5 }, LATER);
+    expect(reviewedAgain.profile.xp).toBe(XP_AWARDS.drillCorrect);
+  });
+
+  it("counts a pass in an older save's history as paid, since that save paid every pass", () => {
+    const older: SaveData = {
+      ...fresh(),
+      drillHistory: [{ drillId: drill.id, correct: true, seconds: 9, at: NOW.toISOString() }],
+    };
+    const replayed = recordDrill(older, drill, { passed: true, seconds: 7 }, LATER);
+    expect(replayed.profile.xp).toBe(0);
+  });
 });
 
 describe('act milestones', () => {

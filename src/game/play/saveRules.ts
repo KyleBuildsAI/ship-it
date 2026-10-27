@@ -92,8 +92,23 @@ export function recordSteps(
 }
 
 /**
+ * Whether a drill has paid its XP. A save from before paidDrillIds existed paid on every
+ * pass, so a pass still in its history counts as paid too.
+ */
+function drillPaid(save: SaveData, drillId: string): boolean {
+  return (
+    save.paidDrillIds.includes(drillId) ||
+    save.drillHistory.some((attempt) => attempt.drillId === drillId && attempt.correct)
+  );
+}
+
+/**
  * Records one drill attempt: history for stats, a practice day, and, when missed, a place
  * in the review queue so the Standup Board brings it back (DESIGN.md section 6).
+ *
+ * A drill pays its XP on its first pass only, wherever that is: a mission, a placement
+ * test or a review. So a replay, a retake or a review of a drill already passed practises
+ * for free, like a mission replay, and a missed drill still pays once a review gets it.
  */
 export function recordDrill(
   save: SaveData,
@@ -102,6 +117,7 @@ export function recordDrill(
   now: Date,
 ): SaveData {
   const today = localDay(now);
+  const firstPass = result.passed && !drillPaid(save, drill.id);
   const drillHistory = recordDrillAttempt(save.drillHistory, {
     drillId: drill.id,
     correct: result.passed,
@@ -109,10 +125,16 @@ export function recordDrill(
     at: now.toISOString(),
   });
   const reviewQueue = result.passed ? save.reviewQueue : addMiss(save.reviewQueue, drill.id, today);
-  const xp = result.passed ? XP_AWARDS.drillCorrect : 0;
+  const paidDrillIds = firstPass ? [...save.paidDrillIds, drill.id] : save.paidDrillIds;
   return addXp(
-    { ...save, drillHistory, reviewQueue, profile: recordPractice(save.profile, today) },
-    xp,
+    {
+      ...save,
+      drillHistory,
+      paidDrillIds,
+      reviewQueue,
+      profile: recordPractice(save.profile, today),
+    },
+    firstPass ? XP_AWARDS.drillCorrect : 0,
   );
 }
 
