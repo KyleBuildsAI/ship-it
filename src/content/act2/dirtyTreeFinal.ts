@@ -281,7 +281,7 @@ export const dirtyTreeFinal = {
           text: 'Do it: reset --hard HEAD~2 and force push main, then tell the team to delete their copies and clone again.',
           correct: false,
           feedback:
-            'Rewriting shared history breaks everyone who pulled it, and HEAD~2 throws away the README fix too.',
+            'Rewriting shared history breaks everyone who pulled it, and deleting their copies loses their unpushed work. HEAD~2 throws away the README fix too.',
         },
         {
           id: 'restore',

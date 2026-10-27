@@ -361,7 +361,7 @@ export const dataSpeedAndScale = {
           text: 'Run Postgres in the same container as the app, with a nightly backup to cloud storage, so there’s one thing to deploy and one bill to watch.',
           correct: false,
           feedback:
-            'Containers get replaced on every deploy, and the data would go with them. You also couldn’t add app servers without copying the database.',
+            'Containers get replaced on every deploy, and the data goes with them: a nightly backup still loses that day’s writes. You also couldn’t add app servers without copying the database.',
         },
         {
           id: 'biggest',
