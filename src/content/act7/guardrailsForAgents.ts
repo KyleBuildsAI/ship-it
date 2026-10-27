@@ -10,6 +10,7 @@ export const guardrailsForAgents = {
   act: 7,
   title: 'Guardrails for Agents',
   xp: 70,
+  briefingBeat: 'guardrails-up',
   briefing: [
     'Otto reads files and web pages, runs commands and calls tools. That’s his power, and the risk.',
     'Guardrails let him work without letting him wreck things: limited access, no secrets in reach, and a human on anything that can’t be undone.',
@@ -17,6 +18,7 @@ export const guardrailsForAgents = {
   cards: [
     {
       id: 'injection',
+      beat: 'guardrails-up',
       kind: 'choose',
       situation: 'Otto sorts new GitHub issues for Quillwork. A stranger opened this one.',
       artifact: {
@@ -57,6 +59,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'injected-doc',
+      beat: 'guardrails-up',
       kind: 'choose',
       situation:
         'Otto was reading a library’s docs page to fix an install error. Then he says this.',
@@ -95,6 +98,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'least-privilege',
+      beat: 'guardrails-up',
       kind: 'choose',
       situation: 'Otto needs to read the quillwork-web repo and open PRs on it. Nothing else.',
       question: 'Which GitHub token do you give him?',
@@ -129,6 +133,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'secret-env',
+      beat: 'guardrails-up',
       kind: 'prompt',
       situation: 'Otto needs the Anthropic API key to test Sage’s mentor server locally.',
       question: 'Which instruction do you give him?',
@@ -172,6 +177,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'destructive-tools',
+      beat: 'test-gate',
       kind: 'choose',
       situation:
         'Otto has a shell tool. His branch has a conflict with main, and he proposes this.',
@@ -237,6 +243,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'when-to-stop',
+      beat: 'agent-halted',
       kind: 'choose',
       situation: 'You come back from lunch and read Otto’s activity log.',
       artifact: {
@@ -283,6 +290,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'stop-rule',
+      beat: 'agent-halted',
       kind: 'prompt',
       situation: 'You want Otto to stop himself next time, before lunch is over.',
       question: 'Which standing rule do you add to CLAUDE.md?',

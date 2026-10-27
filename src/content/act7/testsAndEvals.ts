@@ -10,6 +10,7 @@ export const testsAndEvals = {
   act: 7,
   title: 'Tests and Evals',
   xp: 70,
+  briefingBeat: 'test-gate',
   briefing: [
     'Otto writes code faster than anyone can read it. Tests are how the code checks itself, every time.',
     'For AI features with no single right answer, evals do the same job: fixed examples, graded, scored.',
@@ -17,6 +18,7 @@ export const testsAndEvals = {
   cards: [
     {
       id: 'why-tests',
+      beat: 'test-gate',
       kind: 'choose',
       situation:
         'Priya: “Before Otto touches billing, I want tests on the refund rules.” Dex thinks that’s slow.',
@@ -52,6 +54,7 @@ export const testsAndEvals = {
     },
     {
       id: 'test-first',
+      beat: 'test-gate',
       kind: 'prompt',
       situation:
         'New rule: a refund can’t be more than what the customer paid, and can’t happen after 60 days.',
@@ -81,6 +84,7 @@ export const testsAndEvals = {
     },
     {
       id: 'bent-test',
+      beat: 'gate-bent',
       kind: 'choose',
       situation: 'A test was failing. Otto says he fixed it.',
       artifact: {
@@ -120,6 +124,7 @@ export const testsAndEvals = {
     },
     {
       id: 'test-rule',
+      beat: 'brief-handed',
       kind: 'prompt',
       situation: 'You want to stop that happening again, in every session.',
       question: 'Which rule do you add to the repo’s CLAUDE.md?',
@@ -155,6 +160,7 @@ export const testsAndEvals = {
     },
     {
       id: 'coverage-gap',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation:
         'CI is green on Otto’s refund change, which added lines 22-31 of refund.ts. You open the coverage report.',
@@ -194,6 +200,7 @@ export const testsAndEvals = {
     },
     {
       id: 'why-evals',
+      beat: 'eval-scores',
       kind: 'choose',
       situation:
         'Quillwork’s “summarize this doc” feature uses an AI model. Marco rewrote its prompt and says the summaries feel better.',
@@ -229,6 +236,7 @@ export const testsAndEvals = {
     },
     {
       id: 'build-an-eval',
+      beat: 'eval-scores',
       kind: 'order',
       situation: 'You’re setting up that eval for the summarizer.',
       question: 'Put the steps in order.',
@@ -243,6 +251,7 @@ export const testsAndEvals = {
     },
     {
       id: 'noisy-scores',
+      beat: 'eval-scores',
       kind: 'choose',
       situation: 'Same prompt, same 50 documents. You run the eval three times.',
       artifact: {

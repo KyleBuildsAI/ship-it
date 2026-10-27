@@ -59,7 +59,16 @@ export const ISLAND_BEATS = {
     'connections-run-out',
     'incident-rollback',
   ],
-  act7: [],
+  act7: [
+    'brief-handed',
+    'agent-loop',
+    'diff-inspected',
+    'test-gate',
+    'gate-bent',
+    'eval-scores',
+    'guardrails-up',
+    'agent-halted',
+  ],
   act8: [],
 } as const satisfies Record<ActIslandZone, readonly string[]>;
 
