@@ -67,8 +67,11 @@ function shownMeshes(root: THREE.Object3D): Shown[] {
   root.updateMatrixWorld(true);
   const shown: Shown[] = [];
   root.traverseVisible((object) => {
+    // instanceof narrows to a Mesh of `any` geometry and material; every mesh here is a
+    // plain Mesh, so name that type rather than let `any` flow on.
     if (object instanceof THREE.Mesh) {
-      shown.push({ mesh: object, at: object.getWorldPosition(new THREE.Vector3()) });
+      const mesh = object as THREE.Mesh;
+      shown.push({ mesh, at: mesh.getWorldPosition(new THREE.Vector3()) });
     }
   });
   return shown;
