@@ -95,7 +95,8 @@ export function createActIsland(data: ActIslandData, reducedMotion = false): Act
     exit: { group: exit, at: { x: data.center.x + EXIT_SPOT.x, z: data.center.z + EXIT_SPOT.z } },
     update: (elapsed) => {
       props.animate(elapsed);
-      // After the idle motion, so a beat that moves a prop wins over its idle bob.
+      // After the idle motion, so a beat that moves a prop wins over its idle bob. A held
+      // beat redraws its last frame here too, or the idle motion would undo it.
       beats.update(elapsed);
     },
     playBeat: beats.play,

@@ -41,9 +41,12 @@ describe('the beat player', () => {
     player.update(10);
     player.update(11);
     player.update(12);
-    player.update(13);
     expect(grow.frames).toEqual([0, 0, 0.5, 1]);
-    // Held: nothing more is drawn, and the picture stays up.
+    // Held: the last frame is drawn again every frame, so the island's idle motion,
+    // which runs first, can't undo the picture.
+    player.update(13);
+    player.update(14);
+    expect(grow.frames).toEqual([0, 0, 0.5, 1, 1, 1]);
     expect(player.current()).toBe('grow');
   });
 
@@ -82,8 +85,10 @@ describe('the beat player', () => {
     const grow = recordingBeat();
     const player = createBeatPlayer({ grow: grow.beat }, true);
     player.play('grow');
+    expect(grow.frames).toEqual([1]);
+    // Every frame after redraws only the last one, over whatever the idle motion moved.
     player.update(1);
     player.update(5);
-    expect(grow.frames).toEqual([1]);
+    expect(grow.frames).toEqual([1, 1, 1]);
   });
 });

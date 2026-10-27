@@ -56,7 +56,11 @@ export function createBeatPlayer(
     beat: Beat;
     run: BeatRun;
     startedAt: number | null;
-    /** True once the last frame is drawn: a held beat costs nothing per frame. */
+    /**
+     * True once the last frame is reached. A held beat still draws that frame every frame:
+     * the island's idle motion runs first and may move the same props, and the beat's
+     * picture must win. A frame is a few property writes, so holding stays cheap.
+     */
     held: boolean;
   } | null = null;
 
@@ -75,7 +79,11 @@ export function createBeatPlayer(
       run.frame(reducedMotion ? 1 : 0);
     },
     update: (elapsed) => {
-      if (playing === null || playing.held) return;
+      if (playing === null) return;
+      if (playing.held) {
+        playing.run.frame(1);
+        return;
+      }
       // The clock starts on the first frame after play, so a beat cued between frames
       // still shows from its beginning.
       playing.startedAt ??= elapsed;
