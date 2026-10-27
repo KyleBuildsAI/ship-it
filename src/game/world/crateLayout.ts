@@ -96,6 +96,15 @@ export function describeCrates(ws: Workspace): CrateSpec[] {
   ];
 }
 
+/**
+ * The crate a new one flies out of, so a change visibly moves its file: a staged or
+ * ignored crate leaves from its file's Workbench crate. A new Workbench crate has none (its
+ * own key would find itself, not yet placed) and drops in from above instead.
+ */
+export function launchKey(spec: CrateSpec): string | null {
+  return spec.area === 'bench' ? null : `bench:${spec.path}`;
+}
+
 /** Grid position for a slot: `columns` across, then rows, then stacked layers. */
 export function gridCell(
   slot: number,

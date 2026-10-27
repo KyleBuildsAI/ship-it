@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { folder, repo } from '../../engine/git/fixtures';
 import { testDeps } from '../../engine/git/testDeps';
-import { CRATE_FLOORS, describeCrates, gridCell, LABEL_GAP, placeCrates } from './crateLayout';
+import {
+  CRATE_FLOORS,
+  describeCrates,
+  gridCell,
+  LABEL_GAP,
+  launchKey,
+  placeCrates,
+} from './crateLayout';
 
 const summary = (specs: ReturnType<typeof describeCrates>) =>
   specs.map((spec) => `${spec.area}:${spec.path}:${spec.look}:${String(spec.slot)}`);
@@ -58,6 +65,29 @@ describe('describeCrates', () => {
     const before = describeCrates(ws)[0]?.key;
     ws.writeFile('z.ts', 'z');
     expect(describeCrates(ws)[0]?.key).toBe(before);
+  });
+});
+
+describe('launchKey', () => {
+  const ws = repo()
+    .commit('init', { 'app.ts': 'a', '.gitignore': '*.log\n' })
+    .modify('app.ts', 'A')
+    .stage('app.ts')
+    .untracked('debug.log', 'x')
+    .build(testDeps());
+  const crate = (key: string) => describeCrates(ws).find((spec) => spec.key === key);
+
+  it('flies a staged or ignored crate out of its Workbench crate', () => {
+    const staged = crate('dock:app.ts');
+    const ignored = crate('blocklist:debug.log');
+    expect(staged && launchKey(staged)).toBe('bench:app.ts');
+    expect(ignored && launchKey(ignored)).toBe('bench:debug.log');
+  });
+
+  it('never flies a new Workbench crate out of itself', () => {
+    const bench = crate('bench:app.ts');
+    expect(bench).toBeDefined();
+    expect(bench && launchKey(bench)).toBeNull();
   });
 });
 

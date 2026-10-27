@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { baseName } from '../../engine/fs/paths';
 import {
   CRATE_FLOORS,
+  launchKey,
   placeCrates,
   type CrateArea,
   type CrateLook,
@@ -124,9 +125,9 @@ export class CrateYard {
         view.group.scale.setScalar(1);
       }
       if (fresh) {
-        // A staged crate starts where its file sits on the Workbench, so it visibly moves.
+        const launch = launchKey(spec);
         const origin =
-          this.views.get(`bench:${spec.path}`)?.group.position ??
+          (launch === null ? undefined : this.views.get(launch)?.group.position) ??
           target.clone().add(new THREE.Vector3(0, 2.5, 0));
         view.group.position.copy(origin);
         this.fly(view, target, spec.area === 'dock' ? 1.4 : 0);
