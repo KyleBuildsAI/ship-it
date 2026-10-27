@@ -140,7 +140,7 @@ export const theMockLoop = {
     },
     {
       id: 'loop-design',
-      beat: 'design-on-board',
+      beat: 'queue-slow-work',
       kind: 'choose',
       situation:
         'Design round: Quillwork users will upload images into docs, and thumbnails must appear within a minute.',

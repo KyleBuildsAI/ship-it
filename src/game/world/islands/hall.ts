@@ -17,16 +17,18 @@ import {
  * Act 8's island: an interview hall, a table with the panel on the far side and the
  * candidate's chair on the near side, and a whiteboard behind. Its beats act out the
  * rounds of the loop: words travelling to the panel, a bug found on the board, a trail of
- * evidence, a design drawn box by box, a customer heard before the answer, a story built
- * in order, and Otto's loop of brief, work and check.
+ * evidence, a design fixed where it breaks, a customer heard before the answer, a story
+ * built in order, and Otto's loop of brief, work and check.
  */
 
 const BUBBLE = new THREE.SphereGeometry(0.18, 16, 12);
 const DOT = new THREE.SphereGeometry(0.09, 12, 8);
+/** A request crossing the whiteboard, or the pointer reading code there: big enough to follow. */
+const BOARD_DOT = new THREE.SphereGeometry(0.13, 12, 8);
 /** One line of code on the whiteboard, one unit wide, stretched to each line's length. */
-const CODE_LINE = new THREE.BoxGeometry(1, 0.1, 0.02);
+const CODE_LINE = new THREE.BoxGeometry(1, 0.14, 0.02);
 /** A box in a design sketch on the whiteboard: a client, a server, a queue. */
-const BOARD_BOX = new THREE.BoxGeometry(0.62, 0.36, 0.03);
+const BOARD_BOX = new THREE.BoxGeometry(0.86, 0.5, 0.03);
 /** A note or log card lying on the table. */
 const TABLE_CARD = new THREE.BoxGeometry(0.6, 0.05, 0.42);
 /** One part of a story, stacked on the table: situation, action, result, lesson. */
@@ -46,11 +48,33 @@ const TABLE_TOP = 1.05;
 const CANDIDATE = at(0, 1.6, -0.9);
 /** Where each panel member's head would be, over the far chairs. */
 const PANEL = [at(-1, 1.6, -3.1), at(0, 1.6, -3.1), at(1, 1.6, -3.1)];
+/*
+ * The whiteboard behind the panel. It's far from the camera, so it's big enough for a
+ * beat's code lines and design sketches to read from where the player stands.
+ */
+const BOARD_WIDTH = 4.4;
+const BOARD_HEIGHT = 2.5;
+const BOARD_MIDDLE = 2.35;
 /** Just in front of the whiteboard's face, so what a beat draws sits on the board. */
 const BOARD_Z = -6.42;
 /** The customer stands off to the right of the table, in the camera's view. */
 const CUSTOMER = at(4, 0.65, 0.4);
 const CUSTOMER_HEAD = at(4, 1.6, 0.4);
+
+/*
+ * The design sketch both design beats draw on the whiteboard: the simplest design that
+ * works, a client, a server and a database in a row, with room under it for what a fix adds.
+ */
+const SKETCH_TOP = 2.95;
+const SKETCH_LOW = 1.85;
+const SKETCH_STEP = 1.45;
+const CLIENT = at(-SKETCH_STEP, SKETCH_TOP, BOARD_Z);
+const SERVER = at(0, SKETCH_TOP, BOARD_Z);
+const DATABASE = at(SKETCH_STEP, SKETCH_TOP, BOARD_Z);
+const UNDER_SERVER = at(0, SKETCH_LOW, BOARD_Z);
+const UNDER_DATABASE = at(SKETCH_STEP, SKETCH_LOW, BOARD_Z);
+/** The same spot, a little off the board, so a request travelling past a box shows over it. */
+const overBoard = (point: THREE.Vector3) => point.clone().setZ(BOARD_Z + 0.1);
 
 /** The parts of the idle hall that beats change. */
 interface HallParts {
@@ -109,15 +133,36 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
   /** A line drawn on the whiteboard between two of its boxes. */
   const boardLink = (from: THREE.Vector3, to: THREE.Vector3) => {
     const stick = segment(from, to, colors.dark);
-    stick.mesh.scale.y = 0.4;
     stick.grow(0);
     stage.add(stick.mesh);
     return stick;
   };
+  /**
+   * The simple design, ready to draw: its three boxes and the two lines between them.
+   * `draw(amount)` puts it on the board, 0 to 1.
+   */
+  const simpleDesign = () => {
+    const boxes = [CLIENT, SERVER, DATABASE].map((point) => add(BOARD_BOX, colors.base, point));
+    const links = [boardLink(CLIENT, SERVER), boardLink(SERVER, DATABASE)];
+    const [client, server, database] = boxes;
+    if (!client || !server || !database) throw new Error('The design sketch lost a box.');
+    return {
+      server,
+      database,
+      draw: (amount: number) => {
+        boxes.forEach((box, index) => {
+          popIn(box, phase(amount, index * 0.2, index * 0.2 + 0.5));
+        });
+        links.forEach((link) => {
+          link.grow(phase(amount, 0.6, 1));
+        });
+      },
+    };
+  };
 
   return {
     // Thinking out loud: your words travel to each panel member, and each one lights up
-    // as they follow your reasoning.
+    // as they follow your reasoning. The words stay with them: they heard every step.
     'think-aloud': {
       seconds: 2.4,
       start: () => {
@@ -128,7 +173,7 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
             const flight = phase(progress, start, start + 0.45);
             const target = PANEL[index] ?? CANDIDATE;
             slide(bubble, CANDIDATE, target, flight, 0.6);
-            popIn(bubble, Math.min(1, flight * 4) * (1 - phase(progress, start + 0.45, 1)));
+            popIn(bubble, Math.min(1, flight * 4));
             const seat = hall.panelSeats[index];
             if (seat) seat.material = flight >= 1 ? colors.glow : colors.base;
           });
@@ -140,29 +185,25 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
     'spot-the-bug': {
       seconds: 2.6,
       start: () => {
-        const widths = [2.2, 1.6, 1.9, 1.2, 2.0];
-        const left = -1.35;
-        const lineY = (index: number) => 2.85 - index * 0.28;
+        const widths = [3.0, 2.2, 2.6, 1.7, 2.8];
+        const left = -1.85;
+        const lineY = (index: number) => 3.2 - index * 0.38;
         const lines = widths.map((width, index) => {
           const line = add(CODE_LINE, colors.dark, at(left + width / 2, lineY(index), BOARD_Z));
           line.scale.x = width;
           return line;
         });
         const buggy = 2;
-        const pointer = add(DOT, colors.glow, at(left - 0.15, lineY(0), BOARD_Z));
+        const firstLine = overBoard(at(left - 0.2, lineY(0), BOARD_Z));
+        const bugLineStart = overBoard(at(left - 0.2, lineY(buggy), BOARD_Z));
+        const pointer = add(BOARD_DOT, colors.glow, firstLine);
         return run(stage, [hall.marker], (progress) => {
           hall.marker.visible = false;
           lines.forEach((line, index) => {
             line.visible = progress >= index * 0.06;
           });
-          const reading = phase(progress, 0.3, 0.75);
           pointer.visible = progress >= 0.3;
-          slide(
-            pointer,
-            at(left - 0.15, lineY(0), BOARD_Z),
-            at(left - 0.15, lineY(buggy), BOARD_Z),
-            reading,
-          );
+          slide(pointer, firstLine, bugLineStart, phase(progress, 0.3, 0.75));
           const found = progress >= 0.8;
           const bugLine = lines[buggy];
           if (bugLine) bugLine.material = found ? colors.alert : colors.dark;
@@ -179,7 +220,6 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const causeAt = at(1.2, TABLE_TOP, TABLE_Z);
         const symptom = add(TABLE_CARD, colors.alert, symptomAt);
         const trail = segment(symptomAt, causeAt, colors.glow);
-        trail.mesh.scale.y = 0.4;
         trail.grow(0);
         stage.add(trail.mesh);
         const clues = [0.3, 0.5, 0.7].map((share) =>
@@ -192,56 +232,85 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const cause = add(TABLE_CARD, colors.glow, causeAt);
         return run(stage, [], (progress) => {
           popIn(symptom, phase(progress, 0, 0.2));
-          const tracing = phase(progress, 0.2, 0.7);
-          trail.grow(tracing);
+          trail.grow(phase(progress, 0.2, 0.7));
           clues.forEach((clue, index) => {
-            popIn(clue, phase(progress, 0.25 + index * 0.13, 0.35 + index * 0.13), 1);
+            popIn(clue, phase(progress, 0.25 + index * 0.13, 0.35 + index * 0.13));
           });
-          popIn(cause, phase(progress, 0.7, 0.85), 1);
+          popIn(cause, phase(progress, 0.7, 0.85));
           symptom.material = progress >= 0.9 ? colors.light : colors.alert;
         });
       },
     },
-    // A design round on the whiteboard: client, server and database, then requests
-    // flowing through. The slow job gets a queue and a worker of its own, off the path.
-    'design-on-board': {
+    // Fixing the busy path: the simple design goes on the board, a stream of reads piles
+    // onto the database until it turns red, then a cache goes in front of it. The same
+    // reads now stop at the cache, and the database calms down.
+    'cache-the-reads': {
       seconds: 3,
       start: () => {
-        const top = 2.5;
-        const low = 1.75;
-        const client = at(-1.05, top, BOARD_Z);
-        const server = at(0, top, BOARD_Z);
-        const database = at(1.05, top, BOARD_Z);
-        const queue = at(0, low, BOARD_Z);
-        const worker = at(1.05, low, BOARD_Z);
-        const firstBoxes = [client, server, database].map((point) =>
-          add(BOARD_BOX, colors.base, point),
-        );
-        const laterBoxes = [queue, worker].map((point) => add(BOARD_BOX, colors.glow, point));
-        const firstLinks = [boardLink(client, server), boardLink(server, database)];
-        const laterLinks = [boardLink(server, queue), boardLink(queue, worker)];
-        const request = add(DOT, colors.light, client);
-        const slowJob = add(DOT, colors.glow, server);
+        const design = simpleDesign();
+        const cache = add(BOARD_BOX, colors.glow, UNDER_SERVER);
+        const cacheLink = boardLink(SERVER, UNDER_SERVER);
+        const toDatabase = [CLIENT, SERVER, DATABASE].map(overBoard);
+        const toCache = [CLIENT, SERVER, UNDER_SERVER].map(overBoard);
+        const before = [0, 1, 2].map(() => add(BOARD_DOT, colors.light, CLIENT));
+        const after = [0, 1, 2].map(() => add(BOARD_DOT, colors.light, CLIENT));
         return run(stage, [hall.marker], (progress) => {
           hall.marker.visible = false;
-          firstBoxes.forEach((box, index) => {
-            popIn(box, phase(progress, index * 0.08, index * 0.08 + 0.15));
+          design.draw(phase(progress, 0, 0.2));
+          before.forEach((read, index) => {
+            const start = 0.2 + index * 0.07;
+            const going = phase(progress, start, start + 0.16);
+            travel(read, toDatabase, going);
+            inFlight(read, going);
           });
-          firstLinks.forEach((link) => {
-            link.grow(phase(progress, 0.2, 0.32));
+          const overloaded = progress >= 0.32 && progress < 0.7;
+          design.database.material = overloaded ? colors.alert : colors.base;
+          popIn(cache, phase(progress, 0.5, 0.62));
+          cacheLink.grow(phase(progress, 0.55, 0.65));
+          after.forEach((read, index) => {
+            const start = 0.65 + index * 0.08;
+            const going = phase(progress, start, start + 0.16);
+            travel(read, toCache, going);
+            // These stay where they landed: answered at the cache, never reaching the database.
+            read.visible = going > 0;
           });
-          const flowing = phase(progress, 0.32, 0.55);
-          travel(request, [client, server, database], flowing);
-          inFlight(request, flowing);
-          laterBoxes.forEach((box, index) => {
-            popIn(box, phase(progress, 0.55 + index * 0.06, 0.68 + index * 0.06));
-          });
+        });
+      },
+    },
+    // Slow work goes on a queue: a slow job jams the server, which turns red as the request
+    // times out. A queue and a worker go on the board, the job moves off to the worker, and a
+    // quick request flows through the freed server again.
+    'queue-slow-work': {
+      seconds: 3,
+      start: () => {
+        const design = simpleDesign();
+        const queue = add(BOARD_BOX, colors.glow, UNDER_SERVER);
+        const worker = add(BOARD_BOX, colors.glow, UNDER_DATABASE);
+        const laterLinks = [
+          boardLink(SERVER, UNDER_SERVER),
+          boardLink(UNDER_SERVER, UNDER_DATABASE),
+        ];
+        const toServer = [CLIENT, SERVER].map(overBoard);
+        const offToWorker = [SERVER, UNDER_SERVER, UNDER_DATABASE].map(overBoard);
+        const quickPath = [CLIENT, SERVER, DATABASE].map(overBoard);
+        const job = add(BUBBLE, colors.glow, CLIENT);
+        const quick = add(BOARD_DOT, colors.light, CLIENT);
+        return run(stage, [hall.marker], (progress) => {
+          hall.marker.visible = false;
+          design.draw(phase(progress, 0, 0.2));
+          job.visible = progress >= 0.15;
+          if (progress < 0.6) travel(job, toServer, phase(progress, 0.15, 0.3));
+          else travel(job, offToWorker, phase(progress, 0.6, 0.85));
+          const jammed = progress >= 0.32 && progress < 0.6;
+          design.server.material = jammed ? colors.alert : colors.base;
+          popIn(queue, phase(progress, 0.42, 0.52));
+          popIn(worker, phase(progress, 0.47, 0.57));
           laterLinks.forEach((link) => {
-            link.grow(phase(progress, 0.65, 0.75));
+            link.grow(phase(progress, 0.5, 0.6));
           });
-          const queued = phase(progress, 0.75, 1);
-          travel(slowJob, [server, queue, worker], queued);
-          slowJob.visible = progress >= 0.75;
+          const zipping = phase(progress, 0.82, 1);
+          travel(quick, quickPath, zipping);
+          inFlight(quick, zipping);
         });
       },
     },
@@ -275,34 +344,37 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
       seconds: 2.6,
       start: () => {
         const materials = [colors.base, colors.base, colors.glow, colors.light];
+        const rests = materials.map((_, index) => at(0, TABLE_TOP + 0.1 + index * 0.22, TABLE_Z));
+        const drops = rests.map((rest) => rest.clone().setY(rest.y + 1.2));
         const blocks = materials.map((material, index) =>
-          add(STORY_BLOCK, material, at(0, TABLE_TOP + 0.1 + index * 0.22, TABLE_Z)),
+          add(STORY_BLOCK, material, rests[index] ?? CANDIDATE),
         );
         return run(stage, [], (progress) => {
           blocks.forEach((block, index) => {
             const start = index * 0.22;
             const landing = phase(progress, start, start + 0.25);
-            const rest = at(0, TABLE_TOP + 0.1 + index * 0.22, TABLE_Z);
-            slide(block, at(rest.x, rest.y + 1.2, rest.z), rest, landing);
+            const rest = rests[index];
+            const drop = drops[index];
+            if (rest && drop) slide(block, drop, rest, landing);
             popIn(block, Math.min(1, landing * 3));
           });
         });
       },
     },
     // Directing an agent: you hand Otto a brief, he runs a lap of work around the table,
-    // brings back his result, and the check over your chair turns green only then.
+    // brings back his result, and only then does the check over your chair light up.
     'agent-loop': {
       seconds: 3,
       start: () => {
         const ottoHeight = 1.7;
-        const lapCentre = at(0, ottoHeight, TABLE_Z);
-        const lapPoint = (turn: number) =>
-          at(
-            lapCentre.x + Math.sin(turn * Math.PI * 2) * 2.8,
+        /** Where Otto is `turn` (0 to 1) of the way round the table, written into `into`. */
+        const lapPoint = (turn: number, into: THREE.Vector3) =>
+          into.set(
+            Math.sin(turn * Math.PI * 2) * 2.8,
             ottoHeight,
-            lapCentre.z + Math.cos(turn * Math.PI * 2) * 2,
+            TABLE_Z + Math.cos(turn * Math.PI * 2) * 2,
           );
-        const home = lapPoint(0);
+        const home = lapPoint(0, new THREE.Vector3());
         const otto = new THREE.Group();
         otto.add(
           part(OTTO_BODY, colors.glow, 0, 0, 0),
@@ -316,20 +388,18 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         return run(stage, [], (progress) => {
           popIn(otto, phase(progress, 0, 0.12));
           popIn(check, phase(progress, 0, 0.12));
+          lapPoint(phase(progress, 0.25, 0.8), otto.position);
+          // The brief goes out to Otto, and his result comes back the same way.
           const handing = phase(progress, 0.1, 0.25);
-          slide(brief, CANDIDATE, home, handing, 0.4);
-          inFlight(brief, handing);
-          const lap = phase(progress, 0.25, 0.8);
-          otto.position.copy(lapPoint(lap));
-          // The result comes back the way the brief went out.
           const returning = phase(progress, 0.8, 0.92);
-          const result = progress >= 0.8;
-          if (result) {
-            brief.visible = returning < 1;
-            slide(brief, home, CANDIDATE, returning, 0.4);
-            brief.material = colors.glow;
-          } else {
+          if (progress < 0.8) {
+            slide(brief, CANDIDATE, home, handing, 0.4);
+            inFlight(brief, handing);
             brief.material = colors.light;
+          } else {
+            slide(brief, home, CANDIDATE, returning, 0.4);
+            brief.visible = returning < 1;
+            brief.material = colors.glow;
           }
           check.material = progress >= 0.92 ? colors.glow : colors.light;
         });
@@ -365,8 +435,16 @@ export function hall(colors: Palette): Props {
     if (facing === 1) panelSeats.push(chairSeat);
     group.add(part(back, colors.base, x, 0.9, z - facing * 0.28));
   }
-  group.add(part(new THREE.BoxGeometry(3.2, 1.8, 0.1), colors.light, 0, 2.2, -6.5));
-  const marker = part(new THREE.BoxGeometry(2.4, 0.06, 0.02), colors.glow, 0, 2.6, -6.44);
+  group.add(
+    part(
+      new THREE.BoxGeometry(BOARD_WIDTH, BOARD_HEIGHT, 0.1),
+      colors.light,
+      0,
+      BOARD_MIDDLE,
+      -6.5,
+    ),
+  );
+  const marker = part(new THREE.BoxGeometry(3.2, 0.08, 0.02), colors.glow, 0, 3.1, -6.44);
   group.add(marker);
   const stage = createStage(group);
   return {
