@@ -16,11 +16,11 @@ import {
 /*
  * Act 7's island: a workbench with Otto, the AI agent, on it and gears on the wall behind.
  * Its beats act out the Act's ideas with things a non-coder can follow: a brief card goes
- * up beside Otto and the right blocks come out, a loop circles the bench, a magnifier finds the bad
- * line on a PR card, a test gate lets one block through and stops another (or is knocked
- * flat so a bad one rolls over it), eval scores rise as bars, a fence stops the errand a
- * stranger's note sends Otto on, with the key locked outside it, and a stop sign halts a
- * runaway loop.
+ * up beside Otto and the right blocks come out, a loop circles the bench, a magnifier
+ * finds the bad line on a PR card, a test gate lets one block through and stops another
+ * (or is knocked flat so a bad one rolls over it), an eval grades answers one by one into
+ * a score, a fence stops the errand a stranger's note sends Otto on, with the key locked
+ * outside it, and a stop sign halts a runaway loop.
  */
 
 /** The bench top's height, where built blocks sit. */
@@ -303,33 +303,50 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         });
       },
     },
-    // An eval scores many examples, not one feeling: five score bars rise to different
-    // heights, then a line is drawn across at their average.
+    // An eval is fixed examples, each graded the same way, and a score, not one feeling:
+    // five of the model's answers line up, each in turn is checked and turns green or red,
+    // and a meter fills a step for every one that passed, as in "41/50 passed".
     'eval-scores': {
-      seconds: 2.6,
+      seconds: 2.8,
       start: () => {
-        const heights = [1.2, 2, 1.5, 2.3, 1.7];
-        const xs = heights.map((_, index) => 3.6 + index * 0.8);
-        const z = 1.5;
-        const bars = xs.map((x) => hidden(SCORE_BAR, colors.glow, new THREE.Vector3(x, 0, z)));
-        const average = heights.reduce((sum, height) => sum + height, 0) / heights.length;
-        const level = segment(
-          new THREE.Vector3((xs[0] ?? 0) - 0.4, average, z + 0.3),
-          new THREE.Vector3((xs.at(-1) ?? 0) + 0.4, average, z + 0.3),
-          colors.light,
-        );
-        level.grow(0);
-        stage.add(level.mesh);
+        const passes = [true, true, false, true, true];
+        const spacing = 0.7;
+        const z = 1.6;
+        // Graded one after another, left to right, each check taking a moment.
+        const answers = passes.map((passed, index) => ({
+          mesh: hidden(BLOCK, colors.light, new THREE.Vector3(3.4 + index * spacing, 0.25, z)),
+          passed,
+          gradedFrom: 0.3 + index * 0.12,
+        }));
+        const grading = (progress: number, gradedFrom: number) =>
+          phase(progress, gradedFrom, gradedFrom + 0.08);
+        // The meter's dark frame is a full score; its green fill is the share that passed.
+        const meterX = 3.4 + passes.length * spacing + 0.2;
+        const meterHeight = 2;
+        const step = meterHeight / passes.length;
+        const frame = hidden(SCORE_BAR, colors.base, new THREE.Vector3(meterX, 0, z));
+        const fill = hidden(SCORE_BAR, PASSED, new THREE.Vector3(meterX, 0, z));
+        /** Stands a bar on the floor at `height`, hidden while it has none. */
+        const stand = (bar: THREE.Mesh, height: number, width: number) => {
+          bar.scale.set(width, Math.max(0.001, height), width);
+          bar.position.y = height / 2;
+          bar.visible = height > 0;
+        };
         return run(stage, [], (progress) => {
-          bars.forEach((bar, index) => {
-            const start = index * 0.1;
-            const rise = phase(progress, start, start + 0.35);
-            const height = Math.max(0.001, (heights[index] ?? 1) * rise);
-            bar.scale.set(1, height, 1);
-            bar.position.y = height / 2;
-            bar.visible = rise > 0;
+          let score = 0;
+          answers.forEach(({ mesh, passed, gradedFrom }, index) => {
+            popIn(mesh, phase(progress, index * 0.03, index * 0.03 + 0.15));
+            const checked = grading(progress, gradedFrom);
+            // A small hop as it's checked, so the eye follows the grading along the row.
+            mesh.position.y = 0.25 + Math.sin(checked * Math.PI) * 0.25;
+            const graded = progress >= gradedFrom;
+            mesh.material = !graded ? colors.light : passed ? PASSED : colors.alert;
+            // Only passes add to the score, each as it's graded; a failure adds nothing.
+            if (passed) score += step * checked;
           });
-          level.grow(phase(progress, 0.7, 1));
+          stand(frame, meterHeight * phase(progress, 0.05, 0.25), 1);
+          // A little wider than the frame, so the fill wraps it instead of flickering inside it.
+          stand(fill, score, 1.15);
         });
       },
     },
