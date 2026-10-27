@@ -24,14 +24,17 @@ describe('text in the mono font', () => {
 });
 
 describe('a lesson artifact box', () => {
-  it('shows 13 lines before it scrolls', () => {
-    const lines = /max-height: calc\((\d+)lh\b/.exec(ruleBody('.lesson-artifact pre'))?.[1];
-    expect(Number(lines)).toBeGreaterThanOrEqual(13);
+  it('shows 13 whole lines before it scrolls, and half a 14th to say there is more', () => {
+    const lines = /max-height: ([\d.]+)lh;/.exec(ruleBody('.lesson-artifact pre'))?.[1];
+    expect(Number(lines)).toBe(13.5);
   });
 
-  it('wraps prose, breaking even a long path, so no word hides past the edge', () => {
-    const body = ruleBody('.lesson-artifact--wrap pre');
+  it('wraps every line, breaking even a long path, so no word hides past the edge', () => {
+    const body = ruleBody('.lesson-artifact pre');
     expect(body).toContain('white-space: pre-wrap;');
     expect(body).toContain('overflow-wrap: anywhere;');
+    // Each line is a block of its own (LessonView.tsx), and an empty one keeps its height.
+    expect(ruleBody('.lesson-artifact__line')).toContain('display: block;');
+    expect(ruleBody('.lesson-artifact__line')).toContain('min-height: 1lh;');
   });
 });

@@ -12,12 +12,7 @@ import {
 } from '../../game/missions/lessonRunner';
 import type { PlacementResult } from '../../game/missions/grading';
 import { placementLesson } from '../../game/missions/lessonPlacement';
-import {
-  isPickCard,
-  type Artifact,
-  type ArtifactKind,
-  type Lesson,
-} from '../../game/missions/lessonSchema';
+import { isPickCard, type Artifact, type Lesson } from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { setCatalog } from '../../game/play/catalog';
@@ -84,25 +79,20 @@ describe('the lesson view', () => {
     expect(markup).not.toContain('Pull request');
   });
 
-  it('wraps prose and output in an artifact, but keeps the lines of code and diffs whole', () => {
-    /** The class of the artifact box for an artifact of `kind`. */
-    const box = (kind: ArtifactKind) =>
-      /<figure class="([^"]+)"/.exec(
-        withArtifact({ kind, text: 'Otto: I can fix this quickly with a force push.' }),
-      )?.[1];
-    for (const kind of [
-      'agent-message',
-      'issue',
-      'pull-request',
-      'terminal',
-      'log',
-      'error',
-    ] as const) {
-      expect(box(kind)).toBe('lesson-artifact lesson-artifact--wrap');
-    }
-    for (const kind of ['diff', 'code'] as const) {
-      expect(box(kind)).toBe('lesson-artifact');
-    }
+  it('draws each artifact line on its own, so a long one wraps hanging under itself', () => {
+    const markup = withArtifact({
+      kind: 'diff',
+      text: ['-  return user.id === doc.ownerId;', '+  return Boolean(doc.ownerId);'].join('\n'),
+    });
+    // Past the - or + and the line's own indent: 3 characters, then 2 more.
+    expect(markup).toContain(
+      '<span class="lesson-artifact__line" style="padding-left:5ch;text-indent:-5ch">+  return Boolean(doc.ownerId);</span>',
+    );
+    expect(markup.match(/class="lesson-artifact__line"/g)).toHaveLength(2);
+    // A message is prose, so it wraps flush like a paragraph.
+    expect(
+      withArtifact({ kind: 'agent-message', text: 'I can fix this quickly with a force push.' }),
+    ).toContain('style="padding-left:0ch;text-indent:0ch">I can fix this');
   });
 
   it("shows a wrong pick's feedback, crossed out, with the card still open", () => {

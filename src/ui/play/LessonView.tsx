@@ -32,6 +32,7 @@ import {
 import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
+import { hangingIndent } from './artifactLines';
 import { answersOn, revealBehavior } from './lessonReveal';
 import { splitFeedback, stepsInPlaceText } from './lessonText';
 import { useClock } from './useClock';
@@ -109,23 +110,31 @@ function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean })
 }
 
 /**
- * Kinds whose lines stay whole, scrolling sideways when long: where a line of code breaks
- * is part of what it says, and a diff's + and - mark whole lines. Every other kind is
- * prose or output, which wraps so no word of it hides past the box's edge.
+ * Something to read before answering: a diff, a log, a PR. It scrolls when it's long.
+ * Each line is its own block, so a long one wraps with its rest hanging in under it.
  */
-const KEEPS_LINES_WHOLE: ReadonlySet<ArtifactKind> = new Set(['diff', 'code', 'file']);
-
-/** Something to read before answering: a diff, a log, a PR. It scrolls when it's long. */
 function ArtifactBlock({ artifact }: { artifact: Artifact }) {
   const label = artifact.label ?? ARTIFACT_LABELS[artifact.kind];
-  const wraps = !KEEPS_LINES_WHOLE.has(artifact.kind);
   return (
-    <figure className={wraps ? 'lesson-artifact lesson-artifact--wrap' : 'lesson-artifact'}>
+    <figure className="lesson-artifact">
       <figcaption>
         <span className="lesson-artifact__kind">{ARTIFACT_LABELS[artifact.kind]}</span>
         {label === ARTIFACT_LABELS[artifact.kind] ? null : <span>{label}</span>}
       </figcaption>
-      <pre tabIndex={0}>{artifact.text}</pre>
+      <pre tabIndex={0}>
+        {artifact.text.split('\n').map((line, index) => {
+          const hang = hangingIndent(artifact.kind, line);
+          return (
+            <span
+              key={index}
+              className="lesson-artifact__line"
+              style={{ paddingLeft: `${String(hang)}ch`, textIndent: `${String(-hang)}ch` }}
+            >
+              {line}
+            </span>
+          );
+        })}
+      </pre>
     </figure>
   );
 }
