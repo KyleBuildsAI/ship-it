@@ -92,9 +92,18 @@ function run(
 }
 
 function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId<'act7'>, Beat> {
+  // Beat parts are named for what they stand for, so the tests can check the picture each
+  // beat ends on (the passed block is past the gate, the key is outside the fence).
+
   /** A hidden mesh on the stage, for a beat to pop in later. */
-  const hidden = (geometry: THREE.BufferGeometry, material: THREE.Material, at: THREE.Vector3) => {
+  const hidden = (
+    name: string,
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    at: THREE.Vector3,
+  ) => {
     const mesh = part(geometry, material, at.x, at.y, at.z);
+    mesh.name = name;
     mesh.visible = false;
     stage.add(mesh);
     return mesh;
@@ -102,12 +111,14 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
 
   /** An upright card with lines of "text", facing the camera, hidden until popped in. */
   const card = (
+    name: string,
     at: THREE.Vector3,
     lineCount: number,
     paper: THREE.Material = colors.light,
     ink: THREE.Material = colors.base,
   ) => {
     const group = new THREE.Group();
+    group.name = name;
     group.add(part(CARD, paper, 0, 0, 0));
     const lines = Array.from({ length: lineCount }, (_, index) => {
       const line = part(CARD_LINE, ink, 0, lineY(index), 0.05);
@@ -123,6 +134,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
   /** The checks as a gate on the bench's path: Otto's work has to pass through it. */
   const gate = () => {
     const group = new THREE.Group();
+    group.name = 'gate';
     const beam = part(GATE_BEAM, colors.base, 0, 2, 0);
     const posts = [-1, 1].map((side) => part(GATE_POST, colors.base, side, 1, 0));
     group.add(beam, ...posts);
@@ -153,10 +165,10 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const handedFrom = new THREE.Vector3(0.5, 2.8, 4.5);
         // On the bench at Otto's left, clear of his arm, facing the camera.
         const propped = new THREE.Vector3(-1.4, BENCH_TOP + 0.85, -0.5);
-        const brief = card(handedFrom, 3);
+        const brief = card('brief', handedFrom, 3);
         // At the bench's front edge, so they aren't read against the glowing gear behind.
         const blocks = [1.1, 1.65, 2.2].map((x) =>
-          hidden(BLOCK, colors.glow, new THREE.Vector3(x, BENCH_TOP + 0.23, -0.3)),
+          hidden('built-block', BLOCK, colors.glow, new THREE.Vector3(x, BENCH_TOP + 0.23, -0.3)),
         );
         return run(stage, [], (progress) => {
           popIn(brief.group, phase(progress, 0, 0.12), 0.9);
@@ -195,9 +207,14 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const stationCount = 5;
         const stations = Array.from({ length: stationCount }, (_, index) =>
           // Base, not dark: dark is nearly the island floor's colour, so they'd vanish unlit.
-          hidden(STATION, colors.base, onLoop(new THREE.Vector3(), index / stationCount, center.y)),
+          hidden(
+            'station',
+            STATION,
+            colors.base,
+            onLoop(new THREE.Vector3(), index / stationCount, center.y),
+          ),
         );
-        const orb = hidden(ORB, colors.glow, onLoop(new THREE.Vector3(), 0, orbHeight));
+        const orb = hidden('loop-orb', ORB, colors.glow, onLoop(new THREE.Vector3(), 0, orbHeight));
         return run(stage, [], (progress) => {
           const appear = phase(progress, 0, 0.15);
           stations.forEach((station) => {
@@ -221,10 +238,11 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const from = new THREE.Vector3(0.9, 2, -0.6);
         // Right of the wall's gear, so the card isn't read against a glowing ring.
         const to = new THREE.Vector3(4.6, 2.6, 2.4);
-        const pr = card(from, 4);
+        const pr = card('pr', from, 4);
         // Dark on the light card: a light ring would be lost against the paper, and a
         // glowing pink one blurs into the red line it comes to rest on.
         const lens = part(LENS, colors.dark, 0, lineY(0), 0.12);
+        lens.name = 'lens';
         lens.visible = false;
         pr.group.add(lens);
         const badLine = 2;
@@ -255,8 +273,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const checks = gate();
         const passed = new THREE.Vector3(GATE_X, 0.25, 4.4);
         const sentBack = new THREE.Vector3(GATE_X, 0.25, 0.6);
-        const good = hidden(BLOCK, colors.glow, ON_BENCH);
-        const bad = hidden(BLOCK, colors.glow, ON_BENCH);
+        const good = hidden('good-block', BLOCK, colors.glow, ON_BENCH);
+        const bad = hidden('bad-block', BLOCK, colors.glow, ON_BENCH);
         return run(stage, [], (progress) => {
           popIn(checks.group, phase(progress, 0, 0.15));
           popIn(good, phase(progress, 0.1, 0.2));
@@ -284,7 +302,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
       start: () => {
         const checks = gate();
         const through = new THREE.Vector3(GATE_X, 0.25, 5.2);
-        const bad = hidden(BLOCK, colors.glow, ON_BENCH);
+        const bad = hidden('bad-block', BLOCK, colors.glow, ON_BENCH);
         return run(stage, [], (progress) => {
           popIn(checks.group, phase(progress, 0, 0.12));
           popIn(bad, phase(progress, 0.08, 0.18));
@@ -316,7 +334,12 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const z = 1.6;
         // Graded one after another, left to right, each check taking a moment.
         const answers = passes.map((passed, index) => ({
-          mesh: hidden(BLOCK, colors.light, new THREE.Vector3(3.4 + index * spacing, 0.25, z)),
+          mesh: hidden(
+            'answer',
+            BLOCK,
+            colors.light,
+            new THREE.Vector3(3.4 + index * spacing, 0.25, z),
+          ),
           passed,
           gradedFrom: 0.3 + index * 0.12,
         }));
@@ -326,8 +349,13 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const meterX = 3.4 + passes.length * spacing + 0.2;
         const meterHeight = 2;
         const step = meterHeight / passes.length;
-        const frame = hidden(SCORE_BAR, colors.base, new THREE.Vector3(meterX, 0, z));
-        const fill = hidden(SCORE_BAR, PASSED, new THREE.Vector3(meterX, 0, z));
+        const frame = hidden(
+          'score-frame',
+          SCORE_BAR,
+          colors.base,
+          new THREE.Vector3(meterX, 0, z),
+        );
+        const fill = hidden('score', SCORE_BAR, PASSED, new THREE.Vector3(meterX, 0, z));
         /** Stands a bar on the floor at `height`, hidden while it has none. */
         const stand = (bar: THREE.Mesh, height: number, width: number) => {
           bar.scale.set(width, Math.max(0.001, height), width);
@@ -372,7 +400,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         };
         const postDegrees = [-80, -55, -30, -10, 10, 30, 55, 80];
         const posts = postDegrees.map((degrees) =>
-          hidden(FENCE_POST, colors.glow, onFence(degrees, 0.8)),
+          hidden('fence-post', FENCE_POST, colors.glow, onFence(degrees, 0.8)),
         );
         // Rails between the posts, so the note meets a fence, not a gap between two poles.
         const spans = postDegrees
@@ -389,8 +417,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         // Light and in front, not base and behind: a dark box at the back was lost on the floor.
         // In front of the bench, too, so the errand meets the fence over open floor.
         const safeAt = new THREE.Vector3(4, 0.35, 2.6);
-        const safe = hidden(SAFE, colors.light, safeAt);
+        const safe = hidden('safe', SAFE, colors.light, safeAt);
         const key = new THREE.Group();
+        key.name = 'key';
         key.add(part(KEY_RING, colors.glow, 0, 0.42, 0), part(KEY_SHAFT, colors.glow, 0, 0, 0));
         key.visible = false;
         stage.add(key);
@@ -400,14 +429,14 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const outside = new THREE.Vector3(8, 3.2, 4);
         // Propped on the bench at Otto's side, where he reads it.
         const read = new THREE.Vector3(1.5, BENCH_TOP + 0.45, -0.3);
-        const note = card(outside, 2, colors.alert, colors.dark);
+        const note = card('note', outside, 2, colors.alert, colors.dark);
         // The errand leaves Otto's chest, clear of his body, on the straight line to the key.
         const fromOtto = new THREE.Vector3(ROBOT.x + 0.7, BENCH_TOP + 0.7, ROBOT.z + 0.6);
         const towardKey = (Math.atan2(safeAt.x - ROBOT.x, safeAt.z - ROBOT.z) * 180) / Math.PI;
         // Level with the top rail and just inside it, so the orb touches the rail it hits.
         const stopped = onFence(towardKey, 1.3, -0.4);
         const dropped = onFence(towardKey, 0.22, -0.9);
-        const errand = hidden(ORB, colors.alert, fromOtto);
+        const errand = hidden('errand', ORB, colors.alert, fromOtto);
         return run(stage, [], (progress) => {
           posts.forEach((post, index) => {
             const start = index * 0.02;
@@ -445,8 +474,13 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         // Every lap starts and ends here, in front of Otto's face, so the drop starts here too.
         const lapStart = new THREE.Vector3(head.x, head.y, head.z + orbitRadius);
         const rest = new THREE.Vector3(-1.4, BENCH_TOP + 0.22, -0.6);
-        const orb = hidden(ORB, colors.alert, lapStart);
-        const sign = hidden(STOP_SIGN, colors.alert, new THREE.Vector3(1.4, 3.6, -0.6));
+        const orb = hidden('stuck-orb', ORB, colors.alert, lapStart);
+        const sign = hidden(
+          'stop-sign',
+          STOP_SIGN,
+          colors.alert,
+          new THREE.Vector3(1.4, 3.6, -0.6),
+        );
         // Stood up to face the camera, like a road sign.
         sign.rotation.x = Math.PI / 2;
         const stopAt = 0.6;
@@ -493,10 +527,12 @@ export function workshop(colors: Palette): Props {
   }
   // The robot: a body, a head with a glowing visor, and arms.
   const robot = new THREE.Group();
+  robot.name = 'otto';
   robot.add(part(new THREE.BoxGeometry(0.9, 1, 0.6), colors.light, 0, 0.5, 0));
   const head = new THREE.Group();
   head.add(part(new THREE.SphereGeometry(0.4, 20, 16), colors.light, 0, 0, 0));
   const visor = part(new THREE.BoxGeometry(0.55, 0.14, 0.1), colors.glow, 0, 0.02, 0.36);
+  visor.name = 'visor';
   head.add(visor);
   head.position.y = 1.35;
   robot.add(head);
