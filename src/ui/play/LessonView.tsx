@@ -10,6 +10,7 @@ import {
 import type {
   ArtifactKind,
   Artifact,
+  CardOption,
   Lesson,
   OrderCard,
   PickCard,
@@ -27,6 +28,7 @@ import {
 } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
+import { splitFeedback } from './lessonText';
 import { useClock } from './useClock';
 
 /** The label on an artifact's box when content gives none of its own. */
@@ -135,6 +137,20 @@ function LockedNote({ last }: { last: boolean }) {
   );
 }
 
+/** A pick's feedback: its verdict in bold, then why. A wrong pick invites another try. */
+function AnswerFeedback({ option }: { option: CardOption }) {
+  const { verdict, rest } = splitFeedback(option.correct, option.feedback);
+  return (
+    <p
+      className={option.correct ? 'drill-result drill-result--pass' : 'drill-result'}
+      aria-live="polite"
+    >
+      <strong>{verdict}</strong> {rest}
+      {option.correct ? null : ' Try another.'}
+    </p>
+  );
+}
+
 /** A choose or prompt card: options as buttons, and the latest pick's feedback. */
 function PickOptions({
   card,
@@ -167,16 +183,7 @@ function PickOptions({
         ))}
       </ol>
       {latest !== undefined && locked ? <LockedNote last={last} /> : null}
-      {latest === undefined || locked ? null : (
-        <p
-          className={latest.correct ? 'drill-result drill-result--pass' : 'drill-result'}
-          aria-live="polite"
-        >
-          <strong>{latest.correct ? 'Right. ' : 'Not quite. '}</strong>
-          {latest.feedback}
-          {latest.correct ? null : ' Try another.'}
-        </p>
-      )}
+      {latest === undefined || locked ? null : <AnswerFeedback option={latest} />}
     </>
   );
 }

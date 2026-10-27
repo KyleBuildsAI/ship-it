@@ -71,9 +71,18 @@ describe('the lesson view', () => {
   it('shows the explanation and Next once the card is solved', () => {
     const markup = view(pickOption(cards(), sampleLesson, 'ask-units'));
     expect(markup).toContain('lesson-option lesson-option--right');
-    expect(text(markup)).toContain('Right.');
+    // The feedback opens "Yes:", so that is the verdict, never "Right. Yes:".
+    expect(markup).toContain('<strong>Yes:</strong> the variable is seconds');
+    expect(text(markup)).not.toContain('Right.');
     expect(text(markup)).toContain('Why Review the change, not the description.');
     expect(text(markup)).toContain('Next card');
+  });
+
+  it('says Right. before feedback that opens without a verdict of its own', () => {
+    const second = nextCard(pickOption(cards(), sampleLesson, 'ask-units'), sampleLesson);
+    expect(view(pickOption(second, sampleLesson, 'specific'))).toContain(
+      '<strong>Right.</strong> It names the value',
+    );
   });
 
   it('shows an order card with up and down moves and Check order', () => {
