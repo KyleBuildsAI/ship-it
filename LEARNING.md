@@ -2283,3 +2283,19 @@ https://github.com/KyleBuildsAI/ship-it/pull/161
 2. They're ANSI escape codes. The first sets the text colour to cyan, and the second resets it to normal, so only "help" is highlighted.
 3. It changes a fixed string, not logic. No test checked the old text, and the browser check confirms the new line shows.
 </details>
+
+---
+
+## #164 fix: serve the preview build on a port windows doesn't reserve
+
+https://github.com/KyleBuildsAI/ship-it/pull/164
+
+1. Why did the e2e tests fail with EACCES when no program was using port 4173?
+2. Why does `playwright.config.ts` import the port from `server/port.ts` instead of writing the number again?
+3. What would happen without `strictPort: true` if another program already held 18174?
+<details><summary>Answers</summary>
+
+1. Windows had reserved a block of ports that included 4173 for Hyper-V and WSL. A reserved port refuses every program, so the error is "access denied" even when the port looks free.
+2. So there's only one place to change it. If the two files each had their own number, someone could change one, and the tests would wait for a server on a port it never opened.
+3. Vite would quietly start on the next free port, such as 18175. Playwright would keep waiting on 18174 and time out, which is much harder to understand than a clear "port in use" error.
+</details>
