@@ -251,6 +251,15 @@ describe('Act 6 Field Mission: Document One Request', () => {
     });
   });
 
+  it('says to change the keys first when .env is tracked, since main already matches GitHub', () => {
+    const tracked = ['.env', '.gitignore', 'README.md', 'src/server.ts'].join('\n');
+    const verdict = verifyPaste(verification('no-secret-file'), tracked);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toMatch(/^Still tracked: \.env\. It’s on GitHub now/);
+    expect(verdict.message).toContain('change them all first');
+    expect(verdict.message).toContain('through a pull request');
+  });
+
   it('never asks for a GitHub token or a key', () => {
     // It works with no token: every check reads output Kyle pastes from his own terminal.
     const text = JSON.stringify(documentOneRequest).toLowerCase();

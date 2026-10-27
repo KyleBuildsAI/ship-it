@@ -166,6 +166,10 @@ describe('verifyPaste', () => {
     const leaked = verifyPaste(check, 'src/app.ts\n.env\n');
     expect(leaked.passed).toBe(false);
     expect(leaked.message).toContain('.env');
+    // Untracking alone leaves a pushed key usable, so the general advice says to change it.
+    expect(leaked.message).toContain('change every key in it first');
+    const status = { ...check, parser: 'status-short', command: 'git status --short' } as const;
+    expect(verifyPaste(status, 'A  .env\n').message).toContain('change every key in it first');
   });
 
   it('refuses a summary or another command’s output in place of a git ls-files list', () => {

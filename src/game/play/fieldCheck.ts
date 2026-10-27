@@ -55,6 +55,11 @@ const PARSER_NAMES = {
   'select-string': 'Select-String',
 } as const;
 
+// A tracked secret may already be on GitHub, and lessons 5.4 and 6.2 teach that a pushed
+// secret counts as stolen, so untracking alone is never the whole fix.
+const UNTRACK_SECRETS =
+  'Untrack with git rm --cached, then commit. If a secret file was ever pushed, change every key in it first: a pushed secret counts as stolen.';
+
 function fail(message: string): FieldVerdict {
   return { passed: false, message };
 }
@@ -384,9 +389,7 @@ function checkTrackedFiles(verification: Verification, text: string): FieldVerdi
   }
   const secrets = trackedSecretPaths(paths);
   if (secrets.length > 0) {
-    return fail(
-      `Still tracked: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack with git rm --cached, then commit.'}`,
-    );
+    return fail(`Still tracked: ${secrets.join(', ')}. ${verification.advice ?? UNTRACK_SECRETS}`);
   }
   if (check.kind === 'tracksPath') {
     // Any other file on the list, even an older workflow, doesn't prove the new one exists.
@@ -517,9 +520,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0
         ? { passed: true, message: 'No secret files show up as tracked.' }
-        : fail(
-            `Tracked secrets: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack them with git rm --cached.'}`,
-          );
+        : fail(`Tracked secrets: ${secrets.join(', ')}. ${verification.advice ?? UNTRACK_SECRETS}`);
     }
     case 'ignores': {
       const visible = [...unignored(status, check.patterns), ...buildOutputToIgnore(status)];

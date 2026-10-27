@@ -86,6 +86,10 @@ export const documentOneRequest = {
       command: 'git ls-files',
       parser: 'ls-files',
       check: { kind: 'noTrackedSecrets' },
+      // The check before this one proved main matches GitHub's, so a tracked secret is
+      // already public: changing the keys comes first, untracking only stops the next leak.
+      advice:
+        'It’s on GitHub now, so treat every key in it as stolen and change them all first. Then have your agent untrack it on a branch (git rm --cached, and add it to .gitignore) and merge that through a pull request.',
     },
   ],
 } satisfies FieldMissionInput;
