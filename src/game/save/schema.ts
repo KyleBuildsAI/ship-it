@@ -122,6 +122,23 @@ export const missionResumeSchema = z.object({
   ),
 });
 
+/**
+ * An untimed lesson left partway (DESIGN.md section 5, Lessons), so Play picks it up at its
+ * first unanswered card. Written as each answer goes in, cleared when the lesson finishes.
+ * A timed final keeps none: its clock can't wait while Kyle is away.
+ */
+export const lessonResumeSchema = z.object({
+  /** The cards answered so far, in play order, with whether each was right first time. */
+  answered: z.array(z.object({ cardId: idSchema, firstTry: z.boolean() })),
+  /**
+   * The next card's wrong tries (options picked, or orders checked), so leaving after a
+   * miss can't turn it into a first try on the way back.
+   */
+  open: z
+    .object({ cardId: idSchema, picked: z.array(idSchema), wrongOrders: countSchema })
+    .nullable(),
+});
+
 export const missionProgressSchema = z.object({
   status: missionStatusSchema,
   // Where to resume: the index into the mission's steps list.
@@ -134,6 +151,8 @@ export const missionProgressSchema = z.object({
   // A default, not a new schemaVersion (as with settings.unlockAll): a save written
   // before resuming existed loads, with nothing to resume.
   resume: missionResumeSchema.nullable().default(null),
+  // Optional for the same reason: a save from before lessons resumed loads without it.
+  lessonResume: lessonResumeSchema.optional(),
 });
 
 export const actProgressSchema = z.object({
@@ -231,6 +250,7 @@ export type Profile = z.infer<typeof profileSchema>;
 export type MissionStatus = z.infer<typeof missionStatusSchema>;
 export type MissionProgress = z.infer<typeof missionProgressSchema>;
 export type MissionResume = z.infer<typeof missionResumeSchema>;
+export type LessonResume = z.infer<typeof lessonResumeSchema>;
 export type ActProgress = z.infer<typeof actProgressSchema>;
 export type DrillAttempt = z.infer<typeof drillAttemptSchema>;
 export type ReviewItem = z.infer<typeof reviewItemSchema>;

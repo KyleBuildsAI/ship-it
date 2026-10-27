@@ -7,6 +7,7 @@ import {
   createMissionProgress,
   type ActProgress,
   type FieldMissionProgress,
+  type LessonResume,
   type MissionProgress,
   type MissionResume,
   type SaveData,
@@ -65,6 +66,33 @@ export function recordResume(
   const current = mission(save, missionId);
   if (resume === null && current.resume === null) return save;
   return withMission(save, missionId, { ...current, resume });
+}
+
+/** A lesson's progress with no resume point, so the next Play starts at its briefing. */
+function withoutLessonResume(progress: MissionProgress): MissionProgress {
+  const kept = { ...progress };
+  delete kept.lessonResume;
+  return kept;
+}
+
+/**
+ * Keeps how far an untimed lesson has got, so leaving or reloading picks it up at its
+ * next card; null forgets it. Only a first play keeps one: a done or tested-out lesson's
+ * row offers Replay, which starts at the briefing, so it saves nothing to resume.
+ */
+export function recordLessonResume(
+  save: SaveData,
+  lessonId: string,
+  resume: LessonResume | null,
+): SaveData {
+  const current = mission(save, lessonId);
+  if (resume === null) {
+    return current.lessonResume === undefined
+      ? save
+      : withMission(save, lessonId, withoutLessonResume(current));
+  }
+  if (current.status !== 'in-progress') return save;
+  return withMission(save, lessonId, { ...current, lessonResume: resume });
 }
 
 /**
@@ -200,9 +228,10 @@ export function completeMission(
 }
 /**
  * Finishes a lesson. Its XP is paid the first time only, like a mission's, so replays
- * practise without farming; after a test-out, only the half not already paid. The save has no stars field: a lesson's best first-try
- * percent goes in bestDrillScore (a lesson has no drills to need it), and the stars are
- * worked out from it, so no save migration is needed.
+ * practise without farming; after a test-out, only the half not already paid. The save
+ * has no stars field: a lesson's best first-try percent goes in bestDrillScore (a lesson
+ * has no drills to need it), and the stars are worked out from it, so no save migration
+ * is needed.
  */
 export function completeLesson(
   save: SaveData,
@@ -214,7 +243,8 @@ export function completeLesson(
   const current = mission(save, finished.id);
   const xp = completionXp(current, finished.xp);
   const updated: MissionProgress = {
-    ...current,
+    // A finished lesson has nothing to resume: Play replays it from the briefing.
+    ...withoutLessonResume(current),
     status: 'completed',
     completedAt: current.completedAt ?? now.toISOString(),
     bestDrillScore: Math.max(current.bestDrillScore ?? 0, firstTryPercent),

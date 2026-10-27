@@ -28,6 +28,7 @@ import {
   createDefaultSave,
   createMissionProgress,
   type ActProgress,
+  type LessonResume,
   type SaveData,
 } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
@@ -302,6 +303,28 @@ describe('an Act made of lessons', () => {
     expect(rows(menuFor(lessonAct, withLessonDone(67)))[0]).toBe(
       `4.1 ${sampleLesson.title} · Done · ★★☆ [Replay]`,
     );
+  });
+
+  it('says In progress, and the card, only when Play picks the lesson up partway', () => {
+    const withProgress = (id: string, lessonResume?: LessonResume): SaveData => {
+      const started = { ...createMissionProgress(), status: 'in-progress' as const };
+      const entry = lessonResume === undefined ? started : { ...started, lessonResume };
+      return { ...newSave, missions: { ...newSave.missions, [id]: entry } };
+    };
+    const answered = sampleLesson.cards
+      .slice(0, 3)
+      .map((card) => ({ cardId: card.id, firstTry: true }));
+    expect(
+      rows(menuFor(lessonAct, withProgress(sampleLesson.id, { answered, open: null })))[0],
+    ).toBe(`4.1 ${sampleLesson.title} · In progress · card 4 of 6 [Play]`);
+    // Left at the briefing: Play starts there, so the row doesn't claim it's under way.
+    expect(rows(menuFor(lessonAct, withProgress(sampleLesson.id)))[0]).toBe(
+      `4.1 ${sampleLesson.title} · 6 cards [Play]`,
+    );
+    // A timed final always starts over, so it never reads as in progress.
+    expect(
+      rows(menuFor(lessonAct, withProgress(sampleFinal.id, { answered, open: null })))[2],
+    ).toBe(`4.3 Final: ${sampleFinal.title} · Timed final challenge [Play]`);
   });
 
   it('starts the lesson from its row', () => {

@@ -27,6 +27,7 @@ import {
   recordDrill,
   recordFieldMission,
   recordGitHubCheck,
+  recordLessonResume,
   recordPlacement,
   recordReview,
   recordSteps,
@@ -149,6 +150,36 @@ describe('drills and reviews', () => {
     };
     const replayed = recordDrill(older, drill, { passed: true, seconds: 7 }, LATER);
     expect(replayed.profile.xp).toBe(0);
+  });
+});
+
+describe('a lesson left partway', () => {
+  const { act: lessonAct } = sampleLessonAct();
+  const resume = {
+    answered: [{ cardId: 'read-the-diff', firstTry: true }],
+    open: null,
+  };
+
+  it('keeps where a first play got to, and nothing for a lesson done or tested out', () => {
+    const started = startMissionProgress(fresh(), sampleLesson.id);
+    const kept = recordLessonResume(started, sampleLesson.id, resume);
+    expect(kept.missions[sampleLesson.id]?.lessonResume).toEqual(resume);
+    // A done lesson's row offers Replay, which starts at the briefing.
+    const done = completeLesson(fresh(), lessonAct, sampleLesson, 100, NOW);
+    expect(recordLessonResume(done, sampleLesson.id, resume)).toBe(done);
+    // Nothing kept, nothing to forget.
+    expect(recordLessonResume(started, sampleLesson.id, null)).toBe(started);
+    expect(recordLessonResume(kept, sampleLesson.id, null).missions[sampleLesson.id]).toEqual(
+      started.missions[sampleLesson.id],
+    );
+  });
+
+  it('forgets the resume point when the lesson is finished', () => {
+    const started = startMissionProgress(fresh(), sampleLesson.id);
+    const kept = recordLessonResume(started, sampleLesson.id, resume);
+    const done = completeLesson(kept, lessonAct, sampleLesson, 100, NOW);
+    expect(done.missions[sampleLesson.id]).not.toHaveProperty('lessonResume');
+    expect(done.missions[sampleLesson.id]?.status).toBe('completed');
   });
 });
 

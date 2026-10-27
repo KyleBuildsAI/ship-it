@@ -17,7 +17,7 @@ import {
   type ProgressStorage,
 } from '../progress';
 import { placementTestOutXp } from '../progression/xp';
-import { createDefaultSave } from '../save/schema';
+import { createDefaultSave, saveDataSchema } from '../save/schema';
 import { worldState } from '../worldState';
 import { findLesson, setCatalog } from './catalog';
 import {
@@ -173,6 +173,72 @@ describe('playing a lesson', () => {
     playThrough();
     expect(lesson().xpEarned).toBe(sampleLesson.xp - before);
     expect(saved(sampleLesson.id).xp - before).toBe(lesson().xpEarned);
+  });
+});
+
+describe('a lesson left partway', () => {
+  /** Answers two cards (the second after a miss), misses the third once, then leaves. */
+  function leaveAtCardThree(): void {
+    startLesson(sampleLesson.id);
+    endLessonBriefing(T0);
+    answer();
+    answer(true);
+    checkLessonOrder(T0);
+    leavePlay();
+  }
+
+  it('picks up at its first unanswered card, past the briefing, with its first tries', () => {
+    leaveAtCardThree();
+    startLesson(sampleLesson.id, T0 + 60_000);
+    expect(lesson().run).toMatchObject({
+      phase: 'cards',
+      cardIndex: 2,
+      firstTry: [true, false],
+    });
+    // The wrong check made before leaving still counts: this card can't be a first try now.
+    expect(lesson().run.card.wrongOrders).toBe(1);
+    for (let index = 2; index < sampleLesson.cards.length; index++) answer();
+    expect(lesson().run.firstTry).toEqual([true, false, false, true, true, true]);
+    expect(saved(sampleLesson.id).mission).toMatchObject({
+      status: 'completed',
+      bestDrillScore: 67,
+    });
+  });
+
+  it('survives a reload: the resume point is in the save, and passes its schema', async () => {
+    leaveAtCardThree();
+    // Stored and read back the way IndexedDB and an exported file hold it.
+    const stored = saveDataSchema.parse(JSON.parse(JSON.stringify(progress.get().save)));
+    await startProgress(
+      { load: () => Promise.resolve(stored), write: () => Promise.resolve() },
+      NOW,
+    );
+    startLesson(sampleLesson.id);
+    expect(lesson().run).toMatchObject({ cardIndex: 2, firstTry: [true, false] });
+  });
+
+  it('forgets the resume point once finished, so Replay starts at the briefing', () => {
+    leaveAtCardThree();
+    startLesson(sampleLesson.id);
+    for (let index = 2; index < sampleLesson.cards.length; index++) answer();
+    expect(saved(sampleLesson.id).mission).not.toHaveProperty('lessonResume');
+    startLesson(sampleLesson.id);
+    endLessonBriefing(T0);
+    answer();
+    leavePlay();
+    // A replay keeps no resume point: its row offers Replay, which starts over.
+    startLesson(sampleLesson.id);
+    expect(lesson().run.phase).toBe('briefing');
+  });
+
+  it('starts a timed final over at its briefing, since its clock cannot wait', () => {
+    startLesson(sampleFinal.id);
+    endLessonBriefing(T0);
+    answer();
+    leavePlay();
+    expect(saved(sampleFinal.id).mission?.lessonResume).toBeUndefined();
+    startLesson(sampleFinal.id);
+    expect(lesson().run).toMatchObject({ phase: 'briefing', firstTry: [] });
   });
 });
 
