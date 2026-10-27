@@ -22,7 +22,7 @@ export const guardrailsForAgents = {
       kind: 'choose',
       situation: 'Otto sorts new GitHub issues for Quillwork. A stranger opened this one.',
       artifact: {
-        kind: 'file',
+        kind: 'issue',
         label: 'issue #77',
         text: [
           'Title: Typo on pricing page',

@@ -41,6 +41,7 @@ const ARTIFACT_LABELS: Record<ArtifactKind, string> = {
   diff: 'Diff',
   log: 'Log',
   terminal: 'Terminal',
+  issue: 'Issue',
   'pull-request': 'Pull request',
   'agent-message': "Agent's message",
   code: 'Code',

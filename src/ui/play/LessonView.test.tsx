@@ -12,7 +12,12 @@ import {
 } from '../../game/missions/lessonRunner';
 import type { PlacementResult } from '../../game/missions/grading';
 import { placementLesson } from '../../game/missions/lessonPlacement';
-import { isPickCard, type ArtifactKind, type Lesson } from '../../game/missions/lessonSchema';
+import {
+  isPickCard,
+  type Artifact,
+  type ArtifactKind,
+  type Lesson,
+} from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { setCatalog } from '../../game/play/catalog';
@@ -63,21 +68,36 @@ describe('the lesson view', () => {
     expect(text(markup)).not.toContain('Why');
   });
 
+  /** The first card's markup, with its artifact swapped for `artifact`. */
+  function withArtifact(artifact: Artifact): string {
+    const [first, ...rest] = sampleLesson.cards;
+    if (first === undefined) throw new Error('expected a first card');
+    const lesson: Lesson = { ...sampleLesson, cards: [{ ...first, artifact }, ...rest] };
+    return view(cards(lesson), lesson);
+  }
+
+  it('captions an issue as an issue, never as a pull request', () => {
+    const markup = withArtifact({ kind: 'issue', label: 'Issue #61', text: 'its broken pls fix' });
+    expect(markup).toContain(
+      '<span class="lesson-artifact__kind">Issue</span><span>Issue #61</span>',
+    );
+    expect(markup).not.toContain('Pull request');
+  });
+
   it('wraps prose and output in an artifact, but keeps the lines of code and diffs whole', () => {
-    /** The first card's artifact box, with the artifact swapped for one of `kind`. */
-    const box = (kind: ArtifactKind) => {
-      const [first, ...rest] = sampleLesson.cards;
-      if (first === undefined) throw new Error('expected a first card');
-      const lesson: Lesson = {
-        ...sampleLesson,
-        cards: [
-          { ...first, artifact: { kind, text: 'Otto: I can fix this quickly with a force push.' } },
-          ...rest,
-        ],
-      };
-      return /<figure class="([^"]+)"/.exec(view(cards(lesson), lesson))?.[1];
-    };
-    for (const kind of ['agent-message', 'pull-request', 'terminal', 'log', 'error'] as const) {
+    /** The class of the artifact box for an artifact of `kind`. */
+    const box = (kind: ArtifactKind) =>
+      /<figure class="([^"]+)"/.exec(
+        withArtifact({ kind, text: 'Otto: I can fix this quickly with a force push.' }),
+      )?.[1];
+    for (const kind of [
+      'agent-message',
+      'issue',
+      'pull-request',
+      'terminal',
+      'log',
+      'error',
+    ] as const) {
       expect(box(kind)).toBe('lesson-artifact lesson-artifact--wrap');
     }
     for (const kind of ['diff', 'code'] as const) {
