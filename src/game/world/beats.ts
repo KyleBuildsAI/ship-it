@@ -11,7 +11,10 @@ import { zoneForAct } from './zones';
  * as Record<BeatId<zone>, Beat>, so a missing or extra beat fails the typecheck.
  */
 
+// Each Act's list sits under its own comment line, so branches that grow two Acts' lists
+// side by side merge without a conflict.
 export const ISLAND_BEATS = {
+  // Act 3, islands/branches.ts
   act3: [
     'branch-splits',
     'commit-on-branch',
@@ -25,6 +28,7 @@ export const ISLAND_BEATS = {
     'tag-release',
     'bisect-search',
   ],
+  // Act 4, islands/town.ts
   act4: [
     'sync-origin',
     'push-behind',
@@ -35,6 +39,7 @@ export const ISLAND_BEATS = {
     'checks-gate',
     'release-tag',
   ],
+  // Act 5, islands/gates.ts
   act5: [
     'change-passes',
     'gate-blocks',
@@ -48,6 +53,7 @@ export const ISLAND_BEATS = {
     'secret-withheld',
     'key-revoked',
   ],
+  // Act 6, islands/servers.ts
   act6: [
     'request-response',
     'auth-gate',
@@ -59,6 +65,7 @@ export const ISLAND_BEATS = {
     'connections-run-out',
     'incident-rollback',
   ],
+  // Act 7, islands/workshop.ts
   act7: [
     'brief-handed',
     'agent-loop',
@@ -69,6 +76,7 @@ export const ISLAND_BEATS = {
     'guardrails-up',
     'agent-halted',
   ],
+  // Act 8, islands/hall.ts
   act8: [
     'think-aloud',
     'spot-the-bug',
