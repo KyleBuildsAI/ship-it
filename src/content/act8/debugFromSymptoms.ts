@@ -9,6 +9,7 @@ export const debugFromSymptoms = {
   id: 'debug-from-symptoms',
   act: 8,
   title: 'Debug From Symptoms',
+  briefingBeat: 'trace-evidence',
   briefing: [
     'The debugging round: Sage hands you real Quillwork bugs as they arrived, as symptoms.',
     'Find the cause with evidence before anyone changes code. Then point Otto at the evidence, not at a guess.',
@@ -16,6 +17,7 @@ export const debugFromSymptoms = {
   cards: [
     {
       id: 'read-traceback',
+      beat: 'trace-evidence',
       kind: 'choose',
       situation: 'The nightly invoice export crashed. This is all Dex posted in the channel.',
       artifact: {
@@ -57,6 +59,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'swallowed',
+      beat: 'spot-the-bug',
       kind: 'choose',
       situation: 'Otto pushes a fix for the export crash within a minute.',
       artifact: {
@@ -97,6 +100,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'what-changed',
+      beat: 'trace-evidence',
       kind: 'choose',
       situation: 'At 14:05 Priya says the docs page feels slow. Here’s the API log.',
       artifact: {
@@ -143,6 +147,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'method',
+      beat: 'trace-evidence',
       kind: 'order',
       situation: 'Sage asks how you go after a bug you don’t understand yet.',
       question: 'Put the steps in order.',
@@ -158,6 +163,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'repro-first',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'Priya forwards a support ticket: “Login fails sometimes on Safari.” Nobody can make it happen on purpose yet. You bring in Otto.',
@@ -196,6 +202,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'case-sensitive',
+      beat: 'trace-evidence',
       kind: 'choose',
       situation:
         'npm test passes on your Windows laptop. Dex’s CI runs the same npm test on Linux and fails on the same commit. src contains: logger.ts, routes/, server.ts.',
@@ -237,6 +244,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'bisect',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'Invoice totals are off by a cent on some orders. v1.4.0 was right; main is wrong; 30 commits sit in between.',
@@ -273,6 +281,7 @@ export const debugFromSymptoms = {
     },
     {
       id: 'flaky-clock',
+      beat: 'spot-the-bug',
       kind: 'choose',
       situation: 'One test fails about once a day, always just after midnight. Rerunning fixes it.',
       artifact: {

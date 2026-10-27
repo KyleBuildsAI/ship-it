@@ -13,6 +13,7 @@ export const rejectedPush = {
   // Six minutes for eight cards: 45 seconds each, enough to read every artifact once.
   timeLimitSeconds: 360,
   xp: 150,
+  briefingBeat: 'release-tag',
   briefing: [
     '5pm on release day. Quillwork 3.0.0 went out at noon, and refunds are rounding down. Marco wants a fix tonight.',
     'One clock for every card. Under pressure, the right move is rarely the fastest-looking one.',
@@ -20,6 +21,7 @@ export const rejectedPush = {
   cards: [
     {
       id: 'protected-reject',
+      beat: 'main-protected',
       kind: 'choose',
       situation:
         'Dex fixed the rounding on his laptop and pushed straight to main. Panicking, he shows you this.',
@@ -58,6 +60,7 @@ export const rejectedPush = {
     },
     {
       id: 'brief-the-hotfix',
+      beat: 'pr-opened',
       kind: 'prompt',
       situation: 'Dex’s fix turned out to be wrong. You hand the bug to Otto instead.',
       question: 'Which instruction?',
@@ -87,6 +90,7 @@ export const rejectedPush = {
     },
     {
       id: 'otto-push-rejected',
+      beat: 'push-behind',
       kind: 'choose',
       situation: 'Otto’s next push to fix/refund-rounding fails.',
       artifact: {
@@ -124,6 +128,7 @@ export const rejectedPush = {
     },
     {
       id: 'scope-creep',
+      beat: 'review-changes',
       kind: 'choose',
       situation: 'Otto opens PR #89. The fix looks right, but the diff has a second file.',
       artifact: {
@@ -227,6 +232,7 @@ export const rejectedPush = {
     },
     {
       id: 'hotfix-version',
+      beat: 'release-tag',
       kind: 'choose',
       situation: 'The fix only corrects refund rounding. 3.0.0 went out at noon.',
       question: 'Which version ships the fix?',
@@ -255,6 +261,7 @@ export const rejectedPush = {
     },
     {
       id: 'ship-it',
+      beat: 'release-tag',
       kind: 'order',
       situation: 'PR #89 is approved, conflict-free and green. Marco is watching.',
       question: 'Put the rest in order.',

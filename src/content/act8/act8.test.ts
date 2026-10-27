@@ -7,6 +7,7 @@ import {
 } from '../../game/missions/lessonSchema';
 import { countWords } from '../../game/missions/schemaParts';
 import { validateAct, validateCatalog } from '../../game/missions/validateAct';
+import { beatsForAct } from '../../game/world/beats';
 import { ACTS } from '../index';
 import { act8, act8Lessons } from './index';
 
@@ -148,5 +149,21 @@ describe('Act 8: The Loop', () => {
       const share = places.filter((entry) => entry === place).length / places.length;
       expect(share).toBeLessThanOrEqual(0.4);
     }
+  });
+
+  it('acts out most cards in the hall, naming only beats it knows', () => {
+    const known = beatsForAct(8);
+    // Every briefing, the final's too, opens on the round it's about.
+    for (const lesson of lessons) expect(known, lesson.id).toContain(lesson.briefingBeat);
+    for (const card of cards) {
+      if (card.beat !== undefined) expect(known, card.id).toContain(card.beat);
+    }
+    const withBeat = cards.filter((card) => card.beat !== undefined).length;
+    expect(withBeat / cards.length).toBeGreaterThanOrEqual(0.8);
+    // The final plays the rounds back to back, so each of its cards shows its round.
+    expect(final?.cards.every((card) => card.beat !== undefined)).toBe(true);
+    // Every beat the hall has is used somewhere, or it's dead weight.
+    const used = new Set(cards.map((card) => card.beat));
+    for (const beat of known) expect(used).toContain(beat);
   });
 });

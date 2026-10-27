@@ -11,6 +11,7 @@ export const conflictStorm = {
   kind: 'final',
   timeLimitSeconds: 360,
   xp: 150,
+  briefingBeat: 'conflict-clash',
   briefing: [
     'Release day for Quillwork 2.5. Three branches must land on main before Dex deploys at 5pm, and they collide.',
     'Six minutes on one clock for every card. A wrong first answer costs stars, not time.',
@@ -18,6 +19,7 @@ export const conflictStorm = {
   cards: [
     {
       id: 'storm-fast-forward',
+      beat: 'fast-forward',
       kind: 'choose',
       situation:
         'feat/templates is three commits ahead of main, and main hasn’t moved since it branched.',
@@ -47,6 +49,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-resolve',
+      beat: 'conflict-clash',
       kind: 'choose',
       situation:
         'Merging feat/collab stops. Main kept the 10-document limit; feat/collab added a collaborator limit the feature needs.',
@@ -89,6 +92,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-otto-conflicts',
+      beat: 'conflict-clash',
       kind: 'prompt',
       situation: 'It’s 4:40pm. Otto hit 9 conflicts merging main into feat/live-cursors.',
       question: 'Which instruction do you give Otto?',
@@ -124,6 +128,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-shared-rebase',
+      beat: 'rebase-replay',
       kind: 'choose',
       situation:
         'Marco rebased the shared release/2.5 branch and force-pushed. Now Priya’s and Otto’s pulls fail.',
@@ -159,6 +164,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-cherry-pick',
+      beat: 'cherry-pick',
       kind: 'prompt',
       situation: 'The fix for blank PDF pages sits on feat/pdf-v2, which isn’t shipping today.',
       artifact: {
@@ -203,6 +209,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-bisect',
+      beat: 'bisect-search',
       kind: 'choose',
       situation:
         'Priya: “Autosave broke somewhere in the last 64 commits.” A test catches the bug. You start git bisect.',
@@ -232,6 +239,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-ship',
+      beat: 'tag-release',
       kind: 'order',
       situation: 'Every branch is merged and CI is green. Time to ship 2.5.',
       question: 'Put the release steps in order.',
@@ -247,6 +255,7 @@ export const conflictStorm = {
     },
     {
       id: 'storm-hotfix',
+      beat: 'switch-branch',
       kind: 'prompt',
       situation:
         '5:05pm. A customer bug in 2.5 arrives while Otto is halfway through a 2.6 feature.',

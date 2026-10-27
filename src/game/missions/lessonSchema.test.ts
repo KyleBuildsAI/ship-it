@@ -169,3 +169,32 @@ describe('an order card', () => {
     ]);
   });
 });
+
+describe('a lesson scene (beat)', () => {
+  // The sample is an Act 4 lesson; Act 3's island is the one with beats to name.
+  const inAct3 = (changes: object): LessonInput => ({ ...withFirstCard(changes), act: 3 });
+
+  it("accepts a beat the Act's island can play, on a card or the briefing", () => {
+    expect(problems(inAct3({ beat: 'branch-splits' }))).toEqual([]);
+    expect(problems({ ...inAct3({}), briefingBeat: 'merge-commit' })).toEqual([]);
+  });
+
+  it('refuses a beat the island does not know, and lists the ones it does', () => {
+    const [message] = problems(inAct3({ beat: 'no-such-beat' }));
+    expect(message).toContain('Act 3\'s island has no beat "no-such-beat".');
+    expect(message).toContain('branch-splits');
+    expect(problems({ ...inAct3({}), briefingBeat: 'no-such-beat' })).toHaveLength(1);
+  });
+
+  it('refuses any beat in an Act whose island has none yet', () => {
+    // Act 1 plays on the machine island, which has no lesson scenes, so this stays true
+    // as each Act island gets its beats.
+    expect(problems({ ...withFirstCard({ beat: 'branch-splits' }), act: 1 })).toEqual([
+      'Act 1\'s island has no beat "branch-splits". Its beats: none yet.',
+    ]);
+  });
+
+  it('needs a beat to be a kebab-case id', () => {
+    expect(problems(inAct3({ beat: 'Branch Splits' }))).not.toEqual([]);
+  });
+});

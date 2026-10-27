@@ -9,6 +9,7 @@ export const briefTheAgent = {
   act: 7,
   title: 'Brief the Agent',
   xp: 70,
+  briefingBeat: 'brief-handed',
   briefing: [
     'Quillwork ships with Otto, an AI coding agent. Otto types fast. You decide what he builds.',
     'Otto does exactly what your words allow, confidently. A good brief says the goal, the limits, and what done looks like.',
@@ -16,6 +17,7 @@ export const briefTheAgent = {
   cards: [
     {
       id: 'spec',
+      beat: 'brief-handed',
       kind: 'prompt',
       situation:
         'Marco from support: customers keep asking for their invoices as a spreadsheet. You hand the job to Otto.',
@@ -53,6 +55,7 @@ export const briefTheAgent = {
     },
     {
       id: 'lasting-context',
+      beat: 'brief-handed',
       kind: 'choose',
       situation: 'For the third time this week, Otto’s code imports moment.js.',
       artifact: {
@@ -97,6 +100,7 @@ export const briefTheAgent = {
     },
     {
       id: 'plan-first',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'Priya wants logins moved from cookies to tokens. It touches the API, the web app and the tests.',
@@ -127,6 +131,7 @@ export const briefTheAgent = {
     },
     {
       id: 'ambiguity',
+      beat: 'brief-handed',
       kind: 'choose',
       situation: 'Halfway through the CSV task, Otto stops and asks you something.',
       artifact: {
@@ -170,6 +175,7 @@ export const briefTheAgent = {
     },
     {
       id: 'agent-loop',
+      beat: 'agent-loop',
       kind: 'order',
       situation: 'Dex asks how you work with Otto on a feature.',
       question: 'Put the loop in order.',
@@ -185,6 +191,7 @@ export const briefTheAgent = {
     },
     {
       id: 'define-done',
+      beat: 'test-gate',
       kind: 'prompt',
       situation: 'You’re ending the CSV brief. You want to know when it’s really finished.',
       question: 'Which last line do you add?',
@@ -215,6 +222,7 @@ export const briefTheAgent = {
     },
     {
       id: 'right-context',
+      beat: 'brief-handed',
       kind: 'choose',
       situation:
         'Dex pastes a 4,000-line server log and the whole repo into Otto’s chat: “find the bug.” Otto is slow and keeps guessing.',
@@ -250,6 +258,7 @@ export const briefTheAgent = {
     },
     {
       id: 'show-an-example',
+      beat: 'brief-handed',
       kind: 'choose',
       situation:
         'Otto’s new /refunds endpoint works, but looks nothing like the other 20 endpoints: different errors, different names, no validation.',

@@ -9,6 +9,7 @@ export const apisAndAuth = {
   id: 'apis-and-auth',
   act: 6,
   title: 'APIs and Auth',
+  briefingBeat: 'auth-gate',
   briefing: [
     'An API is a promise: send this, get that back. Our web app, our mobile app and our customers’ scripts all rely on Quillwork’s.',
     'Today: REST and JSON, the shape of those promises, and auth, which is how the server knows who is asking and what they may do.',
@@ -16,6 +17,7 @@ export const apisAndAuth = {
   cards: [
     {
       id: 'rest-design',
+      beat: 'request-response',
       kind: 'choose',
       situation:
         'Otto proposed endpoints for documents. Sage asks which plan follows REST, the style the rest of our API uses.',
@@ -53,6 +55,7 @@ export const apisAndAuth = {
     },
     {
       id: 'json-null',
+      beat: 'request-response',
       kind: 'choose',
       situation: 'Otto’s code runs doc.owner.name on this response, and some pages crash.',
       artifact: {
@@ -100,6 +103,7 @@ export const apisAndAuth = {
     },
     {
       id: 'keep-the-contract',
+      beat: 'request-response',
       kind: 'prompt',
       situation:
         'The mobile app shows each document’s title. You want the API to send a word count too. Marco suggests renaming title to name while you’re in there.',
@@ -132,6 +136,7 @@ export const apisAndAuth = {
     },
     {
       id: 'auth-kinds',
+      beat: 'auth-gate',
       kind: 'choose',
       situation:
         'Writers sign in to Quillwork with Google. Separately, our server calls a payments provider to charge subscriptions.',
@@ -168,6 +173,7 @@ export const apisAndAuth = {
     },
     {
       id: 'sessions',
+      beat: 'auth-gate',
       kind: 'choose',
       situation:
         'Priya signed in this morning. Now she clicks Save. HTTP itself remembers nothing between requests.',
@@ -204,6 +210,7 @@ export const apisAndAuth = {
     },
     {
       id: 'key-in-the-browser',
+      beat: 'auth-gate',
       kind: 'choose',
       situation: 'Otto opened a PR that shows billing plans. Read this part of its diff.',
       artifact: {
@@ -246,6 +253,7 @@ export const apisAndAuth = {
     },
     {
       id: 'least-scope',
+      beat: 'forbidden-door',
       kind: 'prompt',
       situation:
         'Quillwork will let writers publish posts to their own GitHub repos. You’re briefing Otto on how to connect to GitHub.',
@@ -285,6 +293,7 @@ export const apisAndAuth = {
     },
     {
       id: 'oauth-flow',
+      beat: 'auth-gate',
       kind: 'order',
       situation: 'A writer clicks “Sign in with Google” on Quillwork.',
       question: 'Put the OAuth sign-in in order.',

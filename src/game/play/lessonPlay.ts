@@ -2,6 +2,7 @@ import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import { closeTerminal } from '../hud';
 import {
   checkOrder,
+  currentCard,
   finishLessonBriefing,
   firstTryPercent,
   moveStep,
@@ -14,10 +15,11 @@ import {
 import { lessonPlacementResult, placementLesson } from '../missions/lessonPlacement';
 import { requireLessonPlacement } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
+import { beatZoneForAct } from '../world/beats';
 import { zoneForAct } from '../world/zones';
-import { travelTo } from '../worldState';
+import { travelTo, worldState, type ActIslandZone } from '../worldState';
 import { findLesson, getAct } from './catalog';
-import { play, type LessonActivity } from './playStore';
+import { play, type Activity, type LessonActivity } from './playStore';
 import {
   completeLesson,
   countPlacementAttempt,
@@ -170,4 +172,55 @@ export function nextLessonCard(nowMs: number = Date.now()): void {
 export function lessonTick(nowMs: number = Date.now()): void {
   const lesson = activity()?.lesson;
   if (lesson !== undefined) update((run) => tickLesson(run, lesson, nowMs), nowMs);
+}
+
+/** The beat the screen asks for: the briefing's while it's read, then each card's once answered. */
+interface WantedBeat {
+  readonly key: string;
+  readonly zone: ActIslandZone;
+  readonly id: string;
+}
+
+function wantedBeat(current: Activity | null): WantedBeat | null {
+  // A placement test gives no hints. Its cards are borrowed with their beats, and many of
+  // those act out the right answer for anyone standing on the island.
+  if (current?.kind !== 'lesson' || current.placement !== undefined) return null;
+  const { lesson, run } = current;
+  const zone = beatZoneForAct(lesson.act);
+  // A card's scene waits for its answer. Many scenes act out the very thing the card asks
+  // ("what will merging do?"), so played with the question they would hand over the
+  // answer, and a final's stars would measure watching the island, not understanding.
+  const id =
+    run.phase === 'briefing'
+      ? lesson.briefingBeat
+      : run.card.solved
+        ? currentCard(run, lesson)?.beat
+        : undefined;
+  if (zone === null || id === undefined) return null;
+  // The key names the screen, not the beat, so the next card replays a repeated beat.
+  return { key: `${lesson.id}/${run.phase}/${String(run.cardIndex)}`, zone, id };
+}
+
+/**
+ * Keeps worldState.beat in step with the lesson on screen (DESIGN.md section 5.5, lesson
+ * scenes), so the island can act out each card without this code touching three.js. Any
+ * way a lesson ends, finished, left, or replaced by another activity, clears the beat.
+ * Called once at startup; returns a stop function.
+ */
+export function watchLessonBeats(): () => void {
+  let shownKey: string | null = null;
+  let nonce = 0;
+  const sync = () => {
+    const wanted = wantedBeat(play.get().activity);
+    if ((wanted?.key ?? null) === shownKey) return;
+    shownKey = wanted?.key ?? null;
+    if (wanted === null) {
+      worldState.update({ beat: null });
+      return;
+    }
+    nonce += 1;
+    worldState.update({ beat: { zone: wanted.zone, id: wanted.id, nonce } });
+  };
+  sync();
+  return play.subscribe(sync);
 }

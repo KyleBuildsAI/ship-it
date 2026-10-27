@@ -2283,3 +2283,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/161
 2. They're ANSI escape codes. The first sets the text colour to cyan, and the second resets it to normal, so only "help" is highlighted.
 3. It changes a fixed string, not logic. No test checked the old text, and the browser check confirms the new line shows.
 </details>
+
+---
+
+## #162 feat: lesson cards act out their idea on each act's island
+
+https://github.com/KyleBuildsAI/ship-it/pull/162
+
+1. Why does a card's scene wait until you answer, while the briefing's scene plays straight away? And why does a placement test play none at all?
+2. Why does each scene take its 3D objects from the stage (`stage.part`) instead of making new ones with `new THREE.Mesh` every time it plays?
+3. Each island's beat table is already checked by TypeScript. Why does `beatMeshes.test.ts` also compare every island's beat ids with `beats.ts` at runtime?
+
+<details><summary>Answers</summary>
+
+1. Many scenes act out the very thing the card asks about. On "What will merging do?", the island would slide main's label to the branch tip, which is the right answer, before you chose. Your stars, and the Act's final, would then measure whether you watched the island, not whether you understood. Once you've answered, the same scene confirms and explains. A briefing asks no question, so its scene can play while you read. A placement test is a locked test that promises "no hints", so it plays no scenes even though its cards still carry their beats.
+2. three.js's WebGPU renderer keeps a record for every object it has drawn, including GPU buffers. It hooks that record onto the shared colours (materials) and shapes (geometry), and only lets go when those are disposed. The island's palette is never disposed, so a scene that made new objects on every play leaked a few more each time, for the whole session. The stage keeps a pile of spare objects, hands them out as if new, and takes them back when the scene resets. A replay draws on the same objects, so the renderer reuses its records.
+3. Because the type check has a gap. TypeScript lets a table typed with plain string keys (`Record<string, Beat>`) pass where a table with specific keys is expected. An island could return such a table, even an empty one, and still typecheck, and its cards would silently have no scene. The test builds each island the way the world does and compares its ids with the list, so that mistake fails a test.
+
+</details>

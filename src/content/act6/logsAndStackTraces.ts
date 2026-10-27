@@ -8,6 +8,7 @@ export const logsAndStackTraces = {
   id: 'logs-and-stack-traces',
   act: 6,
   title: 'Logs and Stack Traces',
+  briefingBeat: 'log-trail',
   briefing: [
     'When something breaks, the system has usually already told you why. It wrote it down in a log or a stack trace.',
     'Reading them is how you point Otto at the real problem, instead of letting it guess.',
@@ -15,6 +16,7 @@ export const logsAndStackTraces = {
   cards: [
     {
       id: 'where-to-look',
+      beat: 'log-trail',
       kind: 'choose',
       situation: 'Inviting a teammate crashes. Otto pasted the error from the server log.',
       artifact: {
@@ -64,6 +66,7 @@ export const logsAndStackTraces = {
     },
     {
       id: 'what-was-undefined',
+      beat: 'log-trail',
       kind: 'choose',
       situation:
         'Inviting a teammate crashes with this error. Line 42 of send.ts reads: const to = invite.user.email;',
@@ -108,6 +111,7 @@ export const logsAndStackTraces = {
     },
     {
       id: 'fix-the-cause',
+      beat: 'log-trail',
       kind: 'prompt',
       situation: 'You know the crash comes from invites with no user. You’re briefing Otto.',
       question: 'Which instruction leads to a real fix?',
@@ -194,6 +198,7 @@ export const logsAndStackTraces = {
     },
     {
       id: 'follow-one-request',
+      beat: 'log-trail',
       kind: 'choose',
       situation: 'Priya’s save failed at 14:02. The log mixes every user’s requests together.',
       artifact: {
@@ -244,6 +249,7 @@ export const logsAndStackTraces = {
     },
     {
       id: 'brief-logging',
+      beat: 'log-trail',
       kind: 'prompt',
       situation:
         'Sign-in problems are hard to debug. You want Otto to add logging to the sign-in flow.',
@@ -282,6 +288,7 @@ export const logsAndStackTraces = {
     },
     {
       id: 'log-levels',
+      beat: 'log-trail',
       kind: 'choose',
       situation:
         'The on-call alert fires whenever the logs show an ERROR. It woke Dex three times last night for lines like this.',
@@ -317,6 +324,7 @@ export const logsAndStackTraces = {
     },
     {
       id: 'debug-steps',
+      beat: 'log-trail',
       kind: 'order',
       situation: 'Sage asks you to sum up how to chase down a bug report like Priya’s.',
       question: 'Put the steps in order.',

@@ -9,6 +9,7 @@ import { placementLesson } from '../../game/missions/lessonPlacement';
 import { LESSON_PLACEMENT_SECONDS_PER_CARD } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
 import { verifyPaste, type Verification } from '../../game/play/fieldCheck';
+import { beatsForAct } from '../../game/world/beats';
 import { completeLesson, recordFieldMission, recordPlacement } from '../../game/play/saveRules';
 import { placementTestOutXp } from '../../game/progression/xp';
 import { createDefaultSave } from '../../game/save/schema';
@@ -339,5 +340,26 @@ describe('Act 7 Field Mission: Spec It, Then Ship It', () => {
     const ids = field?.verifications.map((check) => check.id) ?? [];
     const finished = recordFieldMission(played, act, ids, NOW);
     expect(finished.acts['7']?.completedAt).toBe(NOW.toISOString());
+  });
+});
+
+describe('Act 7 on its island', () => {
+  it('acts out most cards on the workshop, naming only beats it knows', () => {
+    const known = beatsForAct(7);
+    const cards = lessons.flatMap((lesson) => lesson.cards);
+    for (const lesson of lessons) {
+      if (lesson.briefingBeat !== undefined)
+        expect(known, lesson.id).toContain(lesson.briefingBeat);
+    }
+    for (const card of cards) {
+      if (card.beat !== undefined) expect(known, card.id).toContain(card.beat);
+    }
+    const withBeat = cards.filter((card) => card.beat !== undefined).length;
+    expect(withBeat / cards.length).toBeGreaterThanOrEqual(0.8);
+    // The final is acted out too: its cards are the Act's ideas under a clock.
+    expect(final?.cards.every((card) => card.beat !== undefined)).toBe(true);
+    // Every beat the island has is used somewhere, or it's dead weight.
+    const used = new Set(cards.map((card) => card.beat));
+    for (const beat of known) expect(used).toContain(beat);
   });
 });

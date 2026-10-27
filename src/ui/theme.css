@@ -352,7 +352,8 @@ body {
   text-transform: uppercase;
 }
 
-/* The 3D view fades out and back in while travelling between islands. */
+/* The 3D view fades out and back in while travelling between islands. world.ts waits
+   FADE_IN_SECONDS, this transition's length, before an island's lesson scene starts. */
 #scene {
   transition: opacity 0.35s ease;
 }

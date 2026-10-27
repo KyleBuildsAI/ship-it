@@ -8,6 +8,7 @@ export const branchesArePointers = {
   id: 'branches-are-pointers',
   act: 3,
   title: 'Branches Are Pointers',
+  briefingBeat: 'branch-splits',
   briefing: [
     'Marco wants a CSV export button in the Quillwork editor, and Otto will build it.',
     'Main is what ships. Every change gets its own branch: a cheap name pointing at a commit.',
@@ -15,6 +16,7 @@ export const branchesArePointers = {
   cards: [
     {
       id: 'why-branches',
+      beat: 'branch-splits',
       kind: 'choose',
       situation:
         'Dex, the deploy bot, ships main to customers every hour. Otto just committed a half-built export button straight to main.',
@@ -51,6 +53,7 @@ export const branchesArePointers = {
     },
     {
       id: 'what-a-branch-is',
+      beat: 'commit-on-branch',
       kind: 'choose',
       situation:
         'Otto says: “Branches copy the whole repo, so I’ll reuse one branch for everything.” You check what git actually stored.',
@@ -89,6 +92,7 @@ export const branchesArePointers = {
     },
     {
       id: 'where-head-is',
+      beat: 'switch-branch',
       kind: 'choose',
       situation: 'Priya asks where your next commit will land. You check.',
       artifact: {
@@ -132,6 +136,7 @@ export const branchesArePointers = {
     },
     {
       id: 'brief-the-branch',
+      beat: 'branch-splits',
       kind: 'prompt',
       situation:
         'Marco’s ticket: add a CSV export button to the documents page. You hand it to Otto.',
@@ -175,6 +180,7 @@ export const branchesArePointers = {
     },
     {
       id: 'blocked-switch',
+      beat: 'switch-branch',
       kind: 'choose',
       situation:
         'You’re mid-edit on feat/csv-export when Priya asks you to check something on main.',
@@ -215,6 +221,7 @@ export const branchesArePointers = {
     },
     {
       id: 'switch-safely',
+      beat: 'switch-branch',
       kind: 'order',
       situation:
         'You have unfinished edits on feat/csv-export. A customer bug needs a quick fix on main.',
@@ -231,6 +238,7 @@ export const branchesArePointers = {
     },
     {
       id: 'clean-up-branches',
+      beat: 'branch-deleted',
       kind: 'prompt',
       situation:
         'Otto has 23 local branches. 21 were merged into main with merge commits weeks ago. These two never were:',
@@ -280,6 +288,7 @@ export const branchesArePointers = {
     },
     {
       id: 'committed-not-merged',
+      beat: 'commit-on-branch',
       kind: 'choose',
       situation:
         'Otto reports: “Done. The CSV export is committed.” You check before telling Marco.',
