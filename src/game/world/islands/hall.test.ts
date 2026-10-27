@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { createBeatPlayer } from '../beatPlayer';
-import { ISLAND_BEATS } from '../beats';
+import { ISLAND_BEATS, type BeatId } from '../beats';
 import { hall } from './hall';
 import { palette } from './kit';
 
@@ -36,6 +36,32 @@ function buildHall() {
 
 /** The beat ids beats.ts lists for the hall, the ones its lessons may name. */
 const HALL_BEATS: readonly string[] = ISLAND_BEATS.act8;
+
+/** How many things the hall shows in red, the palette's colour for trouble, right now. */
+function redCount(root: THREE.Object3D, alert: THREE.Material): number {
+  let count = 0;
+  root.traverseVisible((object) => {
+    if (object instanceof THREE.Mesh && object.material === alert) count++;
+  });
+  return count;
+}
+
+/*
+ * What each beat's red means, which is the lesson it teaches: a fix shows the trouble and
+ * then calms it, and a search ends with what it found still marked. Finding a bug's cause
+ * isn't fixing it, so the evidence trail ends with its symptom still red.
+ */
+type Trouble = 'none' | 'calmed' | 'stays';
+const TROUBLE: Record<BeatId<'act8'>, Trouble> = {
+  'think-aloud': 'none',
+  'spot-the-bug': 'stays',
+  'trace-evidence': 'stays',
+  'cache-the-reads': 'calmed',
+  'queue-slow-work': 'calmed',
+  'listen-first': 'calmed',
+  'tell-your-story': 'none',
+  'agent-loop': 'none',
+};
 
 describe("Act 8's hall", () => {
   it('can play every beat beats.ts lists for Act 8, and no others', () => {
@@ -73,6 +99,27 @@ describe("Act 8's hall", () => {
       for (let step = 0; step <= 40; step++) played.frame(step / 40);
       expect(snapshot(group), id).toEqual(lastFrame);
       played.reset();
+    }
+  });
+
+  it('uses red the way its lesson means it: calmed by a fix, still there once found', () => {
+    const colors = palette(0xffe08a);
+    const { group, beats } = hall(colors);
+    for (const [id, trouble] of Object.entries(TROUBLE)) {
+      const run = beats[id]?.start();
+      if (run === undefined) throw new Error(`The hall has no beat "${id}".`);
+      const reds: number[] = [];
+      for (let step = 0; step <= 40; step++) {
+        run.frame(step / 40);
+        reds.push(redCount(group, colors.alert));
+      }
+      run.reset();
+      const everRed = reds.some((count) => count > 0);
+      const redAtEnd = (reds.at(-1) ?? 0) > 0;
+      expect({ everRed, redAtEnd }, id).toEqual({
+        everRed: trouble !== 'none',
+        redAtEnd: trouble === 'stays',
+      });
     }
   });
 

@@ -22,13 +22,18 @@ import {
  */
 
 const BUBBLE = new THREE.SphereGeometry(0.18, 16, 12);
-const DOT = new THREE.SphereGeometry(0.09, 12, 8);
-/** A request crossing the whiteboard, or the pointer reading code there: big enough to follow. */
-const BOARD_DOT = new THREE.SphereGeometry(0.13, 12, 8);
+/** A request, the pointer reading code, a clue: big enough to follow from the player's spot. */
+const DOT = new THREE.SphereGeometry(0.13, 12, 8);
 /** One line of code on the whiteboard, one unit wide, stretched to each line's length. */
 const CODE_LINE = new THREE.BoxGeometry(1, 0.14, 0.02);
 /** A box in a design sketch on the whiteboard: a client, a server, a queue. */
 const BOARD_BOX = new THREE.BoxGeometry(0.86, 0.5, 0.03);
+/*
+ * A symptom or a cause, stood up on the table facing the player. Lying flat, the camera's
+ * low angle squashed a card to a sliver.
+ */
+const STANDING_CARD_HALF_WIDTH = 0.4;
+const STANDING_CARD = new THREE.BoxGeometry(STANDING_CARD_HALF_WIDTH * 2, 0.55, 0.05);
 /** A note or log card lying on the table. */
 const TABLE_CARD = new THREE.BoxGeometry(0.6, 0.05, 0.42);
 /** One part of a story, stacked on the table: situation, action, result, lesson. */
@@ -44,6 +49,8 @@ const at = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const TABLE_Z = -2;
 /** The table's top surface, where cards and story blocks rest. */
 const TABLE_TOP = 1.05;
+/** The middle of a standing card whose bottom edge rests on the table. */
+const STANDING_Y = TABLE_TOP + 0.275;
 /** Where the candidate's head would be, over the near chair. */
 const CANDIDATE = at(0, 1.6, -0.9);
 /** Where each panel member's head would be, over the far chairs. */
@@ -196,7 +203,7 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const buggy = 2;
         const firstLine = overBoard(at(left - 0.2, lineY(0), BOARD_Z));
         const bugLineStart = overBoard(at(left - 0.2, lineY(buggy), BOARD_Z));
-        const pointer = add(BOARD_DOT, colors.glow, firstLine);
+        const pointer = add(DOT, colors.glow, firstLine);
         return run(stage, [hall.marker], (progress) => {
           hall.marker.visible = false;
           lines.forEach((line, index) => {
@@ -211,33 +218,37 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         });
       },
     },
-    // Debugging from symptoms: a red symptom lands on the table, a trail of evidence
-    // leads from it to the cause, and only once the cause is found does the red calm down.
+    // Debugging from symptoms: a red symptom goes up on the table, a trail of evidence
+    // leads from it clue by clue, and the cause lights up at its end. The symptom stays
+    // red: finding the cause isn't fixing it, and these cards stop before anyone changes code.
     'trace-evidence': {
       seconds: 2.8,
       start: () => {
-        const symptomAt = at(-1.2, TABLE_TOP, TABLE_Z);
-        const causeAt = at(1.2, TABLE_TOP, TABLE_Z);
-        const symptom = add(TABLE_CARD, colors.alert, symptomAt);
-        const trail = segment(symptomAt, causeAt, colors.glow);
+        const symptom = add(STANDING_CARD, colors.alert, at(-1.2, STANDING_Y, TABLE_Z));
+        const cause = add(STANDING_CARD, colors.glow, at(1.2, STANDING_Y, TABLE_Z));
+        // The trail runs between the cards' facing edges, so it never cuts across one.
+        const trailFrom = at(-1.2 + STANDING_CARD_HALF_WIDTH, STANDING_Y, TABLE_Z);
+        const trailTo = at(1.2 - STANDING_CARD_HALF_WIDTH, STANDING_Y, TABLE_Z);
+        const trail = segment(trailFrom, trailTo, colors.glow);
         trail.grow(0);
         stage.add(trail.mesh);
-        const clues = [0.3, 0.5, 0.7].map((share) =>
+        const clueShares = [0.25, 0.5, 0.75];
+        const clues = clueShares.map((share) =>
           add(
             DOT,
             colors.light,
-            new THREE.Vector3().lerpVectors(symptomAt, causeAt, share).setY(1.18),
+            new THREE.Vector3().lerpVectors(trailFrom, trailTo, share).setZ(TABLE_Z + 0.12),
           ),
         );
-        const cause = add(TABLE_CARD, colors.glow, causeAt);
         return run(stage, [], (progress) => {
           popIn(symptom, phase(progress, 0, 0.2));
-          trail.grow(phase(progress, 0.2, 0.7));
+          const reach = phase(progress, 0.2, 0.75);
+          trail.grow(reach);
+          // Each clue turns up as the trail reaches it: evidence, not a leap to the answer.
           clues.forEach((clue, index) => {
-            popIn(clue, phase(progress, 0.25 + index * 0.13, 0.35 + index * 0.13));
+            popIn(clue, (reach - (clueShares[index] ?? 0)) * 5);
           });
-          popIn(cause, phase(progress, 0.7, 0.85));
-          symptom.material = progress >= 0.9 ? colors.light : colors.alert;
+          popIn(cause, phase(progress, 0.75, 0.9));
         });
       },
     },
@@ -252,8 +263,8 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const cacheLink = boardLink(SERVER, UNDER_SERVER);
         const toDatabase = [CLIENT, SERVER, DATABASE].map(overBoard);
         const toCache = [CLIENT, SERVER, UNDER_SERVER].map(overBoard);
-        const before = [0, 1, 2].map(() => add(BOARD_DOT, colors.light, CLIENT));
-        const after = [0, 1, 2].map(() => add(BOARD_DOT, colors.light, CLIENT));
+        const before = [0, 1, 2].map(() => add(DOT, colors.light, CLIENT));
+        const after = [0, 1, 2].map(() => add(DOT, colors.light, CLIENT));
         return run(stage, [hall.marker], (progress) => {
           hall.marker.visible = false;
           design.draw(phase(progress, 0, 0.2));
@@ -294,7 +305,7 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const offToWorker = [SERVER, UNDER_SERVER, UNDER_DATABASE].map(overBoard);
         const quickPath = [CLIENT, SERVER, DATABASE].map(overBoard);
         const job = add(BUBBLE, colors.glow, CLIENT);
-        const quick = add(BOARD_DOT, colors.light, CLIENT);
+        const quick = add(DOT, colors.light, CLIENT);
         return run(stage, [hall.marker], (progress) => {
           hall.marker.visible = false;
           design.draw(phase(progress, 0, 0.2));
