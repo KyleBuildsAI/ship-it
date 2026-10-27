@@ -8,6 +8,21 @@ function ruleBody(selector: string): string {
   return themeCss.slice(themeCss.indexOf('{', start) + 1, themeCss.indexOf('}', start));
 }
 
+describe('text in the mono font', () => {
+  it('turns ligatures off, so === and => show every character', () => {
+    // Every rule whose own declarations use the mono font, with its selector for the report.
+    const withoutComments = themeCss.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [...withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, , body]) =>
+      body?.includes('var(--font-mono)'),
+    );
+    expect(rules.length).toBeGreaterThan(0);
+    const ligatured = rules
+      .filter(([, , body]) => !body?.includes('font-variant-ligatures: none;'))
+      .map(([, selector]) => selector?.trim());
+    expect(ligatured).toEqual([]);
+  });
+});
+
 describe('a lesson artifact box', () => {
   it('shows 13 lines before it scrolls', () => {
     const lines = /max-height: calc\((\d+)lh\b/.exec(ruleBody('.lesson-artifact pre'))?.[1];
