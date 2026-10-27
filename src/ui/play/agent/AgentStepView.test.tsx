@@ -291,11 +291,14 @@ describe('the directing panel', () => {
   });
 
   it("explains a false alarm with what is true, not the picked option's claim", () => {
-    // Kyle said notes were in both places; only home holds, and Otto was right.
-    const text = shown(result('false-alarm', 'both', true));
+    // Otto was right: notes landed only in the API. Kyle said they landed at home.
+    vi.mocked(trueCheckOptions).mockReturnValueOnce(['api']);
+    const text = shown(result('false-alarm', 'home', true));
     expect(text).toContain('False alarm. Otto was right this time.');
-    expect(text).toContain('Read the Directory line above the table: it says where mkdir put it.');
-    expect(text).not.toContain('Two Directory lines, two folders.');
+    expect(text).toContain('The Directory line shows the API folder.');
+    expect(text).not.toContain('Read the Directory line above the table');
+    // Only a miss spells out the true answer: a false alarm's step passed.
+    expect(text).not.toContain('The true answer');
   });
 
   it("falls back to the card's lesson when no option is true after a misread", () => {
