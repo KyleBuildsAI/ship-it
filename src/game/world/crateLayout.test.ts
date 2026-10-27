@@ -144,9 +144,10 @@ describe('placeCrates', () => {
     const spans = labelSpans(IGNORE_LIST_BENCH);
     expect(collisions(spans)).toEqual([]);
     // ...without spilling off either end of the Workbench.
+    const { left, width } = CRATE_FLOORS.bench;
     for (const span of spans) {
-      expect(span.from).toBeGreaterThanOrEqual(0);
-      expect(span.to).toBeLessThanOrEqual(CRATE_FLOORS.bench.width);
+      expect(span.from).toBeGreaterThanOrEqual(left);
+      expect(span.to).toBeLessThanOrEqual(left + width);
     }
   });
 
@@ -173,15 +174,18 @@ describe('placeCrates', () => {
     const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
     const places = placeCrates(names, labelWidth, CRATE_FLOORS.bench).map(({ place }) => place);
     expect(places.slice(0, 8).map((place) => place.row)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
-    expect(places[1]?.x).toBeCloseTo(0.44 + 0.88);
-    expect(places[8]).toMatchObject({ column: 0, row: 1, x: 0.44 });
+    // The same 0.88 grid the Workbench always had, from the first crate at -3.08.
+    expect(places[0]?.x).toBeCloseTo(-3.08);
+    expect(places[1]?.x).toBeCloseTo(-3.08 + 0.88);
+    expect(places[8]).toMatchObject({ column: 0, row: 1 });
+    expect(places[8]?.x).toBeCloseTo(-3.08);
   });
 
   it('gives each column the width of the longest label in it', () => {
-    const places = placeCrates(['a', 'package.json', 'b', 'c'], labelWidth, {
-      ...CRATE_FLOORS.dock,
-      width: 3,
-    }).map(({ place }) => place);
+    const floor = { ...CRATE_FLOORS.dock, width: 3 };
+    const places = placeCrates(['a', 'package.json', 'b', 'c'], labelWidth, floor).map(
+      ({ place }) => place,
+    );
     // Two columns fit: the second as wide as package.json's label, which shares it with c.
     expect(places.map((place) => [place.column, place.row])).toEqual([
       [0, 0],
@@ -189,7 +193,23 @@ describe('placeCrates', () => {
       [0, 1],
       [1, 1],
     ]);
-    expect(places[3]?.x).toBeCloseTo(0.97 + (labelWidth('package.json') + LABEL_GAP) / 2);
+    const secondColumn = labelWidth('package.json') + LABEL_GAP;
+    expect(places[3]?.x).toBeCloseTo(floor.left + floor.minColumn + secondColumn / 2);
+  });
+
+  it('keeps a single row at the back, and spreads more rows to the front', () => {
+    const rowsAt = (count: number) => [
+      ...new Set(
+        placeCrates(Array<string>(count).fill('a'), labelWidth, CRATE_FLOORS.dock).map(
+          ({ place }) => place.z,
+        ),
+      ),
+    ];
+    const { back, front } = CRATE_FLOORS.dock;
+    expect(rowsAt(4)).toEqual([back]);
+    // Two rows use the whole depth, so one row's names stay clear of the next row's.
+    expect(rowsAt(5)).toEqual([back, front]);
+    expect(rowsAt(9)).toEqual([back, (back + front) / 2, front]);
   });
 
   it('stacks crates on the same columns once every row is full', () => {

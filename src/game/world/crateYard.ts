@@ -222,23 +222,15 @@ export class CrateYard {
       blocklist: this.layout.blocklistGround,
     };
     for (const area of ['bench', 'dock', 'blocklist'] as const) {
-      const floor = CRATE_FLOORS[area];
       const inArea = present
         .filter((placed) => placed.spec.area === area)
         .sort((a, b) => a.spec.slot - b.spec.slot);
       // A label's width counts even while it's hidden (an untracked crate's), so a crate
       // stays put when git learns its name and the label appears.
       const labelWidth = (placed: Placed) => placed.view.label.sprite.scale.x;
-      for (const { crate, place } of placeCrates(inArea, labelWidth, floor)) {
-        crate.target
-          .copy(anchors[area])
-          .add(
-            new THREE.Vector3(
-              floor.left + place.x,
-              CRATE / 2 + place.layer * (CRATE + 0.04),
-              floor.firstRow + place.row * floor.rowDepth,
-            ),
-          );
+      for (const { crate, place } of placeCrates(inArea, labelWidth, CRATE_FLOORS[area])) {
+        const height = CRATE / 2 + place.layer * (CRATE + 0.04);
+        crate.target.copy(anchors[area]).add(new THREE.Vector3(place.x, height, place.z));
       }
     }
   }
