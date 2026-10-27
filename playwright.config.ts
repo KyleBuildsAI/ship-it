@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
+import { PREVIEW_PORT } from './server/port.ts';
 
-const PORT = '4173';
+const PORT = String(PREVIEW_PORT);
 const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
