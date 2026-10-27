@@ -73,16 +73,25 @@ export interface Segment {
 }
 
 // One unit-long box, stretched per segment, so every growing path shares one geometry.
+// It runs along its z axis, and its thin side is its y axis.
 const UNIT_STICK = new THREE.BoxGeometry(0.18, 0.08, 1);
-/** The way a stick points before it's turned: along its length, the box's z axis. */
-const FORWARD = new THREE.Vector3(0, 0, 1);
+/** The stick's flat side faces up, so a path up a slope lies on it like a plank. */
+const UP = new THREE.Vector3(0, 1, 0);
+/** A stick standing straight up has no up to face; any sideways direction will do. */
+const UPRIGHT_STICK_UP = new THREE.Vector3(0, 0, 1);
+const turn = new THREE.Matrix4();
 
 /** Lays a unit stick mesh from one point to another, fully grown, and says how to grow it. */
 function layStick(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): Segment {
   const length = from.distanceTo(to);
-  // Turned from the direction alone, not lookAt: lookAt aims at a point in world space,
-  // and these points are in the island's own space, which floats far from the origin.
-  mesh.quaternion.setFromUnitVectors(FORWARD, to.clone().sub(from).normalize());
+  // Turned by a rotation built from the direction with its flat side kept up. The shortest
+  // turn onto the direction would roll a sloped stick around its own length. Not
+  // Object3D.lookAt either: that aims at a point in world space, and these points are in
+  // the island's own space, which floats far from the origin. Matrix4.lookAt only uses
+  // the two points it's given.
+  const upright = Math.abs(to.y - from.y) > 0.999 * length;
+  turn.lookAt(to, from, upright ? UPRIGHT_STICK_UP : UP);
+  mesh.quaternion.setFromRotationMatrix(turn);
   const grow = (amount: number) => {
     const reach = Math.max(0.001, amount);
     mesh.position.lerpVectors(from, to, reach / 2);
