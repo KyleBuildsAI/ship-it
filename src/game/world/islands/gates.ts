@@ -251,7 +251,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
           // The first crate rolled furthest, so it sets every light but the flaky one.
           passedGates(lights, first.position.z, CHECK_GATE);
           if (checkLight) {
-            const firstPassed = first.position.z > (GATE_Z[CHECK_GATE] ?? 0);
+            const firstPassed = first.position.z > GATE_Z[CHECK_GATE];
             checkLight.material = flakyLight(progress, firstPassed);
           }
           popIn(boom, phase(progress, 0.88, 1));
@@ -297,7 +297,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const vaultKey = key(colors.glow, VAULT);
         const keyGate = 2;
         const stopped = waitBefore(keyGate);
-        const overGate = new THREE.Vector3(0, LIGHT_Y + 0.7, GATE_Z[keyGate] ?? 0);
+        const overGate = new THREE.Vector3(0, LIGHT_Y + 0.7, GATE_Z[keyGate]);
         return run(stage, [], (progress) => {
           popIn(vaultKey, phase(progress, 0, 0.15));
           popIn(change, phase(progress, 0, 0.1));
