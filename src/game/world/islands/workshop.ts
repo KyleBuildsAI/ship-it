@@ -172,8 +172,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         });
       },
     },
-    // Brief, plan, build, review: an orb circles four stations in front of the bench,
-    // lighting each as it passes, and comes back to the start.
+    // Brief, plan, approve, build, review, the five steps the lesson orders: an orb circles
+    // five stations in front of the bench, lighting each as it passes, and comes back to
+    // the start.
     'agent-loop': {
       seconds: 3,
       start: () => {
@@ -182,7 +183,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const radius = 2.2;
         const orbHeight = 0.7;
         /**
-         * Puts `target` on the loop, a quarter-turn per station, starting nearest the
+         * Puts `target` on the loop, `turn` of the way round from the station nearest the
          * camera. It fills a vector it's given, so the orb moves without a new one a frame.
          */
         const onLoop = (target: THREE.Vector3, turn: number, y: number) =>
@@ -191,9 +192,10 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
             y,
             center.z + Math.cos(turn * Math.PI * 2) * radius,
           );
-        const stations = [0, 0.25, 0.5, 0.75].map((turn) =>
+        const stationCount = 5;
+        const stations = Array.from({ length: stationCount }, (_, index) =>
           // Base, not dark: dark is nearly the island floor's colour, so they'd vanish unlit.
-          hidden(STATION, colors.base, onLoop(new THREE.Vector3(), turn, center.y)),
+          hidden(STATION, colors.base, onLoop(new THREE.Vector3(), index / stationCount, center.y)),
         );
         const orb = hidden(ORB, colors.glow, onLoop(new THREE.Vector3(), 0, orbHeight));
         return run(stage, [], (progress) => {
@@ -206,7 +208,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           const turn = Math.min(1, Math.max(0, (progress - 0.15) / 0.8));
           onLoop(orb.position, turn, orbHeight);
           stations.forEach((station, index) => {
-            station.material = turn >= index / 4 + 0.02 ? colors.glow : colors.base;
+            station.material = turn >= index / stationCount + 0.02 ? colors.glow : colors.base;
           });
         });
       },
