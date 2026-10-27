@@ -14,7 +14,8 @@ export const theThreeAmPage = {
   // Nine cards, 40 seconds each: enough to read an artifact, not enough to dawdle.
   timeLimitSeconds: 360,
   xp: 150,
-  briefingBeat: 'incident-rollback',
+  // No briefing scene: the island's only incident scene ends by putting the last good
+  // release back, the mitigate card's answer, so no card before mitigate plays it either.
   briefing: [
     '2:46am. Your phone buzzes: Quillwork’s checkout errors are at 30%, and you’re on call.',
     'Read the evidence, stop the damage, then find the cause. Six minutes on one clock. Sage is asleep, so this one is yours.',
@@ -22,14 +23,14 @@ export const theThreeAmPage = {
   cards: [
     {
       id: 'what-changed',
-      beat: 'incident-rollback',
+      beat: 'log-trail',
       kind: 'choose',
       situation: 'You’re at your laptop. The alert says checkout errors started at 02:40.',
       question: 'What do you check first?',
       options: [
         {
           id: 'rewrite',
-          text: 'Ask Otto to start rewriting the checkout code.',
+          text: 'Ask Otto to start rewriting the checkout code, since that’s where the errors are coming from.',
           correct: false,
           feedback: 'You don’t know what’s wrong yet. Rewriting blind can add a second problem.',
         },
@@ -41,7 +42,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'restart',
-          text: 'Restart every server.',
+          text: 'Restart every server first, then watch whether the errors come back.',
           correct: false,
           feedback: 'It might hide the cause for an hour, or make things worse.',
         },
@@ -122,7 +123,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'db-down',
-          text: 'The database server is down.',
+          text: 'The database server is down or unreachable, so every checkout times out trying to reach it, while the cached plans still load.',
           correct: false,
           feedback:
             'Close, but the error is about waiting for a free connection in our own pool, not about reaching the database.',
@@ -141,7 +142,7 @@ export const theThreeAmPage = {
       options: [
         {
           id: 'debug-live',
-          text: 'Experiment with the connection code in production.',
+          text: 'Experiment with the connection pool settings in production until the errors stop.',
           correct: false,
           feedback: 'Customers keep failing while you experiment.',
         },
@@ -153,7 +154,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'hotfix',
-          text: 'Ask Otto for a quick fix and deploy it straight away.',
+          text: 'Ask Otto for a quick fix to the connection code and deploy it straight away.',
           correct: false,
           feedback:
             'An unreviewed fix at 3am, for a cause you haven’t confirmed, can make things worse.',
@@ -254,9 +255,10 @@ export const theThreeAmPage = {
       options: [
         {
           id: 'deploy',
-          text: 'Fix it and deploy.',
+          text: 'Using these logs and metrics, find why v4.12.0 runs out of database connections, fix it, add a test, and deploy the fix as soon as the tests pass.',
           correct: false,
-          feedback: 'A rushed, unreviewed fix is how incidents repeat.',
+          feedback:
+            'A good start, but it deploys with nobody reviewing it. A rushed, unreviewed fix is how incidents repeat.',
         },
         {
           id: 'evidence',
@@ -291,7 +293,7 @@ export const theThreeAmPage = {
       options: [
         {
           id: 'names',
-          text: 'A list of who made mistakes, so it doesn’t happen again.',
+          text: 'A postmortem: a timeline from the logs, impact, root cause, and a section on who made each mistake, from the refactor to the review, so each of them knows to be more careful next time.',
           correct: false,
           feedback: 'People who fear blame hide mistakes. Ask what failed, not who.',
         },

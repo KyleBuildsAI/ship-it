@@ -111,7 +111,7 @@ export const apisAndAuth = {
       options: [
         {
           id: 'rename',
-          text: 'Rename title to name and add wordCount. Update the web app to match.',
+          text: 'Add wordCount to GET /api/docs/:id, and rename title to name while you’re in there, since it’s clearer. Update the web app and its tests to match, and run the whole suite.',
           correct: false,
           feedback:
             'Phones running last month’s app still read title. They’d show blank titles until every writer updates.',
@@ -181,13 +181,13 @@ export const apisAndAuth = {
       options: [
         {
           id: 'password',
-          text: 'Her browser sends her password with every request.',
+          text: 'Her browser keeps the password she typed at sign-in and quietly sends it along with every request, so the server can check it each time.',
           correct: false,
           feedback: 'Every request would be a chance to leak it. She sends it once, at sign-in.',
         },
         {
           id: 'ip',
-          text: 'The server remembers her IP address.',
+          text: 'The server noted her IP address when she signed in, and treats every request from that address as hers until she signs out.',
           correct: false,
           feedback:
             'IP addresses change, and whole offices and cafés share one. They don’t identify a person.',
@@ -275,7 +275,7 @@ export const apisAndAuth = {
         },
         {
           id: 'every-scope',
-          text: 'Ask for access to all of the writer’s repos and every permission, in case we need them later.',
+          text: 'Use a GitHub App that writers install, asking for all of their repos and every permission in case publishing needs more later. Keep its tokens encrypted on our server.',
           correct: false,
           feedback:
             'Writers see a scary permission screen, and a leaked token could do anything. Ask for the least you need.',
