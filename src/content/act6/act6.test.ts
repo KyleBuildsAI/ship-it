@@ -185,6 +185,13 @@ describe('Act 6 Field Mission: Document One Request', () => {
     }
   });
 
+  it('says how to find the status code in Chrome, since no card teaches DevTools', () => {
+    const check = field.checklist.find((item) => item.id === 'check')?.text ?? '';
+    for (const step of ['F12', 'Network tab', 'reload', 'Status column']) {
+      expect(check, step).toContain(step);
+    }
+  });
+
   it('asks for fake values and a read-through for secrets, since no paste can see them', () => {
     const text = checklistText;
     expect(text).toContain('obvious fakes');

@@ -38,7 +38,7 @@ export const documentOneRequest = {
     },
     {
       id: 'check',
-      text: "Ask your agent to start the app and give you the URL, then open it in Chrome. Does the real response match the README, status code included? (Chrome's network tab shows the code.) If not, send your agent back.",
+      text: 'Ask your agent to start the app and give you the URL, then open it in Chrome. To see the status code, press F12, open the Network tab, reload the page and read the Status column. Does the real response match the README, status code included? If not, send your agent back.',
     },
     {
       id: 'no-secrets',
