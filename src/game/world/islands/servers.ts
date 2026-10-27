@@ -89,14 +89,18 @@ const FROM_CACHE = [CACHE_TOP, RACK_DOOR, CLIENT];
 /** The rack (x = -2) that works through the queue, and the belt's slots, nearest first. */
 const WORKER_DOOR = point(-2, 0.6, -1.2);
 const QUEUE_SLOTS = [point(-1, 0.3, 0.9), point(-0.2, 0.3, 0.9), point(0.6, 0.3, 0.9)];
-/** Each job's two legs: from the screen onto its slot, then from its slot into the worker. */
+/**
+ * Each job's two legs: from the screen through the answering rack onto its slot, then from
+ * its slot into the worker. The browser never touches the queue: it asks our server, and the
+ * server records the job.
+ */
 const QUEUE_PATHS = QUEUE_SLOTS.map((slot) => ({
-  toSlot: [CLIENT, slot],
+  toSlot: [CLIENT, RACK_DOOR, slot],
   toWorker: [slot, WORKER_DOOR],
 }));
 /**
  * The worker's turns, by job: when it takes the job off the belt and when it's finished.
- * The beat ends mid-work, the second job still at the worker and the third still waiting,
+ * The beat ends mid-work, the second job inside the worker and the third still waiting,
  * so the held picture shows the writer already answered while the work goes on.
  */
 const JOB_TURNS = [
@@ -106,6 +110,8 @@ const JOB_TURNS = [
 ];
 /** How long a job takes to move from the belt to the worker's door. */
 const TO_WORKER_TIME = 0.12;
+/** How long a job takes to shrink into the worker once it reaches the door. */
+const INTO_WORKER_TIME = 0.04;
 /**
  * The log hangs to the right of the drum, far enough out that the drum doesn't hide its
  * lower lines from the camera: lines stacked upward from LOG_BASE.
@@ -333,9 +339,9 @@ function act6Beats(
         });
       },
     },
-    // Slow work leaves the request: jobs drop onto a belt and the screen hears back at
-    // once, then a worker server takes the jobs one at a time at its own pace. It ends
-    // mid-work: one job done, one at the worker, one still waiting on the belt.
+    // Slow work leaves the request: the server drops each export onto a belt as a job and
+    // the screen hears back at once, then a worker server takes the jobs one at a time at
+    // its own pace. It ends mid-work: one job done, one in the worker, one still waiting.
     'queue-worker': {
       seconds: 3,
       start: () => {
@@ -352,19 +358,16 @@ function act6Beats(
             if (turn === undefined || progress < turn.takenAt) {
               const queuedAt = 0.04 + index * 0.08;
               popIn(job, phase(progress, queuedAt, queuedAt + 0.06), 0.8);
-              travel(job, paths.toSlot, phase(progress, queuedAt, queuedAt + 0.16), 0.8);
+              travel(job, paths.toSlot, phase(progress, queuedAt, queuedAt + 0.16), 0.5);
               return;
             }
-            // At the worker's door until it's finished, then it's gone.
-            popIn(job, 1 - phase(progress, turn.doneAt, turn.doneAt + 0.06), 0.8);
-            travel(
-              job,
-              paths.toWorker,
-              phase(progress, turn.takenAt, turn.takenAt + TO_WORKER_TIME),
-              0.4,
-            );
+            // Off the belt to the worker's door, then into the worker. Left at the door, it
+            // was lost in the glow of the busy worker behind it.
+            const arrived = turn.takenAt + TO_WORKER_TIME;
+            popIn(job, 1 - phase(progress, arrived, arrived + INTO_WORKER_TIME), 0.8);
+            travel(job, paths.toWorker, phase(progress, turn.takenAt, arrived), 0.4);
           });
-          // The worker glows while a job sits at its door being worked on.
+          // The worker glows while it has a job inside, and goes dark between jobs.
           const working = JOB_TURNS.some(
             (turn) => progress >= turn.takenAt + TO_WORKER_TIME && progress < turn.doneAt,
           );
