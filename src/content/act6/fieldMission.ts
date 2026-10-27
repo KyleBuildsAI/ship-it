@@ -77,7 +77,7 @@ export const documentOneRequest = {
         'Run git status on main, or ask your agent to and show you the exact output, and paste all of it. It should say "working tree clean" and "up to date with \'origin/main\'": nothing left over, nothing unpushed.',
       command: 'git status',
       parser: 'status-long',
-      check: { kind: 'clean', upstream: 'up-to-date' },
+      check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' },
     },
     {
       id: 'no-secret-file',

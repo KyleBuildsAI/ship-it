@@ -251,6 +251,15 @@ describe('Act 6 Field Mission: Document One Request', () => {
     });
   });
 
+  it('needs the clean, synced status to be main, not the docs branch', () => {
+    const onBranch = synced
+      .replace('On branch main', 'On branch docs/health')
+      .replace("'origin/main'", "'origin/docs/health'");
+    const verdict = verifyPaste(verification('synced-with-github'), onBranch);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('git switch main');
+  });
+
   it('says to change the keys first when .env is tracked, since main already matches GitHub', () => {
     const tracked = ['.env', '.gitignore', 'README.md', 'src/server.ts'].join('\n');
     const verdict = verifyPaste(verification('no-secret-file'), tracked);
