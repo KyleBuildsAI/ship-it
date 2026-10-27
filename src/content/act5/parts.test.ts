@@ -132,6 +132,13 @@ describe('Act 5 Field Mission: Green on Every Push', () => {
     expect(brief).toContain('On a branch named ci/secret-scan');
   });
 
+  it('never says the scan keeps a key off GitHub: it runs after the push, before the merge', () => {
+    const briefing = field.briefing.join(' ');
+    expect(briefing).not.toContain('reach GitHub and stay in its history');
+    expect(briefing).toContain('gitleaks flags it on the pull request, before the merge');
+    expect(briefing).toContain('revoke');
+  });
+
   it('rules out every way an agent could buy green by weakening a gate', () => {
     for (const rule of [
       'Don’t touch coverage.yml or scripts/coverage.sh',

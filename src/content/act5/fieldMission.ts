@@ -27,7 +27,7 @@ export const greenOnEveryPush: FieldMissionInput = {
   title: 'Green on Every Push',
   repoName: 'SandCastles',
   briefing: [
-    'SandCastles already has one gate: coverage.yml runs its tests on every push and pull request. Nothing checks for secrets, so a pasted key could still reach GitHub and stay in its history for good.',
+    'SandCastles already has one gate: coverage.yml runs its tests on every push and pull request. Nothing checks for secrets, so a pasted key could be merged into main unnoticed. gitleaks flags it on the pull request, before the merge. The key is on GitHub by then, so that’s your cue to revoke it.',
     'You add the second gate, gitleaks from lesson 5.4, with coverage.yml as the model. You don’t write the YAML: you brief your own AI agent, review what it made, and get it green on a pull request.',
     'Each check below: run it in PowerShell in your sandcastles clone, whatever the folder is called, or ask your agent to run it and paste you the output. Then paste it here.',
   ],
