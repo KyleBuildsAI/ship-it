@@ -122,7 +122,7 @@ export const whereThingsLive: MissionInput = {
               id: 'api',
               text: API_PATH,
               truth: standsIn(API),
-              feedback: 'Right: the prompt names the API folder.',
+              feedback: 'The prompt names the API folder.',
             },
             {
               id: 'home',
@@ -255,7 +255,7 @@ export const whereThingsLive: MissionInput = {
               id: 'api',
               text: 'Only in the API folder',
               truth: { kind: 'all', of: [apiNotes, missing(homeNotes)] },
-              feedback: 'Right: the Directory line shows the API folder.',
+              feedback: 'The Directory line shows the API folder.',
             },
             {
               id: 'home',
@@ -351,7 +351,7 @@ export const whereThingsLive: MissionInput = {
               id: 'next-door',
               text: 'Next door, in quillwork\\web\\notes',
               truth: { kind: 'all', of: [webNotes, missing(apiWeb)] },
-              feedback: 'Right: the listing of ..\\web shows notes.',
+              feedback: 'The listing of ..\\web shows notes.',
             },
             {
               id: 'inside',
@@ -462,7 +462,7 @@ export const whereThingsLive: MissionInput = {
               id: 'api-and-web',
               text: 'PS 1 in the API, and a terminal in web',
               truth: { kind: 'all', of: [standsIn(API, 1), standsIn(WEB, 'any')] },
-              feedback: 'Right: each tab has its own folder. The tab strip shows both.',
+              feedback: 'Each tab has its own folder. The tab strip shows both.',
             },
             {
               id: 'api-and-home',

@@ -1428,7 +1428,7 @@ Store changes:
         { id: 'api', text: 'Only in the API folder',
           truth: { kind: 'all', of: [{ kind: 'driveFolder', path: `${API}/notes` },
                                      { kind: 'driveFolder', path: `${HOME}/notes`, exists: false }] },
-          feedback: 'Right: the Directory line shows the API folder.' },
+          feedback: 'The Directory line shows the API folder.' },
         { id: 'home', text: 'In C:\\Users\\kyle, where fresh terminals start',
           truth: { kind: 'all', of: [{ kind: 'driveFolder', path: `${HOME}/notes` },
                                      { kind: 'driveFolder', path: `${API}/notes`, exists: false }] },
