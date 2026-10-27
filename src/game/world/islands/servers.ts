@@ -91,8 +91,23 @@ const QUEUE_PATHS = QUEUE_SLOTS.map((slot) => ({
   toSlot: [CLIENT, slot],
   toWorker: [slot, WORKER_DOOR],
 }));
-/** The log hangs to the right of the drum: lines stacked upward from LOG_BASE. */
-const LOG_X = 7;
+/**
+ * The worker's turns, by job: when it takes the job off the belt and when it's finished.
+ * The beat ends mid-work, the second job still at the worker and the third still waiting,
+ * so the held picture shows the writer already answered while the work goes on.
+ */
+const JOB_TURNS = [
+  { takenAt: 0.38, doneAt: 0.62 },
+  // Finished after the beat ends: still being worked on in the held picture.
+  { takenAt: 0.66, doneAt: 2 },
+];
+/** How long a job takes to move from the belt to the worker's door. */
+const TO_WORKER_TIME = 0.12;
+/**
+ * The log hangs to the right of the drum, far enough out that the drum doesn't hide its
+ * lower lines from the camera: lines stacked upward from LOG_BASE.
+ */
+const LOG_X = 7.6;
 const LOG_BASE_Y = 0.4;
 const LOG_STEP = 0.32;
 const LOG_Z = -1;
@@ -305,7 +320,8 @@ function act6Beats(
       },
     },
     // Slow work leaves the request: jobs drop onto a belt and the screen hears back at
-    // once, then a worker server takes the jobs one at a time at its own pace.
+    // once, then a worker server takes the jobs one at a time at its own pace. It ends
+    // mid-work: one job done, one at the worker, one still waiting on the belt.
     'queue-worker': {
       seconds: 3,
       start: () => {
@@ -318,22 +334,26 @@ function act6Beats(
           jobs.forEach((job, index) => {
             const paths = QUEUE_PATHS[index];
             if (paths === undefined) return;
-            const queuedAt = 0.04 + index * 0.08;
-            const takenAt = 0.4 + index * 0.18;
-            const taken = phase(progress, takenAt, takenAt + 0.12);
-            const done = phase(progress, takenAt + 0.12, takenAt + 0.18);
-            popIn(job, phase(progress, queuedAt, queuedAt + 0.06) - done, 0.8);
-            if (progress >= takenAt) {
-              travel(job, paths.toWorker, taken, 0.4);
-            } else {
+            const turn = JOB_TURNS[index];
+            if (turn === undefined || progress < turn.takenAt) {
+              const queuedAt = 0.04 + index * 0.08;
+              popIn(job, phase(progress, queuedAt, queuedAt + 0.06), 0.8);
               travel(job, paths.toSlot, phase(progress, queuedAt, queuedAt + 0.16), 0.8);
+              return;
             }
+            // At the worker's door until it's finished, then it's gone.
+            popIn(job, 1 - phase(progress, turn.doneAt, turn.doneAt + 0.06), 0.8);
+            travel(
+              job,
+              paths.toWorker,
+              phase(progress, turn.takenAt, turn.takenAt + TO_WORKER_TIME),
+              0.4,
+            );
           });
-          // The worker lights up while it has a job inside.
-          const working = jobs.some((_, index) => {
-            const inside = 0.48 + index * 0.18;
-            return progress >= inside && progress < inside + 0.1;
-          });
+          // The worker lights up while a job sits at its door being worked on.
+          const working = JOB_TURNS.some(
+            (turn) => progress >= turn.takenAt + TO_WORKER_TIME && progress < turn.doneAt,
+          );
           worker.material = working ? colors.base : colors.dark;
           screen.material = progress >= 0.2 ? colors.glow : colors.light;
         });
@@ -357,20 +377,22 @@ function act6Beats(
           return line;
         });
         const errorY = LOG_BASE_Y + ERROR_LINE * LOG_STEP;
-        const marker = part(MARKER, colors.light, 5.6, errorY, LOG_Z);
+        // The marker slides in from the left and stops with its tip at the lines' left edge.
+        const markerFrom = point(LOG_X - 1.9, errorY, LOG_Z);
+        const markerTo = point(LOG_X - 1.2, errorY, LOG_Z);
+        const marker = part(MARKER, colors.light, markerFrom.x, errorY, LOG_Z);
         // The cone points along +x, at the line.
         marker.rotation.z = -Math.PI / 2;
         marker.visible = false;
         stage.add(...lines, marker);
-        const markerFrom = point(5.1, errorY, LOG_Z);
-        const markerTo = point(5.8, errorY, LOG_Z);
         return run(stage, [], (progress) => {
           const focused = progress >= 0.72;
           lines.forEach((line, index) => {
             const start = index * 0.06;
             popIn(line, phase(progress, start, start + 0.12));
             line.scale.x *= LOG_WIDTHS[index] ?? 1;
-            if (index !== ERROR_LINE) line.material = focused ? colors.dark : colors.light;
+            // Dimmed to the pipe's grey-blue, not near-black, so the rest still reads as text.
+            if (index !== ERROR_LINE) line.material = focused ? colors.base : colors.light;
           });
           popIn(marker, phase(progress, 0.55, 0.7));
           slide(marker, markerFrom, markerTo, phase(progress, 0.55, 0.8));
@@ -420,7 +442,8 @@ function act6Beats(
       },
     },
     // A bad release breaks things: every light turns red and the writer's screen errors.
-    // The release is lifted off, the last good one goes back on, and the lights recover.
+    // The release is lifted off and set aside, still red, the last good one goes back on,
+    // and the lights recover: service is back, and the broken version waits for a fix.
     'incident-rollback': {
       seconds: 3,
       start: () => {
@@ -428,12 +451,12 @@ function act6Beats(
         const good = part(CRATE, colors.light, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
         good.visible = false;
         stage.add(bad, good);
-        const liftedTo = point(1.6, 4.2, -2);
+        // On the floor in the gap in front of the middle and answering racks.
+        const setAside = point(1, 0.25, 0.3);
         const comesFrom = point(-1.6, 4.2, -2);
         const { blinkers } = parts;
         return run(stage, [...blinkers, screen], (progress) => {
-          popIn(bad, 1 - phase(progress, 0.45, 0.58));
-          slide(bad, CRATE_SPOT, liftedTo, phase(progress, 0.35, 0.55));
+          slide(bad, CRATE_SPOT, setAside, phase(progress, 0.35, 0.58), 1.2);
           popIn(good, phase(progress, 0.5, 0.6));
           slide(good, comesFrom, CRATE_SPOT, phase(progress, 0.5, 0.72));
           blinkers.forEach((light, index) => {
