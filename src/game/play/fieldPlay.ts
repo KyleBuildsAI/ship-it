@@ -2,7 +2,7 @@ import { parseRepoSlug } from '../../engine/verify';
 import { endDrill } from '../../mentor/drillGuard';
 import { closeTerminal } from '../hud';
 import { requireFieldMission } from '../missions/schema';
-import { saveProgressNow } from '../progress';
+import { progress, saveProgressNow } from '../progress';
 import { getAct } from './catalog';
 import { verifyPaste, type FieldVerdict } from './fieldCheck';
 import { browserGet, checkMergedPullRequest, type GitHubGet } from './githubCheck';
@@ -23,27 +23,43 @@ export function startFieldMission(act: number): void {
   play.update({ activity: { kind: 'field', act }, checklist: [] });
 }
 
+/** A checked paste, as the Field Mission panel shows it. */
+export interface FieldSubmission extends FieldVerdict {
+  /**
+   * True when this pass was the last check, so the whole mission is verified now. The
+   * panel says so beside this check, where the player is looking, not only at the top.
+   */
+  readonly completedMission?: boolean;
+}
+
+/** When the Field Mission with this id was verified, or null if it isn't yet. */
+function verifiedAt(fieldId: string): string | null {
+  return progress.get().save?.fieldMissions[fieldId]?.verifiedAt ?? null;
+}
+
 /** Checks one pasted output and, when it passes, records that check in the save. */
 export function submitFieldPaste(
   verificationId: string,
   text: string,
   now: Date = new Date(),
-): FieldVerdict {
+): FieldSubmission {
   const current = play.get().activity;
   if (current?.kind !== 'field') {
     return { passed: false, message: 'No Field Mission is open.' };
   }
   const { act } = getAct(current.act);
-  const verification = requireFieldMission(act).verifications.find(
-    (entry) => entry.id === verificationId,
-  );
+  const field = requireFieldMission(act);
+  const verification = field.verifications.find((entry) => entry.id === verificationId);
   if (verification === undefined) {
     return { passed: false, message: 'That check is not part of this Field Mission.' };
   }
   const verdict = verifyPaste(verification, text);
-  if (verdict.passed)
-    saveProgressNow((save) => recordFieldMission(save, act, [verification.id], now));
-  return verdict;
+  if (!verdict.passed) return verdict;
+  const wasVerified = verifiedAt(field.id) !== null;
+  saveProgressNow((save) => recordFieldMission(save, act, [verification.id], now));
+  return !wasVerified && verifiedAt(field.id) !== null
+    ? { ...verdict, completedMission: true }
+    : verdict;
 }
 
 /**

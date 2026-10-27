@@ -166,9 +166,12 @@ describe('Act 6 Field Mission: Document One Request', () => {
     '',
   ].join('\n');
 
+  // Every task, with the brief its Copy button gives the agent.
+  const checklistText = field.checklist.flatMap((item) => [item.text, item.prompt ?? '']).join(' ');
+
   it('happens on SandCastles, through a docs branch and a pull request', () => {
     expect(field.repoName).toBe('SandCastles');
-    const text = field.checklist.map((item) => item.text).join(' ');
+    const text = checklistText;
     for (const words of ['agent', 'README', 'status code', 'docs/', 'pull request', '/health']) {
       expect(text, words).toContain(words);
     }
@@ -182,8 +185,15 @@ describe('Act 6 Field Mission: Document One Request', () => {
     }
   });
 
+  it('says how to find the status code in Chrome, since no card teaches DevTools', () => {
+    const check = field.checklist.find((item) => item.id === 'check')?.text ?? '';
+    for (const step of ['F12', 'Network tab', 'reload', 'Status column']) {
+      expect(check, step).toContain(step);
+    }
+  });
+
   it('asks for fake values and a read-through for secrets, since no paste can see them', () => {
-    const text = field.checklist.map((item) => item.text).join(' ');
+    const text = checklistText;
     expect(text).toContain('obvious fakes');
     expect(text).toContain('no keys, tokens, cookies');
     expect(text).not.toContain('not a guess');
@@ -217,6 +227,13 @@ describe('Act 6 Field Mission: Document One Request', () => {
     ).toMatchObject({ passed: false });
   });
 
+  it('says to merge and fetch, not to commit, when GitHub’s main has no README change', () => {
+    const verdict = verifyPaste(verification('merged-docs-commit'), '');
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('Merge your pull request, run git fetch');
+    expect(verdict.message).not.toContain('commit it');
+  });
+
   it('fails an unpushed commit, leftover changes and a committed .env', () => {
     const ahead = synced.replace(
       "Your branch is up to date with 'origin/main'.",
@@ -242,6 +259,34 @@ describe('Act 6 Field Mission: Document One Request', () => {
     expect(verifyPaste(verification('no-secret-file'), 'README.md\n.env\n')).toMatchObject({
       passed: false,
     });
+  });
+
+  it('gives its own docs: example when the README’s newest change is another type', () => {
+    const verdict = verifyPaste(
+      verification('merged-docs-commit'),
+      '9f3e2a1 feat: add health endpoint',
+    );
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('like "docs: document GET /health"');
+    expect(verdict.message).not.toContain('environment setup');
+  });
+
+  it('needs the clean, synced status to be main, not the docs branch', () => {
+    const onBranch = synced
+      .replace('On branch main', 'On branch docs/health')
+      .replace("'origin/main'", "'origin/docs/health'");
+    const verdict = verifyPaste(verification('synced-with-github'), onBranch);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('git switch main');
+  });
+
+  it('says to change the keys first when .env is tracked, since main already matches GitHub', () => {
+    const tracked = ['.env', '.gitignore', 'README.md', 'src/server.ts'].join('\n');
+    const verdict = verifyPaste(verification('no-secret-file'), tracked);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toMatch(/^Still tracked: \.env\. It’s on GitHub now/);
+    expect(verdict.message).toContain('change them all first');
+    expect(verdict.message).toContain('through a pull request');
   });
 
   it('never asks for a GitHub token or a key', () => {

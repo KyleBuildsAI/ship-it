@@ -14,6 +14,7 @@ import {
   isPullRequestSubject,
   isSquashMergedSubject,
   isTypedBranchName,
+  looksLikePathList,
   matchesPathPattern,
   newestWrittenCommit,
   normalizePaste,
@@ -53,6 +54,12 @@ const PARSER_NAMES = {
   'ls-files': 'git ls-files',
   'select-string': 'Select-String',
 } as const;
+
+// A tracked secret may already be on GitHub, and lessons 5.4 and 6.2 teach that a pushed
+// secret counts as stolen, so untracking alone is never the whole fix. The steps are in
+// the order to do them, so nobody untracks first and reads "change the keys" too late.
+const UNTRACK_SECRETS =
+  'If one was ever pushed, change every key in it first: a pushed secret counts as stolen. Then untrack with git rm --cached and commit.';
 
 function fail(message: string): FieldVerdict {
   return { passed: false, message };
@@ -144,11 +151,28 @@ function changedPaths(status: ParsedStatus): string[] {
   ];
 }
 
-/** The files a `git log ... <path>` command names, for saying what an empty log means. */
-function loggedPaths(command: string): string[] {
+interface LoggedTarget {
+  /** The branch or commit the log starts from, like `origin/main`, when the command names one. */
+  readonly revision: string | undefined;
+  readonly path: string | undefined;
+}
+
+/**
+ * What a `git log [<revision>] [-- <path>]` command names, for saying what an empty log
+ * means. Everything after `--` is a path; before it, a word is the revision. Without
+ * `--`, a lone word in these missions' commands is the file.
+ */
+function loggedTarget(command: string): LoggedTarget {
   const [program, subcommand, ...rest] = command.split(/\s+/);
-  if (program !== 'git' || subcommand !== 'log') return [];
-  return rest.filter((word) => word !== '' && !word.startsWith('-'));
+  if (program !== 'git' || subcommand !== 'log') return { revision: undefined, path: undefined };
+  const named = (words: readonly string[]) =>
+    words.filter((word) => word !== '' && !word.startsWith('-'));
+  const separator = rest.indexOf('--');
+  if (separator === -1) return { revision: undefined, path: named(rest)[0] };
+  return {
+    revision: named(rest.slice(0, separator))[0],
+    path: named(rest.slice(separator + 1))[0],
+  };
 }
 
 /** What a paste with no output in it means for this check: sometimes a pass, usually a nudge. */
@@ -164,10 +188,14 @@ function verifyEmptyPaste(verification: Verification): FieldVerdict {
       message: `Nothing printed: ${check.paths.join(' and ')} have nothing left to commit.`,
     };
   }
-  const [file] = loggedPaths(command);
-  if (verification.parser === 'log-oneline' && file !== undefined) {
+  const { revision, path } = loggedTarget(command);
+  if (verification.parser === 'log-oneline' && path !== undefined) {
+    // A log of GitHub's main (origin/main) gets its commits from a merged pull request, so
+    // "commit it" would send the player straight to main.
     return fail(
-      `No line means no commit has touched ${file} yet. Ask your agent to commit it, then run it again.`,
+      revision === undefined
+        ? `No line means no commit has touched ${path} yet. Ask your agent to commit it, then run it again.`
+        : `No line means ${revision} has no commit that touched ${path} yet. Merge it through a pull request, run git fetch, then run this again.`,
     );
   }
   // A clean short status prints nothing, so only the copied command line shows what ran.
@@ -227,7 +255,9 @@ function verifyMerge(command: string, text: string): FieldVerdict {
     return fail('That merge commit doesn’t name its branch. Merge the pull request on GitHub.');
   }
   if (!isTypedBranchName(branch)) {
-    return fail(`The merged branch is "${branch}". Name branches by type, like feat/readme-fix.`);
+    return fail(
+      `The merged branch is "${branch}". Name branches for the kind of change, like docs/readme-fix.`,
+    );
   }
   if (!isConventionalSubject(branchCommit.subject)) {
     return fail(
@@ -340,6 +370,13 @@ function verifySquashMerge(subject: string): FieldVerdict {
 function checkTrackedFiles(verification: Verification, text: string): FieldVerdict {
   const paths = parsePathList(text);
   if (paths.length === 0) return fail(`That paste lists no files. Run ${verification.command}.`);
+  // Finding no secret on a list proves nothing unless the list is git's, so a summary
+  // like "all clean" must fail here, before the secret check could pass it.
+  if (!looksLikePathList(text)) {
+    return fail(
+      `That doesn't look like ${PARSER_NAMES['ls-files']} output, which is one file per line. Run ${verification.command}, or have your agent run it, and paste exactly what it prints.`,
+    );
+  }
   const { check } = verification;
   if (check.kind === 'tracksAny') {
     const found = firstTracked(paths, check.paths);
@@ -355,9 +392,7 @@ function checkTrackedFiles(verification: Verification, text: string): FieldVerdi
   }
   const secrets = trackedSecretPaths(paths);
   if (secrets.length > 0) {
-    return fail(
-      `Still tracked: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack with git rm --cached, then commit.'}`,
-    );
+    return fail(`Still tracked: ${secrets.join(', ')}. ${verification.advice ?? UNTRACK_SECRETS}`);
   }
   if (check.kind === 'tracksPath') {
     // Any other file on the list, even an older workflow, doesn't prove the new one exists.
@@ -387,8 +422,27 @@ function checkRunList(verification: Verification, text: string): FieldVerdict {
     : fail('That run is still going. Give it a minute, then run the command again.');
 }
 
+/**
+ * The word git couldn't place in `fatal: ambiguous argument 'docs/story.md'`, or null. Git
+ * says this when a log names a file without `--` and the file isn't in this folder, which
+ * usually means the work isn't on this branch or hasn't been pulled yet.
+ */
+function ambiguousArgument(text: string): string | null {
+  for (const line of normalizePaste(text).lines) {
+    const word = /^fatal: ambiguous argument '([^']+)'/.exec(line)?.[1];
+    if (word !== undefined) return word;
+  }
+  return null;
+}
+
 /** Checks a `git log --oneline` paste, with `--graph` for a merge check. */
 function checkLog(verification: Verification, text: string): FieldVerdict {
+  const unknown = ambiguousArgument(text);
+  if (unknown !== null) {
+    return fail(
+      `Git can't find ${unknown} here, so it isn't on this branch yet. Run git switch main and git pull, then run ${verification.command} again.`,
+    );
+  }
   if (detectPasteKind(text) !== 'log-oneline') {
     return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
   }
@@ -439,8 +493,9 @@ function checkLog(verification: Verification, text: string): FieldVerdict {
       // Naming the commit found shows whether the merge simply hasn't been pulled yet.
       const found =
         newest === null ? 'There is no commit there' : `The newest is "${newest.subject}"`;
+      const example = check.example === undefined ? '' : `, like "${check.example}"`;
       return fail(
-        `${found}. It should start with ${check.type}:, like "${check.type}: add environment setup for agents". Merged on GitHub? Pull first.`,
+        `${found}. It should start with ${check.type}:${example}. Merged on GitHub? Pull first.`,
       );
     }
     default:
@@ -488,9 +543,7 @@ export function verifyPaste(verification: Verification, text: string): FieldVerd
       const secrets = trackedSecretPaths(status);
       return secrets.length === 0
         ? { passed: true, message: 'No secret files show up as tracked.' }
-        : fail(
-            `Tracked secrets: ${secrets.join(', ')}. ${verification.advice ?? 'Untrack them with git rm --cached.'}`,
-          );
+        : fail(`Tracked secrets: ${secrets.join(', ')}. ${verification.advice ?? UNTRACK_SECRETS}`);
     }
     case 'ignores': {
       const visible = [...unignored(status, check.patterns), ...buildOutputToIgnore(status)];
