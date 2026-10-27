@@ -317,7 +317,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'respond',
-      beat: 'agent-loop',
+      beat: 'test-gate',
       kind: 'order',
       situation: 'Wrapping up the incident.',
       question: 'Put your response in order.',
