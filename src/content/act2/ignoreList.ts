@@ -71,11 +71,22 @@ const valuesLeaked: Predicate = {
 };
 
 /** Read-only lines Kyle can have Otto run while he checks a claim. */
+const dockLook = { id: 'status', label: "What's on the dock?", line: 'git status' };
+const vaultLook = { id: 'log', label: "What's in the Vault?", line: 'git log --oneline' };
 const gitLooks = [
-  { id: 'status', label: "What's on the dock?", line: 'git status' },
-  { id: 'log', label: "What's in the Vault?", line: 'git log --oneline' },
+  dockLook,
+  vaultLook,
   { id: 'staged', label: 'What will commit?', line: 'git diff --staged' },
 ];
+/**
+ * Step 3 asks what the committed .env.example holds. Once Otto commits, the dock is empty
+ * and nothing else on screen shows a committed file's lines, so this look prints it.
+ */
+const committedExampleLook = {
+  id: 'example',
+  label: 'What did the commit share?',
+  line: 'git show HEAD:.env.example',
+};
 
 // ---- Step 1: hide the build output and the logs ------------------------------------------
 
@@ -402,7 +413,7 @@ const commitCleanupTask = {
         id: 'names',
         text: 'Setting names, no values',
         truth: { kind: 'all', of: [exampleCommitted, { kind: 'not', predicate: valuesLeaked }] },
-        feedback: "Otto's write decides it: a copy of .env carries its values, names alone don't.",
+        feedback: 'git show HEAD:.env.example lists API_KEY= and DATABASE_URL= with nothing after.',
       },
       {
         id: 'values',
@@ -419,7 +430,7 @@ const commitCleanupTask = {
     ],
   },
   guards: [envOnDisk],
-  looks: gitLooks,
+  looks: [dockLook, vaultLook, committedExampleLook],
 } satisfies AgentTaskInput;
 
 // ---- Judgment drills ---------------------------------------------------------------------
