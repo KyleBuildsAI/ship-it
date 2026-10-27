@@ -181,16 +181,32 @@ describe('the directing panel', () => {
 
   it('tells an edit of one piece apart from a write of the whole file', () => {
     const path = 'Users/kyle/quillwork/api/config.json';
+    // Play names the file on the gate's line the way Windows prints it (agentPlay's gateLine).
+    const line = 'C:\\Users\\kyle\\quillwork\\api\\config.json';
     const changes = [{ kind: 'modified', path, how: 'replaced' }] as const;
-    const gate = { kind: 'line', line: path, changes, harmful: false } as const;
+    const gate = { kind: 'line', line, changes, harmful: false } as const;
     const edit = { do: 'edit', path, find: '8080', replace: '3000', onDeny: [] } as const;
     const edited = shown(atGate(edit, gate));
-    expect(edited).toContain('Otto wants to edit the file:' + path);
+    expect(edited).toContain('Otto wants to edit the file:' + line);
     expect(edited).toContain('Changes 8080 to 3000, and keeps the rest.');
+    // The dry run's line agrees: an edit changes part of the file, it doesn't overwrite it.
+    expect(edited).toContain('Changes part of ' + line);
+    expect(edited).not.toContain('Overwrites');
     const write = { do: 'write', path, content: '{}', onDeny: [] } as const;
     const written = shown(atGate(write, gate));
-    expect(written).toContain('Otto wants to write the whole file:' + path);
+    expect(written).toContain('Otto wants to write the whole file:' + line);
+    expect(written).toContain('Overwrites ' + line);
     expect(written).not.toContain('keeps the rest');
+  });
+
+  it("shows an edit's text without the line end it finds, which reads as a stray space", () => {
+    const path = 'Users/kyle/quillwork/api/.env';
+    const changes = [{ kind: 'modified', path, how: 'replaced' }] as const;
+    const gate = { kind: 'line', line: path, changes, harmful: false } as const;
+    const port = { do: 'edit', path, find: 'PORT=\n', replace: 'PORT=3000\n', onDeny: [] } as const;
+    expect(shown(atGate(port, gate))).toContain('Changes PORT= to PORT=3000, and keeps the rest.');
+    const cut = { do: 'edit', path, find: 'DEBUG=true\n', replace: '\n', onDeny: [] } as const;
+    expect(shown(atGate(cut, gate))).toContain('Removes DEBUG=true, and keeps the rest.');
   });
 
   it("asks Kyle to check Otto's claim, with his looks beside the answers", () => {

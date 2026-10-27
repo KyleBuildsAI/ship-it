@@ -22,6 +22,26 @@ function heading(gate: Gate, action: QueuedAction): string {
 }
 
 /**
+ * What an edit swaps, so Kyle can tell it from a whole-file write. Trimmed: a find that
+ * ends at its line end, like "PORT=\n", would otherwise show a stray space.
+ */
+function EditSwap({ find, replace }: { find: string; replace: string }) {
+  const to = replace.trim();
+  if (to === '') {
+    return (
+      <p>
+        Removes <code>{find.trim()}</code>, and keeps the rest.
+      </p>
+    );
+  }
+  return (
+    <p>
+      Changes <code>{find.trim()}</code> to <code>{to}</code>, and keeps the rest.
+    </p>
+  );
+}
+
+/**
  * An approval gate (docs/act1-directed.md section 1.3). Otto waits while Kyle reads the
  * line and what a dry run says it changes, worked out on a copy of the sandbox, never
  * written by an author. Allow and Deny look alike on purpose: the card's colors must not
@@ -30,7 +50,8 @@ function heading(gate: Gate, action: QueuedAction): string {
  */
 export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction }) {
   const armed = useArmed();
-  const effects = describeChanges(gate.changes, display);
+  const edited = action.do === 'edit' ? action.path : undefined;
+  const effects = describeChanges(gate.changes, display, edited);
   return (
     <div className="gate-card" role="group" aria-label="Approve Otto's action">
       <p className="play-panel__eyebrow">Needs your OK</p>
@@ -43,13 +64,7 @@ export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction })
           Otto will answer <strong>{action.choice}</strong> ({LETTERS[action.choice]}).
         </p>
       ) : null}
-      {action.do === 'edit' ? (
-        // An edit changes one piece of the file: show which, so Kyle can tell it from a
-        // whole-file write, whose effects line reads the same.
-        <p>
-          Changes <code>{action.find}</code> to <code>{action.replace}</code>, and keeps the rest.
-        </p>
-      ) : null}
+      {action.do === 'edit' ? <EditSwap find={action.find} replace={action.replace} /> : null}
       {effects.length > 0 ? (
         <ul className="gate-card__effects" aria-label="What it changes">
           {effects.map((effect) => (
