@@ -14,7 +14,7 @@ import {
 import { finishBriefing, startRun } from '../../../game/missions/runner';
 import { notesMission } from '../../../game/missions/sample.test-mission';
 import type { MissionStep } from '../../../game/missions/schema';
-import { ottoRun, type OttoRun } from '../../../game/play/agentPlay';
+import { ottoRun, trueCheckOptions, type OttoRun } from '../../../game/play/agentPlay';
 import type { MissionActivity } from '../../../game/play/playStore';
 import type { Store } from '../../../game/store';
 import { AgentStepView } from './AgentStepView';
@@ -26,10 +26,11 @@ vi.mock('../../useStore', () => ({
 }));
 
 // The true check option comes from the live laptop, which these tests don't build:
-// play.test.ts proves trueCheckOptions itself. Here, "home" is what's true.
+// play.test.ts proves trueCheckOptions itself. Here, "home" is what's true unless a test
+// says otherwise.
 vi.mock('../../../game/play/agentPlay', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../game/play/agentPlay')>()),
-  trueCheckOptions: () => ['home'],
+  trueCheckOptions: vi.fn(() => ['home']),
 }));
 
 function notesStep(): MissionStep {
@@ -258,17 +259,34 @@ describe('the directing panel', () => {
     expect(text).not.toContain('earned)');
   });
 
-  it("shows a miss with the option's feedback, and Rewind first when a guard broke", () => {
+  it("shows a miss with the true option's evidence, and Rewind first when a guard broke", () => {
     const text = shown(result('missed', 'api', false, true));
     expect(text).toContain("Missed. Otto's claim was wrong.");
-    // The feedback written for the option Kyle picked, not the card's lesson.
-    expect(text).toContain('Right: the Directory line shows the API folder.');
+    // The evidence for what is true, never the picked option's, which would restate the
+    // false answer; and not the card's lesson.
+    expect(text).toContain('Read the Directory line above the table: it says where mkdir put it.');
+    expect(text).not.toContain('the Directory line shows the API folder');
     expect(text).not.toContain('A fresh terminal stands at home');
     expect(text).toContain('The true answer: In C:\\Users\\kyle, where fresh terminals start');
     expect(text).toContain('[Rewind step][Direct a fix]');
     // The Plan star is gone whichever button Kyle picks, so the note claims no trade-off.
     expect(text).toContain('A real laptop has no rewind.');
     expect(text).not.toContain('Plan star');
+  });
+
+  it("explains a false alarm with what is true, not the picked option's claim", () => {
+    // Kyle said notes were in both places; only home holds, and Otto was right.
+    const text = shown(result('false-alarm', 'both', true));
+    expect(text).toContain('False alarm. Otto was right this time.');
+    expect(text).toContain('Read the Directory line above the table: it says where mkdir put it.');
+    expect(text).not.toContain('Two Directory lines, two folders.');
+  });
+
+  it("falls back to the card's lesson when no option is true after a misread", () => {
+    vi.mocked(trueCheckOptions).mockReturnValueOnce([]);
+    const text = shown(result('missed', 'api', false));
+    expect(text).toContain('A fresh terminal stands at home, so notes landed in C:\\Users\\kyle.');
+    expect(text).not.toContain('The true answer');
   });
 
   it('draws the rows that fail at a result red, as broken rather than still to do', () => {

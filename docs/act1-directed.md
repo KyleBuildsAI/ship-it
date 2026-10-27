@@ -172,7 +172,7 @@ Layout, unchanged in frame:
 | · **Predict** (only lines with `predict`) | The line sits at the prompt, not yet run. "Before Otto runs it: where will notes land?" 2-4 options. | Picks. Then a ghost shows what will happen for 1.5 s and the line runs. The prediction is graded after it runs. | question + options ≤ 40 |
 | · **Gate** (lines that pause, D6) | "Otto wants to run:" the command, Otto's `say`, the **worked-out effects** (up to 3 lines), a diff for `write`, and the blast radius in the world. [Allow] [Deny]. For Confirm: PowerShell's question and "Otto will answer A". | Allow or deny. Deny runs `onDeny` (Otto corrects himself), or stops for new directions. Denying a safe line makes Otto ask "I need this to finish: <effect>. Run it?" | say ≤ 12 |
 | **3. Check** | Otto's claim ("Done: notes is in the API project."). One question with 2-4 options. Up to 3 **look** chips ("Where is Otto?"). The terminal and world stay live. | Runs looks (read-only, printed in the terminal), reads the evidence, picks an option. | claim + question + options + look labels ≤ 60 |
-| **4. Result** | Verdict banner. The checklist (`explain(all(success, guards))`, hidden until now). The chosen card's **anatomy chips** (goal · place · limits · check, the covered ones lit). The slip name. One line of text: the option's `feedback` on a miss or false alarm, otherwise the plan's `lesson`. Stars. | [Next step], or [Direct a fix] and [Rewind step] | feedback and lesson ≤ 25; checklist labels ≤ 8 each |
+| **4. Result** | Verdict banner. The checklist (`explain(all(success, guards))`, hidden until now). The chosen card's **anatomy chips** (goal · place · limits · check, the covered ones lit). The slip name. One line of text: on a miss or false alarm, the `feedback` of the option that is true (each option's feedback is the evidence that it holds, so the picked, false one would only restate the mistake), otherwise, or when no option holds, the plan's `lesson`. Stars. | [Next step], or [Direct a fix] and [Rewind step] | feedback and lesson ≤ 25; checklist labels ≤ 8 each |
 
 A **fix round** looks like Direct:
 - Otto says "Stopped. What should I do instead?" or "Missed that. How should I fix it?"
@@ -191,7 +191,7 @@ A **fix round** looks like Direct:
    |---|---|---|---|
    | yes | yes | **Confirmed** | Step completes |
    | yes | no | **Good catch** | Fix round opens |
-   | no | yes | **False alarm** | Step completes. The option's feedback shows what Kyle misread. |
+   | no | yes | **False alarm** | Step completes. The true option's feedback shows the evidence Kyle misread. |
    | no | no | **Missed** | The true option and the red checklist rows are shown. Fix round opens. |
 
 3. **Gates.** `harmful` comes from the dry run (D4). Deny is right exactly when the line is harmful.
@@ -905,7 +905,7 @@ const CheckOptionSchema = z.strictObject({
   id: IdSchema, text: ScreenTextSchema,
   /** When this option is the right answer. The engine decides, never a flag. */
   truth: PredicateSchema,
-  /** At most 25 words; shown on a miss or a false alarm. */
+  /** At most 25 words: the evidence this option is true, shown after a misread when it is. */
   feedback: ScreenTextSchema,
 });
 const LookSchema = z.strictObject({ id: IdSchema, label: NameSchema, line: CommandLineSchema });

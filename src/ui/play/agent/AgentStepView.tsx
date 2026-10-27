@@ -69,7 +69,7 @@ export function AgentStepView({
           stage={stage}
           checklist={checklist}
           earned={stage.passed ? (activity.stars[step.id] ?? null) : null}
-          trueIds={stage.verdict === 'missed' ? trueCheckOptions(activity) : []}
+          trueIds={trueCheckOptions(activity)}
           slipMet={activity.slips.some(
             (met) => met.stepId === step.id && met.planId === stage.planId,
           )}
