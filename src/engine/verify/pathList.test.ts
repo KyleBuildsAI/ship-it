@@ -43,6 +43,30 @@ describe('looksLikePathList', () => {
     ];
     expect(looksLikePathList(spaced.join('\n'))).toBe(true);
     expect(looksLikePathList('LICENSE\nMakefile\npackage.json\n')).toBe(true);
+    // Real git 2.5x output: a file with no extension in a folder with a space stays bare.
+    expect(looksLikePathList('My Folder/LICENSE\nMy Notes.md\n"caf\\303\\251 menu.md"\n')).toBe(
+      true,
+    );
+  });
+
+  it('refuses a quoted line with no escape in it, since git quotes only to escape', () => {
+    // ls-files leaves spaces bare, so a quoted name always holds a backslash escape.
+    expect(looksLikePathList('"No .env tracked."')).toBe(false);
+    expect(looksLikePathList('"README.md"\n"src/app.ts"')).toBe(false);
+  });
+
+  it('refuses a list copied from a chat reply, whose markers hide secret names', () => {
+    // `- .env.local` isn't named `.env.local`, so the secret check would miss it.
+    expect(looksLikePathList('- README.md\n- src/app.ts\n- .env.local')).toBe(false);
+    expect(looksLikePathList('* README.md\n* credentials.json')).toBe(false);
+    expect(looksLikePathList('• README.md\n• .env.production')).toBe(false);
+    expect(looksLikePathList('1. README.md\n2. .env.local')).toBe(false);
+  });
+
+  it('needs a file name with a dot, which every real project has, not a word like N/A', () => {
+    expect(looksLikePathList('N/A')).toBe(false);
+    expect(looksLikePathList('n/a\nyes/no')).toBe(false);
+    expect(looksLikePathList('.gitignore')).toBe(true);
   });
 
   it('refuses a summary instead of the list, however short', () => {

@@ -178,7 +178,17 @@ describe('verifyPaste', () => {
       command: 'git ls-files',
       check: { kind: 'noTrackedSecrets' },
     });
-    for (const summary of ['all clean', 'hello', 'No .env here', '## main...origin/main']) {
+    const chatList = '- README.md\n- src/app.ts\n- .env.local';
+    for (const summary of [
+      'all clean',
+      'hello',
+      'No .env here',
+      '## main...origin/main',
+      '"No .env tracked."',
+      'N/A',
+      // A tracked .env.local behind a bullet must not pass as "no secret files".
+      chatList,
+    ]) {
       const verdict = verifyPaste(check, summary);
       expect(verdict.passed, summary).toBe(false);
       expect(verdict.message, summary).toContain("doesn't look like git ls-files output");
