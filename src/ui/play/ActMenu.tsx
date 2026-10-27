@@ -70,7 +70,11 @@ function PlayRow({
 }
 
 /** An Act's free-play sandbox: open it and try things, with nothing graded. */
-function FreePlayRow({ steps, notice }: NonNullable<ActContent['freePlay']>) {
+function FreePlayRow({
+  actNumber,
+  steps,
+  notice,
+}: NonNullable<ActContent['freePlay']> & { actNumber: number }) {
   return (
     <li>
       <span>
@@ -81,7 +85,7 @@ function FreePlayRow({ steps, notice }: NonNullable<ActContent['freePlay']>) {
         type="button"
         className="play-button"
         onClick={() => {
-          startFreePlay(steps, notice);
+          startFreePlay(actNumber, steps, notice);
         }}
       >
         Open
@@ -286,7 +290,7 @@ export function ActMenu({ act: number }: { act: number }) {
           );
         })}
         <UpcomingRows act={act} />
-        {content.freePlay ? <FreePlayRow {...content.freePlay} /> : null}
+        {content.freePlay ? <FreePlayRow actNumber={act.act} {...content.freePlay} /> : null}
         {boss ? (
           <BossRow
             actNumber={act.act}

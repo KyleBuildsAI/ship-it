@@ -66,7 +66,7 @@ describe('verifyPaste: mergeCommit', () => {
       '--graph',
     );
     expect(verifyPaste(check, MERGE_GRAPH.replace('feat/tide-chart', 'tides')).message).toContain(
-      'feat/readme-fix',
+      'like docs/readme-fix',
     );
     expect(verifyPaste(check, MERGE_GRAPH.replace('feat: add', 'added')).message).toContain(
       'Conventional',
@@ -166,6 +166,47 @@ describe('verifyPaste', () => {
     const leaked = verifyPaste(check, 'src/app.ts\n.env\n');
     expect(leaked.passed).toBe(false);
     expect(leaked.message).toContain('.env');
+    // Untracking alone leaves a pushed key usable, so the general advice says to change it,
+    // and says so before the untrack step, in the order the player does them.
+    expect(leaked.message).toContain('change every key in it first');
+    expect(leaked.message.indexOf('change every key')).toBeLessThan(
+      leaked.message.indexOf('git rm --cached'),
+    );
+    const status = { ...check, parser: 'status-short', command: 'git status --short' } as const;
+    expect(verifyPaste(status, 'A  .env\n').message).toContain('change every key in it first');
+  });
+
+  it('refuses a summary or another command’s output in place of a git ls-files list', () => {
+    const check = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'noTrackedSecrets' },
+    });
+    const chatList = '- README.md\n- src/app.ts\n- .env.local';
+    for (const summary of [
+      'all clean',
+      'hello',
+      'No .env here',
+      '## main...origin/main',
+      '"No .env tracked."',
+      'N/A',
+      // A tracked .env.local behind a bullet must not pass as "no secret files".
+      chatList,
+    ]) {
+      const verdict = verifyPaste(check, summary);
+      expect(verdict.passed, summary).toBe(false);
+      expect(verdict.message, summary).toContain("doesn't look like git ls-files output");
+      expect(verdict.message, summary).toContain('Run git ls-files');
+    }
+    // Real names with spaces still pass, printed bare or quoted by git.
+    const real = ['docs/Meeting notes.md', '"caf\\303\\251 menu.md"', 'src/app.ts'];
+    expect(verifyPaste(check, real.join('\n'))).toEqual({
+      passed: true,
+      message: 'No secret files are tracked.',
+    });
+    expect(verifyPaste(check, [...real, '.env'].join('\n')).message).toContain(
+      'Still tracked: .env',
+    );
   });
 
   it('passes a tracked path only when it is on the list, and never beside a secret', () => {
@@ -305,6 +346,24 @@ describe('verifyPaste', () => {
     });
     expect(verifyPaste(check, 'a1b2c3d docs: document GET /health (#4)\n').passed).toBe(true);
     expect(verifyPaste(check, LOG).message).toContain('feat: add tide charts');
+  });
+
+  it('shows a commit-type check’s own example, and none when it has none', () => {
+    const plain = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 origin/main -- README.md',
+      check: { kind: 'newestCommitType', type: 'docs' },
+    });
+    expect(verifyPaste(plain, '9f3e2a1 feat: add health endpoint').message).toBe(
+      'The newest is "feat: add health endpoint". It should start with docs:. Merged on GitHub? Pull first.',
+    );
+    const own = verification({
+      ...plain,
+      check: { kind: 'newestCommitType', type: 'docs', example: 'docs: document GET /health' },
+    });
+    expect(verifyPaste(own, '9f3e2a1 feat: add health endpoint').message).toContain(
+      'like "docs: document GET /health"',
+    );
   });
 
   it('finds a documented request and its status code in a Select-String paste', () => {
@@ -511,6 +570,41 @@ describe('verifyPaste: scoped clean, tracked files and headings', () => {
     expect(verifyPaste(check, '').message).toBe('Paste the output of git log --oneline -3 first.');
     // Only the copied prompt, and no output: still nothing to check.
     expect(verifyPaste(check, 'PS C:\\repo> git log --oneline -3').message).toContain('Paste');
+  });
+
+  it('names the file after --, not the branch before it, when a scoped log prints nothing', () => {
+    const remote = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml',
+      check: { kind: 'conventionalRatio', min: 1, last: 1 },
+    });
+    const verdict = verifyPaste(remote, '');
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toBe(
+      'No line means origin/main has no commit that touched .github/workflows/gitleaks.yml yet. Merge it through a pull request, run git fetch, then run this again.',
+    );
+    const local = { ...remote, command: 'git log --oneline -1 -- docs/story.md' };
+    expect(verifyPaste(local, '').message).toBe(
+      'No line means no commit has touched docs/story.md yet. Ask your agent to commit it, then run it again.',
+    );
+  });
+
+  it('says to switch to main and pull when git can’t find the logged file', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 docs/story.md',
+      check: { kind: 'conventionalRatio', min: 1, last: 1 },
+    });
+    const paste = [
+      'PS C:\\SandCastles> git log --oneline -1 docs/story.md',
+      "fatal: ambiguous argument 'docs/story.md': unknown revision or path not in the working tree.",
+      "Use '--' to separate paths from revisions, like this:",
+    ].join('\r\n');
+    expect(verifyPaste(check, paste)).toEqual({
+      passed: false,
+      message:
+        "Git can't find docs/story.md here, so it isn't on this branch yet. Run git switch main and git pull, then run git log --oneline -1 docs/story.md again.",
+    });
   });
 
   it('refuses a Select-String paste checked against the wrong kind of check', () => {

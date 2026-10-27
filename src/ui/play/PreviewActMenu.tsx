@@ -24,7 +24,8 @@ const TRYOUTS: Readonly<Record<Tryout, { label: string; hint: string; open: () =
     label: 'Laptop sandbox',
     hint: 'Type PowerShell on the Windows laptop Act 1 runs on. Nothing is graded.',
     open: () => {
-      startFreePlay(LAPTOP_SANDBOX, LAPTOP_NOTICE);
+      // The laptop is Act 1's, whichever Act's preview offers it, so it opens on Act 1's island.
+      startFreePlay(1, LAPTOP_SANDBOX, LAPTOP_NOTICE);
     },
   },
 };

@@ -193,7 +193,7 @@ export const everyTerminal: MissionInput = {
               id: 'stale',
               text: 'No: its PATH copy is older than the install',
               truth: { kind: 'all', of: [not(NODE_ON_PATH), NODE_INSTALLED] },
-              feedback: 'Read the PATH Otto printed: no nodejs. It was copied before the install.',
+              feedback: "Show Otto's PATH: no nodejs. It was copied before the install.",
             },
           ],
         },

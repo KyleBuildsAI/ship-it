@@ -1,3 +1,4 @@
+import { evidenceOf, type EvidenceEntry } from '../agent/evidence';
 import {
   feedAction,
   feedOutcome,
@@ -12,6 +13,7 @@ import { showInTerminal } from '../agent/terminalFeed';
 import { MissionRunError } from '../missions/runner';
 import type { JudgmentDrill } from '../missions/schema';
 import { sandbox } from '../sandbox';
+import { createStore } from '../store';
 import { recordAction } from './sandboxControl';
 
 /*
@@ -21,8 +23,25 @@ import { recordAction } from './sandboxControl';
  * when the scene ends; missionPlay.ts and seriesPlay.ts start it.
  *
  * Like Otto's playback in agentPlay.ts, the scene's progress changes every drawn frame and
- * no panel draws it, so it lives here rather than in the play store.
+ * no panel draws it, so it lives here rather than in the play store. What each line showed
+ * does reach a panel: the terminal is put away during drills, so the drill card shows it.
  */
+
+/** What a drill's scene has shown so far: each line Otto ran, with its prompt and output. */
+export interface SceneEvidence {
+  /** The drill the lines belong to, so a card never shows another drill's scene. */
+  readonly drillId: string | null;
+  readonly entries: readonly EvidenceEntry[];
+}
+
+/** One empty list, so clearing what is already clear doesn't wake the panels. */
+const NO_ENTRIES: readonly EvidenceEntry[] = [];
+
+/**
+ * The scene's lines for the drill card. It outlives the scene, which ends as the question
+ * shows: the question is about those lines. The next drill, or leaving, clears it.
+ */
+export const sceneEvidence = createStore<SceneEvidence>({ drillId: null, entries: NO_ENTRIES });
 
 /** How many times faster than Otto's own pace a scene plays (spec 1.2). */
 export const SCENE_SPEED = 3;
@@ -55,6 +74,7 @@ const MAX_TURNS = 100;
  * up. Returns false when there is nothing to play, so the clock can start straight away.
  */
 export function beginScene(drill: JudgmentDrill): boolean {
+  sceneEvidence.update({ drillId: drill.id, entries: NO_ENTRIES });
   if (drill.history.length === 0) {
     scene = null;
     return false;
@@ -147,9 +167,15 @@ function typeOut(playing: Scene, action: LoggedAction): void {
   playing.beats = fed.beats;
 }
 
-/** Runs an action whose typing has shown, then queues its Enter, output and result. */
+/**
+ * Runs an action whose typing has shown, then queues its Enter, output and result. The
+ * drill card gets the whole action at once: its typing has already played.
+ */
 function driveTyped(playing: Scene, action: LoggedAction): void {
   const step = recordAction(action);
+  const onLaptop = sandbox.get().shell.ws.machine !== null;
+  const { entries } = sceneEvidence.get();
+  sceneEvidence.update({ entries: [...entries, evidenceOf(action, step, onLaptop)] });
   // A line that asks gets Otto's answer next, as it did when he really ran it.
   const asked = playing.history[playing.index - 1];
   if (action.do !== 'answer' && step.asking && asked?.do === 'run' && asked.answer !== undefined) {
@@ -175,7 +201,8 @@ function nextAction(playing: Scene): LoggedAction | null {
   return driverAction(line);
 }
 
-/** Drops whatever scene was playing, so a later frame plays nothing. */
+/** Drops whatever scene was playing, so a later frame plays nothing, and what it showed. */
 export function endScene(): void {
   scene = null;
+  sceneEvidence.update({ drillId: null, entries: NO_ENTRIES });
 }

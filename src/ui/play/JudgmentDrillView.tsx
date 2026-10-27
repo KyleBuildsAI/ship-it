@@ -3,9 +3,11 @@ import type { BaseAction } from '../../game/missions/agentSchema';
 import { shuffleFor, type JudgmentAnswer } from '../../game/missions/judgment';
 import type { JudgmentDrill } from '../../game/missions/schema';
 import type { DrillResult } from '../../game/play/playStore';
+import { sceneEvidence } from '../../game/play/scenePlay';
 import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
 import { OttoBubble } from './agent/OttoBubble';
+import { TerminalEvidence } from './agent/TerminalEvidence';
 import { useArmed } from './agent/useArmed';
 import { actionText, attemptsBefore } from './judgmentText';
 
@@ -13,7 +15,12 @@ import { actionText, attemptsBefore } from './judgmentText';
  * A judgment drill on screen (docs/act1-directed.md section 2): Kyle reads what Otto did
  * or is about to do, then picks an option or allows or denies. Nothing is typed, and
  * nothing on the card hints at the answer: the engine works the key out after he answers.
+ * The terminal stays put away for drills, so the lines Otto already ran (the drill's
+ * scene) show on the card, with what they printed.
  */
+
+/** What the scene showed, as Otto's lines: the caption both views give it. */
+const SCENE_CAPTION = 'What Otto ran';
 
 /** The clock and a bar that empties with it, so the time left reads at a glance. */
 function Timer({ secondsLeft, limit }: { secondsLeft: number; limit: number }) {
@@ -119,6 +126,7 @@ export function JudgmentDrillView({
 }) {
   const armed = useArmed();
   const { save } = useStore(progress);
+  const scene = useStore(sceneEvidence);
   const attempt = attemptsBefore(save?.drillHistory ?? [], drill.id);
   const pick = (optionId: string) => {
     onAnswer({ kind: 'pick', optionId });
@@ -128,6 +136,9 @@ export function JudgmentDrillView({
       <p className="play-panel__eyebrow">{eyebrow}</p>
       <Timer secondsLeft={secondsLeft} limit={drill.timeLimitSeconds} />
       <p className="play-panel__instruction">{drill.prompt}</p>
+      {scene.drillId === drill.id ? (
+        <TerminalEvidence entries={scene.entries} caption={SCENE_CAPTION} by="otto" />
+      ) : null}
       {drill.kind === 'predict' || drill.kind === 'approve' ? (
         <OttoAction action={drill.action} />
       ) : null}
@@ -154,14 +165,17 @@ export function JudgmentDrillView({
 }
 
 /**
- * While a drill's scene plays, Otto runs what he already did in the terminal. The question
- * waits until he stops, and so does the clock, so watching never costs Kyle time.
+ * While a drill's scene plays, Otto runs what he already did, and each line shows here with
+ * its output as it runs. The question waits until he stops, and so does the clock, so
+ * watching never costs Kyle time.
  */
 export function ScenePlaying({ label }: { label: string }) {
+  const { entries } = useStore(sceneEvidence);
   return (
     <div className="judgment">
       <p className="play-panel__eyebrow">{label}</p>
-      <OttoBubble line="Here's what I did. Watch the terminal." mood="typing" flash={0} />
+      <OttoBubble line="Here's what I did:" mood="typing" flash={0} />
+      <TerminalEvidence entries={entries} caption={SCENE_CAPTION} by="otto" />
       <p className="play-panel__muted">The clock starts when Otto stops.</p>
     </div>
   );

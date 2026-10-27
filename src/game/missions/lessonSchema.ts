@@ -51,6 +51,7 @@ export const ARTIFACT_KINDS = [
   'diff',
   'log',
   'terminal',
+  'issue',
   'pull-request',
   'agent-message',
   'code',

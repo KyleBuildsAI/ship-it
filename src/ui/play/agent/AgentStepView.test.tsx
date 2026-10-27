@@ -69,7 +69,7 @@ function shown(
   run: Partial<OttoRun> = {},
   extra: Partial<MissionActivity> = {},
 ): string {
-  ottoRun.update({ rows: [], last: null, ...run });
+  ottoRun.update({ rows: [], last: null, looks: [], ...run });
   const markup = renderToStaticMarkup(
     <AgentStepView
       activity={{ ...activity(agent), ...extra }}
@@ -82,11 +82,12 @@ function shown(
     .replace(/<button[^>]*>/g, '[')
     .replace(/<\/button>/g, ']')
     .replace(/<[^>]+>/g, '')
-    .replaceAll('&#x27;', "'");
+    .replaceAll('&#x27;', "'")
+    .replaceAll('&gt;', '>');
 }
 
 afterEach(() => {
-  ottoRun.update({ rows: [], last: null });
+  ottoRun.update({ rows: [], last: null, looks: [] });
 });
 
 describe('the directing panel', () => {
@@ -216,6 +217,29 @@ describe('the directing panel', () => {
         'Look before you answer:[List home]' +
         '[Only in the API folder][In C:\\Users\\kyle, where fresh terminals start][In both places]',
     );
+  });
+
+  it('shows what each look printed under the chips, since the terminal is put away', () => {
+    const checking: AgentStepState = { ...start, stage: { at: 'check', planId: 'bare-name' } };
+    const listing = {
+      tab: 1,
+      prompt: 'PS C:\\Users\\kyle> ',
+      typed: 'Get-ChildItem C:\\Users\\kyle',
+      words: null,
+      lines: [
+        { text: '    Directory: C:\\Users\\kyle', tone: 'plain' },
+        { text: 'd----  notes', tone: 'plain' },
+      ],
+    } as const;
+    const text = shown(checking, 0, { looks: [listing] });
+    expect(text).toContain(
+      '[List home]What your looks printed' +
+        'PS C:\\Users\\kyle> Get-ChildItem C:\\Users\\kyle\n' +
+        '    Directory: C:\\Users\\kyle\n' +
+        'd----  notes\n',
+    );
+    // The answers still follow, under the evidence.
+    expect(text).toContain('d----  notes\n[Only in the API folder]');
   });
 
   it("asks for Kyle's own part first, and opens the answers once it's done", () => {

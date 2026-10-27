@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
+import { drive } from '../../engine/shell/driver';
 import { describeChanges } from '../../game/agent/effects';
-import { dryRun } from '../../game/agent/replay';
+import { dryRun, replay } from '../../game/agent/replay';
 import {
   answerCheck,
   beginAgentStep,
@@ -228,6 +229,21 @@ describe('The Ignore List, directed', () => {
     expect(played.gates).toEqual([]);
     const head = queriesOf(played.log).fileAt('HEAD', 'dist/app.js');
     expect(head).not.toBeNull();
+  });
+
+  it("prints the committed .env.example at the last check, so each answer's proof is on screen", () => {
+    const looked = (planId: string): string[] => {
+      const begun = { log: canonicalStart(mission, 2), state: beginAgentStep(commitCleanup) };
+      const played = playCard(mission, commitCleanup, begun, planId, 'allow-all');
+      const { shell } = replay(played.log, testDeps());
+      const look = commitCleanup.agent?.looks.find((candidate) => candidate.id === 'example');
+      if (look === undefined) throw new Error('Step 3 has no look at the committed example.');
+      return drive(shell, { do: 'run', line: look.line }).lines.map((line) => line.text);
+    };
+    // The names option's feedback quotes exactly this.
+    expect(looked('names-only')).toEqual(['API_KEY=', 'DATABASE_URL=']);
+    expect(looked('copy-env')).toContain('API_KEY=dev-only');
+    expect(looked('add-all').join('\n')).toContain("does not exist in 'HEAD'");
   });
 
   it('ends the reference path with .env on disk, out of the Vault, and the names shared', () => {

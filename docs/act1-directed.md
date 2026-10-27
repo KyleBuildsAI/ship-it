@@ -171,7 +171,7 @@ Layout, unchanged in frame:
 | **2. Run** | Otto's bubble. The terminal types each line. The world animates. **Stop** (between lines). | Watches and reads. Stop returns to Direct with the plan marked as tried. A line or file edit that fails, when the content didn't mark it `fails`, stops Otto the same way: like a real agent, he reads the error instead of running on and claiming success. | Otto lines ≤ 12 |
 | · **Predict** (only lines with `predict`) | The line sits at the prompt, not yet run. "Before Otto runs it: where will notes land?" 2-4 options. | Picks. Then a ghost shows what will happen for 1.5 s and the line runs. The prediction is graded after it runs. | question + options ≤ 40 |
 | · **Gate** (lines that pause, D6) | "Otto wants to run:" the command, Otto's `say`, the **worked-out effects** (up to 3 lines), a diff for `write`, and the blast radius in the world. [Allow] [Deny]. For Confirm: PowerShell's question and "Otto will answer A". | Allow or deny. Deny runs `onDeny` (Otto corrects himself), or stops for new directions. Denying a safe line makes Otto ask "I need this to finish: <effect>. Run it?" | say ≤ 12 |
-| **3. Check** | Otto's claim ("Done: notes is in the API project."). One question with 2-4 options. Up to 3 **look** chips ("Where is Otto?"). The terminal and world stay live. | Runs looks (read-only, printed in the terminal), reads the evidence, picks an option. | claim + question + options + look labels ≤ 60 |
+| **3. Check** | Otto's claim ("Done: notes is in the API project."). One question with 2-4 options. Up to 3 **look** chips ("Where is Otto?"). The terminal and world stay live. | Runs looks (read-only, printed under the chips and in the terminal), reads the evidence, picks an option. | claim + question + options + look labels ≤ 60 |
 | **4. Result** | Verdict banner. The checklist (`explain(all(success, guards))`, hidden until now). The chosen card's **anatomy chips** (goal · place · limits · check, the covered ones lit). The slip name. One line of text: on a miss or false alarm, the `feedback` of the option that is true (each option's feedback is the evidence that it holds, so the picked, false one would only restate the mistake), otherwise, or when no option holds, the plan's `lesson`. Stars. | [Next step], or [Direct a fix] and [Rewind step] | feedback and lesson ≤ 25; checklist labels ≤ 8 each |
 
 A **fix round** looks like Direct:
@@ -211,7 +211,7 @@ A **fix round** looks like Direct:
 ### 1.5 Look chips
 
 - `agent.looks` holds up to 3 labelled read-only lines, for example "Where is Otto?" `Get-Location`.
-- They run through the driver in the active tab and print to the terminal.
+- They run through the driver in the active tab and print to the terminal. The terminal is usually put away, so the check card also shows each look's line, after its prompt, and its output under the chips (`ottoRun.looks`, cleared when Otto starts a plan or the step rewinds).
 - `agent.test.ts` proves each look emits no events, leaves the machine snapshot unchanged, and prints no secret.
 - In free play and the Check stage, clicking a world tile offers "List this folder" as a look (B13).
 - Drills never have looks.
@@ -260,13 +260,14 @@ These keep today's drill rules:
 
 ### 2.2 How a drill plays
 
-1. `loadSandbox(drill.setup)`. The world shows the laptop. The drill's `history` (lines Otto already ran) plays through the driver into the terminal at 3× speed (instantly under reduced motion). The world animates each line once its typing has shown, as in section 4, so it never runs ahead of the terminal.
+1. `loadSandbox(drill.setup)`. The world shows the laptop. The drill's `history` (lines Otto already ran) plays through the driver into the terminal at 3× speed (instantly under reduced motion). The terminal is put away during drills, so each line also shows on the drill card with its prompt and output as it runs (Otto says "Here's what I did:"), and stays there beside the question (`sceneEvidence` in `scenePlay.ts`). The world animates each line once its typing has shown, as in section 4, so it never runs ahead of the terminal.
 2. The question card appears. **The clock starts only now**: `startDrill(…, nowMs)` is called once the scene ends.
 3. Kyle answers, or time runs out.
 4. **Reveal.**
    - predict, fix, order and spot run on the live sandbox, so the world animates what really happens.
    - An allowed `approve` runs for real. A denied one shows the ghost it would have caused.
    - A Right or Missed banner, then the drill's `explain` (≤ 30 words).
+   - Not in a placement test, which is locked: it says only "Answer locked in" (or "Out of time") and gives the score at the end (DESIGN.md section 5, Act-level).
 5. Options are shuffled by `shuffleFor(drillId, attempt)`, where `attempt` is the number of `drillHistory` entries for that id. Each attempt gets a fresh random order (which can match the last one by chance), so over a few reviews remembering positions stops working.
 
 ### 2.3 Review queue and placement

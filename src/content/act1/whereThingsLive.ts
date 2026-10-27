@@ -57,7 +57,7 @@ export const whereThingsLive: MissionInput = {
         "The API lives under your home folder. Get Otto's terminal standing in its folder.",
       success: { ...standsIn(API), label: 'The terminal stands in the API' },
       hints: [
-        'Read the prompt. Which folder does the terminal stand in right now?',
+        "Find Otto's PS 1 lantern on the island. Which folder does it stand on right now?",
         'A bare name like api starts in that folder. A full path works from anywhere.',
         'Pick the card with the full path C:\\Users\\kyle\\quillwork\\api.',
       ],
@@ -193,7 +193,7 @@ export const whereThingsLive: MissionInput = {
             ],
             claim: 'Done: notes is in the API project.',
             lesson:
-              'A fresh terminal stands at home, so notes landed in C:\\Users\\kyle. The Directory line said so.',
+              'A fresh terminal stands at home, so notes landed in C:\\Users\\kyle. List home shows it.',
             slip: 'wrong-place',
           },
           {
@@ -255,19 +255,19 @@ export const whereThingsLive: MissionInput = {
               id: 'api',
               text: 'Only in the API folder',
               truth: { kind: 'all', of: [apiNotes, missing(homeNotes)] },
-              feedback: 'The Directory line shows the API folder.',
+              feedback: 'List home shows no notes, and the island shows them in the API.',
             },
             {
               id: 'home',
               text: 'In C:\\Users\\kyle, where fresh terminals start',
               truth: { kind: 'all', of: [homeNotes, missing(apiNotes)] },
-              feedback: 'Read the Directory line above the table: it says where mkdir put it.',
+              feedback: 'List home, then find the API on the island: they show where mkdir put it.',
             },
             {
               id: 'both',
               text: 'In both places',
               truth: { kind: 'all', of: [apiNotes, homeNotes] },
-              feedback: 'Two Directory lines, two folders. List home to see the stray one.',
+              feedback: 'List home to see the stray notes. The island shows the API has one too.',
             },
           ],
         },
@@ -351,13 +351,13 @@ export const whereThingsLive: MissionInput = {
               id: 'next-door',
               text: 'Next door, in quillwork\\web\\notes',
               truth: { kind: 'all', of: [webNotes, missing(apiWeb)] },
-              feedback: 'The listing of ..\\web shows notes.',
+              feedback: 'List the web app shows its notes folder.',
             },
             {
               id: 'inside',
               text: 'Inside the API, in api\\web\\notes',
               truth: { kind: 'all', of: [apiWeb, missing(webNotes)] },
-              feedback: 'The Directory line names the API: a bare web\\notes started there.',
+              feedback: 'List the API shows a web folder in it: a bare web\\notes started there.',
             },
             {
               id: 'both',
@@ -462,7 +462,7 @@ export const whereThingsLive: MissionInput = {
               id: 'api-and-web',
               text: 'PS 1 in the API, and a terminal in web',
               truth: { kind: 'all', of: [standsIn(API, 1), standsIn(WEB, 'any')] },
-              feedback: 'Each tab has its own folder. The tab strip shows both.',
+              feedback: 'Each tab has its own folder. The island has a PS lantern on each.',
             },
             {
               id: 'api-and-home',

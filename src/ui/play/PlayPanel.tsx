@@ -10,7 +10,7 @@ import { BossView } from './BossView';
 import { FieldView } from './FieldView';
 import { LessonView } from './LessonView';
 import { MissionView } from './MissionView';
-import { panelClassName } from './panelLayout';
+import { panelClassName, panelScrollKey } from './panelLayout';
 import { SeriesView } from './SeriesView';
 import { useOttoFrames } from './useOttoFrames';
 
@@ -67,10 +67,8 @@ export function PlayPanel() {
     };
   }, [visible]);
 
-  // The menu and every activity share this one scroll box, so a new view would otherwise
-  // open wherever the last one was scrolled: a boss fight opened from a scrolled Act menu
-  // hid its own title and clock. A new Dex message goes back to the top too, where it shows.
-  const scrollKey = activity?.kind === 'boss' ? `boss:${String(activity.messages.length)}` : kind;
+  // A new view opens at the top, whatever the last one was scrolled to (panelScrollKey).
+  const scrollKey = panelScrollKey(activity);
   useLayoutEffect(() => {
     if (panel.current) panel.current.scrollTop = 0;
   }, [scrollKey]);

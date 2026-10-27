@@ -127,9 +127,24 @@ describe('Act 8 Field Mission: Tell the SandCastles Story', () => {
   it('never asks for a GitHub token or API key, and runs in plain PowerShell', () => {
     expect(fieldText()).not.toMatch(/token|api key|ghp_/i);
     for (const check of field.verifications) {
-      // Windows PowerShell can drop a bare `--`, so no command depends on one.
-      expect(check.command.split(' '), check.id).not.toContain('--');
+      expect(check.command, check.id).toMatch(/^git /);
+      // PowerShell has no grep, head or tail; Select-String does that job.
+      expect(check.command, check.id).not.toMatch(/\|\s*(grep|head|tail)\b/);
     }
+  });
+
+  it('logs the story with --, so a story not on this branch prints nothing, not an error', () => {
+    // Without --, git stops with "ambiguous argument" when docs/story.md isn't in the folder.
+    expect(verification('story-committed').command).toBe(`git log --oneline -1 -- ${STORY_PATH}`);
+    const notPulled = [
+      "fatal: ambiguous argument 'docs/story.md': unknown revision or path not in the working tree.",
+      "Use '--' to separate paths from revisions, like this:",
+      "'git <command> [<revision>...] -- [<file>...]'",
+    ].join('\n');
+    const verdict = verifyPaste(verification('story-committed'), notPulled);
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain("Git can't find docs/story.md here");
+    expect(verdict.message).toContain('git switch main and git pull');
   });
 
   it('passes when the story is committed with a Conventional message', () => {
@@ -152,9 +167,10 @@ describe('Act 8 Field Mission: Tell the SandCastles Story', () => {
     expect(verifyPaste(check, 'a1b2c3d update files').passed).toBe(false);
   });
 
-  it('says what an empty log means: nothing has committed the story yet', () => {
+  it('says what an empty log means: nothing on this branch has committed the story yet', () => {
     const verdict = verifyPaste(verification('story-committed'), '');
-    expect(verdict.message).toContain('no commit has touched docs/story.md');
+    expect(verdict.message).toContain('no commit on this branch has touched docs/story.md');
+    expect(verdict.message).toContain('git switch main and git pull');
     expect(verification('story-committed').instruction).toContain('Any Conventional message');
   });
 

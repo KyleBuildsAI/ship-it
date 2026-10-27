@@ -39,7 +39,9 @@ export const landARealBranch = {
     },
     {
       id: 'brief-branch',
-      text: 'Tell your agent: "Create a branch named feat/ plus a short name, make this change on it, and commit it with a Conventional Commit message. Don\'t touch main."',
+      text: 'Tell your agent to make the change on its own branch, named for the kind of change: docs/ for a README fix, feat/ for a feature.',
+      prompt:
+        "Create a branch named for the kind of change, like docs/readme-fix, make this change on it, and commit it with a Conventional Commit message. Don't touch main.",
     },
     {
       id: 'check-branch',
@@ -47,7 +49,9 @@ export const landARealBranch = {
     },
     {
       id: 'brief-pr',
-      text: 'Tell it: "Push the branch and open a pull request with gh pr create, then stop. Don\'t merge it." Main only changes through a reviewed pull request, never an agent\'s own merge.',
+      text: "Then tell it to push the branch, open a pull request and stop there. Main only changes through a reviewed pull request, never an agent's own merge.",
+      prompt:
+        "Push the branch and open a pull request with gh pr create, then stop. Don't merge it.",
     },
     {
       id: 'review-merge',
