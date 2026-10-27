@@ -21,9 +21,11 @@ import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
 import { closeTerminal, hud } from '../hud';
 import { createDefaultSave } from '../save/schema';
+import { worldState } from '../worldState';
 import { bossTick, bossSandboxChanged, startBossFight } from './bossPlay';
 import { setCatalog } from './catalog';
 import { startFieldMission } from './fieldPlay';
+import { startFreePlay } from './freePlay';
 import {
   askForHint,
   endBriefing,
@@ -345,6 +347,28 @@ describe('the placement attempt', () => {
     startPlacement(sampleAct.act);
     passPlacement();
     expect(progress.get().save?.acts['2']?.placement.attempts).toBe(1);
+  });
+});
+
+describe("travelling to the Act's island", () => {
+  beforeEach(() => {
+    worldState.update({ zone: 'campus', destination: null });
+  });
+
+  it('takes a drill placement test there, since its scenes play on the island', () => {
+    startPlacement(sampleAct.act);
+    expect(worldState.get().destination).toBe('gitworld');
+  });
+
+  it("opens the Laptop sandbox on Act 1's island, where the laptop's terraces are", () => {
+    startFreePlay(1, [], 'A laptop.');
+    expect(worldState.get().destination).toBe('machine');
+  });
+
+  it('leaves a Standup Board review where the player is, since it mixes every Act', () => {
+    startReview(NOW);
+    expect(series().kind).toBe('review');
+    expect(worldState.get().destination).toBeNull();
   });
 });
 
