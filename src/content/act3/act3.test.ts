@@ -4,6 +4,7 @@ import {
   LessonSchema,
   isPickCard,
   type Lesson,
+  type LessonCard,
 } from '../../game/missions/lessonSchema';
 import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
@@ -23,6 +24,18 @@ const final = lessons.at(-1);
 
 function countKind(lesson: Lesson, kind: Lesson['cards'][number]['kind']): number {
   return lesson.cards.filter((card) => card.kind === kind).length;
+}
+
+/** Every piece of text a card puts on screen, for the checks that read all of it. */
+function cardTexts(card: LessonCard): string[] {
+  const parts = [card.situation, card.question, card.explanation];
+  if (card.artifact) parts.push(card.artifact.text);
+  if (isPickCard(card)) {
+    parts.push(...card.options.flatMap((option) => [option.text, option.feedback]));
+  } else {
+    parts.push(...card.steps.map((step) => step.text));
+  }
+  return parts;
 }
 
 describe('Act 3: Branching', () => {
@@ -121,6 +134,15 @@ describe('Act 3: Branching', () => {
       }
     }
     expect(rightIsLongest / pickCards.length).toBeLessThanOrEqual(0.5);
+  });
+
+  it('never says a pull request merges as a fast-forward', () => {
+    // Quillwork is on GitHub, and none of GitHub's merge buttons fast-forward: even
+    // Rebase and merge writes new commits. Only a local git merge can.
+    const prFastForward = /\b(?:PRs?|pull requests?)\b[^.:]*\bfast-forward/i;
+    for (const card of lessons.flatMap((lesson) => lesson.cards)) {
+      for (const text of cardTexts(card)) expect(text, card.id).not.toMatch(prFastForward);
+    }
   });
 
   it('keeps artifacts short and labelled', () => {

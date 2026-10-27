@@ -36,9 +36,10 @@ export const branchesArePointers = {
         },
         {
           id: 'seniority',
-          text: 'Only senior engineers may commit.',
+          text: 'Only senior engineers may commit to main. Otto should have handed the change to one of them.',
           correct: false,
-          feedback: 'Who commits isn’t the point. Where it lands is: main holds finished work.',
+          feedback:
+            'Who commits isn’t the point. Where it lands is: main holds finished work, whoever wrote it.',
         },
         {
           id: 'dex-skips',
@@ -309,7 +310,7 @@ export const branchesArePointers = {
       options: [
         {
           id: 'live',
-          text: 'The export is on main, so it’s live.',
+          text: 'The export is on main, so it’s live: Dex shipped it to customers on the last deploy.',
           correct: false,
           feedback: 'Main’s newest commit is the typo fix. The export commits aren’t there.',
         },

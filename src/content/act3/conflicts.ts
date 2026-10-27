@@ -34,7 +34,7 @@ export const conflictsWithoutPanic = {
       options: [
         {
           id: 'corrupt',
-          text: 'autosave.ts is corrupted.',
+          text: 'autosave.ts was corrupted by the merge, so git stopped before it could damage main.',
           correct: false,
           feedback: 'Nothing is broken. Git wrote both versions into the file so you can choose.',
         },
@@ -290,7 +290,7 @@ export const conflictsWithoutPanic = {
       options: [
         {
           id: 'lock',
-          text: 'Only one person may edit each file.',
+          text: 'Give each file one owner, and only that person may edit it, so no two branches touch the same lines.',
           correct: false,
           feedback: 'It blocks the team and doesn’t scale.',
         },

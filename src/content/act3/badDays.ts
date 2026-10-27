@@ -191,9 +191,10 @@ export const toolsForBadDays = {
         },
         {
           id: 'commit',
-          text: 'An empty commit with the message “v2.4”.',
+          text: 'An empty commit on main with the message “v2.4”, so the release stands out in the log.',
           correct: false,
-          feedback: 'The next commit buries it. A tag stays attached to one commit.',
+          feedback:
+            'It stands out only until the next commits bury it. A tag stays attached to one commit.',
         },
         {
           id: 'tag',

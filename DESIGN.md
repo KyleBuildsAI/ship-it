@@ -260,7 +260,7 @@ Final (the boss): **"The Dirty Tree"** (`src/content/act2/dirtyTreeFinal.ts`), 7
 Pointers, switch, merge (fast-forward and three-way), conflicts, rebase vs merge, cherry-pick, stash, tags, bisect.
 Every card happens at Quillwork with Otto and the team, and each lesson has at least two cards asking what to tell Otto and one order card. Content lives in `src/content/act3/`, one file per lesson.
 - 3.1 **Branches Are Pointers**: why main stays deployable, a branch as a tiny file holding a commit id, HEAD, briefing Otto to branch, a switch git refuses, switching safely, cleaning up merged branches, committed versus merged
-- 3.2 **Two Ways to Merge**: fast-forward versus three-way, briefing `--ff-only`, why a rebase changes commit ids, which branches are safe to rebase, `--force-with-lease`, update-then-merge, merge versus rebase
+- 3.2 **Two Ways to Merge**: fast-forward versus three-way, briefing a straight-line merge through the PR (not `--ff-only` on main), why a rebase changes commit ids, which branches are safe to rebase, `--force-with-lease`, update-then-merge, merge versus rebase
 - 3.3 **Conflicts Without Panic**: why git stops, reading markers, resolving by intent, directing Otto through 14 conflicts, catching markers he left in, the resolve steps, `merge --abort`, short-lived branches
 - 3.4 **Tools for Bad Days**: cherry-picking one fix (and briefing it), what stash does, stashing for a hotfix, tags for releases, bisect by hand and driven by Otto with a test
 
