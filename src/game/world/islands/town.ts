@@ -6,7 +6,6 @@ import {
   part,
   popIn,
   remember,
-  segment,
   slide,
   type Palette,
   type Props,
@@ -97,10 +96,11 @@ const LAMP_HEIGHT = 1.5;
 const BAR_FRONT = -0.22;
 
 /**
- * A gate halfway along a path, turned to stand across it. Turned by the path's direction
- * alone, not lookAt, which would aim in world space and this island floats far away.
+ * A gate halfway along a path, turned to stand across it, built from the beat's stage
+ * meshes. Turned by the path's direction alone, not lookAt, which would aim in world space
+ * and this island floats far away.
  */
-function gateAcross(from: THREE.Vector3, to: THREE.Vector3, colors: Palette): Gate {
+function gateAcross(stage: Stage, from: THREE.Vector3, to: THREE.Vector3, colors: Palette): Gate {
   const group = new THREE.Group();
   const middle = new THREE.Vector3().lerpVectors(from, to, 0.5);
   group.position.set(middle.x, 0.1, middle.z);
@@ -109,13 +109,13 @@ function gateAcross(from: THREE.Vector3, to: THREE.Vector3, colors: Palette): Ga
   // where it hides nothing, rather than lifting it across the board behind.
   const boom = new THREE.Group();
   boom.position.set(-LAMP_OFFSET, BAR_HEIGHT, BAR_FRONT);
-  const bar = part(GATE_BAR, colors.alert, LAMP_OFFSET, 0, 0);
+  const bar = stage.part(GATE_BAR, colors.alert, LAMP_OFFSET, 0, 0);
   boom.add(bar);
-  const checksLamp = part(LAMP, colors.dark, -LAMP_OFFSET, LAMP_HEIGHT, 0);
-  const approvalLamp = part(LAMP, colors.dark, LAMP_OFFSET, LAMP_HEIGHT, 0);
+  const checksLamp = stage.part(LAMP, colors.dark, -LAMP_OFFSET, LAMP_HEIGHT, 0);
+  const approvalLamp = stage.part(LAMP, colors.dark, LAMP_OFFSET, LAMP_HEIGHT, 0);
   group.add(
-    part(GATE_POST, colors.dark, -LAMP_OFFSET, 0.7, 0),
-    part(GATE_POST, colors.dark, LAMP_OFFSET, 0.7, 0),
+    stage.part(GATE_POST, colors.dark, -LAMP_OFFSET, 0.7, 0),
+    stage.part(GATE_POST, colors.dark, LAMP_OFFSET, 0.7, 0),
     boom,
     checksLamp,
     approvalLamp,
@@ -157,13 +157,12 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
     material: THREE.Material,
     point: THREE.Vector3,
   ) => {
-    const mesh = part(geometry, material, point.x, point.y, point.z);
+    const mesh = stage.part(geometry, material, point.x, point.y, point.z);
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
   const gate = (from: THREE.Vector3, to: THREE.Vector3) => {
-    const built = gateAcross(from, to, colors);
+    const built = gateAcross(stage, from, to, colors);
     stage.add(built.group);
     return built;
   };
@@ -253,13 +252,12 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
       start: () => {
         const request = piece(PR_CARD, colors.light, OTTO_DOOR);
         const top = at(PR_SPOT.x, PR_SPOT.y + 0.3, PR_SPOT.z);
-        const thread = segment(
+        const thread = stage.segment(
           top,
           at(ISSUE_SLOT.x, ISSUE_SLOT.y, ISSUE_SLOT.z + 0.06),
           colors.glow,
         );
         thread.grow(0);
-        stage.add(thread.mesh);
         return run(stage, [], (progress) => {
           popIn(request, phase(progress, 0, 0.15));
           slide(request, OTTO_DOOR, PR_SPOT, phase(progress, 0.1, 0.6), 1.2);
@@ -341,10 +339,10 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
         // up out of that card rather than in from the middle of the pole.
         const mast = new THREE.Group();
         mast.position.set(BOARD_FRONT.x, BOARD_FRONT.y + COMMIT_HEIGHT / 2, BOARD_FRONT.z);
-        mast.add(part(FLAG_POLE, colors.light, 0, FLAG_POLE_HEIGHT / 2, 0));
+        mast.add(stage.part(FLAG_POLE, colors.light, 0, FLAG_POLE_HEIGHT / 2, 0));
         const flagLow = at(0.4, 0.5, 0);
         const flagHigh = at(0.4, FLAG_POLE_HEIGHT - 0.25, 0);
-        const flag = part(FLAG, colors.glow, flagLow.x, flagLow.y, flagLow.z);
+        const flag = stage.part(FLAG, colors.glow, flagLow.x, flagLow.y, flagLow.z);
         mast.add(flag);
         mast.visible = false;
         stage.add(mast);

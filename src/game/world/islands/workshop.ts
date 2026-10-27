@@ -6,7 +6,6 @@ import {
   part,
   popIn,
   remember,
-  segment,
   slide,
   type Palette,
   type Props,
@@ -102,10 +101,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     material: THREE.Material,
     at: THREE.Vector3,
   ) => {
-    const mesh = part(geometry, material, at.x, at.y, at.z);
+    const mesh = stage.part(geometry, material, at.x, at.y, at.z);
     mesh.name = name;
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
 
@@ -119,9 +117,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
   ) => {
     const group = new THREE.Group();
     group.name = name;
-    group.add(part(CARD, paper, 0, 0, 0));
+    group.add(stage.part(CARD, paper, 0, 0, 0));
     const lines = Array.from({ length: lineCount }, (_, index) => {
-      const line = part(CARD_LINE, ink, 0, lineY(index), 0.05);
+      const line = stage.part(CARD_LINE, ink, 0, lineY(index), 0.05);
       group.add(line);
       return line;
     });
@@ -135,8 +133,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
   const gate = () => {
     const group = new THREE.Group();
     group.name = 'gate';
-    const beam = part(GATE_BEAM, colors.base, 0, 2, 0);
-    const posts = [-1, 1].map((side) => part(GATE_POST, colors.base, side, 1, 0));
+    const beam = stage.part(GATE_BEAM, colors.base, 0, 2, 0);
+    const posts = [-1, 1].map((side) => stage.part(GATE_POST, colors.base, side, 1, 0));
     group.add(beam, ...posts);
     group.position.set(GATE_X, 0, GATE_Z);
     group.visible = false;
@@ -242,7 +240,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const pr = card('pr', from, 4);
         // Dark on the light card: a light ring would be lost against the paper, and a
         // glowing pink one blurs into the red line it comes to rest on.
-        const lens = part(LENS, colors.dark, 0, lineY(0), 0.12);
+        const lens = stage.part(LENS, colors.dark, 0, lineY(0), 0.12);
         lens.name = 'lens';
         lens.visible = false;
         pr.group.add(lens);
@@ -410,9 +408,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           .map((to, index) => ({ from: postDegrees[index] ?? to, to }));
         const rails = [0.55, 1.3].flatMap((y) =>
           spans.map(({ from, to }) => {
-            const rail = segment(onFence(from, y), onFence(to, y), colors.glow);
+            const rail = stage.segment(onFence(from, y), onFence(to, y), colors.glow);
             rail.grow(0);
-            stage.add(rail.mesh);
             return rail;
           }),
         );
@@ -422,7 +419,10 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const safe = hidden('safe', SAFE, colors.light, safeAt);
         const key = new THREE.Group();
         key.name = 'key';
-        key.add(part(KEY_RING, colors.glow, 0, 0.42, 0), part(KEY_SHAFT, colors.glow, 0, 0, 0));
+        key.add(
+          stage.part(KEY_RING, colors.glow, 0, 0.42, 0),
+          stage.part(KEY_SHAFT, colors.glow, 0, 0, 0),
+        );
         key.visible = false;
         stage.add(key);
         const keyAbove = new THREE.Vector3(safeAt.x, 1.7, safeAt.z);

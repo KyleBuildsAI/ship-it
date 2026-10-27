@@ -74,15 +74,13 @@ function run(
 
 function act3Beats(stage: Stage, graph: Graph, colors: Palette): Record<BeatId<'act3'>, Beat> {
   const node = (point: THREE.Vector3, material: THREE.Material) => {
-    const mesh = part(NODE, material, point.x, point.y, point.z);
+    const mesh = stage.part(NODE, material, point.x, point.y, point.z);
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
   const path = (from: THREE.Vector3, to: THREE.Vector3, material: THREE.Material = colors.base) => {
-    const stick = segment(from, to, material);
+    const stick = stage.segment(from, to, material);
     stick.grow(0);
-    stage.add(stick.mesh);
     return stick;
   };
 
@@ -126,9 +124,8 @@ function act3Beats(stage: Stage, graph: Graph, colors: Palette): Record<BeatId<'
     'switch-branch': {
       seconds: 2.4,
       start: () => {
-        const head = part(HEAD_RING, colors.light, MAIN_TIP.x, 1.6, MAIN_TIP.z);
+        const head = stage.part(HEAD_RING, colors.light, MAIN_TIP.x, 1.6, MAIN_TIP.z);
         head.rotation.x = Math.PI / 2;
-        stage.add(head);
         const from = at(MAIN_TIP.x, MAIN_TIP.z, 1.6);
         const to = at(HOTFIX_TIP.x, HOTFIX_TIP.z, 1.6);
         return run(stage, [], (progress) => {
@@ -247,7 +244,10 @@ function act3Beats(stage: Stage, graph: Graph, colors: Palette): Record<BeatId<'
       seconds: 1.8,
       start: () => {
         const flag = new THREE.Group();
-        flag.add(part(FLAG_POLE, colors.light, 0, 0.7, 0), part(FLAG, colors.glow, 0.32, 1.2, 0));
+        flag.add(
+          stage.part(FLAG_POLE, colors.light, 0, 0.7, 0),
+          stage.part(FLAG, colors.glow, 0.32, 1.2, 0),
+        );
         flag.position.set(MAIN_TIP.x - 0.5, NODE_Y, MAIN_TIP.z);
         flag.visible = false;
         stage.add(flag);

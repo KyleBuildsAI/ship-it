@@ -115,33 +115,30 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
   // three.js inspector) can find it.
   const signals = () =>
     GATE_Z.map((z, index) => {
-      const signal = part(BULB, colors.dark, 0, LIGHT_Y, z);
+      const signal = stage.part(BULB, colors.dark, 0, LIGHT_Y, z);
       signal.name = `light-${String(index)}`;
       signal.scale.setScalar(1.3);
-      stage.add(signal);
       return signal;
     });
   const crate = (name: string, material: THREE.Material, at = ENTRY) => {
-    const mesh = part(CRATE, material, at.x, at.y, at.z);
+    const mesh = stage.part(CRATE, material, at.x, at.y, at.z);
     mesh.name = name;
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
   const barrier = (gate: number) => {
-    const mesh = part(BARRIER, colors.alert, 0, 0.9, GATE_Z[gate] ?? 0);
+    const mesh = stage.part(BARRIER, colors.alert, 0, 0.9, GATE_Z[gate] ?? 0);
     mesh.name = 'boom';
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
   const key = (name: string, material: THREE.Material, at: THREE.Vector3) => {
     const group = new THREE.Group();
     group.name = name;
     group.add(
-      part(KEY_RING, material, -0.3, 0, 0),
-      part(KEY_SHANK, material, 0.15, 0, 0),
-      part(KEY_TOOTH, material, 0.32, -0.12, 0),
+      stage.part(KEY_RING, material, -0.3, 0, 0),
+      stage.part(KEY_SHANK, material, 0.15, 0, 0),
+      stage.part(KEY_TOOTH, material, 0.32, -0.12, 0),
     );
     group.position.copy(at);
     group.visible = false;
@@ -337,10 +334,9 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const blocks = layers.flatMap((layer, row) =>
           Array.from({ length: layer.count }, (_, index) => {
             const x = 4 + (index - (layer.count - 1) / 2) * 0.6;
-            const block = part(BLOCK, layer.material, x, 0.24 + row * 0.46, 3.2);
+            const block = stage.part(BLOCK, layer.material, x, 0.24 + row * 0.46, 3.2);
             block.name = layer.name;
             block.visible = false;
-            stage.add(block);
             // Each block in a row pops in a moment after the one before it.
             const step = (layer.to - layer.from) / (layer.count + 1);
             return { block, from: layer.from + index * step, to: layer.from + (index + 2) * step };

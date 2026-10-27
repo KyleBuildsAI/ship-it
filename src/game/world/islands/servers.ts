@@ -232,9 +232,8 @@ function act6Beats(
 ): Record<BeatId<'act6'>, Beat> {
   /** A packet added to the stage, hidden until its beat pops it in. */
   const packet = (material: THREE.Material, geometry: THREE.BufferGeometry = PACKET) => {
-    const mesh = part(geometry, material, CLIENT.x, CLIENT.y, CLIENT.z);
+    const mesh = stage.part(geometry, material, CLIENT.x, CLIENT.y, CLIENT.z);
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
   const answering = rackAt(parts, 3);
@@ -245,10 +244,10 @@ function act6Beats(
   /** The gate that checks who's asking, across the path to the racks, hidden until popped in. */
   const gate = () => {
     const group = new THREE.Group();
-    const bar = part(GATE_BAR, colors.base, 0, 2.4, 0);
+    const bar = stage.part(GATE_BAR, colors.base, 0, 2.4, 0);
     group.add(
-      part(GATE_POST, colors.light, -0.8, 1.2, 0),
-      part(GATE_POST, colors.light, 0.8, 1.2, 0),
+      stage.part(GATE_POST, colors.light, -0.8, 1.2, 0),
+      stage.part(GATE_POST, colors.light, 0.8, 1.2, 0),
       bar,
     );
     group.position.copy(GATE);
@@ -258,9 +257,9 @@ function act6Beats(
   };
   /** A request carrying its session's pass, hidden at the writer's screen until popped in. */
   const passHolder = () => {
-    const body = part(PACKET, colors.glow, 0, 0, 0);
+    const body = stage.part(PACKET, colors.glow, 0, 0, 0);
     const holder = new THREE.Group();
-    holder.add(body, part(PASS, colors.light, 0, PASS_HEIGHT, 0));
+    holder.add(body, stage.part(PASS, colors.light, 0, PASS_HEIGHT, 0));
     holder.position.copy(CLIENT);
     holder.visible = false;
     stage.add(holder);
@@ -325,7 +324,7 @@ function act6Beats(
         const noEntry = new THREE.Group();
         noEntry.add(
           ...[1, -1].map((tilt) => {
-            const stroke = part(NO_ENTRY_STROKE, colors.alert, 0, 0, 0);
+            const stroke = stage.part(NO_ENTRY_STROKE, colors.alert, 0, 0, 0);
             stroke.rotation.z = (tilt * Math.PI) / 4;
             return stroke;
           }),
@@ -383,9 +382,8 @@ function act6Beats(
       seconds: 3,
       start: () => {
         const query = packet(colors.glow, SMALL_PACKET);
-        const cache = part(CACHE_BOX, colors.glow, CACHE_SPOT.x, CACHE_SPOT.y, CACHE_SPOT.z);
+        const cache = stage.part(CACHE_BOX, colors.glow, CACHE_SPOT.x, CACHE_SPOT.y, CACHE_SPOT.z);
         cache.visible = false;
-        stage.add(cache);
         const request = packet(colors.glow);
         const response = packet(colors.light);
         return run(stage, [screen, ...readingDrums], (progress) => {
@@ -416,9 +414,8 @@ function act6Beats(
     'queue-worker': {
       seconds: 3,
       start: () => {
-        const belt = part(BELT, colors.base, 0.2, 0.05, 0.9);
+        const belt = stage.part(BELT, colors.base, 0.2, 0.05, 0.9);
         belt.visible = false;
-        stage.add(belt);
         const jobs = QUEUE_PATHS.map(() => packet(colors.glow));
         return run(stage, [worker, screen], (progress) => {
           popIn(belt, phase(progress, 0, 0.1));
@@ -453,7 +450,7 @@ function act6Beats(
       seconds: 2.6,
       start: () => {
         const lines = LOG_WIDTHS.map((width, index) => {
-          const line = part(
+          const line = stage.part(
             LOG_LINE,
             index === ERROR_LINE ? colors.alert : colors.light,
             // Left-aligned like text: a shorter line keeps its left edge.
@@ -468,11 +465,10 @@ function act6Beats(
         // The marker slides in from the left and stops with its tip at the lines' left edge.
         const markerFrom = point(LOG_X - 1.9, errorY, LOG_Z);
         const markerTo = point(LOG_X - 1.2, errorY, LOG_Z);
-        const marker = part(MARKER, colors.light, markerFrom.x, errorY, LOG_Z);
+        const marker = stage.part(MARKER, colors.light, markerFrom.x, errorY, LOG_Z);
         // The cone points along +x, at the line.
         marker.rotation.z = -Math.PI / 2;
         marker.visible = false;
-        stage.add(...lines, marker);
         return run(stage, [], (progress) => {
           const focused = progress >= 0.72;
           lines.forEach((line, index) => {
@@ -494,14 +490,13 @@ function act6Beats(
     'connections-run-out': {
       seconds: 3,
       start: () => {
-        const tray = part(TRAY, colors.base, TRAY_SPOT.x, TRAY_SPOT.y, TRAY_SPOT.z);
+        const tray = stage.part(TRAY, colors.base, TRAY_SPOT.x, TRAY_SPOT.y, TRAY_SPOT.z);
         tray.visible = false;
         const rings = POOL_SLOTS.map((slot) => {
-          const ring = part(RING, colors.light, slot.x, slot.y, slot.z);
+          const ring = stage.part(RING, colors.light, slot.x, slot.y, slot.z);
           ring.visible = false;
           return ring;
         });
-        stage.add(tray, ...rings);
         const request = packet(colors.glow);
         return run(stage, [screen], (progress) => {
           const shown = phase(progress, 0, 0.08);
@@ -535,10 +530,9 @@ function act6Beats(
     'incident-rollback': {
       seconds: 3,
       start: () => {
-        const bad = part(CRATE, colors.alert, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
-        const good = part(CRATE, colors.light, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
+        const bad = stage.part(CRATE, colors.alert, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
+        const good = stage.part(CRATE, colors.light, CRATE_SPOT.x, CRATE_SPOT.y, CRATE_SPOT.z);
         good.visible = false;
-        stage.add(bad, good);
         // On the floor in the gap in front of the middle and answering racks.
         const setAside = point(1, 0.25, 0.3);
         const comesFrom = point(-1.6, 4.2, -2);

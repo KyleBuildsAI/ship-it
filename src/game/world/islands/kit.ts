@@ -44,7 +44,10 @@ export interface Props {
   readonly beats: Readonly<Record<string, Beat>>;
 }
 
-/** A mesh placed at (x, y, z), so the builders read as a list of parts. */
+/**
+ * A mesh placed at (x, y, z), so the builders read as a list of parts. For an island's
+ * idle props only: a beat takes its meshes from its stage (see Stage).
+ */
 export function part(
   geometry: THREE.BufferGeometry,
   material: THREE.Material,
@@ -55,31 +58,6 @@ export function part(
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   return mesh;
-}
-
-/**
- * A group for the meshes beats add, inside the island's props. A beat puts its meshes
- * here, and `clear` takes them all away again when the beat resets. Beats reuse shared
- * geometry and the palette's materials, so clearing has nothing to dispose.
- */
-export interface Stage {
-  readonly group: THREE.Group;
-  add: (...objects: THREE.Object3D[]) => void;
-  clear: () => void;
-}
-
-export function createStage(parent: THREE.Group): Stage {
-  const group = new THREE.Group();
-  parent.add(group);
-  return {
-    group,
-    add: (...objects) => {
-      group.add(...objects);
-    },
-    clear: () => {
-      group.clear();
-    },
-  };
 }
 
 /** A flat stick from one point to another that a beat can grow, like a path being drawn. */
@@ -94,8 +72,8 @@ const UNIT_STICK = new THREE.BoxGeometry(0.18, 0.08, 1);
 /** The way a stick points before it's turned: along its length, the box's z axis. */
 const FORWARD = new THREE.Vector3(0, 0, 1);
 
-export function segment(from: THREE.Vector3, to: THREE.Vector3, material: THREE.Material): Segment {
-  const mesh = new THREE.Mesh(UNIT_STICK, material);
+/** Lays a unit stick mesh from one point to another, fully grown, and says how to grow it. */
+function layStick(mesh: THREE.Mesh, from: THREE.Vector3, to: THREE.Vector3): Segment {
   const length = from.distanceTo(to);
   // Turned from the direction alone, not lookAt: lookAt aims at a point in world space,
   // and these points are in the island's own space, which floats far from the origin.
@@ -108,6 +86,84 @@ export function segment(from: THREE.Vector3, to: THREE.Vector3, material: THREE.
   };
   grow(1);
   return { mesh, grow };
+}
+
+/** A stick for an island's idle props. A beat takes its sticks from its stage instead. */
+export function segment(from: THREE.Vector3, to: THREE.Vector3, material: THREE.Material): Segment {
+  return layStick(new THREE.Mesh(UNIT_STICK, material), from, to);
+}
+
+/**
+ * Where a beat's own meshes live, inside the island's props. A beat takes every mesh it
+ * shows from the stage (`part`, `segment`) and never constructs one in start(): `clear`
+ * hands them back when the beat resets, and the next beat reuses them. That matters in
+ * three's WebGPU renderer, which remembers each mesh it has drawn on the shared palette
+ * materials and geometry until those are disposed, and they never are. A new mesh for
+ * every playing would pile up, with its GPU buffers, for the whole session.
+ */
+export interface Stage {
+  readonly group: THREE.Group;
+  /** A mesh for the playing beat at (x, y, z), shown, unturned and full size. */
+  part: (
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    x: number,
+    y: number,
+    z: number,
+  ) => THREE.Mesh;
+  /** A growing stick for the playing beat, from one point to another, fully grown. */
+  segment: (from: THREE.Vector3, to: THREE.Vector3, material: THREE.Material) => Segment;
+  /** Puts what a beat assembled from its parts, like a group, on the stage. */
+  add: (...objects: THREE.Object3D[]) => void;
+  /** Takes everything off the stage, keeping its meshes for the next beat. */
+  clear: () => void;
+}
+
+export function createStage(parent: THREE.Group): Stage {
+  const group = new THREE.Group();
+  parent.add(group);
+  /** Meshes no beat is using, by geometry, ready to be handed out again. */
+  const spare = new Map<THREE.BufferGeometry, THREE.Mesh[]>();
+  /** Every mesh the playing beat took, wherever it put them. */
+  const taken: THREE.Mesh[] = [];
+
+  const take = (geometry: THREE.BufferGeometry, material: THREE.Material): THREE.Mesh => {
+    const mesh = spare.get(geometry)?.pop() ?? new THREE.Mesh(geometry, material);
+    // Set back to how a new mesh starts, so a reused one carries nothing from its last beat.
+    mesh.material = material;
+    mesh.name = '';
+    mesh.position.set(0, 0, 0);
+    mesh.rotation.set(0, 0, 0);
+    mesh.scale.set(1, 1, 1);
+    mesh.visible = true;
+    taken.push(mesh);
+    group.add(mesh);
+    return mesh;
+  };
+
+  return {
+    group,
+    part: (geometry, material, x, y, z) => {
+      const mesh = take(geometry, material);
+      mesh.position.set(x, y, z);
+      return mesh;
+    },
+    segment: (from, to, material) => layStick(take(UNIT_STICK, material), from, to),
+    add: (...objects) => {
+      group.add(...objects);
+    },
+    clear: () => {
+      for (const mesh of taken) {
+        // A beat may have moved a mesh into a group of its own, so detach it from there.
+        mesh.removeFromParent();
+        const pile = spare.get(mesh.geometry);
+        if (pile === undefined) spare.set(mesh.geometry, [mesh]);
+        else pile.push(mesh);
+      }
+      taken.length = 0;
+      group.clear();
+    },
+  };
 }
 
 /** Scales a mesh in with a small overshoot, so a new thing pops into place. */

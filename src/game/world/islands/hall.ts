@@ -6,7 +6,6 @@ import {
   part,
   popIn,
   remember,
-  segment,
   slide,
   type Palette,
   type Props,
@@ -138,16 +137,14 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
     material: THREE.Material,
     point: THREE.Vector3,
   ): THREE.Mesh => {
-    const mesh = part(geometry, material, point.x, point.y, point.z);
+    const mesh = stage.part(geometry, material, point.x, point.y, point.z);
     mesh.visible = false;
-    stage.add(mesh);
     return mesh;
   };
   /** A line drawn on the whiteboard between two of its boxes. */
   const boardLink = (from: THREE.Vector3, to: THREE.Vector3) => {
-    const stick = segment(from, to, colors.dark);
+    const stick = stage.segment(from, to, colors.dark);
     stick.grow(0);
-    stage.add(stick.mesh);
     return stick;
   };
   /**
@@ -235,9 +232,8 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         // The trail runs between the cards' facing edges, so it never cuts across one.
         const trailFrom = at(-1.2 + STANDING_CARD_HALF_WIDTH, STANDING_Y, TABLE_Z);
         const trailTo = at(1.2 - STANDING_CARD_HALF_WIDTH, STANDING_Y, TABLE_Z);
-        const trail = segment(trailFrom, trailTo, colors.glow);
+        const trail = stage.segment(trailFrom, trailTo, colors.glow);
         trail.grow(0);
-        stage.add(trail.mesh);
         const clueShares = [0.25, 0.5, 0.75];
         const clues = clueShares.map((share) =>
           add(
@@ -402,8 +398,8 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const home = lapPoint(0, new THREE.Vector3());
         const otto = new THREE.Group();
         otto.add(
-          part(OTTO_BODY, colors.glow, 0, 0, 0),
-          part(OTTO_VISOR, colors.dark, 0, 0.05, 0.3),
+          stage.part(OTTO_BODY, colors.glow, 0, 0, 0),
+          stage.part(OTTO_VISOR, colors.dark, 0, 0.05, 0.3),
         );
         otto.position.copy(home);
         otto.visible = false;
