@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
-import { palette, popIn, segment } from './kit';
+import { palette, popIn, remember, segment } from './kit';
 
 /*
  * The kit's helpers that every island's beats lean on. No renderer is needed: they only
@@ -37,6 +37,40 @@ describe('popping a mesh in', () => {
       popIn(mesh, step / 100);
       expect(mesh.scale.x).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('remembering a prop', () => {
+  it('puts a mesh back where it stood, at its size, turn, visibility and colour', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), colors.base);
+    mesh.position.set(1, 2, 3);
+    mesh.rotation.set(0.1, 0.2, 0.3);
+    const restore = remember(mesh);
+    mesh.position.set(9, 9, 9);
+    mesh.rotation.set(1, 1, 1);
+    mesh.scale.setScalar(4);
+    mesh.visible = false;
+    mesh.material = colors.alert;
+    restore();
+    expect(mesh.position.toArray()).toEqual([1, 2, 3]);
+    expect(mesh.rotation.toArray().slice(0, 3)).toEqual([0.1, 0.2, 0.3]);
+    expect(mesh.scale.toArray()).toEqual([1, 1, 1]);
+    expect(mesh.visible).toBe(true);
+    expect(mesh.material).toBe(colors.base);
+  });
+
+  it("puts a whole group back, so a beat can turn a house or a robot's head", () => {
+    const head = new THREE.Group();
+    head.add(new THREE.Mesh(new THREE.BoxGeometry(), colors.light));
+    head.position.set(0, 1.35, 0);
+    const restore = remember(head);
+    head.rotation.y = 1.2;
+    head.position.y = 2;
+    head.visible = false;
+    restore();
+    expect(head.rotation.y).toBe(0);
+    expect(head.position.y).toBe(1.35);
+    expect(head.visible).toBe(true);
   });
 });
 

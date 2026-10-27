@@ -209,20 +209,21 @@ export function slide(
 }
 
 /**
- * Remembers where a mesh stands, how big it is, its rotation and its material, to put it
- * back when a beat resets.
+ * Remembers where a prop stands, how big it is, its rotation, whether it shows and, for a
+ * mesh, its material, to put it back when a beat resets. Any object will do, so a beat can
+ * turn a whole group (a house, a robot's head) and still leave the island as it was.
  */
-export function remember(mesh: THREE.Mesh): () => void {
-  const position = mesh.position.clone();
-  const scale = mesh.scale.clone();
-  const rotation = mesh.rotation.clone();
-  const { visible } = mesh;
-  const { material } = mesh;
+export function remember(object: THREE.Object3D): () => void {
+  const position = object.position.clone();
+  const scale = object.scale.clone();
+  const rotation = object.rotation.clone();
+  const { visible } = object;
+  const material = object instanceof THREE.Mesh ? (object.material as THREE.Material) : null;
   return () => {
-    mesh.position.copy(position);
-    mesh.scale.copy(scale);
-    mesh.rotation.copy(rotation);
-    mesh.visible = visible;
-    mesh.material = material;
+    object.position.copy(position);
+    object.scale.copy(scale);
+    object.rotation.copy(rotation);
+    object.visible = visible;
+    if (material !== null && object instanceof THREE.Mesh) object.material = material;
   };
 }
