@@ -110,27 +110,33 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
    * The idle lights blink in a loop; during a beat a light means one thing: dark is not
    * checked yet, green passed, red failed.
    */
+  // Every object a beat adds is named for its part in the story, so the tests (and the
+  // three.js inspector) can find it.
   const signals = () =>
-    GATE_Z.map((z) => {
+    GATE_Z.map((z, index) => {
       const signal = part(BULB, colors.dark, 0, LIGHT_Y, z);
+      signal.name = `light-${String(index)}`;
       signal.scale.setScalar(1.3);
       stage.add(signal);
       return signal;
     });
-  const crate = (material: THREE.Material, at = ENTRY) => {
+  const crate = (name: string, material: THREE.Material, at = ENTRY) => {
     const mesh = part(CRATE, material, at.x, at.y, at.z);
+    mesh.name = name;
     mesh.visible = false;
     stage.add(mesh);
     return mesh;
   };
   const barrier = (gate: number) => {
     const mesh = part(BARRIER, colors.alert, 0, 0.9, GATE_Z[gate] ?? 0);
+    mesh.name = 'boom';
     mesh.visible = false;
     stage.add(mesh);
     return mesh;
   };
-  const key = (material: THREE.Material, at: THREE.Vector3) => {
+  const key = (name: string, material: THREE.Material, at: THREE.Vector3) => {
     const group = new THREE.Group();
+    group.name = name;
     group.add(
       part(KEY_RING, material, -0.3, 0, 0),
       part(KEY_SHANK, material, 0.15, 0, 0),
@@ -159,7 +165,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
     seconds: 2.8,
     start: () => {
       const lights = signals();
-      const change = crate(material);
+      const change = crate('change', material);
       return run(stage, [], (progress) => {
         popIn(change, phase(progress, 0, 0.12));
         slide(change, ENTRY, EXIT, phase(progress, 0.1, 0.95));
@@ -182,7 +188,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.4,
       start: () => {
         const lights = signals();
-        const change = crate(colors.light);
+        const change = crate('change', colors.light);
         const boom = barrier(FAIL_GATE);
         const stopped = waitBefore(FAIL_GATE);
         const bounced = stopped.clone().setZ(stopped.z - 0.7);
@@ -206,7 +212,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 3,
       start: () => {
         const lights = signals();
-        const change = crate(colors.light);
+        const change = crate('change', colors.light);
         const boom = barrier(FAIL_GATE);
         const stopped = waitBefore(FAIL_GATE);
         const failLight = lights[FAIL_GATE];
@@ -250,8 +256,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.8,
       start: () => {
         const lights = signals();
-        const broken = crate(colors.alert, UNDONE_SPOT);
-        const revert = crate(colors.light, REVERT_ENTRY);
+        const broken = crate('broken', colors.alert, UNDONE_SPOT);
+        const revert = crate('revert', colors.light, REVERT_ENTRY);
         return run(stage, [], (progress) => {
           popIn(broken, phase(progress, 0, 0.12));
           popIn(revert, phase(progress, 0.1, 0.2));
@@ -267,7 +273,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.8,
       start: () => {
         const lights = signals();
-        const bug = crate(colors.alert);
+        const bug = crate('bug', colors.alert);
         const switchedOff = 2;
         const beam = parts.beams[switchedOff];
         return run(stage, beam ? [beam] : [], (progress) => {
@@ -289,8 +295,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 3,
       start: () => {
         const lights = signals();
-        const first = crate(colors.light);
-        const second = crate(colors.light);
+        const first = crate('first', colors.light);
+        const second = crate('second', colors.light);
         const boom = barrier(LAST_GATE);
         const stopped = waitBefore(LAST_GATE);
         const checkLight = lights[LAST_GATE];
@@ -323,14 +329,15 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.6,
       start: () => {
         const layers = [
-          { count: 5, material: colors.light, from: 0, to: 0.4 },
-          { count: 3, material: colors.glow, from: 0.4, to: 0.7 },
-          { count: 1, material: parts.pass, from: 0.7, to: 1 },
+          { name: 'unit-test', count: 5, material: colors.light, from: 0, to: 0.4 },
+          { name: 'integration-test', count: 3, material: colors.glow, from: 0.4, to: 0.7 },
+          { name: 'end-to-end-test', count: 1, material: parts.pass, from: 0.7, to: 1 },
         ];
         const blocks = layers.flatMap((layer, row) =>
           Array.from({ length: layer.count }, (_, index) => {
             const x = 4 + (index - (layer.count - 1) / 2) * 0.6;
             const block = part(BLOCK, layer.material, x, 0.24 + row * 0.46, 3.2);
+            block.name = layer.name;
             block.visible = false;
             stage.add(block);
             // Each block in a row pops in a moment after the one before it.
@@ -352,8 +359,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 3,
       start: () => {
         const lights = signals();
-        const change = crate(colors.light);
-        const vaultKey = key(colors.glow, VAULT);
+        const change = crate('change', colors.light);
+        const vaultKey = key('vault-key', colors.glow, VAULT);
         const keyGate = LAST_GATE;
         const stopped = waitBefore(keyGate);
         // In the arch, above the crate and under the beam, like a key in a lock.
@@ -379,8 +386,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.6,
       start: () => {
         const lights = signals();
-        const stranger = crate(colors.alert);
-        const vaultKey = key(colors.glow, VAULT);
+        const stranger = crate('stranger', colors.alert);
+        const vaultKey = key('vault-key', colors.glow, VAULT);
         const stopped = waitBefore(LAST_GATE);
         return run(stage, [], (progress) => {
           popIn(vaultKey, phase(progress, 0, 0.15));
@@ -402,8 +409,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.8,
       start: () => {
         const lights = signals();
-        const leaked = key(colors.alert, LEAK_SPOT);
-        const fresh = key(colors.glow, VAULT);
+        const leaked = key('leaked-key', colors.alert, LEAK_SPOT);
+        const fresh = key('fresh-key', colors.glow, VAULT);
         return run(stage, [], (progress) => {
           popIn(leaked, phase(progress, 0, 0.15), 1.3);
           const revoked = progress >= 0.45;
@@ -427,11 +434,13 @@ export function gates(colors: Palette): Props {
     emissive: 0x7ee2a8,
     emissiveIntensity: 2,
   });
+  pass.name = 'pass';
   const lights: THREE.Mesh[] = [];
   const beams: THREE.Mesh[] = [];
-  GATE_Z.forEach((z) => {
+  GATE_Z.forEach((z, index) => {
     group.add(part(PILLAR, colors.dark, -1.2, 1.2, z), part(PILLAR, colors.dark, 1.2, 1.2, z));
     const beam = part(BEAM, colors.glow, 0, BEAM_Y, z);
+    beam.name = `beam-${String(index)}`;
     beams.push(beam);
     group.add(beam);
     const light = part(BULB, pass, 0, LIGHT_Y, z);
