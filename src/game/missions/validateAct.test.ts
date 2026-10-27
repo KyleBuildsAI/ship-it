@@ -596,7 +596,7 @@ describe('an Act made of lessons', () => {
   it('passes a lesson where no length rule beats half its pick cards', () => {
     // The sample's best rule, the second longest, wins exactly 2 of its 5 pick cards: the
     // most a lesson may give away.
-    expect(bestLengthStrategy(sampleLesson.cards)).toMatchObject({ rank: 2, right: 2 });
+    expect(bestLengthStrategy(sampleLesson.cards)).toEqual({ from: 'longest', rank: 2, right: 2 });
     expect(validateAct(act, [], lessons)).toEqual([]);
   });
 
