@@ -14,10 +14,11 @@ import {
 
 /*
  * Act 5's island: a road through a row of gates, each with a light, and two watchtowers.
- * Its beats act out the lessons on that road: a change (a crate) rolls through the gates,
- * one check stops it, a fix lets it through, a switched-off gate lets a bug slip past, a
- * flaky gate answers the same change two ways, and the right tower is the vault where
- * secrets stay.
+ * Its beats act out the lessons on that road: a change (a crate) rolls through the gates;
+ * one check stops it and the gates after it stay dark; a fix runs every gate again; a
+ * revert undoes a broken change; a switched-off gate, or one nobody taught to look, lets a
+ * bug past; a flaky gate answers the same change two ways; and the right tower is the
+ * vault where secrets stay, even from a stranger's fork.
  */
 
 /** Where the gates stand along the road, far end first. The camera looks up the road. */
