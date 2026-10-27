@@ -39,8 +39,10 @@ export const act1PlacementCardIds = [
 ] as const;
 
 export const act1Placement = {
+  // The pitch says only what's always true. What a pass would leave depends on the save,
+  // so the briefing's last line says that (lessonPlacement's placementLeavesLine).
   pitch:
-    'Already install packages safely and free a busy port? 85% tests out of lessons 1.5 and 1.6. Missions 1.1 to 1.4 and the Field Mission still need doing.',
+    'Already install packages safely and free a busy port? 85% tests out of lessons 1.5 and 1.6, not the missions before them.',
   cardIds: [...act1PlacementCardIds],
   // 36 seconds a card: brisker than the final's 40, still time to read an artifact.
   timeLimitSeconds: 360,

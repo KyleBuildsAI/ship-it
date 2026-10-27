@@ -11,6 +11,7 @@ import {
   type MissionResume,
   type SaveData,
 } from '../save/schema';
+import { testOutLeaves, type TestOutLeft } from '../missions/lessonPlacement';
 import type { Lesson } from '../missions/lessonSchema';
 import {
   isLessonPlacement,
@@ -386,6 +387,31 @@ export function tickFieldTask(
 export function missionDone(save: SaveData, missionId: string): boolean {
   const status = save.missions[missionId]?.status;
   return status === 'completed' || status === 'tested-out';
+}
+
+/**
+ * What a lesson placement leaves for this save (its briefing and Done screen say it): the
+ * parts no card covers, the final and the Field Mission, less whatever is done already.
+ * No save yet reads as a new game.
+ */
+export function leftAfterTestOut(
+  save: SaveData | null,
+  target: Act,
+  lessons: readonly Lesson[],
+): TestOutLeft {
+  const fresh = testOutLeaves(target, lessons);
+  if (save === null) return fresh;
+  const current = act(save, target.act);
+  const finalId = target.finalLessonId;
+  // Beating the final records the boss too (completeLesson), so either one says it's done.
+  const finalBeaten =
+    current.bossCompletedAt !== null || (finalId !== undefined && missionDone(save, finalId));
+  return {
+    actComplete: current.completedAt !== null,
+    missionIds: fresh.missionIds.filter((id) => !missionDone(save, id)),
+    final: fresh.final && !finalBeaten,
+    fieldMission: fresh.fieldMission && current.fieldMissionCompletedAt === null,
+  };
 }
 
 /**

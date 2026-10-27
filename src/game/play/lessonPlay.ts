@@ -23,6 +23,7 @@ import { play, type Activity, type LessonActivity } from './playStore';
 import {
   completeLesson,
   countPlacementAttempt,
+  leftAfterTestOut,
   recordPlacement,
   startMissionProgress,
 } from './saveRules';
@@ -114,9 +115,13 @@ export function startLesson(lessonId: string): void {
 export function startLessonPlacement(act: number): void {
   const content = getAct(act);
   const test = requireLessonPlacement(content.act);
+  const { save } = progress.get();
+  const lessons = content.lessons ?? [];
   // Each attempt shows the options in a new order, so a remembered position is no answer.
-  const attempts = progress.get().save?.acts[String(act)]?.placement.attempts ?? 0;
-  const lesson = placementLesson(content.act, content.lessons ?? [], attempts);
+  const attempts = save?.acts[String(act)]?.placement.attempts ?? 0;
+  // The briefing says what a pass would leave, read from the save, never a done part.
+  const left = leftAfterTestOut(save, content.act, lessons);
+  const lesson = placementLesson(content.act, lessons, attempts, left);
   endDrill();
   closeTerminal();
   beginDrill(`placement:${lesson.id}`);

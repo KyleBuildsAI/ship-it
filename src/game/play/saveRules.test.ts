@@ -12,6 +12,7 @@ import {
   sampleLessonAct,
   sampleSecondLesson,
 } from '../missions/sample.test-lesson';
+import { fullSampleLessonAct } from '../missions/sample.test-lessonAct';
 import type { Act } from '../missions/schema';
 import { placementTestOutXp, XP_AWARDS } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
@@ -20,6 +21,7 @@ import {
   completeLesson,
   completeMission,
   countPlacementAttempt,
+  leftAfterTestOut,
   missionDone,
   questionXp,
   recordDrill,
@@ -147,6 +149,55 @@ describe('drills and reviews', () => {
     };
     const replayed = recordDrill(older, drill, { passed: true, seconds: 7 }, LATER);
     expect(replayed.profile.xp).toBe(0);
+  });
+});
+
+describe('what a lesson placement leaves', () => {
+  const full = fullSampleLessonAct();
+  const [firstLesson, secondLesson, finalLesson] = full.lessons;
+  if (firstLesson === undefined || secondLesson === undefined || finalLesson === undefined) {
+    throw new Error('the full sample Act has three lessons');
+  }
+  const fieldIds = full.act.fieldMission?.verifications.map((check) => check.id) ?? [];
+  const passed = { percent: 100, testedOut: true };
+
+  it('leaves the final and the Field Mission on a new save, or with no save at all', () => {
+    const left = { actComplete: false, missionIds: [], final: true, fieldMission: true };
+    expect(leftAfterTestOut(fresh(), full.act, full.lessons)).toEqual(left);
+    expect(leftAfterTestOut(null, full.act, full.lessons)).toEqual(left);
+  });
+
+  it('leaves out a beaten final and a verified Field Mission', () => {
+    let save = completeLesson(fresh(), full.act, finalLesson, 100, NOW);
+    expect(leftAfterTestOut(save, full.act, full.lessons)).toMatchObject({
+      final: false,
+      fieldMission: true,
+    });
+    save = recordFieldMission(save, full.act, fieldIds, NOW);
+    expect(leftAfterTestOut(save, full.act, full.lessons)).toMatchObject({
+      final: false,
+      fieldMission: false,
+      actComplete: false,
+    });
+  });
+
+  it('says the Act is complete once a pass completes it', () => {
+    const verified = recordFieldMission(fresh(), full.act, fieldIds, NOW);
+    const tested = recordPlacement(verified, full.act, full.lessons, passed, NOW);
+    expect(leftAfterTestOut(tested, full.act, full.lessons)).toEqual({
+      actComplete: true,
+      missionIds: [],
+      final: true,
+      fieldMission: false,
+    });
+  });
+
+  it('names the parts no card covers until they are done (Act 1’s missions)', () => {
+    // A placement that borrows from the lessons only: the other parts aren't covered.
+    const lessonsOnly = [firstLesson];
+    expect(leftAfterTestOut(fresh(), full.act, lessonsOnly).missionIds).toEqual([secondLesson.id]);
+    const played = completeLesson(fresh(), full.act, secondLesson, 100, NOW);
+    expect(leftAfterTestOut(played, full.act, lessonsOnly).missionIds).toEqual([]);
   });
 });
 

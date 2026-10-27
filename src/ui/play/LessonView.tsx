@@ -14,6 +14,7 @@ import type {
   OrderCard,
   PickCard,
 } from '../../game/missions/lessonSchema';
+import { testedOutText } from '../../game/missions/lessonPlacement';
 import { formatClock } from '../../game/play/bossPlay';
 import { getAct } from '../../game/play/catalog';
 import {
@@ -27,6 +28,8 @@ import {
 } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
+import { leftAfterTestOut } from '../../game/play/saveRules';
+import { progress } from '../../game/progress';
 import { useClock } from './useClock';
 
 /** The label on an artifact's box when content gives none of its own. */
@@ -329,13 +332,13 @@ function DoneActions({
 }
 
 /**
- * What a test-out leaves to play. A lesson Act's Field Mission isn't skipped by a test-out
- * (the Act completes only once it's verified), so the Done screen names it.
+ * What a test-out leaves to do, read from the save the pass was just written to, so a part
+ * already done is never named. A lesson Act's Field Mission isn't skipped by a test-out
+ * (the Act completes only once it's verified), so the Done screen names it while it's open.
  */
 function stillToDo(actNumber: number): string {
-  return getAct(actNumber).act.fieldMission === undefined
-    ? 'the final is still yours to play.'
-    : 'the final and the Field Mission are still yours to do, and the Act completes once the Field Mission is verified.';
+  const { act, lessons = [] } = getAct(actNumber);
+  return testedOutText(act, leftAfterTestOut(progress.get().save, act, lessons));
 }
 
 /**
@@ -358,7 +361,7 @@ function PlacementDone({ activity }: { activity: LessonActivity }) {
       </p>
       <p className="play-panel__muted">
         {result.testedOut
-          ? `Tested out. Every lesson in Act ${String(lesson.act)} is marked done; ${stillToDo(lesson.act)}`
+          ? `Tested out. ${stillToDo(lesson.act)}`
           : `${String(placement.passPercent)}% tests out. Play the lessons, or try again.`}
       </p>
       <DoneActions

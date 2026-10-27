@@ -12,8 +12,10 @@ import type { LessonPlacementInput } from '../../game/missions/schema';
  * lean on the card before them ("This time Priya merged...") stay out.
  */
 export const act3Placement = {
+  // Only what's always true: whether the Field Mission is still to do depends on the save,
+  // so the briefing's last line says that.
   pitch:
-    'Already branch, merge and resolve conflicts with an agent? 85% tests out of the lessons. The Field Mission still needs doing: it lands a real branch on SandCastles.',
+    'Already branch, merge and resolve conflicts with an agent? 85% tests out of the lessons, not the Field Mission, which lands a real branch on SandCastles.',
   cardIds: [
     // 3.1 Branches Are Pointers
     'what-a-branch-is',
