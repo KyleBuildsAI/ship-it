@@ -60,6 +60,8 @@ const noiseCommitted: Predicate = {
 };
 /** .env is off the dock and hidden: only an untracked file on disk can be ignored. */
 const envIgnored: Predicate = { kind: 'ignored', paths: ['.env'] };
+/** .gitignore has the `.env` line, as the rule-only card writes it. */
+const envRuleWritten: Predicate = { kind: 'workingFile', path: '.gitignore', contains: '.env\n' };
 const exampleCommitted: Predicate = { kind: 'tracked', paths: ['.env.example'] };
 /** Either real value from .env, sealed into the shared example. */
 const valuesLeaked: Predicate = {
@@ -288,6 +290,10 @@ const untrackEnvTask = {
       ],
       claim: 'Fixed: .env is untracked and ignored.',
       lesson: 'With .env off the dock, the rule you already have hides it.',
+      // It follows the rule-only card, and only untracks. Offered with no rule (after Kyle
+      // denies plain git rm), it would leave .env untracked but not ignored, and its claim
+      // would be false; with .env gone from disk there is nothing left to untrack.
+      when: { kind: 'all', of: [envRuleWritten, envOnDisk] },
     },
   ],
   hintPlan: 'rm-cached',
@@ -305,9 +311,12 @@ const untrackEnvTask = {
       },
       {
         id: 'exposed',
-        text: 'On your disk, and git still tracks it',
+        // True both while git still tracks .env and once it is untracked with no rule naming
+        // it (a Stop between Otto's two lines), so it claims neither.
+        text: 'On your disk, not hidden from git',
         truth: { kind: 'all', of: [envOnDisk, { kind: 'not', predicate: envIgnored }] },
-        feedback: 'An ignore rule skips files git already has. Untrack it first.',
+        feedback:
+          'Git hides .env only once it is untracked and a rule names it. One of those is still missing.',
       },
       {
         id: 'deleted',
