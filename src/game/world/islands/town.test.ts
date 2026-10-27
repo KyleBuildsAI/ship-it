@@ -182,6 +182,23 @@ describe('Act 4 town island beats', () => {
     expect(after.some((spot) => spot.distanceTo(yours) < 0.001)).toBe(true);
   });
 
+  it('closes the issue when the PR merges, not while it waits at the gate', () => {
+    const { props } = build();
+    const idleMeshes: THREE.Object3D[] = [];
+    props.group.traverse((object) => {
+      if (object.type === 'Mesh') idleMeshes.push(object);
+    });
+    const seconds = secondsOf(props, 'checks-gate');
+    const player = createBeatPlayer(props.beats, false);
+    player.play('checks-gate');
+    player.update(START);
+    // Halfway the PR still waits for its approval, so every issue is still open.
+    player.update(START + seconds * 0.5);
+    expect(idleMeshes.filter((mesh) => !mesh.visible)).toEqual([]);
+    player.update(START + seconds + 0.5);
+    expect(idleMeshes.filter((mesh) => !mesh.visible)).toHaveLength(1);
+  });
+
   it('stands the release flag on the one commit it tags, not over the whole board', () => {
     const { props } = build();
     const idle = everything(props.group);

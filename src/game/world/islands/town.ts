@@ -298,7 +298,7 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
     },
     // The PR waits at main's gate. One lamp lights for passing checks; Priya's approval
     // flies over from her house to light the other. Only then the barrier swings up, the
-    // PR joins the board, and the issue it closes greys out.
+    // PR joins the board, and the issue it closes comes down.
     'checks-gate': {
       seconds: 3,
       start: () => {
@@ -322,8 +322,10 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
           // After popIn has set its size, so the shrink isn't overwritten.
           request.scale.multiplyScalar(1 - (1 - MERGED_SCALE) * merge);
           request.material = progress >= 0.9 ? colors.glow : colors.light;
-          // Muted, not dark: a dark card would vanish into the board instead of reading closed.
-          parts.issueCard.material = progress >= 0.95 ? colors.base : colors.glow;
+          // The issue comes off the board of open work only as the merge lands, not while the
+          // PR waits. Taken down rather than recoloured: no palette colour reads as "closed"
+          // against the dark board without looking like just another open notice.
+          popIn(parts.issueCard, 1 - phase(progress, 0.88, 1));
         });
       },
     },
