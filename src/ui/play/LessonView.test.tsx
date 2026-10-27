@@ -12,7 +12,7 @@ import {
 } from '../../game/missions/lessonRunner';
 import type { PlacementResult } from '../../game/missions/grading';
 import { placementLesson } from '../../game/missions/lessonPlacement';
-import { isPickCard, type Lesson } from '../../game/missions/lessonSchema';
+import { isPickCard, type Artifact, type Lesson } from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { setCatalog } from '../../game/play/catalog';
@@ -46,10 +46,13 @@ describe('the lesson view', () => {
     expect(text(markup)).toContain('Skip briefing');
   });
 
-  it("tells a final's briefing about the shared clock", () => {
-    expect(text(view(startLessonRun(sampleFinal), sampleFinal))).toContain(
-      'Every card shares one clock: 2:00.',
-    );
+  it("tells a final's briefing about the shared clock, and when it starts", () => {
+    const briefing = text(view(startLessonRun(sampleFinal), sampleFinal));
+    expect(briefing).toContain('Every card shares one clock: 2:00.');
+    // Skip briefing starts it too, so the note can't say only Start does.
+    expect(briefing).toContain('It starts when the first card shows.');
+    expect(briefing).toContain('Skip briefing');
+    expect(briefing).not.toContain('press Start');
   });
 
   it('shows a card: progress, situation, a labelled artifact, the question, options', () => {
@@ -63,6 +66,38 @@ describe('the lesson view', () => {
     expect(text(markup)).not.toContain('Why');
   });
 
+  /** The first card's markup, with its artifact swapped for `artifact`. */
+  function withArtifact(artifact: Artifact): string {
+    const [first, ...rest] = sampleLesson.cards;
+    if (first === undefined) throw new Error('expected a first card');
+    const lesson: Lesson = { ...sampleLesson, cards: [{ ...first, artifact }, ...rest] };
+    return view(cards(lesson), lesson);
+  }
+
+  it('captions an issue as an issue, never as a pull request', () => {
+    const markup = withArtifact({ kind: 'issue', label: 'Issue #61', text: 'its broken pls fix' });
+    expect(markup).toContain(
+      '<span class="lesson-artifact__kind">Issue</span><span>Issue #61</span>',
+    );
+    expect(markup).not.toContain('Pull request');
+  });
+
+  it('draws each artifact line on its own, so a long one wraps hanging under itself', () => {
+    const markup = withArtifact({
+      kind: 'diff',
+      text: ['-  return user.id === doc.ownerId;', '+  return Boolean(doc.ownerId);'].join('\n'),
+    });
+    // Past the - or + and the line's own indent: 3 characters, then 2 more.
+    expect(markup).toContain(
+      '<span class="lesson-artifact__line" style="padding-left:5ch;text-indent:-5ch">+  return Boolean(doc.ownerId);</span>',
+    );
+    expect(markup.match(/class="lesson-artifact__line"/g)).toHaveLength(2);
+    // A message is prose, so it wraps flush like a paragraph.
+    expect(
+      withArtifact({ kind: 'agent-message', text: 'I can fix this quickly with a force push.' }),
+    ).toContain('style="padding-left:0ch;text-indent:0ch">I can fix this');
+  });
+
   it("shows a wrong pick's feedback, crossed out, with the card still open", () => {
     const markup = view(pickOption(cards(), sampleLesson, 'approve'));
     expect(markup).toContain('lesson-option lesson-option--wrong');
@@ -74,21 +109,34 @@ describe('the lesson view', () => {
   it('shows the explanation and Next once the card is solved', () => {
     const markup = view(pickOption(cards(), sampleLesson, 'ask-units'));
     expect(markup).toContain('lesson-option lesson-option--right');
-    expect(text(markup)).toContain('Right.');
+    // The feedback opens "Yes:", so that is the verdict, never "Right. Yes:".
+    expect(markup).toContain('<strong>Yes:</strong> the variable is seconds');
+    expect(text(markup)).not.toContain('Right.');
     expect(text(markup)).toContain('Why Review the change, not the description.');
     expect(text(markup)).toContain('Next card');
   });
 
+  it('says Right. before feedback that opens without a verdict of its own', () => {
+    const second = nextCard(pickOption(cards(), sampleLesson, 'ask-units'), sampleLesson);
+    expect(view(pickOption(second, sampleLesson, 'specific'))).toContain(
+      '<strong>Right.</strong> It names the value',
+    );
+  });
+
+  /** The run at the sample's order card, its steps still scrambled. */
+  function atOrderCard(): LessonRun {
+    const first = nextCard(pickOption(cards(), sampleLesson, 'ask-units'), sampleLesson);
+    return nextCard(pickOption(first, sampleLesson, 'specific'), sampleLesson);
+  }
+
   it('shows an order card with up and down moves and Check order', () => {
-    let run = cards();
-    run = nextCard(pickOption(run, sampleLesson, 'ask-units'), sampleLesson);
-    run = nextCard(pickOption(run, sampleLesson, 'specific'), sampleLesson);
+    const run = atOrderCard();
     const markup = view(run);
     expect(text(markup)).toContain('Put it in order');
     expect(markup.match(/aria-label="Move up: /g)).toHaveLength(4);
     expect(text(markup)).toContain('Check order');
     const wrong = checkOrder(run, sampleLesson);
-    expect(text(view(wrong))).toMatch(/Not yet: \d of 4 are in the right place\./);
+    expect(text(view(wrong))).toMatch(/Not yet: \d of 4 (is|are) in the right place\./);
     let sorted = wrong;
     for (const id of ['ci-green', 'review', 'approve', 'merge']) {
       while (
@@ -98,6 +146,14 @@ describe('the lesson view', () => {
       }
     }
     expect(text(view(checkOrder(sorted, sampleLesson)))).toContain('Right order.');
+  });
+
+  it('says "1 of 4 is in the right place" when only one step is', () => {
+    const run = atOrderCard();
+    // Only CI finishing green is in its place; the other three are shifted along.
+    const order = ['ci-green', 'approve', 'merge', 'review'];
+    const checked = checkOrder({ ...run, card: { ...run.card, order } }, sampleLesson);
+    expect(text(view(checked))).toContain('Not yet: 1 of 4 is in the right place.');
   });
 
   it("shows a final's clock beside the progress", () => {
@@ -121,6 +177,21 @@ describe('the lesson view', () => {
     const out = tickLesson(cards(sampleFinal), sampleFinal, T0 + 120_000);
     expect(text(view(out, sampleFinal))).toContain('Time’s up. You answered 0 of 6 cards.');
     expect(text(view(out, sampleFinal))).toContain('Try again');
+  });
+
+  it('shows the first-try score in green only from two stars up', () => {
+    /** The class of the Done screen's score line after these first tries. */
+    const scoreClass = (firstTry: boolean[]) => {
+      const done: LessonRun = { ...cards(), phase: 'done', outcome: 'finished', firstTry };
+      return /<p class="([^"]+)">\d+ of 6 right on the first try/.exec(view(done))?.[1];
+    };
+    expect(scoreClass([false, false, false, false, false, false])).toBe('drill-result');
+    // 3 of 6 is 50%: one star, so still not green.
+    expect(scoreClass([true, true, true, false, false, false])).toBe('drill-result');
+    // 4 of 6 is 67%: two stars.
+    expect(scoreClass([true, true, true, true, false, false])).toBe(
+      'drill-result drill-result--pass',
+    );
   });
 });
 

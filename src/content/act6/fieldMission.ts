@@ -32,11 +32,13 @@ export const documentOneRequest = {
     },
     {
       id: 'brief',
-      text: 'Ask your agent: "On a new docs/ branch, add an API section to README.md for that request: the method and path, an example JSON response, and its status code. Use the real app\'s shape and status code, but replace real ids, names and emails with obvious fakes."',
+      text: 'Brief your agent to write that request up in README.md on a new docs/ branch, with fake values in place of real ones.',
+      prompt:
+        "On a new docs/ branch, add an API section to README.md for that request: the method and path, an example JSON response, and its status code. Use the real app's shape and status code, but replace real ids, names and emails with obvious fakes.",
     },
     {
       id: 'check',
-      text: "Ask your agent to start the app and give you the URL, then open it in Chrome. Does the real response match the README, status code included? (Chrome's network tab shows the code.) If not, send your agent back.",
+      text: 'Ask your agent to start the app and give you the URL, then open it in Chrome. To see the status code, press F12, open the Network tab, reload the page and read the Status column. Does the real response match the README, status code included? If not, send your agent back.',
     },
     {
       id: 'no-secrets',
@@ -67,7 +69,9 @@ export const documentOneRequest = {
         "Run git log --oneline -1 origin/main -- README.md, or ask your agent to and show you the exact output, and paste the line. It is the newest README change on GitHub's main, so it should be your merged docs: commit.",
       command: 'git log --oneline -1 origin/main -- README.md',
       parser: 'log-oneline',
-      check: { kind: 'newestCommitType', type: 'docs' },
+      check: { kind: 'newestCommitType', type: 'docs', example: 'docs: document GET /health' },
+      whenEmpty:
+        'Nothing printed: GitHub’s main has no commit that touches README.md yet. Merge your pull request, run git fetch, then run this again.',
     },
     {
       id: 'synced-with-github',
@@ -75,7 +79,7 @@ export const documentOneRequest = {
         'Run git status on main, or ask your agent to and show you the exact output, and paste all of it. It should say "working tree clean" and "up to date with \'origin/main\'": nothing left over, nothing unpushed.',
       command: 'git status',
       parser: 'status-long',
-      check: { kind: 'clean', upstream: 'up-to-date' },
+      check: { kind: 'clean', branch: 'main', upstream: 'up-to-date' },
     },
     {
       id: 'no-secret-file',
@@ -84,6 +88,10 @@ export const documentOneRequest = {
       command: 'git ls-files',
       parser: 'ls-files',
       check: { kind: 'noTrackedSecrets' },
+      // The check before this one proved main matches GitHub's, so a tracked secret is
+      // already public: changing the keys comes first, untracking only stops the next leak.
+      advice:
+        'It’s on GitHub now, so treat every key in it as stolen and change them all first. Then have your agent untrack it on a branch (git rm --cached, and add it to .gitignore) and merge that through a pull request.',
     },
   ],
 } satisfies FieldMissionInput;

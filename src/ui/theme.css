@@ -25,6 +25,11 @@
   --radius: 12px;
 
   --font-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  /*
+   * Cascadia Code draws ===, => and <!-- as single joined glyphs, which hides the very
+   * characters a player is reading. Every rule using this font sets
+   * font-variant-ligatures: none after its font shorthand, which would reset it.
+   */
   --font-mono: 'Cascadia Code', 'Cascadia Mono', Consolas, ui-monospace, monospace;
 }
 
@@ -84,6 +89,7 @@ body {
   display: grid;
   gap: 2px;
   font: 12px/1.5 var(--font-mono);
+  font-variant-ligatures: none;
   font-variant-numeric: tabular-nums;
 }
 
@@ -194,6 +200,7 @@ body {
 
 .hud-button kbd {
   font: 11px var(--font-mono);
+  font-variant-ligatures: none;
   color: var(--text-muted);
 }
 
@@ -241,6 +248,7 @@ body {
   display: flex;
   justify-content: space-between;
   font: 12px/1.4 var(--font-mono);
+  font-variant-ligatures: none;
   color: var(--text-muted);
 }
 
@@ -303,6 +311,7 @@ body {
   padding: 8px 12px;
   border-bottom: 1px solid var(--glass-stroke);
   font: 13px var(--font-mono);
+  font-variant-ligatures: none;
 }
 
 .editor-panel__path {
@@ -373,6 +382,7 @@ body {
   display: block;
   color: var(--accent);
   font: 15px var(--font-mono);
+  font-variant-ligatures: none;
 }
 
 .command-chip__note {
@@ -565,6 +575,7 @@ body {
 
 .clock {
   font-family: var(--font-mono);
+  font-variant-ligatures: none;
   color: var(--warn);
 }
 
@@ -681,6 +692,7 @@ body {
   background: rgba(214, 156, 255, 0.12);
   color: var(--otto);
   font: 13px var(--font-mono);
+  font-variant-ligatures: none;
 }
 
 .otto__face--waiting {
@@ -774,6 +786,7 @@ body {
 
 .run-log__row code {
   font-family: var(--font-mono);
+  font-variant-ligatures: none;
   overflow-wrap: anywhere;
 }
 
@@ -806,6 +819,7 @@ body {
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.35);
   font-family: var(--font-mono);
+  font-variant-ligatures: none;
   overflow-wrap: anywhere;
 }
 
@@ -983,9 +997,14 @@ body {
   text-transform: uppercase;
 }
 
-/* Long artifacts scroll inside their box, so the question stays near the options. */
+/*
+ * Long artifacts scroll inside their box, so the question stays near the options. Thirteen
+ * lines show whole (a CI log's deciding line is often its 13th), and a 14th shows only
+ * half, so a longer one plainly scrolls. Lines wrap rather than run past the edge: only
+ * about 46 characters fit across, and the end of a line is often what a card asks about.
+ */
 .lesson-artifact pre {
-  max-height: 220px;
+  max-height: 13.5lh;
   margin: 0;
   padding: 8px 10px;
   overflow: auto;
@@ -993,7 +1012,15 @@ body {
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.35);
   font: 12.5px/1.45 var(--font-mono);
-  white-space: pre;
+  font-variant-ligatures: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* One line of an artifact. LessonView.tsx sets its hanging indent; an empty one keeps its height. */
+.lesson-artifact__line {
+  display: block;
+  min-height: 1lh;
 }
 
 .lesson-artifact pre:focus-visible {
@@ -1143,6 +1170,7 @@ body {
 .field-task__prompt p {
   margin: 0 0 6px;
   font: 13px var(--font-mono);
+  font-variant-ligatures: none;
 }
 
 .field-check__run {
@@ -1183,6 +1211,7 @@ body {
   background: rgba(0, 0, 0, 0.35);
   color: var(--accent);
   font: 13px var(--font-mono);
+  font-variant-ligatures: none;
   user-select: all;
 }
 
@@ -1196,6 +1225,7 @@ body {
   background: rgba(0, 0, 0, 0.3);
   color: var(--text);
   font: 13px var(--font-mono);
+  font-variant-ligatures: none;
 }
 
 /* HUD menu row: Acts, Standup Board, Trophy Wall, Settings, Music. */

@@ -27,18 +27,21 @@ export const greenOnEveryPush: FieldMissionInput = {
   title: 'Green on Every Push',
   repoName: 'SandCastles',
   briefing: [
-    'SandCastles already has one gate: coverage.yml runs its tests on every push and pull request. Nothing checks for secrets, so a pasted key could still reach GitHub and stay in its history for good.',
+    'SandCastles already has one gate: coverage.yml runs its tests on every push and pull request. Nothing checks for secrets, so a pasted key could be merged into main unnoticed. gitleaks flags it on the pull request, before the merge. The key is on GitHub by then, so that’s your cue to revoke it.',
     'You add the second gate, gitleaks from lesson 5.4, with coverage.yml as the model. You don’t write the YAML: you brief your own AI agent, review what it made, and get it green on a pull request.',
     'Each check below: run it in PowerShell in your sandcastles clone, whatever the folder is called, or ask your agent to run it and paste you the output. Then paste it here.',
   ],
   checklist: [
     {
       id: 'read-the-model',
-      text: 'Open your clone of sandcastles from GitHub, the one with .github/workflows/coverage.yml. Ask your agent: "Explain coverage.yml in plain words: when it runs and what it checks." That gate already exists and is your model. You won’t change it.',
+      text: 'Open your clone of sandcastles from GitHub, the one with .github/workflows/coverage.yml, and ask your agent to explain that file. That gate already exists and is your model. You won’t change it.',
+      prompt: 'Explain coverage.yml in plain words: when it runs and what it checks.',
     },
     {
       id: 'brief-the-workflow',
-      text: 'Brief it: "On a branch named ci/secret-scan, add .github/workflows/gitleaks.yml. Run gitleaks on every push and pull request, over the full history. Set permissions: contents: read, and add only what gitleaks’s docs require. Never use pull_request_target. No new secrets. Don’t touch coverage.yml or scripts/coverage.sh. Show me the file before committing."',
+      text: 'Brief it to add the gitleaks workflow on its own branch, leaving the gate that’s already there alone.',
+      prompt:
+        'On a branch named ci/secret-scan, add .github/workflows/gitleaks.yml. Run gitleaks on every push and pull request, over the full history. Set permissions: contents: read, and add only what gitleaks’s docs require. Never use pull_request_target. No new secrets. Don’t touch coverage.yml or scripts/coverage.sh. Show me the file before committing.',
     },
     {
       id: 'review-the-file',
@@ -47,6 +50,11 @@ export const greenOnEveryPush: FieldMissionInput = {
     {
       id: 'open-the-pr',
       text: 'Have it commit with a message that starts with ci:, like "ci: scan every push for secrets", push the branch and open a pull request. Not straight to main: the PR is where the new check proves itself before it guards anyone.',
+    },
+    {
+      // Before the merge step, so it's read before the merge it's about, not after.
+      id: 'check-the-squash-title',
+      text: 'Give the PR a title that starts with ci: too. With more than one commit, a squash merge uses the PR’s title, so before you confirm it, check the title GitHub fills in starts with ci:.',
     },
     {
       id: 'green-then-merge',
@@ -70,6 +78,8 @@ export const greenOnEveryPush: FieldMissionInput = {
       command: 'git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml',
       parser: 'log-oneline',
       check: { kind: 'conventionalRatio', min: 1, last: 1, types: ['ci'] },
+      whenEmpty:
+        'Nothing printed: GitHub’s main has no commit that touches gitleaks.yml yet. Merge the pull request, run git fetch, then run this again.',
     },
     {
       id: 'run-green',

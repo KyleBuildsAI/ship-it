@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { browserMotion } from '../../game/agent/browserMotion';
 import {
   allCardsSolved,
   currentCard,
@@ -6,11 +7,14 @@ import {
   lessonSecondsLeft,
   starsFor,
   stepsInPlace,
+  type LessonRun,
 } from '../../game/missions/lessonRunner';
 import type {
   ArtifactKind,
   Artifact,
+  CardOption,
   Lesson,
+  LessonCard,
   OrderCard,
   PickCard,
 } from '../../game/missions/lessonSchema';
@@ -30,6 +34,9 @@ import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
 import { leftAfterTestOut } from '../../game/play/saveRules';
 import { progress } from '../../game/progress';
+import { hangingIndent } from './artifactLines';
+import { answersOn, revealBehavior } from './lessonReveal';
+import { splitFeedback, stepsInPlaceText } from './lessonText';
 import { useClock } from './useClock';
 
 /** The label on an artifact's box when content gives none of its own. */
@@ -37,6 +44,7 @@ const ARTIFACT_LABELS: Record<ArtifactKind, string> = {
   diff: 'Diff',
   log: 'Log',
   terminal: 'Terminal',
+  issue: 'Issue',
   'pull-request': 'Pull request',
   'agent-message': "Agent's message",
   code: 'Code',
@@ -70,9 +78,10 @@ function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean })
         {lesson.briefing[index]}
       </p>
       {lesson.timeLimitSeconds === undefined ? null : (
+        // Skip briefing starts the clock as well as Start, so the note names neither button.
         <p className="play-panel__muted">
-          Every card shares one clock: {formatClock(lesson.timeLimitSeconds)}. It starts when you
-          press Start.
+          Every card shares one clock: {formatClock(lesson.timeLimitSeconds)}. It starts when the
+          first card shows.
         </p>
       )}
       <div className="play-panel__actions">
@@ -102,7 +111,10 @@ function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean })
   );
 }
 
-/** Something to read before answering: a diff, a log, a PR. It scrolls when it's long. */
+/**
+ * Something to read before answering: a diff, a log, a PR. It scrolls when it's long.
+ * Each line is its own block, so a long one wraps with its rest hanging in under it.
+ */
 function ArtifactBlock({ artifact }: { artifact: Artifact }) {
   const label = artifact.label ?? ARTIFACT_LABELS[artifact.kind];
   return (
@@ -111,7 +123,20 @@ function ArtifactBlock({ artifact }: { artifact: Artifact }) {
         <span className="lesson-artifact__kind">{ARTIFACT_LABELS[artifact.kind]}</span>
         {label === ARTIFACT_LABELS[artifact.kind] ? null : <span>{label}</span>}
       </figcaption>
-      <pre tabIndex={0}>{artifact.text}</pre>
+      <pre tabIndex={0}>
+        {artifact.text.split('\n').map((line, index) => {
+          const hang = hangingIndent(artifact.kind, line);
+          return (
+            <span
+              key={index}
+              className="lesson-artifact__line"
+              style={{ paddingLeft: `${String(hang)}ch`, textIndent: `${String(-hang)}ch` }}
+            >
+              {line}
+            </span>
+          );
+        })}
+      </pre>
     </figure>
   );
 }
@@ -138,131 +163,164 @@ function LockedNote({ last }: { last: boolean }) {
   );
 }
 
-/** A choose or prompt card: options as buttons, and the latest pick's feedback. */
-function PickOptions({
-  card,
-  activity,
-  last,
-}: {
-  card: PickCard;
-  activity: LessonActivity;
-  last: boolean;
-}) {
-  const { picked, solved } = activity.run.card;
-  const { locked } = activity.run;
-  const latest = card.options.find((option) => option.id === picked.at(-1));
+/** A pick's feedback: its verdict in bold, then why. A wrong pick invites another try. */
+function AnswerFeedback({ option }: { option: CardOption }) {
+  const { verdict, rest } = splitFeedback(option.correct, option.feedback);
   return (
-    <>
-      <ol className="lesson-options">
-        {card.options.map((option) => (
-          <li key={option.id}>
+    <p
+      className={option.correct ? 'drill-result drill-result--pass' : 'drill-result'}
+      aria-live="polite"
+    >
+      <strong>{verdict}</strong> {rest}
+      {option.correct ? null : ' Try another.'}
+    </p>
+  );
+}
+
+/** A choose or prompt card's options, as buttons. */
+function PickOptions({ card, run }: { card: PickCard; run: LessonRun }) {
+  const { picked, solved } = run.card;
+  return (
+    <ol className="lesson-options">
+      {card.options.map((option) => (
+        <li key={option.id}>
+          <button
+            type="button"
+            className={optionClass(picked, option.id, option.correct, run.locked)}
+            disabled={solved || picked.includes(option.id)}
+            onClick={() => {
+              answerLesson(option.id);
+            }}
+          >
+            {option.text}
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** What the latest pick got: its feedback, or a test's locked note. */
+function PickResult({ card, run, last }: { card: PickCard; run: LessonRun; last: boolean }) {
+  const latest = card.options.find((option) => option.id === run.card.picked.at(-1));
+  if (latest === undefined) return null;
+  return run.locked ? <LockedNote last={last} /> : <AnswerFeedback option={latest} />;
+}
+
+/** An order card's steps, with up and down buttons. */
+function OrderSteps({ card, run }: { card: OrderCard; run: LessonRun }) {
+  const { order, solved } = run.card;
+  const text = new Map(card.steps.map((step) => [step.id, step.text]));
+  return (
+    <ol className="lesson-order">
+      {order.map((id, index) => (
+        <li key={id}>
+          <span>{text.get(id)}</span>
+          <span className="lesson-order__moves">
             <button
               type="button"
-              className={optionClass(picked, option.id, option.correct, locked)}
-              disabled={solved || picked.includes(option.id)}
+              className="play-button"
+              aria-label={`Move up: ${text.get(id) ?? id}`}
+              disabled={solved || index === 0}
               onClick={() => {
-                answerLesson(option.id);
+                moveLessonStep(id, -1);
               }}
             >
-              {option.text}
+              ↑
             </button>
-          </li>
-        ))}
-      </ol>
-      {latest !== undefined && locked ? <LockedNote last={last} /> : null}
-      {latest === undefined || locked ? null : (
-        <p
-          className={latest.correct ? 'drill-result drill-result--pass' : 'drill-result'}
-          aria-live="polite"
-        >
-          <strong>{latest.correct ? 'Right. ' : 'Not quite. '}</strong>
-          {latest.feedback}
-          {latest.correct ? null : ' Try another.'}
+            <button
+              type="button"
+              className="play-button"
+              aria-label={`Move down: ${text.get(id) ?? id}`}
+              disabled={solved || index === order.length - 1}
+              onClick={() => {
+                moveLessonStep(id, 1);
+              }}
+            >
+              ↓
+            </button>
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Under an order card's steps: "Check order" and how the last check went. */
+function OrderResult({ card, run, last }: { card: OrderCard; run: LessonRun; last: boolean }) {
+  const { solved, wrongOrders } = run.card;
+  if (solved) {
+    return run.locked ? (
+      <LockedNote last={last} />
+    ) : (
+      <p className="drill-result drill-result--pass" aria-live="polite">
+        <strong>Right order.</strong>
+      </p>
+    );
+  }
+  return (
+    <>
+      {wrongOrders > 0 ? (
+        <p className="drill-result" aria-live="polite">
+          {stepsInPlaceText(stepsInPlace(run, card), card.steps.length)}
         </p>
-      )}
+      ) : null}
+      <div className="play-panel__actions">
+        <button
+          type="button"
+          className="play-button play-button--primary"
+          onClick={() => {
+            checkLessonOrder();
+          }}
+        >
+          {run.locked ? 'Lock in this order' : 'Check order'}
+        </button>
+      </div>
     </>
   );
 }
 
-/** An order card: the steps with up and down buttons, then "Check order". */
-function OrderSteps({
-  card,
-  activity,
-  last,
-}: {
-  card: OrderCard;
-  activity: LessonActivity;
-  last: boolean;
-}) {
-  const { order, solved, wrongOrders } = activity.run.card;
-  const { locked } = activity.run;
-  const text = new Map(card.steps.map((step) => [step.id, step.text]));
+/** Once a card is over: why the answer is right (never on a test), and Next. */
+function WhyAndNext({ card, run, last }: { card: LessonCard; run: LessonRun; last: boolean }) {
   return (
-    <>
-      <ol className="lesson-order">
-        {order.map((id, index) => (
-          <li key={id}>
-            <span>{text.get(id)}</span>
-            <span className="lesson-order__moves">
-              <button
-                type="button"
-                className="play-button"
-                aria-label={`Move up: ${text.get(id) ?? id}`}
-                disabled={solved || index === 0}
-                onClick={() => {
-                  moveLessonStep(id, -1);
-                }}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className="play-button"
-                aria-label={`Move down: ${text.get(id) ?? id}`}
-                disabled={solved || index === order.length - 1}
-                onClick={() => {
-                  moveLessonStep(id, 1);
-                }}
-              >
-                ↓
-              </button>
-            </span>
-          </li>
-        ))}
-      </ol>
-      {solved && locked ? <LockedNote last={last} /> : null}
-      {solved && !locked ? (
-        <p className="drill-result drill-result--pass" aria-live="polite">
-          <strong>Right order.</strong>
-        </p>
-      ) : null}
-      {solved ? null : (
+    <div className={run.locked ? undefined : 'hint'}>
+      {/* The why would give a test's answer away, so a test moves straight on. */}
+      {run.locked ? null : (
         <>
-          {wrongOrders > 0 ? (
-            <p className="drill-result" aria-live="polite">
-              Not yet: {stepsInPlace(activity.run, card)} of {card.steps.length} are in the right
-              place. Move some and check again.
-            </p>
-          ) : null}
-          <div className="play-panel__actions">
-            <button
-              type="button"
-              className="play-button play-button--primary"
-              onClick={() => {
-                checkLessonOrder();
-              }}
-            >
-              {locked ? 'Lock in this order' : 'Check order'}
-            </button>
-          </div>
+          <p className="hint__source">Why</p>
+          <p>{card.explanation}</p>
         </>
       )}
-    </>
+      <div className="play-panel__actions">
+        <button
+          type="button"
+          className="play-button play-button--primary"
+          onClick={() => {
+            nextLessonCard();
+          }}
+        >
+          {last ? 'Finish' : 'Next card'}
+        </button>
+      </div>
+    </div>
   );
 }
 
 function CardScreen({ activity }: { activity: LessonActivity }) {
   const { lesson, run } = activity;
+  const result = useRef<HTMLDivElement>(null);
+  const answers = answersOn(run.card);
+  // Each answer's result appears under the options, which on a long card is below the
+  // panel's fold, so a placement test looked frozen. Bring the newest into view, and only
+  // as far as it takes. A fresh card has none: the panel opens it at the top.
+  useLayoutEffect(() => {
+    if (answers === 0) return;
+    const reducedMotion = progress.get().save?.settings.reducedMotion ?? 'system';
+    result.current?.scrollIntoView({
+      block: 'nearest',
+      behavior: revealBehavior(browserMotion, reducedMotion),
+    });
+  }, [answers]);
   const card = currentCard(run, lesson);
   if (card === undefined) return null;
   const last = run.cardIndex + 1 >= lesson.cards.length;
@@ -273,32 +331,18 @@ function CardScreen({ activity }: { activity: LessonActivity }) {
       {card.artifact === undefined ? null : <ArtifactBlock artifact={card.artifact} />}
       <p className="lesson-card__question">{card.question}</p>
       {card.kind === 'order' ? (
-        <OrderSteps card={card} activity={activity} last={last} />
+        <OrderSteps card={card} run={run} />
       ) : (
-        <PickOptions card={card} activity={activity} last={last} />
+        <PickOptions card={card} run={run} />
       )}
-      {run.card.solved ? (
-        <div className={run.locked ? undefined : 'hint'}>
-          {/* The why would give a test's answer away, so a test moves straight on. */}
-          {run.locked ? null : (
-            <>
-              <p className="hint__source">Why</p>
-              <p>{card.explanation}</p>
-            </>
-          )}
-          <div className="play-panel__actions">
-            <button
-              type="button"
-              className="play-button play-button--primary"
-              onClick={() => {
-                nextLessonCard();
-              }}
-            >
-              {last ? 'Finish' : 'Next card'}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <div ref={result}>
+        {card.kind === 'order' ? (
+          <OrderResult card={card} run={run} last={last} />
+        ) : (
+          <PickResult card={card} run={run} last={last} />
+        )}
+        {run.card.solved ? <WhyAndNext card={card} run={run} last={last} /> : null}
+      </div>
     </div>
   );
 }
@@ -395,7 +439,8 @@ function Done({ activity }: { activity: LessonActivity }) {
             {'★'.repeat(stars)}
             <span>{'★'.repeat(3 - stars)}</span>
           </p>
-          <p className="drill-result drill-result--pass">
+          {/* Green only from 2 stars (60%) up: "0 of 9 right" in green read as praise. */}
+          <p className={stars >= 2 ? 'drill-result drill-result--pass' : 'drill-result'}>
             {right} of {lesson.cards.length} right on the first try.
           </p>
           <p className="play-panel__muted">

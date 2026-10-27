@@ -1,6 +1,13 @@
 import * as THREE from 'three/webgpu';
 import { baseName } from '../../engine/fs/paths';
-import { gridCell, type CrateArea, type CrateLook, type CrateSpec } from './crateLayout';
+import {
+  CRATE_FLOORS,
+  launchKey,
+  placeCrates,
+  type CrateArea,
+  type CrateLook,
+  type CrateSpec,
+} from './crateLayout';
 import type { GitWorldLayout } from './gitWorld';
 import { Label } from './labels';
 
@@ -54,6 +61,15 @@ interface CrateView {
   leaving: 'vault' | 'fade' | null;
 }
 
+/** A crate the sandbox still has, during one sync: its view, and where it should be. */
+interface Placed {
+  readonly spec: CrateSpec;
+  readonly view: CrateView;
+  /** Its view was made by this sync, so it has no position of its own yet. */
+  readonly fresh: boolean;
+  readonly target: THREE.Vector3;
+}
+
 /**
  * Draws the working tree and staging area as crates, and animates the difference each
  * time the sandbox changes: `git add` flies a crate from the Workbench to the Loading
@@ -89,19 +105,29 @@ export class CrateYard {
       }
     }
 
-    for (const spec of specs) {
-      const target = this.slotPosition(spec.area, spec.slot);
-      let view = this.views.get(spec.key);
-      if (view?.leaving) {
+    // Every crate's view exists before any is placed: where a crate goes depends on how
+    // wide its neighbours' labels are.
+    const present = specs.map((spec): Placed => {
+      const existing = this.views.get(spec.key);
+      return {
+        spec,
+        view: existing ?? this.createView(spec),
+        fresh: existing === undefined,
+        target: new THREE.Vector3(),
+      };
+    });
+    this.place(present);
+
+    for (const { spec, view, fresh, target } of present) {
+      if (view.leaving) {
         // Back again before it finished leaving (e.g. staged, then unstaged): keep it.
         view.leaving = null;
         view.group.scale.setScalar(1);
       }
-      if (!view) {
-        view = this.createView(spec);
-        // A staged crate starts where its file sits on the Workbench, so it visibly moves.
+      if (fresh) {
+        const launch = launchKey(spec);
         const origin =
-          this.views.get(`bench:${spec.path}`)?.group.position ??
+          (launch === null ? undefined : this.views.get(launch)?.group.position) ??
           target.clone().add(new THREE.Vector3(0, 2.5, 0));
         view.group.position.copy(origin);
         this.fly(view, target, spec.area === 'dock' ? 1.4 : 0);
@@ -188,35 +214,25 @@ export class CrateYard {
     view.flight = { from: view.group.position.clone(), to, progress: 0, arc };
   }
 
-  private slotPosition(area: CrateArea, slot: number): THREE.Vector3 {
-    if (area === 'bench') {
-      const { column, row, layer } = gridCell(slot, 8, 3);
-      return this.layout.workbenchTop
-        .clone()
-        .add(
-          new THREE.Vector3(
-            -3.08 + column * 0.88,
-            CRATE / 2 + layer * (CRATE + 0.04),
-            -0.9 + row * 0.9,
-          ),
-        );
+  /** Sets every crate's target: each area laid out by how wide its crates' labels are. */
+  private place(present: readonly Placed[]): void {
+    const anchors: Record<CrateArea, THREE.Vector3> = {
+      bench: this.layout.workbenchTop,
+      dock: this.layout.dockTop,
+      blocklist: this.layout.blocklistGround,
+    };
+    for (const area of ['bench', 'dock', 'blocklist'] as const) {
+      const inArea = present
+        .filter((placed) => placed.spec.area === area)
+        .sort((a, b) => a.spec.slot - b.spec.slot);
+      // A label's width counts even while it's hidden (an untracked crate's), so a crate
+      // stays put when git learns its name and the label appears.
+      const labelWidth = (placed: Placed) => placed.view.label.sprite.scale.x;
+      for (const { crate, place } of placeCrates(inArea, labelWidth, CRATE_FLOORS[area])) {
+        const height = CRATE / 2 + place.layer * (CRATE + 0.04);
+        crate.target.copy(anchors[area]).add(new THREE.Vector3(place.x, height, place.z));
+      }
     }
-    if (area === 'dock') {
-      const { column, row, layer } = gridCell(slot, 4, 3);
-      return this.layout.dockTop
-        .clone()
-        .add(
-          new THREE.Vector3(
-            -1.45 + column * 0.97,
-            CRATE / 2 + layer * (CRATE + 0.04),
-            -1 + row * 1,
-          ),
-        );
-    }
-    const { column, row, layer } = gridCell(slot, 2, 4);
-    return this.layout.blocklistGround
-      .clone()
-      .add(new THREE.Vector3(column * 0.8, CRATE / 2 + layer * (CRATE + 0.04), -1.2 + row * 0.85));
   }
 
   private addBlocklistSign(): void {

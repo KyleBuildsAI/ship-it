@@ -117,13 +117,26 @@ describe('Act 5 placement test', () => {
 });
 
 describe('Act 5 Field Mission: Green on Every Push', () => {
-  const text = () => [...field.briefing, ...field.checklist.map((item) => item.text)].join(' ');
+  const text = () =>
+    [...field.briefing, ...field.checklist.flatMap((item) => [item.text, item.prompt ?? ''])].join(
+      ' ',
+    );
 
   it('builds on the coverage gate SandCastles already has, with a gate it lacks', () => {
     expect(field.repoName).toBe('SandCastles');
     expect(field.briefing.join(' ')).toContain('already has one gate: coverage.yml');
     expect(text()).toContain('.github/workflows/gitleaks.yml');
     expect(text()).toContain('Brief it');
+    // The brief is long and exact, so it has its own Copy button.
+    const brief = field.checklist.find((item) => item.id === 'brief-the-workflow')?.prompt ?? '';
+    expect(brief).toContain('On a branch named ci/secret-scan');
+  });
+
+  it('never says the scan keeps a key off GitHub: it runs after the push, before the merge', () => {
+    const briefing = field.briefing.join(' ');
+    expect(briefing).not.toContain('reach GitHub and stay in its history');
+    expect(briefing).toContain('gitleaks flags it on the pull request, before the merge');
+    expect(briefing).toContain('revoke');
   });
 
   it('rules out every way an agent could buy green by weakening a gate', () => {
@@ -142,6 +155,16 @@ describe('Act 5 Field Mission: Green on Every Push', () => {
     expect(text()).toContain('On a branch named ci/secret-scan');
     expect(text()).toContain('open a pull request. Not straight to main');
     expect(text()).toContain('squash-merge');
+  });
+
+  it('has Kyle check the squash title starts with ci:, since the ci: check reads it', () => {
+    // After fix rounds a PR has several commits, and GitHub's squash title is then the PR's.
+    const steps = field.checklist.map((item) => item.id);
+    const title = field.checklist.find((item) => item.id === 'check-the-squash-title');
+    // It comes before the step that merges, or a player going in order reads it too late.
+    expect(steps.indexOf('check-the-squash-title')).toBe(steps.indexOf('green-then-merge') - 1);
+    expect(title?.text).toContain('check the title GitHub fills in starts with ci:');
+    expect(title?.text).toContain('Give the PR a title that starts with ci:');
   });
 
   it('lets the player have their agent run every command', () => {
@@ -184,7 +207,11 @@ describe('Act 5 Field Mission: Green on Every Push', () => {
     const pushed = verification('workflow-pushed');
     const empty =
       'PS C:\\code\\sandcastles> git log --oneline -1 origin/main -- .github/workflows/gitleaks.yml\n';
-    expect(verifyPaste(pushed, empty).passed).toBe(false);
+    const verdict = verifyPaste(pushed, empty);
+    expect(verdict.passed).toBe(false);
+    // It says to merge the pull request, never to commit, which would land on main itself.
+    expect(verdict.message).toContain('Merge the pull request, run git fetch');
+    expect(verdict.message).not.toContain('commit it');
   });
 
   it('proves the run went green with gh, and says what to do when it did not', () => {

@@ -25,7 +25,10 @@ export const STORY_HEADINGS = [
  * Checks read pasted PowerShell output on this computer, so no GitHub token or API key is
  * needed. Between them they read the story itself, not just that a commit happened:
  * - the log line proves a commit touched the story, with a Conventional message (a squash
- *   merge keeps the pull request's title, so it still passes);
+ *   merge keeps the pull request's title, so it still passes). The `--` before the path
+ *   makes git print nothing for a story that isn't on this branch yet, where without it
+ *   git stops with "ambiguous argument". Windows PowerShell 5.1 and PowerShell 7 both
+ *   pass `--` through to git;
  * - `git show HEAD:docs/story.md | Select-String '^## '` prints the committed story's
  *   headings, so the STAR shape is checked, not taken on trust;
  * - `git ls-files` proves the story and README are tracked, and that no .env rides along
@@ -33,7 +36,6 @@ export const STORY_HEADINGS = [
  * - a status limited to the two files proves they're fully committed, while unrelated
  *   work in progress elsewhere in SandCastles is left alone, so nobody is pushed into
  *   stashing, reverting or sweeping it into a commit.
- * No command has a bare `--`, because Windows PowerShell can drop one before git sees it.
  */
 export const tellTheSandCastlesStory = {
   id: 'tell-the-sandcastles-story',
@@ -65,10 +67,12 @@ export const tellTheSandCastlesStory = {
     {
       id: 'story-committed',
       instruction:
-        'In your SandCastles folder, on main, run this and paste the line. Any Conventional message like docs: ... passes. No line means no commit has touched docs/story.md yet.',
-      command: 'git log --oneline -1 docs/story.md',
+        'In your SandCastles folder, on main, run this and paste the line. Any Conventional message like docs: ... passes. No line means no commit on main has touched docs/story.md yet.',
+      command: 'git log --oneline -1 -- docs/story.md',
       parser: 'log-oneline',
       check: { kind: 'conventionalRatio', min: 1, last: 1 },
+      whenEmpty:
+        'No line means no commit on this branch has touched docs/story.md yet. If the pull request is merged, run git switch main and git pull, then run this again.',
     },
     {
       id: 'story-headings',

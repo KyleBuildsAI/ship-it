@@ -2,12 +2,36 @@ import { useState } from 'react';
 import { requireFieldMission } from '../../game/missions/schema';
 import { getAct } from '../../game/play/catalog';
 import type { FieldVerdict } from '../../game/play/fieldCheck';
-import { checkFieldOnGitHub, setFieldTaskDone, submitFieldPaste } from '../../game/play/fieldPlay';
+import {
+  checkFieldOnGitHub,
+  setFieldTaskDone,
+  submitFieldPaste,
+  type FieldSubmission,
+} from '../../game/play/fieldPlay';
 import { leavePlay } from '../../game/play/play';
 import type { FieldActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
 import { CopyButton } from './CopyButton';
+
+const VERIFIED_MESSAGE = 'Verified. Real work, really done.';
+
+/**
+ * What one paste check said. The pass that finishes the mission also says it's verified
+ * right here: the panel's own line sits above the checks, far out of view by the last one.
+ */
+export function FieldCheckResult({ verdict }: { verdict: FieldSubmission }) {
+  return (
+    <>
+      <span className={verdict.passed ? 'drill-result drill-result--pass' : 'drill-result'}>
+        {verdict.message}
+      </span>
+      {verdict.completedMission === true ? (
+        <span className="drill-result drill-result--pass">{VERIFIED_MESSAGE}</span>
+      ) : null}
+    </>
+  );
+}
 
 /**
  * The Field Mission (DESIGN.md section 8): a checklist of real work on one of Kyle's real
@@ -24,7 +48,7 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
   const field = requireFieldMission(getAct(activity.act).act);
   const { save } = useStore(progress);
   const [pastes, setPastes] = useState<Record<string, string>>({});
-  const [verdicts, setVerdicts] = useState<Record<string, FieldVerdict>>({});
+  const [verdicts, setVerdicts] = useState<Record<string, FieldSubmission>>({});
   const saved = save?.fieldMissions[field.id];
 
   return (
@@ -75,7 +99,7 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
         })}
       </ul>
       {saved?.verifiedAt ? (
-        <p className="drill-result drill-result--pass">Verified. Real work, really done.</p>
+        <p className="drill-result drill-result--pass">{VERIFIED_MESSAGE}</p>
       ) : null}
       {field.verifications.map((check) => {
         const done = saved?.checklist[check.id] === true;
@@ -112,13 +136,7 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
               >
                 Check
               </button>
-              {verdict ? (
-                <span
-                  className={verdict.passed ? 'drill-result drill-result--pass' : 'drill-result'}
-                >
-                  {verdict.message}
-                </span>
-              ) : null}
+              {verdict ? <FieldCheckResult verdict={verdict} /> : null}
             </div>
           </div>
         );
