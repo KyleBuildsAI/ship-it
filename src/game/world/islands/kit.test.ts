@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
-import { palette, segment } from './kit';
+import { palette, popIn, segment } from './kit';
 
 /*
  * The kit's helpers that every island's beats lean on. No renderer is needed: they only
@@ -13,6 +13,32 @@ const colors = palette(0x7c9cff);
 function axis(mesh: THREE.Object3D, x: number, y: number, z: number): THREE.Vector3 {
   return new THREE.Vector3(x, y, z).applyQuaternion(mesh.quaternion);
 }
+
+describe('popping a mesh in', () => {
+  it('grows a little past its size on the way, then lands on it exactly', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), colors.glow);
+    const sizes: number[] = [];
+    for (let step = 0; step <= 100; step++) {
+      popIn(mesh, step / 100, 2);
+      sizes.push(mesh.scale.x);
+    }
+    const biggest = Math.max(...sizes);
+    expect(biggest).toBeGreaterThan(2 * 1.05);
+    expect(biggest).toBeLessThan(2 * 1.15);
+    expect(sizes.at(-1)).toBeCloseTo(2);
+    expect(mesh.visible).toBe(true);
+  });
+
+  it('hides the mesh before it starts, and never turns it inside out', () => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(), colors.glow);
+    popIn(mesh, 0);
+    expect(mesh.visible).toBe(false);
+    for (let step = 0; step <= 100; step++) {
+      popIn(mesh, step / 100);
+      expect(mesh.scale.x).toBeGreaterThan(0);
+    }
+  });
+});
 
 describe('a segment', () => {
   it('runs from one point to the other', () => {

@@ -180,11 +180,19 @@ export function createStage(parent: THREE.Group): Stage {
   };
 }
 
-/** Scales a mesh in with a small overshoot, so a new thing pops into place. */
+/** How far popIn's curve swings past full size: the standard "back" ease, about 10%. */
+const BACK_SWING = 1.70158;
+
+/**
+ * Scales a mesh in with a small overshoot, so a new thing pops into place: it grows a
+ * little past `size`, about 10% at most, and settles back to it at `amount` 1.
+ */
 export function popIn(object: THREE.Object3D, amount: number, size = 1): void {
   const clamped = Math.min(1, Math.max(0, amount));
-  const overshoot = 1 + Math.sin(clamped * Math.PI) * 0.25;
-  object.scale.setScalar(Math.max(0.001, clamped * overshoot * size));
+  // Ease-out-back: rises fast, passes 1 a little past halfway, and lands on exactly 1.
+  const fromEnd = clamped - 1;
+  const eased = clamped === 0 ? 0 : 1 + (BACK_SWING + 1) * fromEnd ** 3 + BACK_SWING * fromEnd ** 2;
+  object.scale.setScalar(Math.max(0.001, eased * size));
   object.visible = clamped > 0;
 }
 
