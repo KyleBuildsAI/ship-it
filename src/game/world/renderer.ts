@@ -1,5 +1,11 @@
 import * as THREE from 'three/webgpu';
-import { chooseBackend, clampPixelRatio, readForcedBackend, type Backend } from './backend';
+import {
+  canDrawAt,
+  chooseBackend,
+  clampPixelRatio,
+  readForcedBackend,
+  type Backend,
+} from './backend';
 
 export interface RendererHandle {
   renderer: THREE.WebGPURenderer;
@@ -27,6 +33,8 @@ export function fitToContainer(
   container: HTMLElement,
   maxPixelRatio?: number,
 ): void {
+  // Collapsed: keep the last real size until the container has one again.
+  if (!canDrawAt(container.clientWidth, container.clientHeight)) return;
   renderer.setPixelRatio(clampPixelRatio(window.devicePixelRatio, maxPixelRatio));
   renderer.setSize(container.clientWidth, container.clientHeight);
 }

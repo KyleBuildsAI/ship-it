@@ -20,3 +20,12 @@ export function chooseBackend(forced: Backend | null, hasWebGPUAdapter: boolean)
 export function clampPixelRatio(devicePixelRatio: number, max = MAX_PIXEL_RATIO): number {
   return Math.min(Math.max(devicePixelRatio, 1), max);
 }
+
+/**
+ * Whether a canvas this size can be drawn to. A collapsed container (a hidden pane, a
+ * window squeezed to nothing) measures 0, and WebGPU can't make a texture with no area:
+ * it warns on every frame instead.
+ */
+export function canDrawAt(width: number, height: number): boolean {
+  return width > 0 && height > 0;
+}
