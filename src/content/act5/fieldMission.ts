@@ -55,6 +55,10 @@ export const greenOnEveryPush: FieldMissionInput = {
       id: 'green-then-merge',
       text: 'On the PR, wait for every check, gitleaks and coverage, to go green, then squash-merge. Red? Copy the first error to your agent and ask it to fix the cause, never to skip the check. CI runs on Linux, so file name capitals matter there (lesson 5.3). A real key found? Revoke it first (lesson 5.4).',
     },
+    {
+      id: 'check-the-squash-title',
+      text: 'Before you confirm the squash merge, check the title GitHub fills in starts with ci:. With more than one commit it uses the PR’s title, so give the PR a ci: title too.',
+    },
   ],
   verifications: [
     {

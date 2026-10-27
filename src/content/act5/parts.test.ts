@@ -157,6 +157,15 @@ describe('Act 5 Field Mission: Green on Every Push', () => {
     expect(text()).toContain('squash-merge');
   });
 
+  it('has Kyle check the squash title starts with ci:, since the ci: check reads it', () => {
+    // After fix rounds a PR has several commits, and GitHub's squash title is then the PR's.
+    const steps = field.checklist.map((item) => item.id);
+    const title = field.checklist.find((item) => item.id === 'check-the-squash-title');
+    expect(steps.indexOf('check-the-squash-title')).toBe(steps.indexOf('green-then-merge') + 1);
+    expect(title?.text).toContain('check the title GitHub fills in starts with ci:');
+    expect(title?.text).toContain('give the PR a ci: title too');
+  });
+
   it('lets the player have their agent run every command', () => {
     for (const check of field.verifications) {
       expect(check.instruction, check.id).toMatch(/your agent/);
