@@ -178,35 +178,47 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         });
       },
     },
-    // Red, then green: the change is stopped, goes back for a fix (it glows, changed),
-    // the same check now passes, the boom lifts, and it rolls on through the rest.
+    // Red, then green: the change is stopped at a failing check and hops back for a fix (it
+    // comes back glowing, changed). The fix is a new push, so it runs every gate again from
+    // the start, not just the one that failed: the lights go dark, then green one by one,
+    // the boom lifts once the old red check passes, and the change rolls on.
     'red-to-green': {
       seconds: 3,
       start: () => {
         const lights = signals();
         const change = crate(colors.light);
-        const boom = barrier(LAST_GATE);
-        const stopped = waitBefore(LAST_GATE);
+        const boom = barrier(FAIL_GATE);
+        const stopped = waitBefore(FAIL_GATE);
+        const failLight = lights[FAIL_GATE];
+        /** When the fixed change sets off again, and every check runs a second time. */
+        const rerun = 0.5;
+        const failLightAt = (progress: number): THREE.Material => {
+          if (progress < 0.22) return colors.dark;
+          if (progress < rerun) return colors.alert;
+          // The new run hasn't reached it yet, then the fixed change passes it.
+          return progress >= 0.7 ? parts.pass : colors.dark;
+        };
         return run(stage, [], (progress) => {
-          popIn(change, phase(progress, 0, 0.08));
-          slide(change, ENTRY, stopped, phase(progress, 0.05, 0.3));
-          // The fix: a hop in place, and the crate comes back changed.
-          const fixing = phase(progress, 0.4, 0.55);
-          if (progress >= 0.4 && progress < 0.6) slide(change, stopped, stopped, fixing, 0.7);
-          change.material = progress >= 0.5 ? colors.glow : colors.light;
-          if (progress >= 0.6) slide(change, stopped, EXIT, phase(progress, 0.6, 1));
-          passedGates(lights, change.position.z, LAST_GATE);
-          const checkLight = lights[LAST_GATE];
-          if (checkLight) {
-            const fixed = progress >= 0.55;
-            checkLight.material = fixed
-              ? parts.pass
-              : progress >= 0.25
-                ? colors.alert
-                : colors.dark;
+          popIn(change, phase(progress, 0, 0.06));
+          // Its four legs: up to the red gate, back to the start, up again, then on through.
+          if (progress < 0.32) {
+            slide(change, ENTRY, stopped, phase(progress, 0.04, 0.24));
+          } else if (progress < rerun) {
+            slide(change, stopped, ENTRY, phase(progress, 0.32, rerun), 0.8);
+          } else if (progress < 0.78) {
+            slide(change, ENTRY, stopped, phase(progress, rerun, 0.7));
+          } else {
+            slide(change, stopped, EXIT, phase(progress, 0.78, 1));
           }
-          // The boom drops on the red, then lifts away once the check is green.
-          popIn(boom, Math.min(phase(progress, 0.25, 0.35), 1 - phase(progress, 0.55, 0.62)));
+          // The fix lands at the top of the hop back.
+          change.material = progress >= 0.41 ? colors.glow : colors.light;
+          // On the way back the first run's results stand; once it sets off again, every
+          // light starts dark, because a new run checks everything from scratch.
+          const goingBack = progress >= 0.32 && progress < rerun;
+          passedGates(lights, goingBack ? stopped.z : change.position.z, FAIL_GATE);
+          if (failLight) failLight.material = failLightAt(progress);
+          // The boom drops on the red and lifts only once the fixed change passes that check.
+          popIn(boom, Math.min(phase(progress, 0.22, 0.3), 1 - phase(progress, 0.7, 0.78)));
         });
       },
     },
