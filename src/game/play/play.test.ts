@@ -21,9 +21,11 @@ import { XP_AWARDS } from '../progression/xp';
 import { sandbox } from '../sandbox';
 import { closeTerminal, hud } from '../hud';
 import { createDefaultSave } from '../save/schema';
+import { worldState } from '../worldState';
 import { bossTick, bossSandboxChanged, startBossFight } from './bossPlay';
 import { setCatalog } from './catalog';
 import { startFieldMission } from './fieldPlay';
+import { startFreePlay } from './freePlay';
 import {
   askForHint,
   endBriefing,
@@ -345,6 +347,28 @@ describe('the placement attempt', () => {
     startPlacement(sampleAct.act);
     passPlacement();
     expect(progress.get().save?.acts['2']?.placement.attempts).toBe(1);
+  });
+});
+
+describe("travelling to the Act's island", () => {
+  beforeEach(() => {
+    worldState.update({ zone: 'campus', destination: null });
+  });
+
+  it('takes a drill placement test there, since its scenes play on the island', () => {
+    startPlacement(sampleAct.act);
+    expect(worldState.get().destination).toBe('gitworld');
+  });
+
+  it("opens the Laptop sandbox on Act 1's island, where the laptop's terraces are", () => {
+    startFreePlay(1, [], 'A laptop.');
+    expect(worldState.get().destination).toBe('machine');
+  });
+
+  it('leaves a Standup Board review where the player is, since it mixes every Act', () => {
+    startReview(NOW);
+    expect(series().kind).toBe('review');
+    expect(worldState.get().destination).toBeNull();
   });
 });
 
@@ -789,6 +813,29 @@ describe('directing Otto through a step', () => {
     expect(trueCheckOptions(mission())).toEqual(['home']);
   });
 
+  it("keeps each look's line and output for the panel, until Otto starts over", () => {
+    pickCard('guess');
+    ottoWaits();
+    expect(ottoRun.get().looks).toEqual([]);
+    runLook('where');
+    runLook('where');
+    // The terminal is put away, so the check card shows what each look printed.
+    const [first] = ottoRun.get().looks;
+    expect(ottoRun.get().looks).toHaveLength(2);
+    expect(first).toMatchObject({ prompt: 'PS C:\\Users\\kyle> ', typed: 'Get-Location' });
+    expect(first?.lines.map((line) => line.text)).toContain('C:\\Users\\kyle');
+
+    // A fix changes the laptop, so the looks from before it would show a stale one.
+    checkClaim('home');
+    directFix();
+    pickCard('fix-full-path');
+    expect(ottoRun.get().looks).toEqual([]);
+    ottoWaits();
+    runLook('where');
+    rewind();
+    expect(ottoRun.get().looks).toEqual([]);
+  });
+
   it('counts one slip once, however often Kyle rewinds and replays its card', () => {
     const replay = (answer: string): void => {
       pickCard('guess');
@@ -866,7 +913,7 @@ describe('directing Otto through a step', () => {
     rewind();
     expect(holds(inTheApi)).toBe(false);
     expect(mission().agent).toMatchObject({ stage: { at: 'direct', round: 'start' } });
-    expect(ottoRun.get()).toEqual({ rows: [], last: null });
+    expect(ottoRun.get()).toEqual({ rows: [], last: null, looks: [] });
     directTheSampleStep();
     expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
   });

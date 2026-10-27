@@ -902,6 +902,82 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * Terminal evidence in the panel (TerminalEvidence.tsx): Kyle's looks and a drill scene's
+ * lines, each after its prompt and followed by its output, because the terminal itself
+ * stays put away. Long output scrolls inside the box, so the answers stay near. A long
+ * line wraps, as it does in the terminal: the panel is about 48 characters wide, and a
+ * Get-ChildItem row puts the Name column past that, where a sideways scroll would hide it.
+ * The box gets shorter on a short screen (20vh is 154px at 768 high), so a timed drill's
+ * answers still fit under it in the panel.
+ */
+.evidence {
+  margin: 8px 0;
+}
+
+.evidence figcaption {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.evidence pre {
+  max-height: min(220px, 20vh);
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  font: 13px/1.45 var(--font-mono);
+  font-variant-ligatures: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.evidence pre:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.evidence__prompt,
+.evidence__words {
+  color: var(--text-muted);
+}
+
+.evidence__words {
+  font-style: italic;
+}
+
+/* Typed lines wear their typist's colour, as in the terminal and the look chips. */
+.evidence--kyle .evidence__typed {
+  color: var(--accent);
+}
+
+.evidence--otto .evidence__typed {
+  color: var(--otto);
+}
+
+.evidence__out--bad {
+  color: var(--danger);
+}
+
+.evidence__out--good {
+  color: var(--ok);
+}
+
+.evidence__out--note {
+  color: var(--warn);
+}
+
+.evidence__out--info {
+  color: var(--accent);
+}
+
+.evidence__out--strong {
+  font-weight: 700;
+}
+
 .result-card__verdict {
   margin: 0 0 6px;
   padding: 6px 10px;

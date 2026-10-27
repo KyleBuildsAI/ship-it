@@ -226,7 +226,7 @@ const restoreTaxTask = {
         text: 'Nothing: src/tax.ts is deleted',
         truth: taxGone,
         feedback:
-          'git status lists src/tax.ts as deleted: the commit Otto restored from had no tax.ts.',
+          'git diff src/tax.ts says "deleted file": the commit Otto restored from had no tax.ts.',
       },
       {
         id: 'history-lost',
