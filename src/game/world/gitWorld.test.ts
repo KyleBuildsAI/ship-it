@@ -41,8 +41,9 @@ const LABEL_CORNERS = [
 ];
 
 /**
- * Missions 2.2 and 2.5 start with five commits and add a revert or two, so Act 2's longest
- * histories run to seven. The path rises as it goes, so an eighth would reach the top edge.
+ * Missions 2.2 and 2.5 start with five commits and can add two more (2.2 a fix and a
+ * feature), so Act 2's longest histories run to seven. The path rises as it goes, so an
+ * eighth would reach the top edge.
  */
 const COMMITS = 7;
 
