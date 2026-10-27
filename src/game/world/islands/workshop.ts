@@ -46,7 +46,7 @@ const GATE_BEAM = new THREE.BoxGeometry(2.2, 0.22, 0.22);
 const SCORE_BAR = new THREE.BoxGeometry(0.42, 1, 0.42);
 const FENCE_POST = new THREE.CylinderGeometry(0.09, 0.09, 1.6, 8);
 const SAFE = new THREE.BoxGeometry(0.9, 0.7, 0.9);
-const KEY_RING = new THREE.TorusGeometry(0.17, 0.06, 8, 20);
+const KEY_RING = new THREE.TorusGeometry(0.22, 0.07, 8, 20);
 const KEY_SHAFT = new THREE.BoxGeometry(0.09, 0.5, 0.09);
 const STOP_SIGN = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 8);
 
@@ -198,7 +198,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
       seconds: 2.8,
       start: () => {
         const from = new THREE.Vector3(0.9, 2, -0.6);
-        const to = new THREE.Vector3(2.8, 2.4, 2);
+        // Right of the wall's gear, so the card isn't read against a glowing ring.
+        const to = new THREE.Vector3(4.6, 2.6, 2.4);
         const pr = card(from, 4);
         // Glow, not light: a light ring would be lost against the light card.
         const lens = part(LENS, colors.glow, 0, lineY(0), 0.12);
@@ -207,7 +208,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const badLine = 2;
         const lastLine = pr.lines.length - 1;
         return run(stage, [], (progress) => {
-          popIn(pr.group, phase(progress, 0, 0.15), 1.4);
+          popIn(pr.group, phase(progress, 0, 0.15), 1.7);
           slide(pr.group, from, to, phase(progress, 0.05, 0.35), 0.5);
           // Every line is read, top to bottom, before the lens goes back to the wrong one.
           const read = phase(progress, 0.38, 0.75);
@@ -341,8 +342,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
             return rail;
           }),
         );
-        const safeAt = new THREE.Vector3(4.6, 0.35, -1.6);
-        const safe = hidden(SAFE, colors.base, safeAt);
+        // Light and in front, not base and behind: a dark box at the back was lost on the floor.
+        const safeAt = new THREE.Vector3(4.8, 0.35, 0.4);
+        const safe = hidden(SAFE, colors.light, safeAt);
         const key = new THREE.Group();
         key.add(part(KEY_RING, colors.glow, 0, 0.42, 0), part(KEY_SHAFT, colors.glow, 0, 0, 0));
         key.visible = false;
