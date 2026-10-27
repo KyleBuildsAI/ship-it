@@ -48,7 +48,17 @@ export const ISLAND_BEATS = {
     'secret-withheld',
     'key-revoked',
   ],
-  act6: [],
+  act6: [
+    'request-response',
+    'auth-gate',
+    'forbidden-door',
+    'database-query',
+    'cache-hit',
+    'queue-worker',
+    'log-trail',
+    'connections-run-out',
+    'incident-rollback',
+  ],
   act7: [],
   act8: [],
 } as const satisfies Record<ActIslandZone, readonly string[]>;

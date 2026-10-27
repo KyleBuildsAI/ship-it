@@ -9,6 +9,7 @@ export const dataSpeedAndScale = {
   id: 'data-speed-and-scale',
   act: 6,
   title: 'Data, Speed and Scale',
+  briefingBeat: 'database-query',
   briefing: [
     'Behind most requests is a database, and behind most slow pages is a slow query.',
     'Indexes, caches, queues, containers and the cloud they run on keep Quillwork fast and steady as more writers join. Otto writes the queries; you judge them.',
@@ -16,6 +17,7 @@ export const dataSpeedAndScale = {
   cards: [
     {
       id: 'sql-read',
+      beat: 'database-query',
       kind: 'choose',
       situation: 'Otto wrote this query for the “recent documents” sidebar.',
       artifact: {
@@ -61,6 +63,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'index',
+      beat: 'database-query',
       kind: 'choose',
       situation:
         'The recent-documents sidebar query filters docs by workspace_id and sorts by updated_at. It takes 4 seconds: the table has 12 million rows and no index on workspace_id.',
@@ -97,6 +100,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'measure-first',
+      beat: 'database-query',
       kind: 'prompt',
       situation:
         'Search is slow too, and you don’t know why. Otto can use a staging database holding a production-sized copy of the data.',
@@ -135,6 +139,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'sql-injection',
+      beat: 'database-query',
       kind: 'choose',
       situation: 'You’re reviewing Otto’s new search endpoint.',
       artifact: {
@@ -181,6 +186,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'look-before-delete',
+      beat: 'database-query',
       kind: 'prompt',
       situation:
         "Marco wants the test accounts removed from the production database. Otto suggests: DELETE FROM users WHERE email LIKE '%test%'.",
@@ -211,6 +217,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'cache',
+      beat: 'cache-hit',
       kind: 'choose',
       situation:
         'Every page loads the writer’s plan and usage limits, a query joining four tables that takes 120 ms, 5,000 times a minute. Database CPU is at 85%. Plans change about once a month.',
@@ -247,6 +254,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'cache-read',
+      beat: 'cache-hit',
       kind: 'order',
       situation:
         'Otto is adding a cache in front of the plans query. Sage asks you how a read should work.',
@@ -262,6 +270,7 @@ export const dataSpeedAndScale = {
     },
     {
       id: 'queue',
+      beat: 'queue-worker',
       kind: 'choose',
       situation:
         'Exporting a long document to PDF takes 40 seconds, and the export request times out at 30.',

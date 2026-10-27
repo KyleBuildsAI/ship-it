@@ -3,6 +3,7 @@ import { LessonSchema, isPickCard } from '../../game/missions/lessonSchema';
 import { requireFieldMission, requireLessonPlacement } from '../../game/missions/schema';
 import { validateAct } from '../../game/missions/validateAct';
 import { verifyPaste } from '../../game/play/fieldCheck';
+import { beatsForAct } from '../../game/world/beats';
 import { act6, act6Lessons, act6Placement, documentOneRequest } from './index';
 
 /*
@@ -129,6 +130,24 @@ describe('Act 6: How Systems Work', () => {
         lesson.id,
       ).toBe(true);
     }
+  });
+  it('acts out most cards on the island, naming only beats it knows', () => {
+    const known = beatsForAct(6);
+    const cards = lessons.flatMap((lesson) => lesson.cards);
+    for (const lesson of lessons) {
+      // Every lesson opens on a scene, so the island is moving before the first card.
+      expect(known, lesson.id).toContain(lesson.briefingBeat);
+    }
+    for (const card of cards) {
+      if (card.beat !== undefined) expect(known, card.id).toContain(card.beat);
+    }
+    const withBeat = cards.filter((card) => card.beat !== undefined).length;
+    expect(withBeat / cards.length).toBeGreaterThanOrEqual(0.8);
+    // The final is acted out too, not left to a still island.
+    expect(final?.cards.some((card) => card.beat !== undefined)).toBe(true);
+    // Every beat the island has is used somewhere, or it's dead weight.
+    const used = new Set(cards.map((card) => card.beat));
+    for (const beat of known) expect(used).toContain(beat);
   });
 });
 
