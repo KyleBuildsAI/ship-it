@@ -575,6 +575,24 @@ describe('verifyPaste: scoped clean, tracked files and headings', () => {
     );
   });
 
+  it('says to switch to main and pull when git can’t find the logged file', () => {
+    const check = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 docs/story.md',
+      check: { kind: 'conventionalRatio', min: 1, last: 1 },
+    });
+    const paste = [
+      'PS C:\\SandCastles> git log --oneline -1 docs/story.md',
+      "fatal: ambiguous argument 'docs/story.md': unknown revision or path not in the working tree.",
+      "Use '--' to separate paths from revisions, like this:",
+    ].join('\r\n');
+    expect(verifyPaste(check, paste)).toEqual({
+      passed: false,
+      message:
+        "Git can't find docs/story.md here, so it isn't on this branch yet. Run git switch main and git pull, then run git log --oneline -1 docs/story.md again.",
+    });
+  });
+
   it('refuses a Select-String paste checked against the wrong kind of check', () => {
     const check = verification({
       parser: 'select-string',

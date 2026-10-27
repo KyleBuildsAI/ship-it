@@ -421,8 +421,27 @@ function checkRunList(verification: Verification, text: string): FieldVerdict {
     : fail('That run is still going. Give it a minute, then run the command again.');
 }
 
+/**
+ * The word git couldn't place in `fatal: ambiguous argument 'docs/story.md'`, or null. Git
+ * says this when a log names a file without `--` and the file isn't in this folder, which
+ * usually means the work isn't on this branch or hasn't been pulled yet.
+ */
+function ambiguousArgument(text: string): string | null {
+  for (const line of normalizePaste(text).lines) {
+    const word = /^fatal: ambiguous argument '([^']+)'/.exec(line)?.[1];
+    if (word !== undefined) return word;
+  }
+  return null;
+}
+
 /** Checks a `git log --oneline` paste, with `--graph` for a merge check. */
 function checkLog(verification: Verification, text: string): FieldVerdict {
+  const unknown = ambiguousArgument(text);
+  if (unknown !== null) {
+    return fail(
+      `Git can't find ${unknown} here, so it isn't on this branch yet. Run git switch main and git pull, then run ${verification.command} again.`,
+    );
+  }
   if (detectPasteKind(text) !== 'log-oneline') {
     return fail(`That doesn't look like ${PARSER_NAMES['log-oneline']} output.`);
   }
