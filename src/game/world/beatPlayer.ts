@@ -46,30 +46,58 @@ export function phase(progress: number, from: number, to: number): number {
   return easeInOut((progress - from) / (to - from));
 }
 
+interface Playing {
+  readonly id: string;
+  readonly beat: Beat;
+  readonly run: BeatRun;
+  startedAt: number | null;
+  /**
+   * True once the last frame is reached. A held beat still draws that frame every frame:
+   * the island's idle motion runs first and may move the same props, and the beat's
+   * picture must win. A frame is a few property writes, so holding stays cheap.
+   */
+  held: boolean;
+}
+
+/** Puts a beat's island back, reporting rather than throwing if even that fails. */
+function resetQuietly(id: string, run: BeatRun): void {
+  try {
+    run.reset();
+  } catch (error) {
+    console.error(`[ship-it] beat "${id}" could not reset`, error);
+  }
+}
+
 /**
  * A beat holds its last frame until the next beat or the end of the lesson, so the card's
  * picture stays up while Kyle reads. With reduced motion it jumps straight to that frame.
+ *
+ * A beat's own code never throws past the player. It runs inside the lesson's store
+ * listeners and the render loop: an error there would leave the lesson panel stuck on its
+ * old card, or stop the whole world drawing. A beat that fails is reported in the
+ * console, its island put back as far as possible, and the lesson carries on without it.
  */
 export function createBeatPlayer(
   beats: Readonly<Record<string, Beat>>,
   reducedMotion: boolean,
 ): BeatPlayer {
-  let playing: {
-    id: string;
-    beat: Beat;
-    run: BeatRun;
-    startedAt: number | null;
-    /**
-     * True once the last frame is reached. A held beat still draws that frame every frame:
-     * the island's idle motion runs first and may move the same props, and the beat's
-     * picture must win. A frame is a few property writes, so holding stays cheap.
-     */
-    held: boolean;
-  } | null = null;
+  let playing: Playing | null = null;
 
   const stop = () => {
-    playing?.run.reset();
+    const ending = playing;
     playing = null;
+    if (ending !== null) resetQuietly(ending.id, ending.run);
+  };
+
+  /** Draws a moment of the playing beat; one that throws is dropped, never retried. */
+  const draw = (current: Playing, progress: number) => {
+    try {
+      current.run.frame(progress);
+    } catch (error) {
+      console.error(`[ship-it] beat "${current.id}" failed`, error);
+      playing = null;
+      resetQuietly(current.id, current.run);
+    }
   };
 
   return {
@@ -81,14 +109,21 @@ export function createBeatPlayer(
         console.error('[ship-it] island has no beat', id);
         return;
       }
-      const run = beat.start();
+      let run: BeatRun;
+      try {
+        run = beat.start();
+      } catch (error) {
+        // No run to reset with: the next beat's reset clears whatever it left on the stage.
+        console.error(`[ship-it] beat "${id}" failed to start`, error);
+        return;
+      }
       playing = { id, beat, run, startedAt: null, held: reducedMotion };
-      run.frame(reducedMotion ? 1 : 0);
+      draw(playing, reducedMotion ? 1 : 0);
     },
     update: (elapsed) => {
       if (playing === null) return;
       if (playing.held) {
-        playing.run.frame(1);
+        draw(playing, 1);
         return;
       }
       // The clock starts on the first frame after play, so a beat cued between frames
@@ -96,7 +131,7 @@ export function createBeatPlayer(
       playing.startedAt ??= elapsed;
       const progress = (elapsed - playing.startedAt) / playing.beat.seconds;
       playing.held = progress >= 1;
-      playing.run.frame(Math.min(1, progress));
+      draw(playing, Math.min(1, progress));
     },
     current: () => playing?.id ?? null,
   };
