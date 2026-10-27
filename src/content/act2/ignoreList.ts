@@ -402,7 +402,7 @@ const commitCleanupTask = {
         id: 'names',
         text: 'Setting names, no values',
         truth: { kind: 'all', of: [exampleCommitted, { kind: 'not', predicate: valuesLeaked }] },
-        feedback: 'git show HEAD:.env.example lists API_KEY= and DATABASE_URL= with nothing after.',
+        feedback: "Otto's write decides it: a copy of .env carries its values, names alone don't.",
       },
       {
         id: 'values',

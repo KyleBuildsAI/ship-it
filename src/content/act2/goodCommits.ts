@@ -384,7 +384,7 @@ const commitDocsTask = {
         id: 'bundled',
         text: 'The README fix, plus other changes',
         truth: all(changed(README), not(changedOnly(README))),
-        feedback: 'git show --stat lists every file the commit changed. Count them.',
+        feedback: 'git status no longer lists the other edits: they rode into the commit.',
       },
       {
         id: 'other',
