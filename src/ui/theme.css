@@ -983,9 +983,13 @@ body {
   text-transform: uppercase;
 }
 
-/* Long artifacts scroll inside their box, so the question stays near the options. */
+/*
+ * Long artifacts scroll inside their box, so the question stays near the options. Thirteen
+ * lines show before it scrolls (a CI log's deciding line is often its 13th), with room
+ * left for the sideways scrollbar a wide diff brings.
+ */
 .lesson-artifact pre {
-  max-height: 220px;
+  max-height: calc(13lh + 16px);
   margin: 0;
   padding: 8px 10px;
   overflow: auto;
@@ -994,6 +998,15 @@ body {
   background: rgba(0, 0, 0, 0.35);
   font: 12.5px/1.45 var(--font-mono);
   white-space: pre;
+}
+
+/*
+ * Prose and output wrap (LessonView.tsx says which kinds): only about 46 characters fit
+ * across, and an agent's message or a log line cut off there hid the words a card asks about.
+ */
+.lesson-artifact--wrap pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .lesson-artifact pre:focus-visible {

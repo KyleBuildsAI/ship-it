@@ -106,11 +106,19 @@ function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean })
   );
 }
 
+/**
+ * Kinds whose lines stay whole, scrolling sideways when long: where a line of code breaks
+ * is part of what it says, and a diff's + and - mark whole lines. Every other kind is
+ * prose or output, which wraps so no word of it hides past the box's edge.
+ */
+const KEEPS_LINES_WHOLE: ReadonlySet<ArtifactKind> = new Set(['diff', 'code', 'file']);
+
 /** Something to read before answering: a diff, a log, a PR. It scrolls when it's long. */
 function ArtifactBlock({ artifact }: { artifact: Artifact }) {
   const label = artifact.label ?? ARTIFACT_LABELS[artifact.kind];
+  const wraps = !KEEPS_LINES_WHOLE.has(artifact.kind);
   return (
-    <figure className="lesson-artifact">
+    <figure className={wraps ? 'lesson-artifact lesson-artifact--wrap' : 'lesson-artifact'}>
       <figcaption>
         <span className="lesson-artifact__kind">{ARTIFACT_LABELS[artifact.kind]}</span>
         {label === ARTIFACT_LABELS[artifact.kind] ? null : <span>{label}</span>}

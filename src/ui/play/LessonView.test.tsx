@@ -12,7 +12,7 @@ import {
 } from '../../game/missions/lessonRunner';
 import type { PlacementResult } from '../../game/missions/grading';
 import { placementLesson } from '../../game/missions/lessonPlacement';
-import { isPickCard, type Lesson } from '../../game/missions/lessonSchema';
+import { isPickCard, type ArtifactKind, type Lesson } from '../../game/missions/lessonSchema';
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { setCatalog } from '../../game/play/catalog';
@@ -58,6 +58,28 @@ describe('the lesson view', () => {
     expect(markup).toContain('+  const ttlSeconds = 15 * 60 * 1000;');
     expect(markup.match(/class="lesson-option"/g)).toHaveLength(3);
     expect(text(markup)).not.toContain('Why');
+  });
+
+  it('wraps prose and output in an artifact, but keeps the lines of code and diffs whole', () => {
+    /** The first card's artifact box, with the artifact swapped for one of `kind`. */
+    const box = (kind: ArtifactKind) => {
+      const [first, ...rest] = sampleLesson.cards;
+      if (first === undefined) throw new Error('expected a first card');
+      const lesson: Lesson = {
+        ...sampleLesson,
+        cards: [
+          { ...first, artifact: { kind, text: 'Otto: I can fix this quickly with a force push.' } },
+          ...rest,
+        ],
+      };
+      return /<figure class="([^"]+)"/.exec(view(cards(lesson), lesson))?.[1];
+    };
+    for (const kind of ['agent-message', 'pull-request', 'terminal', 'log', 'error'] as const) {
+      expect(box(kind)).toBe('lesson-artifact lesson-artifact--wrap');
+    }
+    for (const kind of ['diff', 'code'] as const) {
+      expect(box(kind)).toBe('lesson-artifact');
+    }
   });
 
   it("shows a wrong pick's feedback, crossed out, with the card still open", () => {
