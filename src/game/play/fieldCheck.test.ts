@@ -66,7 +66,7 @@ describe('verifyPaste: mergeCommit', () => {
       '--graph',
     );
     expect(verifyPaste(check, MERGE_GRAPH.replace('feat/tide-chart', 'tides')).message).toContain(
-      'feat/readme-fix',
+      'like docs/readme-fix',
     );
     expect(verifyPaste(check, MERGE_GRAPH.replace('feat: add', 'added')).message).toContain(
       'Conventional',

@@ -254,7 +254,9 @@ function verifyMerge(command: string, text: string): FieldVerdict {
     return fail('That merge commit doesn’t name its branch. Merge the pull request on GitHub.');
   }
   if (!isTypedBranchName(branch)) {
-    return fail(`The merged branch is "${branch}". Name branches by type, like feat/readme-fix.`);
+    return fail(
+      `The merged branch is "${branch}". Name branches for the kind of change, like docs/readme-fix.`,
+    );
   }
   if (!isConventionalSubject(branchCommit.subject)) {
     return fail(

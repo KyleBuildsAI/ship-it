@@ -39,7 +39,7 @@ export const landARealBranch = {
     },
     {
       id: 'brief-branch',
-      text: 'Tell your agent: "Create a branch named feat/ plus a short name, make this change on it, and commit it with a Conventional Commit message. Don\'t touch main."',
+      text: 'Tell your agent: "Create a branch named for the kind of change, like docs/readme-fix for a README fix or feat/ plus a short name for a feature, make this change on it, and commit it with a Conventional Commit message. Don\'t touch main."',
     },
     {
       id: 'check-branch',

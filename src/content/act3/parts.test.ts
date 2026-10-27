@@ -29,7 +29,7 @@ const CLEAN_MAIN = [
 
 /** Real `git log --oneline --graph -5` on main after a pull request merged with a merge commit. */
 const MERGED_PR = [
-  '*   4d7e1a0 Merge pull request #3 from kyle/feat/readme-fix',
+  '*   4d7e1a0 Merge pull request #3 from kyle/docs/readme-fix',
   '|\\  ',
   '| * 9c2f6b1 docs: fix the readme',
   '|/  ',
@@ -74,6 +74,18 @@ describe('Act 3 Field Mission: Land a Real Branch', () => {
     expect(checklist).toContain('Allow merge commits');
   });
 
+  it('names the branch for the kind of change, so a README fix goes on docs/, not feat/', () => {
+    // Branches carry the same types as commits (the lessons branch fix/empty-export), so a
+    // README fix on feat/ would teach a mismatch.
+    const text = JSON.stringify(field);
+    expect(text).toContain('docs/readme-fix');
+    expect(text).not.toContain('named feat/ plus');
+    const untyped = MERGED_PR.replace('kyle/docs/readme-fix', 'kyle/readme-fix');
+    expect(verifyPaste(verification('merge-landed'), untyped).message).toContain(
+      'like docs/readme-fix',
+    );
+  });
+
   it('lands through a pull request, never an agent merging main itself', () => {
     // The lessons mark an agent's own merge into main as wrong, so the mission can't ask for one.
     const text = JSON.stringify(field);
@@ -97,7 +109,7 @@ describe('Act 3 Field Mission: Land a Real Branch', () => {
     const verdict = verifyPaste(verification('merge-landed'), MERGED_PR);
     expect(verdict).toEqual({
       passed: true,
-      message: 'Main has a merge commit from feat/readme-fix.',
+      message: 'Main has a merge commit from docs/readme-fix.',
     });
   });
 
@@ -107,7 +119,7 @@ describe('Act 3 Field Mission: Land a Real Branch', () => {
     expect(verifyPaste(merged, squashed).passed).toBe(false);
     expect(verifyPaste(merged, '3b8d9e1 docs: explain how to run SandCastles').passed).toBe(false);
     expect(
-      verifyPaste(merged, '4d7e1a0 Merge pull request #3 from kyle/feat/readme-fix').passed,
+      verifyPaste(merged, '4d7e1a0 Merge pull request #3 from kyle/docs/readme-fix').passed,
     ).toBe(false);
     expect(verifyPaste(merged, '').passed).toBe(false);
   });
@@ -142,9 +154,9 @@ describe('Act 3 Field Mission: Land a Real Branch', () => {
       'nothing to commit, working tree clean',
     ].join('\n');
     expect(verifyPaste(status, unpushed).message).toContain('GitHub doesn’t');
-    const onBranch = CLEAN_MAIN.replace('On branch main', 'On branch feat/readme-fix').replace(
+    const onBranch = CLEAN_MAIN.replace('On branch main', 'On branch docs/readme-fix').replace(
       'origin/main',
-      'origin/feat/readme-fix',
+      'origin/docs/readme-fix',
     );
     expect(verifyPaste(status, onBranch).message).toContain('git switch main');
   });
