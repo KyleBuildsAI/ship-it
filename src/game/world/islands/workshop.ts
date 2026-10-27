@@ -132,7 +132,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     const meshes = [beam, ...posts];
     return {
       group,
-      /** Colours the whole gate: glow while it passes work, alert when it stops some. */
+      /** Colours the whole gate: green while it passes work, alert when it stops some. */
       paint: (material: THREE.Material) => {
         meshes.forEach((mesh) => {
           mesh.material = material;
