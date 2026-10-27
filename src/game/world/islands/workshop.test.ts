@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
+import { createBeatPlayer } from '../beatPlayer';
 import { ISLAND_BEATS } from '../beats';
 import { palette } from './kit';
 import { workshop } from './workshop';
@@ -9,7 +10,7 @@ import { workshop } from './workshop';
  * left a mesh behind, or a recoloured visor, would show on the next card's scene.
  */
 
-/** Every mesh's place, size, visibility and material: what a reset must restore. */
+/** Every mesh's place, size, turn, visibility and material: what a reset must restore. */
 function snapshot(group: THREE.Group): string[] {
   const looks: string[] = [];
   group.traverse((object) => {
@@ -19,6 +20,7 @@ function snapshot(group: THREE.Group): string[] {
       [
         object.position.toArray().join(','),
         object.scale.toArray().join(','),
+        object.rotation.toArray().join(','),
         String(object.visible),
         material.uuid,
       ].join('|'),
@@ -62,5 +64,46 @@ describe('the Act 7 workshop island', () => {
       expect(snapshot(props.group), id).toEqual(direct);
       played.reset();
     }
+  });
+
+  it('goes back to idle when the next card cuts a beat off, and when the lesson ends', () => {
+    const props = workshop(palette(0x66ccff));
+    const idle = snapshot(props.group);
+    const player = createBeatPlayer(props.beats, false);
+    let clock = 0;
+    for (const id of ISLAND_BEATS.act7) {
+      const seconds = props.beats[id]?.seconds ?? 0;
+      player.play(id);
+      // The first update starts the beat's clock; the second is halfway through it. Then
+      // the loop plays the next card's beat over it.
+      player.update(clock);
+      player.update(clock + seconds / 2);
+      expect(player.current()).toBe(id);
+      clock += seconds;
+    }
+    player.play(null);
+    expect(player.current()).toBeNull();
+    expect(snapshot(props.group)).toEqual(idle);
+  });
+
+  it('shows the held picture at once with reduced motion', () => {
+    const props = workshop(palette(0x66ccff));
+    const idle = snapshot(props.group);
+    const player = createBeatPlayer(props.beats, true);
+    for (const id of ISLAND_BEATS.act7) {
+      const beat = props.beats[id];
+      if (beat === undefined) throw new Error(`The workshop has no ${id} beat.`);
+      // The player's last beat is still held; end it so the picture below is this beat's alone.
+      player.play(null);
+      const played = beat.start();
+      played.frame(1);
+      const held = snapshot(props.group);
+      played.reset();
+      player.play(id);
+      // No update needed: the last frame is drawn the moment the beat is played.
+      expect(snapshot(props.group), id).toEqual(held);
+    }
+    player.play(null);
+    expect(snapshot(props.group)).toEqual(idle);
   });
 });
