@@ -12,6 +12,7 @@ import {
   sampleLessonAct,
   sampleSecondLesson,
 } from '../missions/sample.test-lesson';
+import { fullSampleLessonAct } from '../missions/sample.test-lessonAct';
 import type { Act } from '../missions/schema';
 import { placementTestOutXp, XP_AWARDS } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
@@ -20,11 +21,13 @@ import {
   completeLesson,
   completeMission,
   countPlacementAttempt,
+  leftAfterTestOut,
   missionDone,
   questionXp,
   recordDrill,
   recordFieldMission,
   recordGitHubCheck,
+  recordLessonResume,
   recordPlacement,
   recordReview,
   recordSteps,
@@ -118,6 +121,114 @@ describe('drills and reviews', () => {
     const missed = recordDrill(fresh(), drill, { passed: false, seconds: 200 }, NOW);
     const reviewed = recordReview(missed, drill, { passed: false, seconds: 5 }, NOW);
     expect(reviewed.reviewQueue[0]).toMatchObject({ repetitions: 0, dueOn: '2026-09-28' });
+  });
+
+  it("pays a drill's XP on its first pass only, so a replay or retake practises for free", () => {
+    const first = recordDrill(fresh(), drill, { passed: true, seconds: 12 }, NOW);
+    expect(first.paidDrillIds).toEqual([drill.id]);
+    const again = recordDrill(first, drill, { passed: true, seconds: 8 }, LATER);
+    expect(again.profile.xp).toBe(XP_AWARDS.drillCorrect);
+    expect(again.paidDrillIds).toEqual([drill.id]);
+    // The attempt itself still counts for stats and practice days.
+    expect(again.drillHistory).toHaveLength(2);
+    expect(again.profile.practiceDays).toEqual(['2026-09-27', '2026-09-28']);
+  });
+
+  it('pays a missed drill once a review gets it right, and no review after that', () => {
+    const missed = recordDrill(fresh(), drill, { passed: false, seconds: 200 }, NOW);
+    expect(missed.paidDrillIds).toEqual([]);
+    const learned = recordReview(missed, drill, { passed: true, seconds: 5 }, NOW);
+    expect(learned.profile.xp).toBe(XP_AWARDS.drillCorrect);
+    const reviewedAgain = recordReview(learned, drill, { passed: true, seconds: 5 }, LATER);
+    expect(reviewedAgain.profile.xp).toBe(XP_AWARDS.drillCorrect);
+  });
+
+  it("counts a pass in an older save's history as paid, since that save paid every pass", () => {
+    const older: SaveData = {
+      ...fresh(),
+      drillHistory: [{ drillId: drill.id, correct: true, seconds: 9, at: NOW.toISOString() }],
+    };
+    const replayed = recordDrill(older, drill, { passed: true, seconds: 7 }, LATER);
+    expect(replayed.profile.xp).toBe(0);
+  });
+});
+
+describe('a lesson left partway', () => {
+  const { act: lessonAct } = sampleLessonAct();
+  const resume = {
+    answered: [{ cardId: 'read-the-diff', firstTry: true }],
+    open: null,
+  };
+
+  it('keeps where a first play got to, and nothing for a lesson done or tested out', () => {
+    const started = startMissionProgress(fresh(), sampleLesson.id);
+    const kept = recordLessonResume(started, sampleLesson.id, resume);
+    expect(kept.missions[sampleLesson.id]?.lessonResume).toEqual(resume);
+    // A done lesson's row offers Replay, which starts at the briefing.
+    const done = completeLesson(fresh(), lessonAct, sampleLesson, 100, NOW);
+    expect(recordLessonResume(done, sampleLesson.id, resume)).toBe(done);
+    // Nothing kept, nothing to forget.
+    expect(recordLessonResume(started, sampleLesson.id, null)).toBe(started);
+    expect(recordLessonResume(kept, sampleLesson.id, null).missions[sampleLesson.id]).toEqual(
+      started.missions[sampleLesson.id],
+    );
+  });
+
+  it('forgets the resume point when the lesson is finished', () => {
+    const started = startMissionProgress(fresh(), sampleLesson.id);
+    const kept = recordLessonResume(started, sampleLesson.id, resume);
+    const done = completeLesson(kept, lessonAct, sampleLesson, 100, NOW);
+    expect(done.missions[sampleLesson.id]).not.toHaveProperty('lessonResume');
+    expect(done.missions[sampleLesson.id]?.status).toBe('completed');
+  });
+});
+
+describe('what a lesson placement leaves', () => {
+  const full = fullSampleLessonAct();
+  const [firstLesson, secondLesson, finalLesson] = full.lessons;
+  if (firstLesson === undefined || secondLesson === undefined || finalLesson === undefined) {
+    throw new Error('the full sample Act has three lessons');
+  }
+  const fieldIds = full.act.fieldMission?.verifications.map((check) => check.id) ?? [];
+  const passed = { percent: 100, testedOut: true };
+
+  it('leaves the final and the Field Mission on a new save, or with no save at all', () => {
+    const left = { actComplete: false, missionIds: [], final: true, fieldMission: true };
+    expect(leftAfterTestOut(fresh(), full.act, full.lessons)).toEqual(left);
+    expect(leftAfterTestOut(null, full.act, full.lessons)).toEqual(left);
+  });
+
+  it('leaves out a beaten final and a verified Field Mission', () => {
+    let save = completeLesson(fresh(), full.act, finalLesson, 100, NOW);
+    expect(leftAfterTestOut(save, full.act, full.lessons)).toMatchObject({
+      final: false,
+      fieldMission: true,
+    });
+    save = recordFieldMission(save, full.act, fieldIds, NOW);
+    expect(leftAfterTestOut(save, full.act, full.lessons)).toMatchObject({
+      final: false,
+      fieldMission: false,
+      actComplete: false,
+    });
+  });
+
+  it('says the Act is complete once a pass completes it', () => {
+    const verified = recordFieldMission(fresh(), full.act, fieldIds, NOW);
+    const tested = recordPlacement(verified, full.act, full.lessons, passed, NOW);
+    expect(leftAfterTestOut(tested, full.act, full.lessons)).toEqual({
+      actComplete: true,
+      missionIds: [],
+      final: true,
+      fieldMission: false,
+    });
+  });
+
+  it('names the parts no card covers until they are done (Act 1’s missions)', () => {
+    // A placement that borrows from the lessons only: the other parts aren't covered.
+    const lessonsOnly = [firstLesson];
+    expect(leftAfterTestOut(fresh(), full.act, lessonsOnly).missionIds).toEqual([secondLesson.id]);
+    const played = completeLesson(fresh(), full.act, secondLesson, 100, NOW);
+    expect(leftAfterTestOut(played, full.act, lessonsOnly).missionIds).toEqual([]);
   });
 });
 

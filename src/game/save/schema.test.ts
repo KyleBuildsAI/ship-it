@@ -137,6 +137,30 @@ describe('saveDataSchema', () => {
       expect(isValid(sampleWith({ missions }))).toBe(false);
     });
 
+    it('loads a save from before lessons resumed and drills paid once, adding nothing to resume', () => {
+      const sample = createSampleSave();
+      const { paidDrillIds, ...older } = sample;
+      expect(paidDrillIds).toEqual([]);
+      expect(older).not.toHaveProperty('paidDrillIds');
+      expect(older.missions['2.2']).not.toHaveProperty('lessonResume');
+
+      const parsed = saveDataSchema.parse(older);
+      expect(parsed.paidDrillIds).toEqual([]);
+      expect(parsed.missions['2.2']?.lessonResume).toBeUndefined();
+    });
+
+    it('keeps a lesson left partway, and rejects a malformed resume point', () => {
+      const lessonResume = {
+        answered: [{ cardId: 'read-the-diff', firstTry: false }],
+        open: { cardId: 'brief-the-fix', picked: ['vague'], wrongOrders: 0 },
+      };
+      const kept = { ...createMissionProgress(), status: 'in-progress', lessonResume };
+      const parsed = saveDataSchema.parse(sampleWith({ missions: { '4.1': kept } }));
+      expect(parsed.missions['4.1']?.lessonResume).toEqual(lessonResume);
+      const broken = { ...kept, lessonResume: { answered: [{ cardId: '', firstTry: true }] } };
+      expect(isValid(sampleWith({ missions: { '4.1': broken } }))).toBe(false);
+    });
+
     it('only accepts Acts "1" through "8" as keys', () => {
       expect(isValid(sampleWith({ acts: { '8': createActProgress() } }))).toBe(true);
       expect(isValid(sampleWith({ acts: { '9': createActProgress() } }))).toBe(false);

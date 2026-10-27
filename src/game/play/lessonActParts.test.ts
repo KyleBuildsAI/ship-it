@@ -10,7 +10,13 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
-import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
+import {
+  flushProgress,
+  progress,
+  saveProgressNow,
+  startProgress,
+  type ProgressStorage,
+} from '../progress';
 import { placementTestOutXp } from '../progression/xp';
 import { createDefaultSave, type SaveData } from '../save/schema';
 import { hasWorkLeft, recommendedAct, setCatalog } from './catalog';
@@ -150,6 +156,26 @@ describe("a lesson Act's placement test", () => {
       NOW,
     );
     expect(tested.acts['6']?.completedAt).toBe(NOW.toISOString());
+  });
+
+  it('says in its briefing only what the save still has to do', () => {
+    startLessonPlacement(act.act);
+    expect(lesson().lesson.briefing[2]).toContain('Field Mission');
+    leavePlay();
+    const checks = ['sample-full-clean', 'sample-full-history'];
+    saveProgressNow((current) => recordFieldMission(current, act, checks, NOW));
+    startLessonPlacement(act.act);
+    // Verified, so a pass leaves nothing the briefing needs to name.
+    expect(lesson().lesson.briefing).toHaveLength(2);
+    expect(lesson().lesson.briefing.join(' ')).not.toContain('Field Mission');
+    leavePlay();
+    for (const entry of full.lessons) {
+      saveProgressNow((current) => completeLesson(current, act, entry, 100, NOW));
+    }
+    startLessonPlacement(act.act);
+    expect(lesson().lesson.briefing[2]).toBe(
+      'Act 6 is already complete, so a pass only raises your best score.',
+    );
   });
 
   it('saves a miss as an attempt, and leaves the lessons to play', () => {
