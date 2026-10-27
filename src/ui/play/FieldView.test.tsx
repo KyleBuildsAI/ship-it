@@ -6,6 +6,7 @@ import { progress } from '../../game/progress';
 import { createDefaultSave, type SaveData } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
 import type { Store } from '../../game/store';
+import { act7 } from '../../content/act7';
 import { act8 } from '../../content/act8';
 import { FieldCheckResult, FieldView } from './FieldView';
 
@@ -96,6 +97,21 @@ describe('a paste check’s result', () => {
     );
     expect(fail).toContain('class="drill-result"');
     expect(fail).not.toContain('Verified');
+  });
+});
+
+describe('the Act 7 Field Mission panel', () => {
+  it('keeps the agent briefs out of the checkbox labels, each with a Copy button', () => {
+    setCatalog({ acts: [act7] });
+    progress.update({ status: 'ready', save: createDefaultSave(TEST_NOW), problem: null });
+    const html = renderToStaticMarkup(<FieldView activity={{ kind: 'field', act: 7 }} />);
+    // Clicking or selecting text inside a label toggles its checkbox, so a brief there
+    // gets the task ticked by accident whenever someone selects it to copy.
+    const labels = [...html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((match) => match[1]);
+    expect(labels.join(' ')).not.toContain('Write it first and show me it failing');
+    expect(html).toContain('Write it first and show me it failing');
+    expect(html).toContain('aria-label="Copy the agent brief for step 3"');
+    expect(html).toContain('aria-label="Copy the agent brief for step 4"');
   });
 });
 

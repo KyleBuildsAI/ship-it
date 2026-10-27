@@ -220,7 +220,7 @@ describe('Brief Your Real Agent', () => {
   it('never asks for a token, a key or a value, and never edits a settings file', () => {
     const words = [
       ...field.briefing,
-      ...field.checklist.map((item) => item.text),
+      ...field.checklist.flatMap((item) => [item.text, item.prompt ?? '']),
       ...field.verifications.map((entry) => entry.instruction),
     ].join(' ');
     expect(words).not.toMatch(/token|api key|ghp_|settings\.json|permission/i);

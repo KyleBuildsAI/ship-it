@@ -166,9 +166,12 @@ describe('Act 6 Field Mission: Document One Request', () => {
     '',
   ].join('\n');
 
+  // Every task, with the brief its Copy button gives the agent.
+  const checklistText = field.checklist.flatMap((item) => [item.text, item.prompt ?? '']).join(' ');
+
   it('happens on SandCastles, through a docs branch and a pull request', () => {
     expect(field.repoName).toBe('SandCastles');
-    const text = field.checklist.map((item) => item.text).join(' ');
+    const text = checklistText;
     for (const words of ['agent', 'README', 'status code', 'docs/', 'pull request', '/health']) {
       expect(text, words).toContain(words);
     }
@@ -183,7 +186,7 @@ describe('Act 6 Field Mission: Document One Request', () => {
   });
 
   it('asks for fake values and a read-through for secrets, since no paste can see them', () => {
-    const text = field.checklist.map((item) => item.text).join(' ');
+    const text = checklistText;
     expect(text).toContain('obvious fakes');
     expect(text).toContain('no keys, tokens, cookies');
     expect(text).not.toContain('not a guess');

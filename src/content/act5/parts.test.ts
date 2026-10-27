@@ -117,13 +117,19 @@ describe('Act 5 placement test', () => {
 });
 
 describe('Act 5 Field Mission: Green on Every Push', () => {
-  const text = () => [...field.briefing, ...field.checklist.map((item) => item.text)].join(' ');
+  const text = () =>
+    [...field.briefing, ...field.checklist.flatMap((item) => [item.text, item.prompt ?? ''])].join(
+      ' ',
+    );
 
   it('builds on the coverage gate SandCastles already has, with a gate it lacks', () => {
     expect(field.repoName).toBe('SandCastles');
     expect(field.briefing.join(' ')).toContain('already has one gate: coverage.yml');
     expect(text()).toContain('.github/workflows/gitleaks.yml');
     expect(text()).toContain('Brief it');
+    // The brief is long and exact, so it has its own Copy button.
+    const brief = field.checklist.find((item) => item.id === 'brief-the-workflow')?.prompt ?? '';
+    expect(brief).toContain('On a branch named ci/secret-scan');
   });
 
   it('rules out every way an agent could buy green by weakening a gate', () => {

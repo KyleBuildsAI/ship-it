@@ -34,11 +34,14 @@ export const greenOnEveryPush: FieldMissionInput = {
   checklist: [
     {
       id: 'read-the-model',
-      text: 'Open your clone of sandcastles from GitHub, the one with .github/workflows/coverage.yml. Ask your agent: "Explain coverage.yml in plain words: when it runs and what it checks." That gate already exists and is your model. You won’t change it.',
+      text: 'Open your clone of sandcastles from GitHub, the one with .github/workflows/coverage.yml, and ask your agent to explain that file. That gate already exists and is your model. You won’t change it.',
+      prompt: 'Explain coverage.yml in plain words: when it runs and what it checks.',
     },
     {
       id: 'brief-the-workflow',
-      text: 'Brief it: "On a branch named ci/secret-scan, add .github/workflows/gitleaks.yml. Run gitleaks on every push and pull request, over the full history. Set permissions: contents: read, and add only what gitleaks’s docs require. Never use pull_request_target. No new secrets. Don’t touch coverage.yml or scripts/coverage.sh. Show me the file before committing."',
+      text: 'Brief it to add the gitleaks workflow on its own branch, leaving the gate that’s already there alone.',
+      prompt:
+        'On a branch named ci/secret-scan, add .github/workflows/gitleaks.yml. Run gitleaks on every push and pull request, over the full history. Set permissions: contents: read, and add only what gitleaks’s docs require. Never use pull_request_target. No new secrets. Don’t touch coverage.yml or scripts/coverage.sh. Show me the file before committing.',
     },
     {
       id: 'review-the-file',

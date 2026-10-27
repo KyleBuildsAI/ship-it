@@ -32,7 +32,9 @@ export const documentOneRequest = {
     },
     {
       id: 'brief',
-      text: 'Ask your agent: "On a new docs/ branch, add an API section to README.md for that request: the method and path, an example JSON response, and its status code. Use the real app\'s shape and status code, but replace real ids, names and emails with obvious fakes."',
+      text: 'Brief your agent to write that request up in README.md on a new docs/ branch, with fake values in place of real ones.',
+      prompt:
+        "On a new docs/ branch, add an API section to README.md for that request: the method and path, an example JSON response, and its status code. Use the real app's shape and status code, but replace real ids, names and emails with obvious fakes.",
     },
     {
       id: 'check',

@@ -14,7 +14,28 @@ const FIELD_MISSIONS: readonly (readonly [number, FieldMission])[] = ACTS.flatMa
     : [[content.act.act, content.act.fieldMission] as const],
 );
 
+/** Quoted passages in `text`, like `Tell it: "Push the branch..."`, with straight or curly quotes. */
+function quotedPassages(text: string): string[] {
+  return [...text.matchAll(/["“]([^"“”]+)["”]/g)].map((match) => match[1] ?? '');
+}
+
+// A quoted commit message or button name is a few words; a quoted brief is a sentence or more.
+const LONGEST_QUOTE_WORDS = 8;
+
 describe.each(FIELD_MISSIONS)('Act %i Field Mission', (_act, field) => {
+  it('gives every brief its own Copy button, outside the checkbox label', () => {
+    // A task's text is the checkbox's label, so selecting a brief there ticks the task.
+    for (const item of field.checklist) {
+      for (const quote of quotedPassages(item.text)) {
+        const words = quote.split(/\s+/).filter((word) => word !== '').length;
+        expect(words, `${item.id}: "${quote}" belongs in prompt`).toBeLessThanOrEqual(
+          LONGEST_QUOTE_WORDS,
+        );
+      }
+      expect(item.text, item.id).not.toMatch(/Get-Command|-ErrorAction/);
+    }
+  });
+
   it('refuses a summary in place of git ls-files output, before the secret check', () => {
     const lists = field.verifications.filter((check) => check.parser === 'ls-files');
     for (const check of lists) {
