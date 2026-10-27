@@ -186,6 +186,9 @@ export function createWorld(
   let jump: Jump = GROUNDED;
   let walking = false;
   let travelling = false;
+  /** Where the trip under way is going, and an island asked for while it was under way. */
+  let heading: ZoneId = zone;
+  let queued: ZoneId | null = null;
   /** The world's clock at the last frame, and when the player last arrived on an island. */
   let clock = 0;
   let arrivedAt = -Infinity;
@@ -199,8 +202,14 @@ export function createWorld(
   placeCamera(position);
 
   const travel = (to: ZoneId) => {
-    if (travelling) return;
+    if (travelling) {
+      // Asked for mid-trip (a lesson started during a portal's fade): go on there once this
+      // trip lands, rather than drop the request and leave the lesson on the wrong island.
+      queued = to === heading ? null : to;
+      return;
+    }
     travelling = true;
+    heading = to;
     walkTarget = null;
     const arrive = () => {
       zone = to;
@@ -212,6 +221,9 @@ export function createWorld(
       fadeTarget.style.opacity = '1';
       travelling = false;
       arrivedAt = clock;
+      const next = queued;
+      queued = null;
+      if (next !== null) travel(next);
     };
     if (reducedMotion) {
       arrive();
@@ -222,12 +234,16 @@ export function createWorld(
   };
 
   // A menu that starts a mission asks for its island; travel there like a portal would.
-  const stopDestinations = worldState.subscribe(() => {
+  // Mid-trip, travel decides whether the request changes where the player ends up.
+  const takeDestination = () => {
     const { destination } = worldState.get();
     if (destination === null) return;
     worldState.update({ destination: null });
-    if (destination !== zone) travel(destination);
-  });
+    if (travelling || destination !== zone) travel(destination);
+  };
+  const stopDestinations = worldState.subscribe(takeDestination);
+  // The world loads after the HUD, so a lesson started before then has already asked.
+  takeDestination();
 
   // A lesson card cues a scene on its Act's island (DESIGN.md section 5.5); every other
   // island goes back to its idle look. The nonce tells a new card from the same one.
