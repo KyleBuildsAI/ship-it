@@ -2419,6 +2419,22 @@ https://github.com/KyleBuildsAI/ship-it/pull/181
 
 ---
 
+## #176 fix: correct directed-mission result, approval and briefing cards
+
+https://github.com/KyleBuildsAI/ship-it/pull/176
+
+1. After a Missed check, why does the result show the feedback of the option that is true instead of the one you picked? What exactly went wrong before?
+2. The "Now untrack .env" card got a `when` condition that checks `.gitignore` and the disk. Why is that better than hiding the card whenever the player denied `git rm .env`?
+3. The dry run compares the file before and after, so it sees an edit and a full rewrite the same way. How does the card still know to say "Changes part of", and why does that come from one shared function?
+<details><summary>Answers</summary>
+
+1. Every option's feedback is written as the evidence that the option is true. On a Missed or False alarm the option you picked is false by definition, so its evidence is false too. Before, the game said "you were wrong" and then showed a sentence that agreed with your wrong answer (in 2.1: "No commits yet" when there was no repository at all). Showing the true option's evidence teaches what you should have noticed.
+2. "Denied `git rm .env`" describes what you clicked, not what's on the laptop. The card only works when a rule already names `.env` and the file is still there, because its script just untracks it. Checking that state directly means the card appears on every route that reaches that state (after "Add .env to .gitignore.", or after a Stop) and on no route where it would fail. This is the repo's rule: decide by the resulting state, never by the exact steps.
+3. The action itself knows it is an edit (`do: 'edit'`), so the card passes the edited file's path into `describeChanges`. Only that file reads "Changes part of", and any other file the same dry run rewrites still says "Overwrites". The card and Otto's "I need this to finish: ..." line both call `gateEffects`, so they always say the same thing. Before, one place was fixed and the other still said "overwrites".
+</details>
+
+---
+
 ## #179 fix: make lesson progress and xp match what the game says
 
 https://github.com/KyleBuildsAI/ship-it/pull/179
