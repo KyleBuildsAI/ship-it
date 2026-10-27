@@ -9,6 +9,7 @@ export const remotesAndPushing = {
   id: 'remotes-and-pushing',
   act: 4,
   title: 'Remotes and Pushing',
+  briefingBeat: 'sync-origin',
   briefing: [
     'Welcome to Quillwork. Your laptop has a copy of the repo, GitHub has another, and they only sync when someone says so.',
     'Otto, the team’s AI agent, can run every git command. Your job is knowing which one to ask for, and when to say no.',
@@ -16,6 +17,7 @@ export const remotesAndPushing = {
   cards: [
     {
       id: 'what-is-origin',
+      beat: 'sync-origin',
       kind: 'choose',
       situation: 'First morning. Sage asks Otto to show where the repo syncs to.',
       artifact: {
@@ -58,6 +60,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'committed-not-pushed',
+      beat: 'sync-origin',
       kind: 'choose',
       situation:
         'You committed the new font picker an hour ago. Priya opens GitHub and says she can’t see it anywhere.',
@@ -106,6 +109,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'fetch-before-pull',
+      beat: 'sync-origin',
       kind: 'choose',
       situation:
         'Dex says he pushed a big change to the editor. You want to see what it is before it touches your files.',
@@ -141,6 +145,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'brief-a-sync',
+      beat: 'sync-origin',
       kind: 'prompt',
       situation:
         'You’re about to start a task, but you’ve been away two days and main has surely moved.',
@@ -177,6 +182,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'push-rejected',
+      beat: 'push-behind',
       kind: 'choose',
       situation: 'Otto tried to push your branch and reports this.',
       artifact: {
@@ -224,6 +230,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'agent-wants-force',
+      beat: 'push-behind',
       kind: 'prompt',
       situation: 'Otto replies to the rejected push.',
       artifact: {
@@ -264,6 +271,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'fork-a-library',
+      beat: 'pr-opened',
       kind: 'choose',
       situation:
         'Quillwork uses an open-source markdown library with a bug you can fix. You can’t push to its repo.',
@@ -299,6 +307,7 @@ export const remotesAndPushing = {
     },
     {
       id: 'morning-sync',
+      beat: 'sync-origin',
       kind: 'order',
       situation: 'Sage shows you the start-of-task routine the team uses.',
       question: 'Put it in order.',

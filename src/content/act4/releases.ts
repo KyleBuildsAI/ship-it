@@ -9,6 +9,7 @@ export const releasesAndVersions = {
   id: 'releases-and-versions',
   act: 4,
   title: 'Releases and Versions',
+  briefingBeat: 'release-tag',
   briefing: [
     'Merged is not shipped. A release is a named, tagged point that users can install and trust.',
     'Quillwork uses semantic versioning: MAJOR.MINOR.PATCH, where each number is a promise about what changed.',
@@ -16,6 +17,7 @@ export const releasesAndVersions = {
   cards: [
     {
       id: 'minor',
+      beat: 'release-tag',
       kind: 'choose',
       situation:
         'Quillwork is at 2.3.1. This release adds PDF export. Nothing that worked before changes.',
@@ -45,6 +47,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'major',
+      beat: 'release-tag',
       kind: 'choose',
       situation:
         'This release removes the old /v1/export API. Two partner apps still call it. The current version is 2.4.0.',
@@ -74,6 +77,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'big-not-breaking',
+      beat: 'release-tag',
       kind: 'choose',
       situation:
         'The next release adds twelve features and removes or changes nothing. The current version is 2.4.0.',
@@ -114,6 +118,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'brief-the-changelog',
+      beat: 'release-tag',
       kind: 'prompt',
       situation: 'You ask Otto to write the CHANGELOG.md entry for 3.0.0.',
       question: 'Which instruction gets a changelog users can use?',
@@ -149,6 +154,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'what-a-tag-is',
+      beat: 'release-tag',
       kind: 'choose',
       situation: 'Otto tagged the release.',
       artifact: {
@@ -186,6 +192,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'brief-the-release',
+      beat: 'checks-gate',
       kind: 'prompt',
       situation: 'Main has everything for 3.0.0. You want Otto to prepare the release.',
       question: 'Which instruction?',
@@ -221,6 +228,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'never-move-a-tag',
+      beat: 'release-tag',
       kind: 'choose',
       situation:
         'An hour after 3.0.0 ships, Dex finds a typo in the export dialog. Otto offers to move the v3.0.0 tag onto the fix.',
@@ -256,6 +264,7 @@ export const releasesAndVersions = {
     },
     {
       id: 'release-steps',
+      beat: 'release-tag',
       kind: 'order',
       situation: 'The 3.0.0 release PR has been approved.',
       question: 'Put the release steps in order.',

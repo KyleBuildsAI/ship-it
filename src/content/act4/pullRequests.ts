@@ -8,6 +8,7 @@ export const issuesAndPullRequests = {
   id: 'issues-and-pull-requests',
   act: 4,
   title: 'Issues and Pull Requests',
+  briefingBeat: 'issue-pinned',
   briefing: [
     'At Quillwork every change starts as an issue and reaches main through a pull request.',
     'Otto writes most of the code. You decide what gets asked for, and what a reviewer gets to read.',
@@ -15,6 +16,7 @@ export const issuesAndPullRequests = {
   cards: [
     {
       id: 'issue-first',
+      beat: 'issue-pinned',
       kind: 'choose',
       situation:
         'Marco messages in chat: “Customers keep asking to export to PDF. Can we do it this sprint?”',
@@ -45,6 +47,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'brief-the-issue',
+      beat: 'issue-pinned',
       kind: 'prompt',
       situation: 'You ask Otto to draft the issue from Marco’s message.',
       question: 'Which instruction gets an issue the team can actually work from?',
@@ -80,6 +83,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'bad-bug-report',
+      beat: 'issue-pinned',
       kind: 'choose',
       situation: 'Dex filed this issue. Otto asks what to do with it.',
       artifact: {
@@ -113,6 +117,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'pr-lifecycle',
+      beat: 'checks-gate',
       kind: 'order',
       situation: 'Otto is starting the PDF export from issue #57.',
       question: 'Put the work’s life in order.',
@@ -129,6 +134,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'draft-pr',
+      beat: 'pr-opened',
       kind: 'choose',
       situation:
         'Otto is halfway through PDF export and you want Priya’s opinion on the approach before it goes further.',
@@ -158,6 +164,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'mixed-pr',
+      beat: 'review-changes',
       kind: 'choose',
       situation: 'Otto opened the PR. You’re reading its description.',
       artifact: {
@@ -207,6 +214,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'brief-the-description',
+      beat: 'pr-opened',
       kind: 'prompt',
       situation: 'Otto is about to open the trimmed-down PR.',
       question: 'Which instruction gets a description a reviewer can work with?',
@@ -242,6 +250,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'too-big',
+      beat: 'review-changes',
       kind: 'prompt',
       situation:
         'Even trimmed, the PDF export PR is 1,800 lines. Priya says she can’t review it properly.',
@@ -278,6 +287,7 @@ export const issuesAndPullRequests = {
     },
     {
       id: 'closes-keyword',
+      beat: 'checks-gate',
       kind: 'choose',
       situation: 'Marco asks what “Closes #57” in the PR does.',
       question: 'What do you tell him?',
