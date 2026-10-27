@@ -66,6 +66,8 @@ const KEY_BINDINGS: Record<string, keyof MoveKeys> = {
 /** A press shorter and stiller than this is a click; anything else is a camera drag. */
 const CLICK_MAX_PIXELS = 6;
 const CLICK_MAX_MS = 400;
+/** How long the view takes to fade back in after a trip: theme.css's #scene transition. */
+const FADE_IN_SECONDS = 0.35;
 
 /**
  * Builds the explorable world: Campus, the Git World, the machine island and the themed
@@ -86,7 +88,7 @@ export function createWorld(
   const campus = createCampus(openActs());
   const gitWorld = createGitWorld();
   const machine = createMachineIsland();
-  const actIslands = perActIsland(createActIsland);
+  const actIslands = perActIsland((data) => createActIsland(data, reducedMotion));
   const avatar = createAvatar(motion);
   // The stars follow the camera (see update), so the sky surrounds whichever island you're on.
   const stars = createStars(1400);
@@ -184,6 +186,12 @@ export function createWorld(
   let jump: Jump = GROUNDED;
   let walking = false;
   let travelling = false;
+  /** Where the trip under way is going, and an island asked for while it was under way. */
+  let heading: ZoneId = zone;
+  let queued: ZoneId | null = null;
+  /** The world's clock at the last frame, and when the player last arrived on an island. */
+  let clock = 0;
+  let arrivedAt = -Infinity;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
 
   const placeCamera = (at: Flat) => {
@@ -194,8 +202,14 @@ export function createWorld(
   placeCamera(position);
 
   const travel = (to: ZoneId) => {
-    if (travelling) return;
+    if (travelling) {
+      // Asked for mid-trip (a lesson started during a portal's fade): go on there once this
+      // trip lands, rather than drop the request and leave the lesson on the wrong island.
+      queued = to === heading ? null : to;
+      return;
+    }
     travelling = true;
+    heading = to;
     walkTarget = null;
     const arrive = () => {
       zone = to;
@@ -206,6 +220,10 @@ export function createWorld(
       if (!usesTerminal(to)) closeTerminal();
       fadeTarget.style.opacity = '1';
       travelling = false;
+      arrivedAt = clock;
+      const next = queued;
+      queued = null;
+      if (next !== null) travel(next);
     };
     if (reducedMotion) {
       arrive();
@@ -216,12 +234,30 @@ export function createWorld(
   };
 
   // A menu that starts a mission asks for its island; travel there like a portal would.
-  const stopDestinations = worldState.subscribe(() => {
+  // Mid-trip, travel decides whether the request changes where the player ends up.
+  const takeDestination = () => {
     const { destination } = worldState.get();
     if (destination === null) return;
     worldState.update({ destination: null });
-    if (destination !== zone) travel(destination);
-  });
+    if (travelling || destination !== zone) travel(destination);
+  };
+  const stopDestinations = worldState.subscribe(takeDestination);
+  // The world loads after the HUD, so a lesson started before then has already asked.
+  takeDestination();
+
+  // A lesson card cues a scene on its Act's island (DESIGN.md section 5.5); every other
+  // island goes back to its idle look. The nonce tells a new card from the same one.
+  let beatNonce: number | null = null;
+  const playBeats = () => {
+    const { beat } = worldState.get();
+    if ((beat?.nonce ?? null) === beatNonce) return;
+    beatNonce = beat?.nonce ?? null;
+    for (const [island, built] of Object.entries(actIslands)) {
+      built.playBeat(beat !== null && beat.zone === island ? beat.id : null);
+    }
+  };
+  playBeats();
+  const stopBeats = worldState.subscribe(playBeats);
 
   // The Git World mirrors the sandbox: any engine event marks the crates and the commit
   // path for a redraw, done at most once per frame however many events a command produced.
@@ -370,6 +406,12 @@ export function createWorld(
   const removeTestHooks = installTestHooks({
     avatarHeight: () => jump.height,
     zone: () => zone,
+    beat: () => {
+      const playing = Object.values(actIslands)
+        .map((built) => built.currentBeat())
+        .find((id) => id !== null);
+      return playing ?? null;
+    },
     portalPoint: (act) => {
       const portal = campus.portals.find((candidate) => candidate.act === act);
       if (!portal || zone !== 'campus') return null;
@@ -389,10 +431,17 @@ export function createWorld(
     scene,
     camera,
     update: (dt, elapsed) => {
+      clock = elapsed;
       campus.update(elapsed);
       gitWorld.update(elapsed);
       machine.update(elapsed);
-      for (const built of Object.values(actIslands)) built.update(elapsed);
+      // A lesson scene plays only where the player can see it: on the island they stand on,
+      // once the trip's fade is over. Started any earlier, half of it would play unseen.
+      const fading = !reducedMotion && elapsed - arrivedAt < FADE_IN_SECONDS;
+      const settled = !travelling && !fading;
+      for (const [island, built] of Object.entries(actIslands)) {
+        built.update(elapsed, settled && island === zone);
+      }
       if (cratesDirty && watched) {
         yard.sync(describeCrates(watched), committedSinceSync);
         path.sync(watched.repo ? describeHistory(watched.repo) : null);
@@ -450,6 +499,7 @@ export function createWorld(
       stopWatching();
       stopSandbox();
       stopDestinations();
+      stopBeats();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointermove', onPointerMove);

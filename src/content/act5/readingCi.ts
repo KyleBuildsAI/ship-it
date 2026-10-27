@@ -9,6 +9,7 @@ export const readingCi = {
   id: 'reading-ci',
   act: 5,
   title: 'Reading CI',
+  briefingBeat: 'change-passes',
   briefing: [
     'Continuous integration, CI, runs every gate on a fresh machine for every push. Your laptop can’t hide anything from it.',
     'Dex: "When CI goes red, nobody guesses. We read the log, find the first failure, and hand Otto exactly that."',
@@ -16,6 +17,7 @@ export const readingCi = {
   cards: [
     {
       id: 'read-workflow',
+      beat: 'change-passes',
       kind: 'choose',
       situation: 'This is Quillwork’s CI workflow.',
       artifact: {
@@ -63,6 +65,7 @@ export const readingCi = {
     },
     {
       id: 'actions-log',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation: 'CI is red on Otto’s PR #57. This is the job log.',
       artifact: {
@@ -116,6 +119,7 @@ export const readingCi = {
     },
     {
       id: 'works-locally',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation:
         'Priya’s tests pass on her Windows laptop but fail in CI with “Cannot find module ./Config”. The file on disk is config.ts.',
@@ -145,6 +149,7 @@ export const readingCi = {
     },
     {
       id: 'wait-for-ci',
+      beat: 'change-passes',
       kind: 'choose',
       situation:
         'Dex: “It passes on my laptop. Can I merge while CI is still running? The fix is tiny.”',
@@ -174,6 +179,7 @@ export const readingCi = {
     },
     {
       id: 'flaky',
+      beat: 'flaky-check',
       kind: 'choose',
       situation:
         'A test about autosave fails about one run in ten, on random PRs. People have started clicking “Re-run jobs” without reading.',
@@ -209,6 +215,7 @@ export const readingCi = {
     },
     {
       id: 'brief-from-log',
+      beat: 'red-to-green',
       kind: 'prompt',
       situation: 'CI is red on Otto’s PR #57 with the toolbar type error. You want him to fix it.',
       question: 'Which instruction?',
@@ -243,6 +250,7 @@ export const readingCi = {
     },
     {
       id: 'claims-green',
+      beat: 'change-passes',
       kind: 'prompt',
       situation: 'Otto replies: “Fixed! CI should pass now.” He hasn’t shown any output.',
       question: 'What do you send back?',
@@ -272,6 +280,7 @@ export const readingCi = {
     },
     {
       id: 'push-to-check',
+      beat: 'change-passes',
       kind: 'order',
       situation: 'You push a commit to an open PR.',
       question: 'Put what happens next in order.',

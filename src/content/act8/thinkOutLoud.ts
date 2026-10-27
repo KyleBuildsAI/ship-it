@@ -9,6 +9,7 @@ export const thinkOutLoud = {
   id: 'think-out-loud',
   act: 8,
   title: 'Think Out Loud',
+  briefingBeat: 'think-aloud',
   briefing: [
     'Sage is running your mock loop for a full-time role at Quillwork. Every question comes from something that really happened here.',
     'First, the coding round: no AI. Read code for bugs and say what you’re thinking, so the interviewer can follow.',
@@ -16,6 +17,7 @@ export const thinkOutLoud = {
   cards: [
     {
       id: 'clarify',
+      beat: 'think-aloud',
       kind: 'choose',
       situation:
         'Sage reads you a real Marco ticket: “Dedupe the newsletter list before Friday’s send.” The list has 48,000 signups.',
@@ -46,6 +48,7 @@ export const thinkOutLoud = {
     },
     {
       id: 'off-by-one',
+      beat: 'spot-the-bug',
       kind: 'choose',
       situation:
         'Priya says page 2 of the customers table is missing someone, and so is every other page. Sage shows the function behind it.',
@@ -91,6 +94,7 @@ export const thinkOutLoud = {
     },
     {
       id: 'shared-default',
+      beat: 'spot-the-bug',
       kind: 'choose',
       situation:
         'Every invoice Quillwork sent today carries every tag anyone added all day: “refund”, “vip”, “late”. Otto wrote the tagging code.',
@@ -130,6 +134,7 @@ export const thinkOutLoud = {
     },
     {
       id: 'reading-order',
+      beat: 'spot-the-bug',
       kind: 'order',
       situation:
         'Sage asks how you read a function you’ve never seen when someone says it has a bug.',
@@ -146,6 +151,7 @@ export const thinkOutLoud = {
     },
     {
       id: 'slow-dedupe',
+      beat: 'spot-the-bug',
       kind: 'choose',
       situation:
         'Otto’s dedupe script for the 48,000 signups took several minutes, and each time the list doubles it takes four times as long.',
@@ -190,6 +196,7 @@ export const thinkOutLoud = {
     },
     {
       id: 'prove-the-fix',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'Otto opens a PR fixing the page bug: he deleted the “- 1”. The CI is green, but there were no tests for paging before.',
@@ -229,6 +236,7 @@ export const thinkOutLoud = {
     },
     {
       id: 'stuck',
+      beat: 'think-aloud',
       kind: 'choose',
       situation:
         'Two minutes into a problem, you’re stuck. The interviewer is watching the empty editor.',

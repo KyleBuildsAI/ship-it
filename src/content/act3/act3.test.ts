@@ -7,6 +7,7 @@ import {
 } from '../../game/missions/lessonSchema';
 import { countWords } from '../../game/missions/schemaParts';
 import { validateAct } from '../../game/missions/validateAct';
+import { beatsForAct } from '../../game/world/beats';
 import { act3, act3Lessons, act3Placement } from './index';
 
 /*
@@ -160,5 +161,21 @@ describe('Act 3: Branching', () => {
     for (const name of ['Quillwork', 'Otto', 'Sage', 'Priya', 'Marco', 'Dex']) {
       expect(text).toContain(name);
     }
+  });
+
+  it('acts out most cards on the island, naming only beats it knows', () => {
+    const known = beatsForAct(3);
+    const cards = lessons.flatMap((lesson) => lesson.cards);
+    for (const lesson of lessons) {
+      if (lesson.briefingBeat !== undefined) expect(known).toContain(lesson.briefingBeat);
+    }
+    for (const card of cards) {
+      if (card.beat !== undefined) expect(known).toContain(card.beat);
+    }
+    const withBeat = cards.filter((card) => card.beat !== undefined).length;
+    expect(withBeat / cards.length).toBeGreaterThanOrEqual(0.8);
+    // Every beat the island has is used somewhere, or it's dead weight.
+    const used = new Set(cards.map((card) => card.beat));
+    for (const beat of known) expect(used).toContain(beat);
   });
 });

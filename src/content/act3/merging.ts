@@ -8,6 +8,7 @@ export const twoWaysToMerge = {
   id: 'two-ways-to-merge',
   act: 3,
   title: 'Two Ways to Merge',
+  briefingBeat: 'merge-commit',
   briefing: [
     'Otto’s export branch is ready. Now it has to join main, and there’s more than one way in.',
     'Merging joins two lines of work. Rebasing replays one on top of the other. Each has its place.',
@@ -15,6 +16,7 @@ export const twoWaysToMerge = {
   cards: [
     {
       id: 'fast-forward',
+      beat: 'fast-forward',
       kind: 'choose',
       situation:
         'Nobody has changed main since Otto branched. You merge feat/csv-export into main.',
@@ -54,6 +56,7 @@ export const twoWaysToMerge = {
     },
     {
       id: 'three-way',
+      beat: 'merge-commit',
       kind: 'choose',
       situation: 'This time Priya merged a login fix into main while Otto worked.',
       artifact: {
@@ -99,6 +102,7 @@ export const twoWaysToMerge = {
     },
     {
       id: 'ff-only',
+      beat: 'rebase-replay',
       kind: 'prompt',
       situation:
         'Quillwork keeps main’s history a straight line: its PRs may only merge as a fast-forward. Otto’s PR is behind main.',
@@ -136,6 +140,7 @@ export const twoWaysToMerge = {
     },
     {
       id: 'rebase-new-ids',
+      beat: 'rebase-replay',
       kind: 'choose',
       situation: 'Otto rebased feat/csv-export onto main. The commit ids changed.',
       artifact: {
@@ -179,6 +184,7 @@ export const twoWaysToMerge = {
     },
     {
       id: 'safe-to-rebase',
+      beat: 'rebase-replay',
       kind: 'choose',
       situation:
         'Two branches are behind main: feat/csv-export, which only Otto uses, and release/2.4, which Marco, Priya and Dex all pull.',
@@ -214,6 +220,7 @@ export const twoWaysToMerge = {
     },
     {
       id: 'push-after-rebase',
+      beat: 'rebase-replay',
       kind: 'prompt',
       situation:
         'Otto rebased his own branch, which he’d already pushed. Now his push is rejected.',
@@ -266,6 +273,7 @@ export const twoWaysToMerge = {
     },
     {
       id: 'update-and-merge',
+      beat: 'merge-commit',
       kind: 'order',
       situation: 'Otto’s branch is behind main. You want a clean, reviewed merge.',
       question: 'Put the steps in order.',

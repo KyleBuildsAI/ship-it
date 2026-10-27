@@ -8,6 +8,7 @@ export const conflictsWithoutPanic = {
   id: 'conflicts-without-panic',
   act: 3,
   title: 'Conflicts Without Panic',
+  briefingBeat: 'conflict-clash',
   briefing: [
     'Priya and Otto both changed the autosave settings. Git can’t guess which is right, so it stops.',
     'A conflict isn’t an error. It’s a question only someone who knows why the code changed can answer.',
@@ -16,6 +17,7 @@ export const conflictsWithoutPanic = {
   cards: [
     {
       id: 'why-it-stopped',
+      beat: 'conflict-clash',
       kind: 'choose',
       situation: 'You merge Otto’s feat/slow-network into main, and git stops.',
       artifact: {
@@ -60,6 +62,7 @@ export const conflictsWithoutPanic = {
     },
     {
       id: 'read-markers',
+      beat: 'conflict-clash',
       kind: 'choose',
       situation: 'You open the conflicted file.',
       artifact: {
@@ -102,6 +105,7 @@ export const conflictsWithoutPanic = {
     },
     {
       id: 'resolve-by-intent',
+      beat: 'merge-commit',
       kind: 'choose',
       situation:
         'Priya set 2000ms on main so slow laptops don’t stutter. Otto set 500ms plus 3 retries so flaky Wi-Fi loses less work.',
@@ -138,6 +142,7 @@ export const conflictsWithoutPanic = {
     },
     {
       id: 'brief-the-resolve',
+      beat: 'conflict-clash',
       kind: 'prompt',
       situation:
         'Otto hit 14 conflicts merging main into his branch. He offers to resolve them all.',
@@ -218,6 +223,7 @@ export const conflictsWithoutPanic = {
     },
     {
       id: 'conflict-steps',
+      beat: 'merge-commit',
       kind: 'order',
       situation: 'A merge stopped with conflicts in two files.',
       question: 'Put the steps in order.',
@@ -276,6 +282,7 @@ export const conflictsWithoutPanic = {
     },
     {
       id: 'fewer-conflicts',
+      beat: 'merge-commit',
       kind: 'choose',
       situation:
         'Quillwork has painful conflicts every week. Most branches live for about a month.',

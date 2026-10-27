@@ -9,6 +9,7 @@ export const toolsForBadDays = {
   id: 'tools-for-bad-days',
   act: 3,
   title: 'Tools for Bad Days',
+  briefingBeat: 'cherry-pick',
   briefing: [
     'Today a fix is stuck on an unfinished branch, a release needs a name, and something got slow.',
     'Four tools help: cherry-pick, stash, tags and bisect. Otto can run them all. You decide when.',
@@ -16,6 +17,7 @@ export const toolsForBadDays = {
   cards: [
     {
       id: 'stuck-fix',
+      beat: 'cherry-pick',
       kind: 'choose',
       situation:
         'Customers hit a crash on empty searches. feat/search isn’t ready to ship, but one of its commits fixes the crash.',
@@ -56,6 +58,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'brief-the-pick',
+      beat: 'cherry-pick',
       kind: 'prompt',
       situation: 'You hand that cherry-pick to Otto.',
       question: 'Which instruction gets it done safely?',
@@ -91,6 +94,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'what-stash-did',
+      beat: 'switch-branch',
       kind: 'choose',
       situation: 'Otto is mid-change on feat/sharing when Priya needs him on main. He stashes.',
       artifact: {
@@ -136,6 +140,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'brief-the-hotfix',
+      beat: 'switch-branch',
       kind: 'prompt',
       situation: 'Otto is mid-change when production needs an urgent fix on main.',
       question: 'Which instruction keeps both pieces of work safe?',
@@ -165,6 +170,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'name-the-release',
+      beat: 'tag-release',
       kind: 'choose',
       situation:
         'Version 2.4 of the Quillwork editor is merged and deployed. For years, support will ask what was in 2.4.',
@@ -201,6 +207,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'find-the-slowdown',
+      beat: 'bisect-search',
       kind: 'choose',
       situation:
         'Since v2.4.0, exporting a long document takes 30 seconds instead of 2. 180 commits have landed since.',
@@ -231,6 +238,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'bisect-steps',
+      beat: 'bisect-search',
       kind: 'order',
       situation: 'You’re bisecting the slow export by hand.',
       question: 'Put the steps in order.',
@@ -246,6 +254,7 @@ export const toolsForBadDays = {
     },
     {
       id: 'brief-the-bisect',
+      beat: 'bisect-search',
       kind: 'prompt',
       situation:
         'Otto wrote npm run perf:export yesterday: a script that fails when export is slow. He can drive bisect with it.',
