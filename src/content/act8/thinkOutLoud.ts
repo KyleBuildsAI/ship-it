@@ -266,7 +266,6 @@ export const thinkOutLoud = {
     },
     {
       id: 'practice-partner',
-      beat: 'agent-loop',
       kind: 'prompt',
       situation:
         'The real coding round allows no AI. You want Claude to help you practise for it, without doing the work for you.',

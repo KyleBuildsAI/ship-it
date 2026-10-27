@@ -177,7 +177,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'prep-partner',
-      beat: 'agent-loop',
+      beat: 'tell-your-story',
       kind: 'prompt',
       situation: 'You want Claude to help you prepare your SandCastles story for the real loop.',
       question: 'Which instruction do you give?',
