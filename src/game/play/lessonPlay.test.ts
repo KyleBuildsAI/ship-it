@@ -204,30 +204,37 @@ describe('lesson scenes', () => {
     stopBeats();
   });
 
-  it("cues the briefing's beat, then each card's, on the Act's island", () => {
+  it("cues the briefing's beat, then each card's once it's answered, on the Act's island", () => {
     if (pointers === undefined) throw new Error('Act 3 has no first lesson');
     startLesson(pointers.id);
     expect(worldState.get().beat).toMatchObject({ zone: 'act3', id: pointers.briefingBeat });
     endLessonBriefing(T0);
+    expect(worldState.get().beat).toBeNull();
+    solve();
     const first = worldState.get().beat;
     expect(first).toMatchObject({ zone: 'act3', id: pointers.cards[0]?.beat });
-    answer();
+    nextLessonCard(T0);
+    expect(worldState.get().beat).toBeNull();
+    solve();
     const second = worldState.get().beat;
     expect(second).toMatchObject({ zone: 'act3', id: pointers.cards[1]?.beat });
     // A new card is a new cue, even when it names the same beat, so the scene replays.
     expect(second?.nonce).not.toBe(first?.nonce);
   });
 
-  it('keeps the cue while a card is retried, so the scene is not restarted by a wrong pick', () => {
+  it("holds a card's scene back until the right answer, so it never gives the answer away", () => {
     if (pointers === undefined) throw new Error('Act 3 has no first lesson');
     startLesson(pointers.id);
     endLessonBriefing(T0);
-    const cue = worldState.get().beat;
     const card = currentCard(lesson().run, lesson().lesson);
-    const wrong =
-      card?.kind === 'order' ? undefined : card?.options.find((option) => !option.correct);
-    if (wrong !== undefined) answerLesson(wrong.id, T0);
-    expect(worldState.get().beat).toBe(cue);
+    if (card === undefined || card.kind === 'order') throw new Error('expected a pick card');
+    const wrong = card.options.find((option) => !option.correct);
+    const right = card.options.find((option) => option.correct);
+    if (wrong === undefined || right === undefined) throw new Error('expected both options');
+    answerLesson(wrong.id, T0);
+    expect(worldState.get().beat).toBeNull();
+    answerLesson(right.id, T0);
+    expect(worldState.get().beat).toMatchObject({ zone: 'act3', id: card.beat });
   });
 
   it('clears the cue when the lesson is done or left', () => {
@@ -264,6 +271,7 @@ describe('lesson scenes', () => {
     setCatalog({ acts: [sampleLessonAct()] });
     startLesson(sampleLesson.id);
     endLessonBriefing(T0);
+    solve();
     expect(worldState.get().beat).toBeNull();
   });
 });

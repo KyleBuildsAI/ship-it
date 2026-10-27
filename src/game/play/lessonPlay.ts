@@ -174,7 +174,7 @@ export function lessonTick(nowMs: number = Date.now()): void {
   if (lesson !== undefined) update((run) => tickLesson(run, lesson, nowMs), nowMs);
 }
 
-/** The beat the screen asks for: the briefing's while it's read, then the card's. */
+/** The beat the screen asks for: the briefing's while it's read, then each card's once answered. */
 interface WantedBeat {
   readonly key: string;
   readonly zone: ActIslandZone;
@@ -187,7 +187,15 @@ function wantedBeat(current: Activity | null): WantedBeat | null {
   if (current?.kind !== 'lesson' || current.placement !== undefined) return null;
   const { lesson, run } = current;
   const zone = beatZoneForAct(lesson.act);
-  const id = run.phase === 'briefing' ? lesson.briefingBeat : currentCard(run, lesson)?.beat;
+  // A card's scene waits for its answer. Many scenes act out the very thing the card asks
+  // ("what will merging do?"), so played with the question they would hand over the
+  // answer, and a final's stars would measure watching the island, not understanding.
+  const id =
+    run.phase === 'briefing'
+      ? lesson.briefingBeat
+      : run.card.solved
+        ? currentCard(run, lesson)?.beat
+        : undefined;
   if (zone === null || id === undefined) return null;
   // The key names the screen, not the beat, so the next card replays a repeated beat.
   return { key: `${lesson.id}/${run.phase}/${String(run.cardIndex)}`, zone, id };

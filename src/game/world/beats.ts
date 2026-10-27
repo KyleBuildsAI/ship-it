@@ -3,7 +3,7 @@ import { zoneForAct } from './zones';
 
 /*
  * Lesson scenes (DESIGN.md section 5.5): a lesson card can name a "beat", a short moment
- * its Act's island plays while the card is on screen, so the idea is shown as well as told.
+ * its Act's island plays once the card is answered, so the idea is shown as well as told.
  *
  * This file is the list of beats each island knows, as plain data with no three.js, so the
  * lesson schema can refuse a card that names a beat its island can't play. The island side

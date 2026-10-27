@@ -85,8 +85,9 @@ const cardBase = {
   /** Shown after the card is solved: why, in plain words. */
   explanation: words(LESSON_WORDS.explanation),
   /**
-   * The lesson scene to play on the Act's island while this card is on screen (a beat id
-   * from src/game/world/beats.ts). The lesson checks it's one its island knows.
+   * The lesson scene the Act's island plays once this card is answered (a beat id from
+   * src/game/world/beats.ts), beside the explanation. Not before: a scene often acts out
+   * the answer. The lesson checks it's one its island knows.
    */
   beat: IdSchema.optional(),
 };
