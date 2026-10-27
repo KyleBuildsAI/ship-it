@@ -334,6 +334,24 @@ describe('verifyPaste', () => {
     expect(verifyPaste(check, LOG).message).toContain('feat: add tide charts');
   });
 
+  it('shows a commit-type check’s own example, and none when it has none', () => {
+    const plain = verification({
+      parser: 'log-oneline',
+      command: 'git log --oneline -1 origin/main -- README.md',
+      check: { kind: 'newestCommitType', type: 'docs' },
+    });
+    expect(verifyPaste(plain, '9f3e2a1 feat: add health endpoint').message).toBe(
+      'The newest is "feat: add health endpoint". It should start with docs:. Merged on GitHub? Pull first.',
+    );
+    const own = verification({
+      ...plain,
+      check: { kind: 'newestCommitType', type: 'docs', example: 'docs: document GET /health' },
+    });
+    expect(verifyPaste(own, '9f3e2a1 feat: add health endpoint').message).toContain(
+      'like "docs: document GET /health"',
+    );
+  });
+
   it('finds a documented request and its status code in a Select-String paste', () => {
     const check = verification({
       parser: 'select-string',

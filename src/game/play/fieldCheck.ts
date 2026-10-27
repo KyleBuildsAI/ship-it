@@ -471,8 +471,9 @@ function checkLog(verification: Verification, text: string): FieldVerdict {
       // Naming the commit found shows whether the merge simply hasn't been pulled yet.
       const found =
         newest === null ? 'There is no commit there' : `The newest is "${newest.subject}"`;
+      const example = check.example === undefined ? '' : `, like "${check.example}"`;
       return fail(
-        `${found}. It should start with ${check.type}:, like "${check.type}: add environment setup for agents". Merged on GitHub? Pull first.`,
+        `${found}. It should start with ${check.type}:${example}. Merged on GitHub? Pull first.`,
       );
     }
     default:

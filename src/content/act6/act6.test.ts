@@ -251,6 +251,16 @@ describe('Act 6 Field Mission: Document One Request', () => {
     });
   });
 
+  it('gives its own docs: example when the README’s newest change is another type', () => {
+    const verdict = verifyPaste(
+      verification('merged-docs-commit'),
+      '9f3e2a1 feat: add health endpoint',
+    );
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('like "docs: document GET /health"');
+    expect(verdict.message).not.toContain('environment setup');
+  });
+
   it('needs the clean, synced status to be main, not the docs branch', () => {
     const onBranch = synced
       .replace('On branch main', 'On branch docs/health')

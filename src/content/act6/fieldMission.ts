@@ -67,7 +67,7 @@ export const documentOneRequest = {
         "Run git log --oneline -1 origin/main -- README.md, or ask your agent to and show you the exact output, and paste the line. It is the newest README change on GitHub's main, so it should be your merged docs: commit.",
       command: 'git log --oneline -1 origin/main -- README.md',
       parser: 'log-oneline',
-      check: { kind: 'newestCommitType', type: 'docs' },
+      check: { kind: 'newestCommitType', type: 'docs', example: 'docs: document GET /health' },
       whenEmpty:
         'Nothing printed: GitHub’s main has no commit that touches README.md yet. Merge your pull request, run git fetch, then run this again.',
     },

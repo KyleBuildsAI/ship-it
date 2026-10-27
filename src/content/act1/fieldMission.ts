@@ -97,7 +97,11 @@ export const briefYourRealAgent = {
       command: 'git log --oneline -3',
       parser: 'log-oneline',
       // Only the newest commit is judged: the brief is one commit, whatever came before.
-      check: { kind: 'newestCommitType', type: 'docs' },
+      check: {
+        kind: 'newestCommitType',
+        type: 'docs',
+        example: 'docs: add environment setup for agents',
+      },
     },
   ],
 } satisfies FieldMissionInput;

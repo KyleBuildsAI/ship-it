@@ -279,7 +279,9 @@ describe('Brief Your Real Agent', () => {
     expect(verifyPaste(check('docs-commit'), vague.join('\n')).passed).toBe(false);
     // A Conventional commit of another type is not the brief.
     const feat = ['a1b2c3d (HEAD -> main) feat: add castle gate', ...older];
-    expect(verifyPaste(check('docs-commit'), feat.join('\n')).passed).toBe(false);
+    const verdict = verifyPaste(check('docs-commit'), feat.join('\n'));
+    expect(verdict.passed).toBe(false);
+    expect(verdict.message).toContain('like "docs: add environment setup for agents"');
   });
 
   it('does not pass an untouched repo: a clean tree and a Conventional history are not enough', () => {
