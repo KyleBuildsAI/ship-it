@@ -1,5 +1,5 @@
 import { describeChanges } from '../../../game/agent/effects';
-import type { AgentStepState } from '../../../game/missions/agentRunner';
+import type { AgentStepState, Gate, QueuedAction } from '../../../game/missions/agentRunner';
 import { FIX_ROUND_LINES, type AgentTask, type Plan } from '../../../game/missions/agentSchema';
 import type { OttoEvent } from '../../../game/play/agentPlay';
 import { display } from '../../../engine/machine/winPath';
@@ -25,11 +25,19 @@ export function planById(task: AgentTask, planId: string): Plan | undefined {
 }
 
 /**
+ * A gate's effect lines, as its card lists them and Otto quotes the first. An edit names
+ * its file, so a change to one piece of it never reads "Overwrites", in either place.
+ */
+export function gateEffects(gate: Gate, action: QueuedAction): string[] {
+  return describeChanges(gate.changes, display, action.do === 'edit' ? action.path : undefined);
+}
+
+/**
  * The words on a gate's effect line, lowered to fit after "I need this to finish:".
  * PowerShell paths keep their capitals: only the first letter changes.
  */
-function firstEffect(changes: Parameters<typeof describeChanges>[0]): string | null {
-  const [effect] = describeChanges(changes, display);
+function firstEffect(gate: Gate, action: QueuedAction): string | null {
+  const [effect] = gateEffects(gate, action);
   if (effect === undefined) return null;
   return effect.charAt(0).toLowerCase() + effect.slice(1);
 }
@@ -74,7 +82,7 @@ export function ottoLine(
     case 'predict':
       return PREDICT_ASK;
     case 'gate': {
-      const effect = firstEffect(stage.gate.changes);
+      const effect = firstEffect(stage.gate, stage.action);
       if (stage.again && effect !== null) return `I need this to finish: ${effect}. Run it?`;
       // The gate's own action's words, never an earlier line's: Kyle is approving this one.
       return ('say' in stage.action ? stage.action.say : undefined) ?? NEEDS_OK;

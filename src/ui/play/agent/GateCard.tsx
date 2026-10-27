@@ -1,8 +1,7 @@
-import { describeChanges } from '../../../game/agent/effects';
 import type { Gate, QueuedAction } from '../../../game/missions/agentRunner';
 import { decide } from '../../../game/play/agentPlay';
-import { display } from '../../../engine/machine/winPath';
 import type { ConfirmLetter } from '../../../engine/shell/driver';
+import { gateEffects } from './ottoLines';
 import { useArmed } from './useArmed';
 
 /** What each of PowerShell's Confirm letters means, so Kyle can read Otto's answer. */
@@ -50,8 +49,7 @@ function EditSwap({ find, replace }: { find: string; replace: string }) {
  */
 export function GateCard({ gate, action }: { gate: Gate; action: QueuedAction }) {
   const armed = useArmed();
-  const edited = action.do === 'edit' ? action.path : undefined;
-  const effects = describeChanges(gate.changes, display, edited);
+  const effects = gateEffects(gate, action);
   return (
     <div className="gate-card" role="group" aria-label="Approve Otto's action">
       <p className="play-panel__eyebrow">Needs your OK</p>
