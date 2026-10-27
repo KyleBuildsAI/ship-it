@@ -65,9 +65,17 @@ const DATABASE_ROUND_TRIP = [...TO_DATABASE, PIPE_BEND, RACK_FOOT];
 const GATE = point(2.25, 0, 1.6);
 const GATE_FRONT = point(2.25, 1.65, 2.3);
 const TO_GATE = [CLIENT, GATE_FRONT];
-const TURNED_BACK = [GATE_FRONT, CLIENT];
-const CACHE_SPOT = point(3.3, 0.3, -0.2);
-const CACHE_TOP = point(3.3, 0.8, -0.2);
+/**
+ * A turned-back request lands on the ground beside the path, so it stays in the picture:
+ * right of the writer's screen, where the screen can't hide it from the camera.
+ */
+const TURNED_BACK = [GATE_FRONT, point(4.1, 0.17, 3.6)];
+/**
+ * The cache stands in the gap between the middle rack and the answering one: against the
+ * dark racks it reads clearly, where beside the writer's screen it blurred into its glow.
+ */
+const CACHE_SPOT = point(1, 0.3, -0.3);
+const CACHE_TOP = point(1, 0.8, -0.3);
 const TO_CACHE = [CLIENT, RACK_DOOR, CACHE_TOP];
 const FROM_CACHE = [CACHE_TOP, CLIENT];
 /** The rack (x = -2) that works through the queue, and the belt's slots, nearest first. */
@@ -191,8 +199,9 @@ function act6Beats(
         });
       },
     },
-    // A gate checks who's asking. A request with no pass is turned back red (401); one
-    // carrying its session's pass gets a green gate and goes through to the server.
+    // A gate checks who's asking. A request with no pass is turned back red (401) and
+    // left lying by the path; one carrying its session's pass lights the gate up and goes
+    // through to the server. The held picture keeps both outcomes side by side.
     'auth-gate': {
       seconds: 2.8,
       start: () => {
@@ -212,11 +221,11 @@ function act6Beats(
         stage.add(gate, member);
         return run(stage, [], (progress) => {
           popIn(gate, phase(progress, 0, 0.15));
-          popIn(stranger, phase(progress, 0.08, 0.15) - phase(progress, 0.52, 0.58));
+          popIn(stranger, phase(progress, 0.08, 0.15));
           const turnedBack = progress >= 0.35;
           stranger.material = turnedBack ? colors.alert : colors.glow;
           if (turnedBack) {
-            travel(stranger, TURNED_BACK, phase(progress, 0.38, 0.55));
+            travel(stranger, TURNED_BACK, phase(progress, 0.38, 0.55), 0.5);
           } else {
             travel(stranger, TO_GATE, phase(progress, 0.1, 0.33));
           }
