@@ -1028,8 +1028,12 @@ describe('gates and predictions in play', () => {
     endBriefing();
     pickCard('full-path');
     ottoWaits();
-    // Replacing package.json is a change, so the write pauses with its own words.
-    expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
+    // Replacing package.json is a change, so the write pauses with its own words, naming
+    // the file as Windows prints it.
+    expect(mission().agent?.stage).toMatchObject({
+      at: 'gate',
+      gate: { line: 'C:\\Users\\kyle\\quillwork\\api\\package.json', harmful: false },
+    });
     expect(ottoRun.get().last).toEqual({ kind: 'said', text: PACKAGE_WRITE.say });
     decide(false);
     decide(false);
@@ -1055,8 +1059,11 @@ describe('gates and predictions in play', () => {
     endBriefing();
     pickCard('full-path');
     ottoWaits();
-    // Changing part of package.json still overwrites it, so the edit pauses like a write.
-    expect(mission().agent?.stage).toMatchObject({ at: 'gate', gate: { harmful: false } });
+    // Changing part of package.json still loses its old text, so the edit pauses like a write.
+    expect(mission().agent?.stage).toMatchObject({
+      at: 'gate',
+      gate: { line: 'C:\\Users\\kyle\\quillwork\\api\\package.json', harmful: false },
+    });
     decide(true);
     ottoWaits();
     // The Copy-Item failed, so Otto stops instead of running on and claiming success.

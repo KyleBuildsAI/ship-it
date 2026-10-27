@@ -414,7 +414,10 @@ function consider(action: QueuedAction, alreadyTyped: boolean): void {
   saveAgent(openGate(now.agent, action, gate));
 }
 
-/** The line a gate shows: the command, the line that asked, or the file Otto writes or edits. */
+/**
+ * The line a gate shows: the command, the line that asked, or the file Otto writes or edits,
+ * named the way Kyle reads paths, never the sandbox's internal form.
+ */
 function gateLine(action: QueuedAction): string {
   switch (action.do) {
     case 'run':
@@ -422,7 +425,7 @@ function gateLine(action: QueuedAction): string {
       return action.line;
     case 'write':
     case 'edit':
-      return action.path;
+      return shownPath(action.path);
     case 'newTerminal':
     case 'useTerminal':
       return action.do;
