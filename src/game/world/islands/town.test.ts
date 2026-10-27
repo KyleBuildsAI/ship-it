@@ -51,6 +51,26 @@ function snapshot(group: THREE.Group, colors: Palette): string[] {
   return lines;
 }
 
+/** Every object on the idle island, to tell the meshes a beat adds from the island's own. */
+function everything(group: THREE.Group): ReadonlySet<THREE.Object3D> {
+  const objects = new Set<THREE.Object3D>();
+  group.traverse((object) => {
+    objects.add(object);
+  });
+  return objects;
+}
+
+/** Where each mesh a beat added stands while it shows, in the island's own space. */
+function spotsOfShown(group: THREE.Group, idle: ReadonlySet<THREE.Object3D>): THREE.Vector3[] {
+  const spots: THREE.Vector3[] = [];
+  group.traverseVisible((object) => {
+    if (object instanceof THREE.Mesh && !idle.has(object)) {
+      spots.push(object.getWorldPosition(new THREE.Vector3()));
+    }
+  });
+  return spots;
+}
+
 function secondsOf(props: Props, id: string): number {
   const beat = props.beats[id];
   if (beat === undefined) throw new Error(`The town island has no beat "${id}".`);
@@ -136,5 +156,25 @@ describe('Act 4 town island beats', () => {
     }
     player.play(null);
     expect(snapshot(props.group, colors)).toEqual(idle);
+  });
+
+  it('copies your commit when it syncs, so it never leaves your laptop', () => {
+    const { props } = build();
+    const idle = everything(props.group);
+    const seconds = secondsOf(props, 'sync-origin');
+    const player = createBeatPlayer(props.beats, false);
+    player.play('sync-origin');
+    player.update(START);
+    // Before the push: one commit, yours, on the laptop.
+    player.update(START + seconds * 0.15);
+    const [yours, ...others] = spotsOfShown(props.group, idle);
+    expect(others).toEqual([]);
+    if (yours === undefined) throw new Error('sync-origin never showed your commit.');
+
+    player.update(START + seconds + 0.5);
+    const after = spotsOfShown(props.group, idle);
+    // Three copies of one commit: yours, GitHub's, and the one a teammate fetched.
+    expect(after).toHaveLength(3);
+    expect(after.some((spot) => spot.distanceTo(yours) < 0.001)).toBe(true);
   });
 });

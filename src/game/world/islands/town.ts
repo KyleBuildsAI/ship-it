@@ -168,17 +168,20 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
   };
 
   return {
-    // Your commit sits on the laptop (committed, still only yours), then leaves for the
-    // board (a push), and only then can a teammate copy it home (a fetch): the two copies
-    // sync only when someone says so.
+    // Your commit sits on the laptop (committed, still only yours). A push sends a copy to
+    // the board, and only then can a teammate copy it home (a fetch): the copies sync only
+    // when someone says so. Every copy stays put, the laptop's too, because pushing and
+    // fetching copy commits rather than move them.
     'sync-origin': {
       seconds: 2.8,
       start: () => {
+        const local = piece(COMMIT_CARD, colors.glow, LAPTOP);
         const pushed = piece(COMMIT_CARD, colors.glow, LAPTOP);
         const fetched = piece(COMMIT_CARD, colors.glow, BOARD_FRONT);
         return run(stage, [], (progress) => {
-          popIn(pushed, phase(progress, 0, 0.12));
-          slide(pushed, LAPTOP, BOARD_FRONT, phase(progress, 0.2, 0.5), 1.5);
+          popIn(local, phase(progress, 0, 0.12));
+          popIn(pushed, phase(progress, 0.2, 0.28));
+          slide(pushed, LAPTOP, BOARD_FRONT, phase(progress, 0.22, 0.5), 1.5);
           popIn(fetched, phase(progress, 0.5, 0.58));
           slide(fetched, BOARD_FRONT, PRIYA_DOOR, phase(progress, 0.55, 0.95), 1.5);
         });
