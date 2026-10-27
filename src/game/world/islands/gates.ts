@@ -28,11 +28,16 @@ const BEAM_Y = 2.5;
 /** How far before a gate a stopped change waits, so it doesn't sit inside the arch. */
 const WAIT_GAP = 0.9;
 /**
- * The gate that stops a change in the beats: the last one, nearest the camera. From the
- * lesson view the road runs away up the screen, so a crate stopped at a farther gate, and
- * the boom dropped there, would hide behind the nearer gates' beams.
+ * The gate a failing change stops at: the third of four, so one gate stays dark after it.
+ * CI stops at the first failing step, and the steps after it never run. From the lesson
+ * camera the crate and boom there show through the last gate's arch, under its beam.
  */
-const CHECK_GATE = 3;
+const FAIL_GATE = 2;
+/**
+ * The last gate, nearest the camera: the step that needs a secret (deploys come last),
+ * and the gate that turns flaky, so its flicker is the biggest light on screen.
+ */
+const LAST_GATE = 3;
 /**
  * The right tower is the secret store, and keys float in front of its body, below the
  * cap. Not the left tower: the lesson panel covers the left of the screen.
@@ -150,15 +155,16 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         });
       },
     },
-    // A check fails: the change passes the first gates, the last goes red, the boom drops,
-    // and the change bounces back. Nothing gets further until that check is green.
+    // A check fails: the change passes the first gates, the next goes red, the boom drops,
+    // and the change bounces back. Nothing gets further until that check is green, and the
+    // gate after it stays dark: a step after the first failure never runs.
     'gate-blocks': {
       seconds: 2.4,
       start: () => {
         const lights = signals();
         const change = crate(colors.light);
-        const boom = barrier(CHECK_GATE);
-        const stopped = waitBefore(CHECK_GATE);
+        const boom = barrier(FAIL_GATE);
+        const stopped = waitBefore(FAIL_GATE);
         const bounced = stopped.clone().setZ(stopped.z - 0.7);
         return run(stage, [], (progress) => {
           popIn(change, phase(progress, 0, 0.12));
@@ -166,7 +172,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
           if (progress >= 0.6) slide(change, stopped, bounced, phase(progress, 0.6, 0.8), 0.3);
           passedGates(lights, change.position.z);
           const failed = progress >= 0.45;
-          const checkLight = lights[CHECK_GATE];
+          const checkLight = lights[FAIL_GATE];
           if (checkLight) checkLight.material = failed ? colors.alert : colors.dark;
           popIn(boom, phase(progress, 0.45, 0.65));
         });
@@ -179,8 +185,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       start: () => {
         const lights = signals();
         const change = crate(colors.light);
-        const boom = barrier(CHECK_GATE);
-        const stopped = waitBefore(CHECK_GATE);
+        const boom = barrier(LAST_GATE);
+        const stopped = waitBefore(LAST_GATE);
         return run(stage, [], (progress) => {
           popIn(change, phase(progress, 0, 0.08));
           slide(change, ENTRY, stopped, phase(progress, 0.05, 0.3));
@@ -189,8 +195,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
           if (progress >= 0.4 && progress < 0.6) slide(change, stopped, stopped, fixing, 0.7);
           change.material = progress >= 0.5 ? colors.glow : colors.light;
           if (progress >= 0.6) slide(change, stopped, EXIT, phase(progress, 0.6, 1));
-          passedGates(lights, change.position.z, CHECK_GATE);
-          const checkLight = lights[CHECK_GATE];
+          passedGates(lights, change.position.z, LAST_GATE);
+          const checkLight = lights[LAST_GATE];
           if (checkLight) {
             const fixed = progress >= 0.55;
             checkLight.material = fixed
@@ -234,9 +240,9 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const lights = signals();
         const first = crate(colors.light);
         const second = crate(colors.light);
-        const boom = barrier(CHECK_GATE);
-        const stopped = waitBefore(CHECK_GATE);
-        const checkLight = lights[CHECK_GATE];
+        const boom = barrier(LAST_GATE);
+        const stopped = waitBefore(LAST_GATE);
+        const checkLight = lights[LAST_GATE];
         /** Green for the first crate, then it can't make up its mind, then red. */
         const flakyLight = (progress: number, firstPassed: boolean): THREE.Material => {
           if (progress >= 0.88) return colors.alert;
@@ -251,9 +257,9 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
           popIn(second, phase(progress, 0.45, 0.55));
           slide(second, ENTRY, stopped, phase(progress, 0.5, 0.75));
           // The first crate rolled furthest, so it sets every light but the flaky one.
-          passedGates(lights, first.position.z, CHECK_GATE);
+          passedGates(lights, first.position.z, LAST_GATE);
           if (checkLight) {
-            const firstPassed = first.position.z > GATE_Z[CHECK_GATE];
+            const firstPassed = first.position.z > GATE_Z[LAST_GATE];
             checkLight.material = flakyLight(progress, firstPassed);
           }
           popIn(boom, phase(progress, 0.88, 1));
@@ -297,7 +303,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const lights = signals();
         const change = crate(colors.light);
         const vaultKey = key(colors.glow, VAULT);
-        const keyGate = CHECK_GATE;
+        const keyGate = LAST_GATE;
         const stopped = waitBefore(keyGate);
         // In the arch, above the crate and under the beam, like a key in a lock.
         const inGate = new THREE.Vector3(0, 1.5, GATE_Z[keyGate]);
