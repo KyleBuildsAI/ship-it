@@ -69,7 +69,16 @@ export const ISLAND_BEATS = {
     'guardrails-up',
     'agent-halted',
   ],
-  act8: [],
+  act8: [
+    'think-aloud',
+    'spot-the-bug',
+    'trace-evidence',
+    'cache-the-reads',
+    'queue-slow-work',
+    'listen-first',
+    'tell-your-story',
+    'agent-loop',
+  ],
 } as const satisfies Record<ActIslandZone, readonly string[]>;
 
 /** The beats one island can play, as a union of their ids. */

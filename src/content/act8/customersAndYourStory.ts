@@ -9,6 +9,7 @@ export const customersAndYourStory = {
   id: 'customers-and-your-story',
   act: 8,
   title: 'Customers and Your Story',
+  briefingBeat: 'listen-first',
   briefing: [
     'The people rounds: a customer with a problem, a deep-dive on SandCastles, and questions about how you work with others.',
     'Listen before you fix, be specific, and own your part, including what you’d change.',
@@ -16,6 +17,7 @@ export const customersAndYourStory = {
   cards: [
     {
       id: 'listen-first',
+      beat: 'listen-first',
       kind: 'choose',
       situation:
         'Customer round. Sage plays Brightline, a Quillwork customer: “Your API is slow. We need it faster, or we’re leaving.”',
@@ -52,6 +54,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'real-workflow',
+      beat: 'trace-evidence',
       kind: 'choose',
       situation: 'Brightline shares a log from their 6am job. Every morning it takes 41 minutes.',
       artifact: {
@@ -92,6 +95,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'draft-reply',
+      beat: 'agent-loop',
       kind: 'prompt',
       situation: 'You ask Otto to draft your reply to Brightline before you send it.',
       question: 'Which instruction?',
@@ -127,6 +131,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'missed-webhooks',
+      beat: 'listen-first',
       kind: 'order',
       situation:
         'Brightline calls again: “Your webhooks didn’t fire for 40 of our orders yesterday.” Sage asks how you handle it.',
@@ -143,6 +148,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'deep-dive',
+      beat: 'tell-your-story',
       kind: 'choose',
       situation: 'Deep-dive round. Sage says: “Tell me about SandCastles.”',
       question: 'What makes a strong answer?',
@@ -171,6 +177,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'prep-partner',
+      beat: 'tell-your-story',
       kind: 'prompt',
       situation: 'You want Claude to help you prepare your SandCastles story for the real loop.',
       question: 'Which instruction do you give?',
@@ -200,6 +207,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'who-built-it',
+      beat: 'agent-loop',
       kind: 'choose',
       situation: 'Sage asks: “How much of SandCastles did you write, and how much did AI write?”',
       question: 'Best answer?',
@@ -229,6 +237,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'disagree',
+      beat: 'tell-your-story',
       kind: 'choose',
       situation: 'Values round: “Tell me about a time you disagreed with a teammate.”',
       question: 'Which story shape is best?',
@@ -264,6 +273,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'mistake',
+      beat: 'tell-your-story',
       kind: 'choose',
       situation: 'Last values question: “Tell me about a mistake you made at work.”',
       question: 'What makes the answer good?',
