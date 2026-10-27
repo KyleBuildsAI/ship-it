@@ -163,8 +163,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
       start: () => {
         // From the camera's side, where Kyle stands, as if he handed it over.
         const handedFrom = new THREE.Vector3(0.5, 2.8, 4.5);
-        // On the bench at Otto's left, clear of his arm, facing the camera.
-        const propped = new THREE.Vector3(-1.4, BENCH_TOP + 0.85, -0.5);
+        // On the bench at Otto's left, clear of his arm, facing the camera. Low and near the
+        // front edge, so the camera doesn't read it against the glowing gear on the wall.
+        const propped = new THREE.Vector3(-1.25, BENCH_TOP + 0.7, -0.2);
         const brief = card('brief', handedFrom, 3);
         // At the bench's front edge, so they aren't read against the glowing gear behind.
         const blocks = [1.1, 1.65, 2.2].map((x) =>
@@ -345,14 +346,15 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         }));
         const grading = (progress: number, gradedFrom: number) =>
           phase(progress, gradedFrom, gradedFrom + 0.08);
-        // The meter's dark frame is a full score; its green fill is the share that passed.
+        // The meter's pale frame is a full score; its green fill is the share that passed.
+        // Pale, not base: a dark frame vanished on the floor and the fill read as a full bar.
         const meterX = 3.4 + passes.length * spacing + 0.2;
         const meterHeight = 2;
         const step = meterHeight / passes.length;
         const frame = hidden(
           'score-frame',
           SCORE_BAR,
-          colors.base,
+          colors.light,
           new THREE.Vector3(meterX, 0, z),
         );
         const fill = hidden('score', SCORE_BAR, PASSED, new THREE.Vector3(meterX, 0, z));
@@ -435,7 +437,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         const towardKey = (Math.atan2(safeAt.x - ROBOT.x, safeAt.z - ROBOT.z) * 180) / Math.PI;
         // Level with the top rail and just inside it, so the orb touches the rail it hits.
         const stopped = onFence(towardKey, 1.3, -0.4);
-        const dropped = onFence(towardKey, 0.22, -0.9);
+        // Well inside, so the camera sees it between the rails; nearer the fence, the bottom
+        // rail hides it.
+        const dropped = onFence(towardKey, 0.22, -1.3);
         const errand = hidden('errand', ORB, colors.alert, fromOtto);
         return run(stage, [], (progress) => {
           posts.forEach((post, index) => {
