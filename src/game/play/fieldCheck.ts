@@ -56,9 +56,10 @@ const PARSER_NAMES = {
 } as const;
 
 // A tracked secret may already be on GitHub, and lessons 5.4 and 6.2 teach that a pushed
-// secret counts as stolen, so untracking alone is never the whole fix.
+// secret counts as stolen, so untracking alone is never the whole fix. The steps are in
+// the order to do them, so nobody untracks first and reads "change the keys" too late.
 const UNTRACK_SECRETS =
-  'Untrack with git rm --cached, then commit. If a secret file was ever pushed, change every key in it first: a pushed secret counts as stolen.';
+  'If one was ever pushed, change every key in it first: a pushed secret counts as stolen. Then untrack with git rm --cached and commit.';
 
 function fail(message: string): FieldVerdict {
   return { passed: false, message };

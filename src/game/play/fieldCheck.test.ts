@@ -166,8 +166,12 @@ describe('verifyPaste', () => {
     const leaked = verifyPaste(check, 'src/app.ts\n.env\n');
     expect(leaked.passed).toBe(false);
     expect(leaked.message).toContain('.env');
-    // Untracking alone leaves a pushed key usable, so the general advice says to change it.
+    // Untracking alone leaves a pushed key usable, so the general advice says to change it,
+    // and says so before the untrack step, in the order the player does them.
     expect(leaked.message).toContain('change every key in it first');
+    expect(leaked.message.indexOf('change every key')).toBeLessThan(
+      leaked.message.indexOf('git rm --cached'),
+    );
     const status = { ...check, parser: 'status-short', command: 'git status --short' } as const;
     expect(verifyPaste(status, 'A  .env\n').message).toContain('change every key in it first');
   });
