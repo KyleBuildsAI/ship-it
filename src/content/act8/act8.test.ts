@@ -153,10 +153,8 @@ describe('Act 8: The Loop', () => {
 
   it('acts out most cards in the hall, naming only beats it knows', () => {
     const known = beatsForAct(8);
-    for (const lesson of lessons) {
-      if (lesson.briefingBeat !== undefined)
-        expect(known, lesson.id).toContain(lesson.briefingBeat);
-    }
+    // Every briefing, the final's too, opens on the round it's about.
+    for (const lesson of lessons) expect(known, lesson.id).toContain(lesson.briefingBeat);
     for (const card of cards) {
       if (card.beat !== undefined) expect(known, card.id).toContain(card.beat);
     }
