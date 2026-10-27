@@ -171,7 +171,7 @@ Layout, unchanged in frame:
 | **2. Run** | Otto's bubble. The terminal types each line. The world animates. **Stop** (between lines). | Watches and reads. Stop returns to Direct with the plan marked as tried. A line or file edit that fails, when the content didn't mark it `fails`, stops Otto the same way: like a real agent, he reads the error instead of running on and claiming success. | Otto lines ≤ 12 |
 | · **Predict** (only lines with `predict`) | The line sits at the prompt, not yet run. "Before Otto runs it: where will notes land?" 2-4 options. | Picks. Then a ghost shows what will happen for 1.5 s and the line runs. The prediction is graded after it runs. | question + options ≤ 40 |
 | · **Gate** (lines that pause, D6) | "Otto wants to run:" the command, Otto's `say`, the **worked-out effects** (up to 3 lines), a diff for `write`, and the blast radius in the world. [Allow] [Deny]. For Confirm: PowerShell's question and "Otto will answer A". | Allow or deny. Deny runs `onDeny` (Otto corrects himself), or stops for new directions. Denying a safe line makes Otto ask "I need this to finish: <effect>. Run it?" | say ≤ 12 |
-| **3. Check** | Otto's claim ("Done: notes is in the API project."). One question with 2-4 options. Up to 3 **look** chips ("Where is Otto?"). The terminal and world stay live. | Runs looks (read-only, printed in the terminal), reads the evidence, picks an option. | claim + question + options + look labels ≤ 60 |
+| **3. Check** | Otto's claim ("Done: notes is in the API project."). One question with 2-4 options. Up to 3 **look** chips ("Where is Otto?"). The terminal and world stay live. | Runs looks (read-only, printed under the chips and in the terminal), reads the evidence, picks an option. | claim + question + options + look labels ≤ 60 |
 | **4. Result** | Verdict banner. The checklist (`explain(all(success, guards))`, hidden until now). The chosen card's **anatomy chips** (goal · place · limits · check, the covered ones lit). The slip name. One line of text: the option's `feedback` on a miss or false alarm, otherwise the plan's `lesson`. Stars. | [Next step], or [Direct a fix] and [Rewind step] | feedback and lesson ≤ 25; checklist labels ≤ 8 each |
 
 A **fix round** looks like Direct:
@@ -211,7 +211,7 @@ A **fix round** looks like Direct:
 ### 1.5 Look chips
 
 - `agent.looks` holds up to 3 labelled read-only lines, for example "Where is Otto?" `Get-Location`.
-- They run through the driver in the active tab and print to the terminal.
+- They run through the driver in the active tab and print to the terminal. The terminal is usually put away, so the check card also shows each look's line, after its prompt, and its output under the chips (`ottoRun.looks`, cleared when Otto starts a plan or the step rewinds).
 - `agent.test.ts` proves each look emits no events, leaves the machine snapshot unchanged, and prints no secret.
 - In free play and the Check stage, clicking a world tile offers "List this folder" as a look (B13).
 - Drills never have looks.

@@ -789,6 +789,29 @@ describe('directing Otto through a step', () => {
     expect(trueCheckOptions(mission())).toEqual(['home']);
   });
 
+  it("keeps each look's line and output for the panel, until Otto starts over", () => {
+    pickCard('guess');
+    ottoWaits();
+    expect(ottoRun.get().looks).toEqual([]);
+    runLook('where');
+    runLook('where');
+    // The terminal is put away, so the check card shows what each look printed.
+    const [first] = ottoRun.get().looks;
+    expect(ottoRun.get().looks).toHaveLength(2);
+    expect(first).toMatchObject({ prompt: 'PS C:\\Users\\kyle> ', typed: 'Get-Location' });
+    expect(first?.lines.map((line) => line.text)).toContain('C:\\Users\\kyle');
+
+    // A fix changes the laptop, so the looks from before it would show a stale one.
+    checkClaim('home');
+    directFix();
+    pickCard('fix-full-path');
+    expect(ottoRun.get().looks).toEqual([]);
+    ottoWaits();
+    runLook('where');
+    rewind();
+    expect(ottoRun.get().looks).toEqual([]);
+  });
+
   it('counts one slip once, however often Kyle rewinds and replays its card', () => {
     const replay = (answer: string): void => {
       pickCard('guess');
@@ -866,7 +889,7 @@ describe('directing Otto through a step', () => {
     rewind();
     expect(holds(inTheApi)).toBe(false);
     expect(mission().agent).toMatchObject({ stage: { at: 'direct', round: 'start' } });
-    expect(ottoRun.get()).toEqual({ rows: [], last: null });
+    expect(ottoRun.get()).toEqual({ rows: [], last: null, looks: [] });
     directTheSampleStep();
     expect(mission().stars['stand-in-the-api']?.plan).toBe(false);
   });

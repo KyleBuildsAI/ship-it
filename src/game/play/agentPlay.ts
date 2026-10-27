@@ -9,6 +9,7 @@ import {
 } from '../agent/feed';
 import { display } from '../../engine/machine/winPath';
 import type { SandboxChange } from '../agent/effects';
+import { evidenceOf, type EvidenceEntry } from '../agent/evidence';
 import { advance, NORMAL_PACE, START, type Pace, type Playhead } from '../agent/pace';
 import type { SandboxLog } from '../agent/replay';
 import { EMPTY_RUN_LOG, logDenied, logReveals, type RunLog, type RunRow } from '../agent/runLog';
@@ -118,16 +119,21 @@ export type OttoEvent =
   | { readonly kind: 'fixing' };
 
 /**
- * What the directing panels draw beside the play store: Otto's finished rows and his last
- * event. It is a store of its own because rows arrive with drawn frames, and the play
- * store's listeners (grading, saving) have no use for them.
+ * What the directing panels draw beside the play store: Otto's finished rows, his last
+ * event, and Kyle's looks at the check. It is a store of its own because rows arrive with
+ * drawn frames, and the play store's listeners (grading, saving) have no use for them.
  */
 export interface OttoRun {
   readonly rows: readonly RunRow[];
   readonly last: OttoEvent | null;
+  /**
+   * Each look Kyle ran since Otto last started, with what it printed, oldest first. The
+   * terminal stays put away, so the check card shows them under the look chips.
+   */
+  readonly looks: readonly EvidenceEntry[];
 }
 
-export const ottoRun = createStore<OttoRun>({ rows: [], last: null });
+export const ottoRun = createStore<OttoRun>({ rows: [], last: null, looks: [] });
 
 function ottoDid(last: OttoEvent | null): void {
   ottoRun.update({ last });
@@ -249,7 +255,7 @@ export function beginDirectedStep(current: MissionActivity): MissionActivity {
     ghost: null,
     runLog: EMPTY_RUN_LOG,
   };
-  ottoRun.update({ rows: [], last: null });
+  ottoRun.update({ rows: [], last: null, looks: [] });
   return { ...current, agent: beginAgentStep(step) };
 }
 
@@ -290,8 +296,9 @@ export function pickCard(planId: string): void {
   const stage = now?.agent.stage;
   const picking = stage?.at === 'direct' || (stage?.at === 'echo' && stage.planId === planId);
   if (now === null || !picking || !onOffer(now, planId)) return;
-  // A new plan starts Otto's talk afresh: the last plan's words are about the last plan.
-  ottoRun.update({ last: null });
+  // A new plan starts Otto's talk afresh: the last plan's words are about the last plan,
+  // and Kyle's looks showed the laptop before this plan changed it.
+  ottoRun.update({ last: null, looks: [] });
   saveAgent(choosePlan(now.agent, now.step, planId));
 }
 
@@ -548,16 +555,20 @@ export function stopOtto(): void {
 
 /**
  * A look chip: one of Kyle's read-only lines, run at once and printed without Otto's
- * marker. It goes in the log too, so a dry run or rewind replays the same terminal.
+ * marker. It goes in the log too, so a dry run or rewind replays the same terminal. The
+ * panel keeps its line and output, since the terminal it prints to is usually put away.
  */
 export function runLook(lookId: string): void {
   const now = live();
   if (now?.agent.stage.at !== 'check') return;
   const look = now.task.looks.find((candidate) => candidate.id === lookId);
   if (look === undefined) throw new MissionRunError(`There is no look "${lookId}".`);
-  const step = recordAction({ do: 'run', line: look.line });
+  const action = { do: 'run', line: look.line } as const;
+  const step = recordAction(action);
   const fed = feedAction(now.playback.feed, step, 'kyle');
   appendBeats(fed.beats, fed.state);
+  const onLaptop = sandbox.get().shell.ws.machine !== null;
+  ottoRun.update({ looks: [...ottoRun.get().looks, evidenceOf(action, step, onLaptop)] });
 }
 
 /**
@@ -642,7 +653,7 @@ export function rewind(): void {
   shown.stopAsked = false;
   shown.ghost = null;
   shown.runLog = EMPTY_RUN_LOG;
-  ottoRun.update({ rows: [], last: null });
+  ottoRun.update({ rows: [], last: null, looks: [] });
   // Before any card was picked nothing has run, so the laptop stays as it is, with no notice.
   if (now.agent.tried.length > 0) {
     rewindTo(shown.checkpoint, REWIND_NOTICE);
