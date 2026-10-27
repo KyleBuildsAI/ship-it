@@ -30,6 +30,7 @@ export const ISLAND_BEATS = {
   act6: [
     'request-response',
     'auth-gate',
+    'forbidden-door',
     'database-query',
     'cache-hit',
     'queue-worker',

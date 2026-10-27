@@ -112,6 +112,7 @@ export const requestsAndResponses = {
     },
     {
       id: 'pick-a-code',
+      beat: 'forbidden-door',
       kind: 'choose',
       situation:
         'Otto is building GET /api/docs/:id. Marco is signed in, but asks for a document that belongs to another company’s workspace.',

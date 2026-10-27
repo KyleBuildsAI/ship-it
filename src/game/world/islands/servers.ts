@@ -16,9 +16,9 @@ import {
  * Act 6's island: racks of servers joined by a pipe to a database drum, and a client
  * screen out front where a writer sits. Its beats act out the Act's lesson cards with
  * glowing packets: a request travels in and a response travels back, a gate checks who's
- * asking, a query runs down the pipe, a cache answers early, jobs wait in a queue, a log
- * scrolls to its one red line, database connections run out, and a bad release is rolled
- * back.
+ * asking and a rack refuses someone it knows but won't serve, a query runs down the pipe,
+ * a cache answers early, jobs wait in a queue, a log scrolls to its one red line, database
+ * connections run out, and a bad release is rolled back.
  */
 
 const PACKET = new THREE.BoxGeometry(0.34, 0.34, 0.34);
@@ -32,6 +32,11 @@ const PASS = new THREE.BoxGeometry(0.3, 0.24, 0.04);
 const PASS_HEIGHT = 0.31;
 const GATE_POST = new THREE.BoxGeometry(0.14, 2.4, 0.14);
 const GATE_BAR = new THREE.BoxGeometry(1.74, 0.16, 0.16);
+/**
+ * One stroke of the red X across a rack's door: that rack won't serve this request. A single
+ * bar sat level with the rack's lights and read as one red light, which here means broken.
+ */
+const NO_ENTRY_STROKE = new THREE.BoxGeometry(1.3, 0.16, 0.16);
 const CACHE_BOX = new THREE.BoxGeometry(0.8, 0.6, 0.7);
 const BELT = new THREE.BoxGeometry(3.4, 0.1, 0.6);
 const LOG_LINE = new THREE.BoxGeometry(1.8, 0.14, 0.05);
@@ -80,6 +85,17 @@ const TO_GATE = [CLIENT, GATE_FRONT];
  * database's drums, as if it had been sent there.
  */
 const TURNED_BACK = [GATE_FRONT, point(1, 0.17, 3)];
+/**
+ * The way to the middle rack (x = 0), one a signed-in request has no rights to. It runs
+ * through the gate's opening: a straight line from the screen would clip the gate's post.
+ */
+const GATE_MIDDLE = point(2.25, 1.65, 1.6);
+const OTHER_DOOR = point(0, 1.4, -0.9);
+const TO_OTHER_RACK = [CLIENT, GATE_MIDDLE, OTHER_DOOR];
+/** Where the X goes up across the middle rack's door, just in front of its lights. */
+const NO_ENTRY_SPOT = point(0, 1.4, -1.4);
+/** Refused at that door, the request drops to the floor in front of it, inside the gate. */
+const REFUSED_INSIDE = [OTHER_DOOR, point(0.4, 0.17, -0.1)];
 /**
  * The cache stands in the gap between the middle rack and the answering one: against the
  * dark racks it reads clearly, where beside the writer's screen it blurred into its glow.
@@ -295,6 +311,42 @@ function act6Beats(
           const refusing = progress >= 0.33 && progress < 0.58;
           const letIn = progress >= 0.68;
           bar.material = refusing ? colors.alert : letIn ? colors.glow : colors.base;
+        });
+      },
+    },
+    // Signed in isn't the same as allowed (403). A request carrying its pass gets through the
+    // gate, so the server knows who's asking, but it asks for a rack that isn't its own: a
+    // red X goes up across that door and the request is refused there, inside the gate.
+    // The same pass still opens its own rack, so the held picture shows both.
+    'forbidden-door': {
+      seconds: 2.8,
+      start: () => {
+        const { group: checkpoint, bar } = gate();
+        const noEntry = new THREE.Group();
+        noEntry.add(
+          ...[1, -1].map((tilt) => {
+            const stroke = part(NO_ENTRY_STROKE, colors.alert, 0, 0, 0);
+            stroke.rotation.z = (tilt * Math.PI) / 4;
+            return stroke;
+          }),
+        );
+        noEntry.position.copy(NO_ENTRY_SPOT);
+        noEntry.visible = false;
+        stage.add(noEntry);
+        const intruder = passHolder();
+        const { holder: owner } = passHolder();
+        return run(stage, [], (progress) => {
+          popIn(checkpoint, phase(progress, 0, 0.12));
+          popIn(intruder.holder, phase(progress, 0.05, 0.12));
+          // It reaches the gate about a quarter of the way in, and the gate knows its pass.
+          bar.material = progress >= 0.24 ? colors.glow : colors.base;
+          const refused = progress >= 0.44;
+          if (refused) travel(intruder.holder, REFUSED_INSIDE, phase(progress, 0.46, 0.62), 0.4);
+          else travel(intruder.holder, TO_OTHER_RACK, phase(progress, 0.08, 0.42));
+          intruder.body.material = refused ? colors.alert : colors.glow;
+          popIn(noEntry, phase(progress, 0.4, 0.5));
+          popIn(owner, phase(progress, 0.6, 0.66));
+          travel(owner, TO_RACK, phase(progress, 0.62, 0.95));
         });
       },
     },

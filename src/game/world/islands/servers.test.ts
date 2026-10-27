@@ -55,7 +55,8 @@ describe('the servers island (Act 6)', () => {
     const props = servers(palette(0x7ee2a8));
     expect(Object.keys(props.beats).sort()).toEqual([...ACT6_BEATS].sort());
     expect(ACT6_BEATS.length).toBeGreaterThanOrEqual(5);
-    expect(ACT6_BEATS.length).toBeLessThanOrEqual(8);
+    // A handful of scenes, not one per card: Act 3's island, the worked example, has 11.
+    expect(ACT6_BEATS.length).toBeLessThanOrEqual(12);
   });
 
   it.each(ACT6_BEATS)('%s plays, holds a steady last frame, and resets cleanly', (id) => {

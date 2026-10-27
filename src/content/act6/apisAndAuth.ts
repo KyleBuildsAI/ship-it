@@ -253,7 +253,7 @@ export const apisAndAuth = {
     },
     {
       id: 'least-scope',
-      beat: 'auth-gate',
+      beat: 'forbidden-door',
       kind: 'prompt',
       situation:
         'Quillwork will let writers publish posts to their own GitHub repos. You’re briefing Otto on how to connect to GitHub.',
