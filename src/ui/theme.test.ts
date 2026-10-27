@@ -17,7 +17,11 @@ describe('text in the mono font', () => {
     );
     expect(rules.length).toBeGreaterThan(0);
     const ligatured = rules
-      .filter(([, , body]) => !body?.includes('font-variant-ligatures: none;'))
+      .filter(([, , body = '']) => {
+        const off = body.lastIndexOf('font-variant-ligatures: none;');
+        // The font shorthand turns ligatures back on, so the switch must come after it.
+        return off < 0 || off < body.indexOf('font:');
+      })
       .map(([, selector]) => selector?.trim());
     expect(ligatured).toEqual([]);
   });
