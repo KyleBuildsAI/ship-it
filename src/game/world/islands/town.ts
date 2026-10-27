@@ -51,14 +51,15 @@ const ISSUE_SLOT = at(0.98, 1.95, -1.43);
 const PR_SPOT = at(1.7, 1, 0.8);
 /** A merged PR shrinks to a notice's size: once on the board it's one more card of main. */
 const MERGED_SCALE = 0.7;
-/** The board's top edge, where a release's number and flag stand over main. */
+/** The board's top edge, where a release's number stands. */
 const BOARD_TOP = 2.35;
 const BOARD_Z = -1.5;
 
 // Shared geometry, made once: beats reuse it and the palette's materials, so clearing
 // the stage after a beat has nothing to dispose.
 const NOTICE = new THREE.BoxGeometry(0.55, 0.4, 0.04);
-const COMMIT_CARD = new THREE.BoxGeometry(0.45, 0.32, 0.05);
+const COMMIT_HEIGHT = 0.32;
+const COMMIT_CARD = new THREE.BoxGeometry(0.45, COMMIT_HEIGHT, 0.05);
 const PR_CARD = new THREE.BoxGeometry(0.8, 0.55, 0.06);
 const PIN = new THREE.SphereGeometry(0.08, 10, 8);
 const COMMENT = new THREE.SphereGeometry(0.18, 14, 10);
@@ -325,33 +326,38 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
         });
       },
     },
-    // A release: MAJOR, MINOR and PATCH are set block by block on top of the board, then a
-    // flag goes up beside them and stays. A tag names one point of main for good. No block
-    // is singled out, so the picture fits whichever number a card bumps.
+    // A release: the commit that ships sits on main, MAJOR, MINOR and PATCH are set block by
+    // block on top of the board, then a flag goes up on that one commit and stays. A tag
+    // names one exact commit for good, so the flag stands on a card, not over the whole
+    // board. No block is singled out, so the picture fits whichever number a card bumps.
     'release-tag': {
       seconds: 2.6,
       start: () => {
-        const poleX = 0.45;
-        const pole = piece(
-          FLAG_POLE,
-          colors.light,
-          at(poleX, BOARD_TOP + FLAG_POLE_HEIGHT / 2, BOARD_Z),
-        );
-        const flagLow = at(poleX + 0.4, BOARD_TOP + 0.4, BOARD_Z);
-        const flagHigh = at(poleX + 0.4, BOARD_TOP + FLAG_POLE_HEIGHT - 0.25, BOARD_Z);
-        const flag = piece(FLAG, colors.glow, flagLow);
+        const shipped = piece(COMMIT_CARD, colors.glow, BOARD_FRONT);
+        // The mast's origin is the foot of its pole, on the commit's top edge, so it grows
+        // up out of that card rather than in from the middle of the pole.
+        const mast = new THREE.Group();
+        mast.position.set(BOARD_FRONT.x, BOARD_FRONT.y + COMMIT_HEIGHT / 2, BOARD_FRONT.z);
+        mast.add(part(FLAG_POLE, colors.light, 0, FLAG_POLE_HEIGHT / 2, 0));
+        const flagLow = at(0.4, 0.5, 0);
+        const flagHigh = at(0.4, FLAG_POLE_HEIGHT - 0.25, 0);
+        const flag = part(FLAG, colors.glow, flagLow.x, flagLow.y, flagLow.z);
+        mast.add(flag);
+        mast.visible = false;
+        stage.add(mast);
+        // Left of the pole, so the number reads as the name on that flag.
         const versionBlock = (x: number) =>
           piece(VERSION_BLOCK, colors.light, at(x, BOARD_TOP + 0.15, BOARD_Z));
-        const major = versionBlock(-0.75);
-        const minor = versionBlock(-0.35);
-        const patch = versionBlock(0.05);
+        const major = versionBlock(-0.95);
+        const minor = versionBlock(-0.6);
+        const patch = versionBlock(-0.25);
         return run(stage, [], (progress) => {
-          popIn(major, phase(progress, 0, 0.2));
-          popIn(minor, phase(progress, 0.1, 0.3));
-          popIn(patch, phase(progress, 0.2, 0.4));
-          popIn(pole, phase(progress, 0.25, 0.4));
-          popIn(flag, phase(progress, 0.35, 0.45));
-          slide(flag, flagLow, flagHigh, phase(progress, 0.4, 0.95));
+          popIn(shipped, phase(progress, 0, 0.15));
+          popIn(major, phase(progress, 0.1, 0.28));
+          popIn(minor, phase(progress, 0.18, 0.36));
+          popIn(patch, phase(progress, 0.26, 0.44));
+          popIn(mast, phase(progress, 0.4, 0.55));
+          slide(flag, flagLow, flagHigh, phase(progress, 0.5, 0.95));
         });
       },
     },

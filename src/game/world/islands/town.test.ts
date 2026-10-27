@@ -60,15 +60,19 @@ function everything(group: THREE.Group): ReadonlySet<THREE.Object3D> {
   return objects;
 }
 
+/** The meshes a beat added that show right now. */
+function shownBeatMeshes(group: THREE.Group, idle: ReadonlySet<THREE.Object3D>): THREE.Object3D[] {
+  const shown: THREE.Object3D[] = [];
+  group.traverseVisible((object) => {
+    // By type name rather than instanceof, which narrows to a Mesh of `any` parts.
+    if (object.type === 'Mesh' && !idle.has(object)) shown.push(object);
+  });
+  return shown;
+}
+
 /** Where each mesh a beat added stands while it shows, in the island's own space. */
 function spotsOfShown(group: THREE.Group, idle: ReadonlySet<THREE.Object3D>): THREE.Vector3[] {
-  const spots: THREE.Vector3[] = [];
-  group.traverseVisible((object) => {
-    if (object instanceof THREE.Mesh && !idle.has(object)) {
-      spots.push(object.getWorldPosition(new THREE.Vector3()));
-    }
-  });
-  return spots;
+  return shownBeatMeshes(group, idle).map((mesh) => mesh.getWorldPosition(new THREE.Vector3()));
 }
 
 function secondsOf(props: Props, id: string): number {
@@ -176,5 +180,29 @@ describe('Act 4 town island beats', () => {
     // Three copies of one commit: yours, GitHub's, and the one a teammate fetched.
     expect(after).toHaveLength(3);
     expect(after.some((spot) => spot.distanceTo(yours) < 0.001)).toBe(true);
+  });
+
+  it('stands the release flag on the one commit it tags, not over the whole board', () => {
+    const { props } = build();
+    const idle = everything(props.group);
+    playToEnd(createBeatPlayer(props.beats, false), props, 'release-tag');
+    props.group.updateMatrixWorld(true);
+    const boxes = shownBeatMeshes(props.group, idle).map((mesh) =>
+      new THREE.Box3().setFromObject(mesh),
+    );
+    // The pole is the only tall thing the beat adds.
+    const poles = boxes.filter((box) => box.max.y - box.min.y > 1);
+    expect(poles).toHaveLength(1);
+    const [pole] = poles;
+    if (pole === undefined) throw new Error('release-tag never raised its flag pole.');
+    const poleX = (pole.min.x + pole.max.x) / 2;
+    const footing = boxes.filter(
+      (box) =>
+        box !== pole &&
+        Math.abs(box.max.y - pole.min.y) < 0.001 &&
+        box.min.x < poleX &&
+        poleX < box.max.x,
+    );
+    expect(footing, 'one card under the pole, its top edge at the pole’s foot').toHaveLength(1);
   });
 });
