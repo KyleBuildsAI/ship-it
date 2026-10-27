@@ -225,16 +225,17 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
         });
       },
     },
-    // Marco's request flies from his house to an empty spot on the board and gets a red
-    // pin: the work is written down where everyone can see it before anyone starts it.
+    // Marco's request flies from his house to an empty spot on the board and gets pinned:
+    // the work is written down where everyone can see it before anyone starts it.
     'issue-pinned': {
       seconds: 2.4,
       start: () => {
         const slot = at(ISSUE_SLOT.x, ISSUE_SLOT.y, ISSUE_SLOT.z + 0.03);
         const issue = piece(NOTICE, colors.glow, MARCO_DOOR);
         issue.rotation.z = parts.issueCard.rotation.z;
-        // On the card's top edge, so the red shows against the dark board, not the glow.
-        const pin = piece(PIN, colors.alert, at(slot.x, slot.y + 0.2, slot.z + 0.06));
+        // On the card's top edge, so it shows against the dark board, not the glow. Light,
+        // not red: red on this island means a refusal, and a new issue isn't trouble.
+        const pin = piece(PIN, colors.light, at(slot.x, slot.y + 0.2, slot.z + 0.06));
         return run(stage, [parts.issueCard], (progress) => {
           // The slot starts empty, so the new issue reads as new rather than as a card
           // that was always there.
