@@ -84,7 +84,7 @@ export const testsAndEvals = {
     },
     {
       id: 'bent-test',
-      beat: 'diff-inspected',
+      beat: 'gate-bent',
       kind: 'choose',
       situation: 'A test was failing. Otto says he fixed it.',
       artifact: {

@@ -17,15 +17,22 @@ import {
  * Act 7's island: a workbench with Otto, the AI agent, on it and gears on the wall behind.
  * Its beats act out the Act's ideas with things a non-coder can follow: a brief card goes
  * in and the right blocks come out, a loop circles the bench, a magnifier finds the bad
- * line on a PR card, a test gate lets one block through and stops another, eval scores
- * rise as bars, a fence turns a stranger's note away with the key locked outside it, and a
- * stop sign halts a runaway loop.
+ * line on a PR card, a test gate lets one block through and stops another (or is knocked
+ * flat so a bad one rolls over it), eval scores rise as bars, a fence turns a stranger's
+ * note away with the key locked outside it, and a stop sign halts a runaway loop.
  */
 
 /** The bench top's height, where built blocks sit. */
 const BENCH_TOP = 1.1;
 /** Where Otto stands on the bench. */
 const ROBOT = new THREE.Vector3(0, BENCH_TOP, -1);
+/** Where the checks' gate stands, on the path from the bench toward the camera. */
+const GATE_X = 2.6;
+const GATE_Z = 2;
+/** A block of Otto's work on the bench, about to head for the gate. */
+const ON_BENCH = new THREE.Vector3(GATE_X, BENCH_TOP + 0.23, -0.7);
+/** Where a block waits when the gate stops it, just short of it. */
+const AT_GATE = new THREE.Vector3(GATE_X, 0.25, GATE_Z - 0.5);
 
 // Shared geometry, made once: beats only place and scale these.
 const CARD = new THREE.BoxGeometry(1, 1.3, 0.06);
@@ -99,6 +106,27 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     group.visible = false;
     stage.add(group);
     return { group, lines };
+  };
+
+  /** The checks as a gate on the bench's path: Otto's work has to pass through it. */
+  const gate = () => {
+    const group = new THREE.Group();
+    const beam = part(GATE_BEAM, colors.base, 0, 2, 0);
+    const posts = [-1, 1].map((side) => part(GATE_POST, colors.base, side, 1, 0));
+    group.add(beam, ...posts);
+    group.position.set(GATE_X, 0, GATE_Z);
+    group.visible = false;
+    stage.add(group);
+    const meshes = [beam, ...posts];
+    return {
+      group,
+      /** Colours the whole gate: glow while it passes work, alert when it stops some. */
+      paint: (material: THREE.Material) => {
+        meshes.forEach((mesh) => {
+          mesh.material = material;
+        });
+      },
+    };
   };
 
   return {
@@ -201,37 +229,52 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     'test-gate': {
       seconds: 3,
       start: () => {
-        const gateZ = 2;
-        const gate = new THREE.Group();
-        const beam = part(GATE_BEAM, colors.base, 0, 2, 0);
-        const posts = [-1, 1].map((x) => part(GATE_POST, colors.base, x, 1, 0));
-        gate.add(beam, ...posts);
-        gate.position.set(2.6, 0, gateZ);
-        gate.visible = false;
-        stage.add(gate);
-        const bench = new THREE.Vector3(2.6, BENCH_TOP + 0.23, -0.7);
-        const passed = new THREE.Vector3(2.6, 0.25, 4.4);
-        const stopped = new THREE.Vector3(2.6, 0.25, gateZ - 0.5);
-        const backed = new THREE.Vector3(2.6, 0.25, 0.6);
-        const good = hidden(BLOCK, colors.glow, bench);
-        const bad = hidden(BLOCK, colors.glow, bench);
-        const gateParts = [beam, ...posts];
+        const checks = gate();
+        const passed = new THREE.Vector3(GATE_X, 0.25, 4.4);
+        const sentBack = new THREE.Vector3(GATE_X, 0.25, 0.6);
+        const good = hidden(BLOCK, colors.glow, ON_BENCH);
+        const bad = hidden(BLOCK, colors.glow, ON_BENCH);
         return run(stage, [], (progress) => {
-          popIn(gate, phase(progress, 0, 0.15));
+          popIn(checks.group, phase(progress, 0, 0.15));
           popIn(good, phase(progress, 0.1, 0.2));
-          slide(good, bench, passed, phase(progress, 0.15, 0.45), 0.6);
+          slide(good, ON_BENCH, passed, phase(progress, 0.15, 0.45), 0.6);
           popIn(bad, phase(progress, 0.45, 0.55));
-          const blockedBack = phase(progress, 0.78, 1);
           if (progress < 0.78) {
-            slide(bad, bench, stopped, phase(progress, 0.5, 0.75), 0.6);
+            slide(bad, ON_BENCH, AT_GATE, phase(progress, 0.5, 0.75), 0.6);
           } else {
-            slide(bad, stopped, backed, blockedBack, 0.3);
+            slide(bad, AT_GATE, sentBack, phase(progress, 0.78, 1), 0.3);
           }
           const caught = progress >= 0.72;
-          const passing = progress >= 0.3;
-          gateParts.forEach((mesh) => {
-            mesh.material = caught ? colors.alert : passing ? colors.glow : colors.base;
-          });
+          checks.paint(caught ? colors.alert : progress >= 0.3 ? colors.glow : colors.base);
+          bad.material = caught ? colors.alert : colors.glow;
+        });
+      },
+    },
+    // Green isn't proof: the gate stops a bad block and turns red, then it's knocked flat
+    // (a test bent to agree with the bug, or CI told to ignore failures), glows "passing"
+    // again, and the red block rolls straight over it.
+    'gate-bent': {
+      seconds: 3,
+      start: () => {
+        const checks = gate();
+        const through = new THREE.Vector3(GATE_X, 0.25, 5.2);
+        const bad = hidden(BLOCK, colors.glow, ON_BENCH);
+        return run(stage, [], (progress) => {
+          popIn(checks.group, phase(progress, 0, 0.12));
+          popIn(bad, phase(progress, 0.08, 0.18));
+          if (progress < 0.72) {
+            slide(bad, ON_BENCH, AT_GATE, phase(progress, 0.12, 0.36), 0.6);
+          } else {
+            // A high hop, so the block clears the fallen gate rather than passing through it.
+            slide(bad, AT_GATE, through, phase(progress, 0.72, 1), 0.7);
+          }
+          // Tipped forward on its base until it lies flat, lifted by half a beam's
+          // thickness so it lies on the floor instead of sinking into it.
+          const knockedDown = phase(progress, 0.45, 0.68);
+          checks.group.rotation.x = (knockedDown * Math.PI) / 2;
+          checks.group.position.y = knockedDown * 0.11;
+          const caught = progress >= 0.34;
+          checks.paint(knockedDown >= 1 ? colors.glow : caught ? colors.alert : colors.base);
           bad.material = caught ? colors.alert : colors.glow;
         });
       },

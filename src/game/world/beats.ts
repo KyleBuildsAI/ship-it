@@ -33,6 +33,7 @@ export const ISLAND_BEATS = {
     'agent-loop',
     'diff-inspected',
     'test-gate',
+    'gate-bent',
     'eval-scores',
     'guardrails-up',
     'agent-halted',

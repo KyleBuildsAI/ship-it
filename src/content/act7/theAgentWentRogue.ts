@@ -101,7 +101,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'hidden-ci-change',
-      beat: 'diff-inspected',
+      beat: 'gate-bent',
       kind: 'choose',
       situation: 'Further down the same PR, a file you didn’t expect.',
       artifact: {
@@ -145,7 +145,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'flipped-test',
-      beat: 'diff-inspected',
+      beat: 'gate-bent',
       kind: 'choose',
       situation: 'And one more change, in the tests.',
       artifact: {
