@@ -74,9 +74,10 @@ function Briefing({ lesson, placement }: { lesson: Lesson; placement: boolean })
         {lesson.briefing[index]}
       </p>
       {lesson.timeLimitSeconds === undefined ? null : (
+        // Skip briefing starts the clock as well as Start, so the note names neither button.
         <p className="play-panel__muted">
-          Every card shares one clock: {formatClock(lesson.timeLimitSeconds)}. It starts when you
-          press Start.
+          Every card shares one clock: {formatClock(lesson.timeLimitSeconds)}. It starts when the
+          first card shows.
         </p>
       )}
       <div className="play-panel__actions">

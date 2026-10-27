@@ -43,10 +43,13 @@ describe('the lesson view', () => {
     expect(text(markup)).toContain('Skip briefing');
   });
 
-  it("tells a final's briefing about the shared clock", () => {
-    expect(text(view(startLessonRun(sampleFinal), sampleFinal))).toContain(
-      'Every card shares one clock: 2:00.',
-    );
+  it("tells a final's briefing about the shared clock, and when it starts", () => {
+    const briefing = text(view(startLessonRun(sampleFinal), sampleFinal));
+    expect(briefing).toContain('Every card shares one clock: 2:00.');
+    // Skip briefing starts it too, so the note can't say only Start does.
+    expect(briefing).toContain('It starts when the first card shows.');
+    expect(briefing).toContain('Skip briefing');
+    expect(briefing).not.toContain('press Start');
   });
 
   it('shows a card: progress, situation, a labelled artifact, the question, options', () => {
