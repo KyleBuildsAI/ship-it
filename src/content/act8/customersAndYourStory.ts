@@ -207,7 +207,7 @@ export const customersAndYourStory = {
     },
     {
       id: 'who-built-it',
-      beat: 'tell-your-story',
+      beat: 'agent-loop',
       kind: 'choose',
       situation: 'Sage asks: “How much of SandCastles did you write, and how much did AI write?”',
       question: 'Best answer?',
