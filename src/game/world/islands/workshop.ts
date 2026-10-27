@@ -63,11 +63,6 @@ function run(
   };
 }
 
-/** Where along a beat a moving thing is, as a point between two others. */
-function between(from: THREE.Vector3, to: THREE.Vector3, amount: number): THREE.Vector3 {
-  return new THREE.Vector3().lerpVectors(from, to, amount);
-}
-
 function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId<'act7'>, Beat> {
   /** A hidden mesh on the stage, for a beat to pop in later. */
   const hidden = (geometry: THREE.BufferGeometry, material: THREE.Material, at: THREE.Vector3) => {
@@ -133,17 +128,21 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
       start: () => {
         const center = new THREE.Vector3(0, 0.12, 2);
         const radius = 2.4;
-        /** A point on the loop, a quarter-turn per station, starting nearest the camera. */
-        const onLoop = (turn: number, y: number) =>
-          new THREE.Vector3(
+        const orbHeight = 0.7;
+        /**
+         * Puts `target` on the loop, a quarter-turn per station, starting nearest the
+         * camera. It fills a vector it's given, so the orb moves without a new one a frame.
+         */
+        const onLoop = (target: THREE.Vector3, turn: number, y: number) =>
+          target.set(
             center.x + Math.sin(turn * Math.PI * 2) * radius,
             y,
             center.z + Math.cos(turn * Math.PI * 2) * radius,
           );
         const stations = [0, 0.25, 0.5, 0.75].map((turn) =>
-          hidden(STATION, colors.dark, onLoop(turn, center.y)),
+          hidden(STATION, colors.dark, onLoop(new THREE.Vector3(), turn, center.y)),
         );
-        const orb = hidden(ORB, colors.glow, onLoop(0, 0.7));
+        const orb = hidden(ORB, colors.glow, onLoop(new THREE.Vector3(), 0, orbHeight));
         return run(stage, [], (progress) => {
           const appear = phase(progress, 0, 0.15);
           stations.forEach((station) => {
@@ -152,7 +151,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           popIn(orb, appear);
           // Linear, not eased, so the orb keeps one steady pace round the loop.
           const turn = Math.min(1, Math.max(0, (progress - 0.15) / 0.8));
-          orb.position.copy(onLoop(turn, 0.7));
+          onLoop(orb.position, turn, orbHeight);
           stations.forEach((station, index) => {
             station.material = turn >= index / 4 + 0.02 ? colors.glow : colors.dark;
           });
@@ -300,28 +299,29 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     'agent-halted': {
       seconds: 2.6,
       start: () => {
-        const orb = hidden(ORB, colors.alert, ROBOT);
         const head = new THREE.Vector3(ROBOT.x, ROBOT.y + 1.35, ROBOT.z);
+        const orbitRadius = 0.9;
+        // Every lap starts and ends here, in front of Otto's face, so the drop starts here too.
+        const lapStart = new THREE.Vector3(head.x, head.y, head.z + orbitRadius);
+        const rest = new THREE.Vector3(-1.4, BENCH_TOP + 0.22, -0.6);
+        const orb = hidden(ORB, colors.alert, lapStart);
         const sign = hidden(STOP_SIGN, colors.alert, new THREE.Vector3(1.4, 3.6, -0.6));
         // Stood up to face the camera, like a road sign.
         sign.rotation.x = Math.PI / 2;
         const stopAt = 0.6;
-        const orbit = (turns: number) =>
-          new THREE.Vector3(
-            head.x + Math.sin(turns * Math.PI * 2) * 0.9,
-            head.y,
-            head.z + Math.cos(turns * Math.PI * 2) * 0.9,
-          );
-        const rest = new THREE.Vector3(-1.4, BENCH_TOP + 0.22, -0.6);
         return run(stage, [shop.visor], (progress) => {
           popIn(orb, phase(progress, 0, 0.1));
-          // Speeding up while it runs: the loop gets faster, not closer to done.
-          const running = Math.min(progress, stopAt) / stopAt;
-          const turns = 4 * running * running;
           if (progress < stopAt) {
-            orb.position.copy(orbit(turns));
+            // Speeding up while it runs: the loop gets faster, not closer to done.
+            const running = progress / stopAt;
+            const angle = 4 * running * running * Math.PI * 2;
+            orb.position.set(
+              head.x + Math.sin(angle) * orbitRadius,
+              head.y,
+              head.z + Math.cos(angle) * orbitRadius,
+            );
           } else {
-            orb.position.copy(between(orbit(4), rest, phase(progress, stopAt, 0.85)));
+            orb.position.lerpVectors(lapStart, rest, phase(progress, stopAt, 0.85));
           }
           const halted = progress >= stopAt;
           orb.material = halted ? colors.dark : colors.alert;
