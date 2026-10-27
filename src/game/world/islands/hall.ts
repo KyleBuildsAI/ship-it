@@ -34,8 +34,11 @@ const BOARD_BOX = new THREE.BoxGeometry(0.86, 0.5, 0.03);
  */
 const STANDING_CARD_HALF_WIDTH = 0.4;
 const STANDING_CARD = new THREE.BoxGeometry(STANDING_CARD_HALF_WIDTH * 2, 0.55, 0.05);
-/** A note or log card lying on the table. */
-const TABLE_CARD = new THREE.BoxGeometry(0.6, 0.05, 0.42);
+/*
+ * A sheet in flight, held up to face the player: Otto's brief going out, his result coming
+ * back. A flat sheet would show only its edge from the player's spot.
+ */
+const NOTE = new THREE.BoxGeometry(0.45, 0.32, 0.04);
 /** One part of a story, stacked on the table: situation, action, result, lesson. */
 const STORY_BLOCK = new THREE.BoxGeometry(1, 0.2, 0.55);
 const OTTO_BODY = new THREE.SphereGeometry(0.32, 20, 14);
@@ -386,13 +389,16 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
       seconds: 3,
       start: () => {
         const ottoHeight = 1.7;
+        /*
+         * Otto waits beside your chair, not in front of it, so the brief and the result
+         * travel across the player's view instead of straight toward the camera.
+         */
+        const lapStart = 0.15;
         /** Where Otto is `turn` (0 to 1) of the way round the table, written into `into`. */
-        const lapPoint = (turn: number, into: THREE.Vector3) =>
-          into.set(
-            Math.sin(turn * Math.PI * 2) * 2.8,
-            ottoHeight,
-            TABLE_Z + Math.cos(turn * Math.PI * 2) * 2,
-          );
+        const lapPoint = (turn: number, into: THREE.Vector3) => {
+          const angle = (lapStart + turn) * Math.PI * 2;
+          return into.set(Math.sin(angle) * 2.8, ottoHeight, TABLE_Z + Math.cos(angle) * 2);
+        };
         const home = lapPoint(0, new THREE.Vector3());
         const otto = new THREE.Group();
         otto.add(
@@ -402,7 +408,7 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         otto.position.copy(home);
         otto.visible = false;
         stage.add(otto);
-        const brief = add(TABLE_CARD, colors.light, CANDIDATE);
+        const brief = add(NOTE, colors.light, CANDIDATE);
         const check = add(CHECK_RING, colors.light, at(CANDIDATE.x, 2.4, CANDIDATE.z));
         return run(stage, [], (progress) => {
           popIn(otto, phase(progress, 0, 0.12));
