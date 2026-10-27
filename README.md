@@ -138,7 +138,7 @@ It runs these in order and stops at the first failure:
 | `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. |
 | `npm run e2e` | Playwright end-to-end tests in your installed Chrome against the build in `dist/`: boot, terminal, editor, walking, playing a step, reload, and save export/import. Run `npm run build` first. |
 
-To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:4173/ship-it/`.
+To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:18174/ship-it/`. Like the dev server's 18173, the port is fixed and sits above 15000, where Windows doesn't reserve ports for Hyper-V and WSL.
 
 ## CI and deploys
 

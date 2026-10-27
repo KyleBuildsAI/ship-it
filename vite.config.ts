@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import { loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import { defineConfig } from 'vitest/config';
 // With the .ts extension, because Vite's upcoming native config loader requires one.
-import { DEFAULT_PORT, GAME_PORT, parsePort } from './server/port.ts';
+import { DEFAULT_PORT, GAME_PORT, PREVIEW_PORT, parsePort } from './server/port.ts';
 
 // GitHub Pages serves this repo from https://kylebuildsai.github.io/ship-it/, so
 // production builds need that path prefix or every asset URL 404s. `vite preview`
@@ -60,6 +60,8 @@ export default defineConfig(({ command, mode, isPreview }) => ({
       '/api': { target: sageUrl(mode), configure: answerOfflineWhenSageIsDown },
     },
   },
+  // Fixed like dev, so the e2e tests always find the build where they expect it.
+  preview: { port: PREVIEW_PORT, strictPort: true },
   resolve: {
     // three.js addons import from 'three'. Point that at the WebGPU build our code uses,
     // so only one copy of the three.js core loads (two copies break instanceof checks).
