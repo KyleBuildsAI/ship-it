@@ -161,9 +161,10 @@ describe('Act 5 Field Mission: Green on Every Push', () => {
     // After fix rounds a PR has several commits, and GitHub's squash title is then the PR's.
     const steps = field.checklist.map((item) => item.id);
     const title = field.checklist.find((item) => item.id === 'check-the-squash-title');
-    expect(steps.indexOf('check-the-squash-title')).toBe(steps.indexOf('green-then-merge') + 1);
+    // It comes before the step that merges, or a player going in order reads it too late.
+    expect(steps.indexOf('check-the-squash-title')).toBe(steps.indexOf('green-then-merge') - 1);
     expect(title?.text).toContain('check the title GitHub fills in starts with ci:');
-    expect(title?.text).toContain('give the PR a ci: title too');
+    expect(title?.text).toContain('Give the PR a title that starts with ci:');
   });
 
   it('lets the player have their agent run every command', () => {

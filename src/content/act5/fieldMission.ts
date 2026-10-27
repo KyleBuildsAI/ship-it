@@ -52,12 +52,13 @@ export const greenOnEveryPush: FieldMissionInput = {
       text: 'Have it commit with a message that starts with ci:, like "ci: scan every push for secrets", push the branch and open a pull request. Not straight to main: the PR is where the new check proves itself before it guards anyone.',
     },
     {
-      id: 'green-then-merge',
-      text: 'On the PR, wait for every check, gitleaks and coverage, to go green, then squash-merge. Red? Copy the first error to your agent and ask it to fix the cause, never to skip the check. CI runs on Linux, so file name capitals matter there (lesson 5.3). A real key found? Revoke it first (lesson 5.4).',
+      // Before the merge step, so it's read before the merge it's about, not after.
+      id: 'check-the-squash-title',
+      text: 'Give the PR a title that starts with ci: too. With more than one commit, a squash merge uses the PR’s title, so before you confirm it, check the title GitHub fills in starts with ci:.',
     },
     {
-      id: 'check-the-squash-title',
-      text: 'Before you confirm the squash merge, check the title GitHub fills in starts with ci:. With more than one commit it uses the PR’s title, so give the PR a ci: title too.',
+      id: 'green-then-merge',
+      text: 'On the PR, wait for every check, gitleaks and coverage, to go green, then squash-merge. Red? Copy the first error to your agent and ask it to fix the cause, never to skip the check. CI runs on Linux, so file name capitals matter there (lesson 5.3). A real key found? Revoke it first (lesson 5.4).',
     },
   ],
   verifications: [
