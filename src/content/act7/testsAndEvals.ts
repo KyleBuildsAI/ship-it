@@ -26,7 +26,7 @@ export const testsAndEvals = {
       options: [
         {
           id: 'coverage',
-          text: 'Coverage numbers look good to investors.',
+          text: 'A high coverage number proves to investors and new hires that the billing code is solid, so the time pays off.',
           correct: false,
           feedback: 'Numbers aren’t the point. Caught mistakes are.',
         },
@@ -62,7 +62,7 @@ export const testsAndEvals = {
       options: [
         {
           id: 'build',
-          text: 'Add the refund limits first, so the tests have real code to call. Then write tests for over-refunds and the 60-day cutoff, and show me them passing.',
+          text: 'Add the refund limits first, so the tests have real code to call. Then write tests for over-refunds and the 60-day cutoff, run the whole suite, and show me every one passing.',
           correct: false,
           feedback: 'Tests written after the code tend to test what the code does, bugs included.',
         },
@@ -184,7 +184,7 @@ export const testsAndEvals = {
         },
         {
           id: 'hundred',
-          text: 'Every file must reach 100% before merging.',
+          text: 'Hold the merge until every file in billing reaches 100% coverage.',
           correct: false,
           feedback: 'A number to chase, not a reason. Cover what matters.',
         },
@@ -267,7 +267,7 @@ export const testsAndEvals = {
       options: [
         {
           id: 'one-run',
-          text: 'Average the three to get an 81% baseline, then count any new prompt that scores above 81% on a single run as an improvement.',
+          text: 'Take 81%, the average, as the baseline. A new prompt that beats it on one run is better.',
           correct: false,
           feedback:
             'The baseline is fair, but one run of the new prompt is just as noisy. Compare averages.',

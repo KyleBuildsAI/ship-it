@@ -159,7 +159,7 @@ export const lintAndTypes = {
         },
         {
           id: 'repo-wide',
-          text: 'Better: remove those two rules from the lint config for everyone.',
+          text: 'Better: drop the file-wide disable and remove no-debugger and no-unused-vars from the shared lint config, so nobody trips on them again.',
           correct: false,
           feedback: 'Now the next debugger statement anywhere ships too.',
         },
@@ -183,9 +183,10 @@ export const lintAndTypes = {
         },
         {
           id: 'reformat-each-pr',
-          text: 'Have Otto reformat the whole repo in every PR.',
+          text: 'Have Otto reformat every file in the repo as part of each PR he opens, so the code always matches the style.',
           correct: false,
-          feedback: 'Every PR would touch hundreds of files, burying the real change.',
+          feedback:
+            'Every PR would touch files it had no reason to, burying the real change, and everyone else’s PRs would still drift.',
         },
         {
           id: 'no-comments',
@@ -230,7 +231,7 @@ export const lintAndTypes = {
         },
         {
           id: 'fix-all-repo',
-          text: 'Run lint --fix on the whole repo and commit everything it changes.',
+          text: 'Run lint with --fix on the whole repo, commit everything it changes along with your feature, and paste me the clean npm run lint output.',
           correct: false,
           feedback: 'A huge, unrelated diff in a feature PR is hard to review and easy to break.',
         },
@@ -272,17 +273,19 @@ export const lintAndTypes = {
       id: 'local-gates',
       beat: 'change-passes',
       kind: 'order',
-      situation: 'Before opening a PR, you have Otto run every gate locally.',
-      question: 'Put them in the order this repo runs them, fastest feedback first.',
+      // Format, lint and typecheck are one step: all three only read the code and finish
+      // in seconds, so no order among them is more right than another.
+      situation:
+        'Before opening a PR, you have Otto run every gate locally. Here the unit tests take about 20 seconds, and the build about three minutes.',
+      question: 'Put them in order, fastest feedback first.',
       steps: [
-        { id: 'format-lint', text: 'Format and lint' },
-        { id: 'typecheck', text: 'Typecheck' },
+        { id: 'static-checks', text: 'Format, lint and typecheck' },
         { id: 'unit', text: 'Unit tests' },
         { id: 'build', text: 'Build' },
         { id: 'e2e', text: 'End-to-end smoke test' },
       ],
       explanation:
-        'This is the order in the repo’s CLAUDE.md. Cheap checks go first, so a stray quote fails in seconds, not after a five-minute build. The last two are forced: the end-to-end test runs against the build, so the build must come first.',
+        'Cheap checks go first. Format, lint and typecheck only read the code, so a stray quote fails in seconds, not after a three-minute build. The last two are forced: the end-to-end test runs against the build, so the build must come first.',
     },
   ],
 } satisfies LessonInput;

@@ -117,7 +117,7 @@ export const redCi = {
       options: [
         {
           id: 'debug-main',
-          text: 'Debug it directly on main until it works.',
+          text: 'Have Otto debug the cart right on main, pushing small fixes until the tests pass, since a revert would throw his refactor away.',
           correct: false,
           feedback: 'Everyone stays blocked while you dig, and every try is a new red commit.',
         },
@@ -154,10 +154,10 @@ export const redCi = {
         },
         {
           id: 'restore-folder',
-          text: 'Delete src/cart and restore yesterday’s copy of it.',
+          text: 'On a new branch, delete src/cart and put back yesterday’s copy of the folder. Open a PR titled “revert: split cart module” and wait for CI.',
           correct: false,
           feedback:
-            'That also throws away Priya’s coupon work in #411, and it’s a hand-made undo nobody can review.',
+            'Yesterday’s folder also drops Priya’s coupon work in #411, and a hand-made undo is hard to check. git revert undoes exactly #413.',
         },
         {
           id: 'git-revert-pr',
@@ -253,7 +253,7 @@ export const redCi = {
         },
         {
           id: 'later',
-          text: 'Merge now and unskip it next sprint.',
+          text: 'Approve it for the release, since CI is green, and file an issue for Otto to unskip the coupon test and fix it next sprint.',
           correct: false,
           feedback: 'Then the coupon bug ships tonight in Quillwork 2.0.',
         },
@@ -270,9 +270,10 @@ export const redCi = {
       options: [
         {
           id: 'again',
-          text: 'Redo the refactor and push when it’s done.',
+          text: 'Redo the cart split on a new branch in one go, so it all stays consistent. Run the whole suite at the end, and open a PR as soon as it’s all green.',
           correct: false,
-          feedback: 'Same instruction as last time, so the same risk of the same break.',
+          feedback:
+            'One big change again, and nothing stops a skipped test from turning it green. That’s how the last try went wrong.',
         },
         {
           id: 'no-tests',

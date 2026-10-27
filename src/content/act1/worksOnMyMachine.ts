@@ -86,7 +86,7 @@ export const worksOnMyMachine = {
       options: [
         {
           id: 'clean-slate',
-          text: 'Do it. A clean slate is safest.',
+          text: 'Do it. Delete package-lock.json, then run npm install so every package arrives fresh at its newest version.',
           correct: false,
           feedback:
             'Deleting the lockfile throws away the versions Marco’s laptop runs, the exact thing that works.',
@@ -145,7 +145,7 @@ export const worksOnMyMachine = {
       options: [
         {
           id: 'setx',
-          text: 'Approve the setx.',
+          text: 'Approve the setx. Saving PATH fixes it for good: every new terminal finds the right Node first, and nobody hits this again.',
           correct: false,
           // Without /M, setx writes only the user PATH, and Windows puts the system PATH
           // first, so this both wipes Priya's entries and leaves old Node in front.
@@ -205,14 +205,14 @@ export const worksOnMyMachine = {
         },
         {
           id: 'template',
-          text: 'Good idea. Put it in .env.example and commit.',
+          text: 'Good idea. Put Marco’s DATABASE_URL in .env.example and commit it, so the next teammate who clones the repo has it too.',
           correct: false,
           feedback:
             '.env.example is committed. The password would sit in git history, for everyone, for good.',
         },
         {
           id: 'env-var',
-          text: 'Set it with $env:DATABASE_URL in this terminal.',
+          text: 'Set it with $env:DATABASE_URL in this terminal, so the password never touches a file, then run npm run dev again.',
           correct: false,
           feedback:
             'It works until this terminal closes. Tomorrow, or after a restart, the error is back.',
@@ -254,7 +254,7 @@ export const worksOnMyMachine = {
           text: 'Stop-Process -Name node',
           correct: false,
           feedback:
-            'That also stops every other node process, including anything Priya needs, like her dev database once it runs.',
+            'That stops every node process running now, not just the mock. Make it a habit and one day it takes her dev database down too.',
         },
         {
           id: 'reboot',
@@ -270,7 +270,7 @@ export const worksOnMyMachine = {
         },
       ],
       explanation:
-        'Ask the port for its owner and stop that PID. Stopping by name takes down every process with the name, including ones the API needs.',
+        'Ask the port for its owner and stop that PID. Stopping by name ends every process with that name running at the time, not just the one in the way. Once her dev database runs, the same habit stops it too.',
     },
     {
       id: 'db-down',
@@ -321,7 +321,7 @@ export const worksOnMyMachine = {
       options: [
         {
           id: 'all',
-          text: 'All of them. Fixes are fixes.',
+          text: 'All of them. A restart closes windows, but it doesn’t undo work, so everything you fixed today still stands.',
           correct: false,
           feedback: 'Only what was written to disk survives. Terminals and processes start over.',
         },
@@ -339,9 +339,10 @@ export const worksOnMyMachine = {
         },
         {
           id: 'mock',
-          text: 'Only the stopped mock: stopping is permanent.',
+          text: 'Only the stopped mock: once stopped, it stays stopped. npm ci and the .env have to be done again.',
           correct: false,
-          feedback: 'Her login script starts it again at every sign-in. Check port 3000 first.',
+          feedback:
+            'Her login script starts it again at every sign-in, so check port 3000 first. node_modules and .env are files, still there.',
         },
       ],
       explanation:

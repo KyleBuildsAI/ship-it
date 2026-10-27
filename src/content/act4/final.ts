@@ -180,7 +180,7 @@ export const rejectedPush = {
       options: [
         {
           id: 'override',
-          text: 'Merge with an admin override.',
+          text: 'Merge with an admin override, since the failing test is in search and the fix never touched it.',
           correct: false,
           feedback: 'If it isn’t flaky, you just shipped a second bug on release day.',
         },
@@ -270,10 +270,10 @@ export const rejectedPush = {
         { id: 'ci', text: 'Wait for CI on main to go green' },
         { id: 'tag', text: 'Tag the merged commit v3.0.1' },
         { id: 'notes', text: 'Publish 3.0.1 release notes' },
-        { id: 'announce', text: 'Tell Marco 3.0.1 is out and close issue #88' },
+        { id: 'announce', text: 'Tell Marco 3.0.1 is out (check #88 closed itself)' },
       ],
       explanation:
-        'Merge, prove main is green, tag that exact commit, publish the notes, then tell Marco and close the issue. Doing it in the same order every time is what keeps 5pm calm.',
+        'Merge, prove main is green, tag that exact commit, publish the notes, then tell Marco. PR #89 says it closes #88, so GitHub closed the issue on merge: just check. Doing it in the same order every time is what keeps 5pm calm.',
     },
   ],
 } satisfies LessonInput;

@@ -90,7 +90,7 @@ export const debugFromSymptoms = {
         },
         {
           id: 'narrower',
-          text: 'Nearly. It just needs “except KeyError” instead.',
+          text: 'Nearly. Catch only KeyError instead of every Exception, so other errors still crash and only missing VAT numbers are skipped.',
           correct: false,
           feedback: 'Narrower, but still silent. The real question is what the row should contain.',
         },
@@ -234,7 +234,7 @@ export const debugFromSymptoms = {
         },
         {
           id: 'node-modules',
-          text: 'CI’s node_modules is out of date.',
+          text: 'CI’s node_modules is out of date. Clear its cache and reinstall.',
           correct: false,
           feedback: './Logger is our own file, not a package. node_modules isn’t involved.',
         },
@@ -252,7 +252,7 @@ export const debugFromSymptoms = {
       options: [
         {
           id: 'read-all',
-          text: 'Read all 30 commits and tell me which one you think did it.',
+          text: 'Read all 30 commits between v1.4.0 and main, focus on any that touch rounding or totals, and tell me which one you think did it, and why.',
           correct: false,
           feedback:
             'Otto will guess confidently, and he may well be wrong. A guess isn’t evidence.',
@@ -283,7 +283,10 @@ export const debugFromSymptoms = {
       id: 'flaky-clock',
       beat: 'spot-the-bug',
       kind: 'choose',
-      situation: 'One test fails about once a day, always just after midnight. Rerunning fixes it.',
+      // The two clock reads are microseconds apart, so midnight lands between them very
+      // rarely. A failure every night would point at a time zone mix-up instead.
+      situation:
+        'One Quillwork test fails very rarely, and every failure so far was logged right at midnight. Rerunning fixes it.',
       artifact: {
         kind: 'code',
         label: 'invoice.test.ts',
@@ -300,9 +303,10 @@ export const debugFromSymptoms = {
       options: [
         {
           id: 'retry',
-          text: 'The test runner is flaky. Mark the test to retry three times.',
+          text: 'The runner is flaky around midnight, when the nightly backup slows the machine. Mark the test to retry three times.',
           correct: false,
-          feedback: 'Retries hide it. It fails for a reason, at a time you can predict.',
+          feedback:
+            'A slow machine doesn’t change a date, and retries hide the real cause. It fails for a reason the code shows.',
         },
         {
           id: 'clock',

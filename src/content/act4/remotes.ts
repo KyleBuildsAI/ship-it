@@ -279,7 +279,7 @@ export const remotesAndPushing = {
       options: [
         {
           id: 'ask-access',
-          text: 'Ask the maintainers for write access first.',
+          text: 'Ask the maintainers for write access, then push the fix to a branch on their repo.',
           correct: false,
           feedback: 'Not needed, and rarely given to strangers. GitHub has a path for outsiders.',
         },
@@ -297,9 +297,10 @@ export const remotesAndPushing = {
         },
         {
           id: 'vendor',
-          text: 'Copy the library into Quillwork and fix it there.',
+          text: 'Copy the library into Quillwork, fix it there, and tell the maintainers what you changed.',
           correct: false,
-          feedback: 'Now you own a copy that never gets their updates. Send the fix upstream.',
+          feedback:
+            'Now you own a copy that never gets their updates, and they have to redo your fix by hand. Send it upstream as a PR.',
         },
       ],
       explanation:

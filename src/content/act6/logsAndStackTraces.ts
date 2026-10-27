@@ -35,14 +35,14 @@ export const logsAndStackTraces = {
       options: [
         {
           id: 'bottom',
-          text: 'node:internal at the bottom, where it all started.',
+          text: 'node:internal at the bottom, where the whole chain of calls started.',
           correct: false,
           feedback:
             'That’s Node’s own machinery. The bottom is where the chain of calls began, rarely where it went wrong.',
         },
         {
           id: 'library',
-          text: 'node_modules/express, since the error passed through it.',
+          text: 'node_modules/express, since the error passed through it on its way up.',
           correct: false,
           feedback:
             'Express just called our code. Library frames are usually messengers, not culprits.',
@@ -132,7 +132,7 @@ export const logsAndStackTraces = {
         },
         {
           id: 'optional-chain',
-          text: 'Change it to invite.user?.email so it can’t crash.',
+          text: 'Here’s the stack trace. Change line 42 to invite.user?.email so it can’t crash, add a test for an invite with no user, and show me the suite passing.',
           correct: false,
           feedback:
             'No crash on this line, but the address (to) is now undefined, so the send fails somewhere further away, or quietly. The bug is hidden, not fixed.',
@@ -152,7 +152,7 @@ export const logsAndStackTraces = {
       id: 'swallowed-error',
       kind: 'choose',
       situation:
-        'Writers say some invites never arrive, but the logs show no errors at all. You find this in an earlier diff from Otto.',
+        'Writers say some invites never arrive. Other errors show up in the logs, but none for these invites. You find this in an earlier diff from Otto.',
       artifact: {
         kind: 'diff',
         label: 'src/invites/send.ts',
@@ -166,7 +166,7 @@ export const logsAndStackTraces = {
           '+  } catch {}',
         ].join('\n'),
       },
-      question: 'Why are the logs empty?',
+      question: 'Why do the logs say nothing about these invites?',
       options: [
         {
           id: 'mail-down',
@@ -176,9 +176,10 @@ export const logsAndStackTraces = {
         },
         {
           id: 'logging-off',
-          text: 'Logging is switched off in production to save money, so failures from the mailer, and everything else, never reach the logs.',
+          text: 'Production logging is turned down to save money, so the mailer’s failures are filtered out before they ever reach the logs.',
           correct: false,
-          feedback: 'Other errors still show up in the logs. Only this one vanished.',
+          feedback:
+            'Nothing filters them: other errors still show up. These vanished because the diff deleted the line that logged them.',
         },
         {
           id: 'typos',
@@ -257,7 +258,7 @@ export const logsAndStackTraces = {
       options: [
         {
           id: 'whole-body',
-          text: 'Log the full request body for every sign-in, so we have everything.',
+          text: 'Log every sign-in attempt in full: the request id, the user id and the whole request body, at INFO on success and WARN on failure, so we never miss a single detail when debugging.',
           correct: false,
           feedback:
             'The body holds passwords. Logs get copied into many tools and seen by many people, so secrets in logs leak.',
@@ -307,7 +308,7 @@ export const logsAndStackTraces = {
         },
         {
           id: 'alert-off',
-          text: 'Turn off the alert.',
+          text: 'Turn off the on-call alert for now, and have Dex read through the ERROR lines each morning instead, so nobody gets woken for nothing.',
           correct: false,
           feedback: 'Then real errors would wake nobody either.',
         },

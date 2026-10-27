@@ -297,7 +297,11 @@ describe('a placement test that picking by length could pass', () => {
           : card,
       ),
     }));
-    const problems = validateAct(full.act, [], padded).map((issue) => issue.problem);
+    // Each padded lesson is reported too (validateAct.test.ts covers that), so this reads
+    // only the placement test's issues.
+    const problems = validateAct(full.act, [], padded)
+      .filter((issue) => issue.where === 'placement test')
+      .map((issue) => issue.problem);
     expect(problems).toEqual([
       'The right option is the longest on 5 of 5 pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.',
     ]);
