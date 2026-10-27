@@ -265,22 +265,27 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
         const toCache = [CLIENT, SERVER, UNDER_SERVER].map(overBoard);
         const before = [0, 1, 2].map(() => add(DOT, colors.light, CLIENT));
         const after = [0, 1, 2].map(() => add(DOT, colors.light, CLIENT));
+        /** How much of the beat one read takes to cross the board. */
+        const readTime = 0.16;
+        const cachedReadsStart = 0.65;
         return run(stage, [hall.marker], (progress) => {
           hall.marker.visible = false;
           design.draw(phase(progress, 0, 0.2));
           before.forEach((read, index) => {
             const start = 0.2 + index * 0.07;
-            const going = phase(progress, start, start + 0.16);
+            const going = phase(progress, start, start + readTime);
             travel(read, toDatabase, going);
             inFlight(read, going);
           });
-          const overloaded = progress >= 0.32 && progress < 0.7;
+          // The cache doesn't calm the database by appearing: reads answered there stop
+          // reaching it, so it stays red until the first one lands at the cache.
+          const overloaded = progress >= 0.32 && progress < cachedReadsStart + readTime;
           design.database.material = overloaded ? colors.alert : colors.base;
           popIn(cache, phase(progress, 0.5, 0.62));
           cacheLink.grow(phase(progress, 0.55, 0.65));
           after.forEach((read, index) => {
-            const start = 0.65 + index * 0.08;
-            const going = phase(progress, start, start + 0.16);
+            const start = cachedReadsStart + index * 0.08;
+            const going = phase(progress, start, start + readTime);
             travel(read, toCache, going);
             // These stay where they landed: answered at the cache, never reaching the database.
             read.visible = going > 0;
