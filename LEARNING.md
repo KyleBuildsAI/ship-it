@@ -2416,3 +2416,19 @@ https://github.com/KyleBuildsAI/ship-it/pull/181
 3. It builds the same camera as the game (same angle, height and distance, shifted for the play panel), uses `project` to turn each corner of every commit's label box into pixel coordinates, and checks they fall between the play panel and the window edges at 1280x800, with both the normal and the extra-large panel. It only models the view you get on arrival: if the player orbits the camera, commits can still leave the screen. And if someone changes the camera in `world.ts` without changing the test's copy, the test could pass while the game is wrong. That is why the browser check still matters.
 
 </details>
+
+---
+
+## #179 fix: make lesson progress and xp match what the game says
+
+https://github.com/KyleBuildsAI/ship-it/pull/179
+
+1. Why does the Done screen read the XP from the save's change instead of showing `lesson.xp` the first time?
+2. The save already has `drillHistory`. Why add a separate `paidDrillIds` list?
+3. Why does a lesson's resume point keep the wrong pick on the card you left, and why don't timed finals resume at all?
+<details><summary>Answers</summary>
+
+1. "First time" has three cases: never played (full XP), tested out (half already paid, so the other half now) and already done (nothing). The rule for that lives in one place, `completionXp` in `saveRules.ts`. The old Done screen kept its own simpler copy ("first time = full XP"), and that copy was wrong after a test-out. Reading how much `profile.xp` changed shows exactly what was paid, even if the rule changes later.
+2. `drillHistory` is capped: once it's full, the oldest attempts drop off. After a drill's pass dropped off, the game would think it was never passed and pay again. `paidDrillIds` is never trimmed and grows by at most one id per drill, so it stays small. For saves made before it existed, a pass still in the history counts as paid.
+3. Without the kept wrong pick, you could miss a card, reload, and then answer it right as a "first try", which would raise your stars for nothing. A timed final's clock can't wait: resuming would either let the clock run while you were away, which is unfair, or pause it, which the challenge isn't meant to allow. So it starts over, and its row never says "In progress".
+</details>
