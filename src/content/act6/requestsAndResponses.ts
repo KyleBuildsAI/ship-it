@@ -9,6 +9,7 @@ export const requestsAndResponses = {
   id: 'requests-and-responses',
   act: 6,
   title: 'Requests and Responses',
+  briefingBeat: 'request-response',
   briefing: [
     'Welcome to Quillwork’s backend. Every click in our writing app becomes an HTTP request, and every answer comes back as a response.',
     'You won’t write the server code: Otto will. Your job is to read requests like a conversation and tell Otto what a good answer looks like.',
@@ -16,6 +17,7 @@ export const requestsAndResponses = {
   cards: [
     {
       id: 'read-request',
+      beat: 'request-response',
       kind: 'choose',
       situation: 'Priya pastes a request from the browser’s network tab while she tests comments.',
       artifact: {
@@ -63,6 +65,7 @@ export const requestsAndResponses = {
     },
     {
       id: 'status-codes',
+      beat: 'auth-gate',
       kind: 'choose',
       situation:
         'After lunch, Marco’s editor shows “Something went wrong” on every save. Dex grabs the response from the network tab.',
@@ -147,6 +150,7 @@ export const requestsAndResponses = {
     },
     {
       id: 'brief-an-endpoint',
+      beat: 'request-response',
       kind: 'prompt',
       situation:
         'Priya wants writers to be able to delete their own comments. You’re about to brief Otto.',
@@ -186,6 +190,7 @@ export const requestsAndResponses = {
     },
     {
       id: 'brief-a-failure',
+      beat: 'log-trail',
       kind: 'prompt',
       situation:
         'Exporting a document to PDF fails for Dex. You copied the failing request and its response from the network tab.',
@@ -233,6 +238,7 @@ export const requestsAndResponses = {
     },
     {
       id: 'safe-retries',
+      beat: 'request-response',
       kind: 'choose',
       situation:
         'Otto wants to retry failed requests automatically. Two kinds fail now and then: loading a document (GET) and charging a card for a subscription (POST).',
@@ -318,6 +324,7 @@ export const requestsAndResponses = {
     },
     {
       id: 'request-journey',
+      beat: 'database-query',
       kind: 'order',
       situation: 'Sage asks you to explain what happens when a writer opens app.quillwork.io.',
       question: 'Put the journey in order.',

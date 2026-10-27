@@ -14,6 +14,7 @@ export const theThreeAmPage = {
   // Nine cards, 40 seconds each: enough to read an artifact, not enough to dawdle.
   timeLimitSeconds: 360,
   xp: 150,
+  briefingBeat: 'incident-rollback',
   briefing: [
     '2:46am. Your phone buzzes: Quillwork’s checkout errors are at 30%, and you’re on call.',
     'Read the evidence, stop the damage, then find the cause. Six minutes on one clock. Sage is asleep, so this one is yours.',
@@ -21,6 +22,7 @@ export const theThreeAmPage = {
   cards: [
     {
       id: 'what-changed',
+      beat: 'incident-rollback',
       kind: 'choose',
       situation: 'You’re at your laptop. The alert says checkout errors started at 02:40.',
       question: 'What do you check first?',
@@ -49,6 +51,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'read-metrics',
+      beat: 'connections-run-out',
       kind: 'choose',
       situation: 'The checkout dashboard, from 02:30 until now.',
       artifact: {
@@ -88,6 +91,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'read-logs',
+      beat: 'log-trail',
       kind: 'choose',
       situation: 'These are the checkout service’s logs from the same minutes.',
       artifact: {
@@ -129,6 +133,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'mitigate',
+      beat: 'incident-rollback',
       kind: 'choose',
       situation:
         'The v4.12.0 changelog says Otto refactored how checkout opens database connections.',
@@ -165,6 +170,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'tell-people',
+      beat: 'incident-rollback',
       kind: 'choose',
       situation:
         'The rollback is running. Priya runs support and will wake to angry emails. Quillwork has an #incidents channel.',
@@ -202,6 +208,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'confirm',
+      beat: 'incident-rollback',
       kind: 'choose',
       situation: 'The rollback finished. This is what you see now.',
       artifact: {
@@ -240,6 +247,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'root-cause',
+      beat: 'connections-run-out',
       kind: 'prompt',
       situation: 'Morning. You ask Otto to help find the root cause.',
       question: 'Which instruction?',
@@ -275,6 +283,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'postmortem',
+      beat: 'log-trail',
       kind: 'prompt',
       situation:
         'Otto found it: an error path in the refactor never released its connection. The fix is merged. Sage asks for a postmortem.',
@@ -306,6 +315,7 @@ export const theThreeAmPage = {
     },
     {
       id: 'incident-steps',
+      beat: 'incident-rollback',
       kind: 'order',
       situation: 'Summing up the night for the team.',
       question: 'Put incident response in order.',
