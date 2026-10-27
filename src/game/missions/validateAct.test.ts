@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { windows } from '../../engine/fixtures';
 import { repo } from '../../engine/git/fixtures';
 import type { AgentTask, Plan } from './agentSchema';
+import { bestLengthStrategy } from './lessonPlacement';
+import { isPickCard, type CardOption, type Lesson } from './lessonSchema';
 import {
   directedMission,
   earlySampleAct,
@@ -24,6 +26,18 @@ import { validateAct, validateCatalog } from './validateAct';
 
 const missions = [sampleMission, secondMission, thirdMission];
 const words = (count: number) => Array.from({ length: count }, () => 'word').join(' ');
+
+/** A copy of a lesson with every pick card's option texts rewritten by `rewrite`. */
+function rewriteOptions(lesson: Lesson, rewrite: (option: CardOption) => string): Lesson {
+  return {
+    ...lesson,
+    cards: lesson.cards.map((card) =>
+      isPickCard(card)
+        ? { ...card, options: card.options.map((option) => ({ ...option, text: rewrite(option) })) }
+        : card,
+    ),
+  };
+}
 
 /** The sample act with the placement test replaced. */
 const withPlacement = (drillIds: string[]): Act => ({
@@ -561,6 +575,46 @@ describe('an Act made of lessons', () => {
       where: 'catalog',
       problem: `The id "${sampleMission.id}" is used in more than one place.`,
     });
+  });
+
+  it('reports a lesson whose answers can be picked by their length alone', () => {
+    // Stars count first tries, so a lesson whose right option is the longest on most cards
+    // pays them to anyone who never reads it. Padding the last word adds no words, so only
+    // the length rule trips, not the prompt card's.
+    const padded = rewriteOptions(sampleSecondLesson, (option) =>
+      option.correct ? `${option.text}${'x'.repeat(200)}` : option.text,
+    );
+    expect(validateAct(act, [], [sampleLesson, padded, sampleFinal])).toEqual([
+      {
+        where: `lesson ${sampleSecondLesson.id}`,
+        problem:
+          'The right option is the longest on 5 of 5 pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.',
+      },
+    ]);
+  });
+
+  it('passes a lesson where no length rule beats half its pick cards', () => {
+    // The sample's best rule, the second longest, wins exactly 2 of its 5 pick cards: the
+    // most a lesson may give away.
+    expect(bestLengthStrategy(sampleLesson.cards)).toMatchObject({ rank: 2, right: 2 });
+    expect(validateAct(act, [], lessons)).toEqual([]);
+  });
+
+  it('reports a prompt card whose wrong instructions are all much shorter than the right one', () => {
+    // A detailed but flawed brief has to sit beside the right one (DESIGN.md section 5), or
+    // the brief that sounds thorough gives itself away.
+    const terse = rewriteOptions(sampleLesson, (option) =>
+      option.id === 'everything'
+        ? 'Refactor the whole auth module so this can never happen again.'
+        : option.text,
+    );
+    expect(validateAct(act, [], [terse, sampleSecondLesson, sampleFinal])).toEqual([
+      {
+        where: `lesson ${sampleLesson.id} > card brief-the-fix`,
+        problem:
+          "The right instruction has 25 words, the longest wrong one 11. Give one wrong instruction the right one's length and detail, and a flaw.",
+      },
+    ]);
   });
 
   it('takes a shipped lesson off the upcoming list', () => {
