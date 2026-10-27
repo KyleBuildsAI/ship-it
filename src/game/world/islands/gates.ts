@@ -205,7 +205,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       },
     },
     // Switching a check off (a skipped test, a blanket disable, an admin bypass): one gate
-    // goes dark and lifts its beam, and a bug, a red crate, rolls straight through it.
+    // goes dark, and a bug, a red crate, rolls straight through it.
     'gate-bypassed': {
       seconds: 2.8,
       start: () => {
@@ -214,11 +214,9 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const switchedOff = 2;
         const beam = parts.beams[switchedOff];
         return run(stage, beam ? [beam] : [], (progress) => {
-          const off = phase(progress, 0, 0.3);
-          if (beam) {
-            beam.position.y = BEAM_Y + off * 1.1;
-            beam.material = off > 0 ? colors.dark : colors.glow;
-          }
+          // Dimmed where it stands. Raised, the dark beam would cover the farther gates'
+          // lights from the lesson camera: the very lights that wave the bug through.
+          if (beam) beam.material = progress >= 0.15 ? colors.dark : colors.glow;
           popIn(bug, phase(progress, 0.25, 0.35));
           slide(bug, ENTRY, EXIT, phase(progress, 0.3, 1));
           // The other gates only check what they're built for, so they pass it too. The
