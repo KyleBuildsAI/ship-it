@@ -185,7 +185,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'tell-dex',
-      beat: 'agent-halted',
+      beat: 'test-gate',
       kind: 'choose',
       situation: 'Dex messages: “CI is green on #212, can I deploy at five?”',
       question: 'What do you tell him?',
@@ -257,7 +257,7 @@ export const theAgentWentRogue = {
     },
     {
       id: 'trust',
-      beat: 'guardrails-up',
+      beat: 'diff-inspected',
       kind: 'choose',
       situation: 'Dex: “Otto has opened good PRs for weeks. Can’t we just auto-merge his stuff?”',
       question: 'What’s the right answer?',

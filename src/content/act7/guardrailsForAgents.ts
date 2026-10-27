@@ -162,7 +162,6 @@ export const guardrailsForAgents = {
     },
     {
       id: 'leaked-key',
-      beat: 'guardrails-up',
       kind: 'order',
       situation:
         'Otto’s debug line printed the live Stripe key from .env into the app’s shared staging logs.',
@@ -178,7 +177,7 @@ export const guardrailsForAgents = {
     },
     {
       id: 'destructive-tools',
-      beat: 'agent-halted',
+      beat: 'test-gate',
       kind: 'choose',
       situation:
         'Otto has a shell tool. His branch has a conflict with main, and he proposes this.',
