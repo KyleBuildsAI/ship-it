@@ -15,23 +15,26 @@ import {
 /*
  * Act 5's island: a road through a row of gates, each with a light, and two watchtowers.
  * Its beats act out the lessons on that road: a change (a crate) rolls through the gates,
- * one check stops it, a fix lets it through, a switched-off gate lets a bug slip past, and
- * the left tower is the vault where secrets stay.
+ * one check stops it, a fix lets it through, a switched-off gate lets a bug slip past, and the
+ * right tower is the vault where secrets stay.
  */
 
 /** Where the gates stand along the road, far end first. The camera looks up the road. */
 const GATE_Z = [-4.5, -1.5, 1.5, 4.5] as const;
+const TOWER_X = [-5.5, 5.5] as const;
 const LIGHT_Y = 2.95;
 const BEAM_Y = 2.5;
-/** Where a change enters the road and where it leaves it, past the last gate. */
-const ROAD_START = -6.5;
-const ROAD_END = 6.5;
 /** How far before a gate a stopped change waits, so it doesn't sit inside the arch. */
 const WAIT_GAP = 0.9;
 /** The gate that catches trouble in the beats: the second one, so the first can pass. */
 const CHECK_GATE = 1;
-/** The left tower, the secret store: keys float in front of it. */
-const VAULT = new THREE.Vector3(-5.5, 4, -1.9);
+/**
+ * The right tower is the secret store, and keys float in front of it. Not the left one:
+ * the lesson panel covers the left of the screen.
+ */
+const VAULT = new THREE.Vector3(5.5, 4, -1.9);
+/** Where a leaked key lies: out on the road, in plain view of everyone passing. */
+const LEAK_SPOT = new THREE.Vector3(0, 0.5, 2.8);
 
 const PILLAR = new THREE.BoxGeometry(0.35, 2.4, 0.35);
 const BEAM = new THREE.BoxGeometry(2.8, 0.3, 0.4);
@@ -51,6 +54,12 @@ const KEY_TOOTH = new THREE.BoxGeometry(0.1, 0.18, 0.1);
 
 const CRATE_Y = 0.36;
 const roadPoint = (z: number) => new THREE.Vector3(0, CRATE_Y, z);
+/**
+ * Where a change enters the road, at the far end, and where it leaves it past the last
+ * gate. Made once here: frames slide crates between them many times a second.
+ */
+const ENTRY = roadPoint(-6.5);
+const EXIT = roadPoint(6.5);
 const waitBefore = (gate: number) => roadPoint((GATE_Z[gate] ?? 0) - WAIT_GAP);
 
 /** The idle island's parts that beats change, plus the green its lights shine. */
@@ -91,7 +100,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       return signal;
     });
   const crate = (material: THREE.Material) => {
-    const mesh = part(CRATE, material, 0, CRATE_Y, ROAD_START);
+    const mesh = part(CRATE, material, ENTRY.x, ENTRY.y, ENTRY.z);
     mesh.visible = false;
     stage.add(mesh);
     return mesh;
@@ -131,7 +140,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const change = crate(colors.light);
         return run(stage, [], (progress) => {
           popIn(change, phase(progress, 0, 0.12));
-          slide(change, roadPoint(ROAD_START), roadPoint(ROAD_END), phase(progress, 0.1, 0.95));
+          slide(change, ENTRY, EXIT, phase(progress, 0.1, 0.95));
           passedGates(lights, change.position.z);
         });
       },
@@ -148,7 +157,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const bounced = stopped.clone().setZ(stopped.z - 0.7);
         return run(stage, [], (progress) => {
           popIn(change, phase(progress, 0, 0.12));
-          slide(change, roadPoint(ROAD_START), stopped, phase(progress, 0.1, 0.5));
+          slide(change, ENTRY, stopped, phase(progress, 0.1, 0.5));
           if (progress >= 0.6) slide(change, stopped, bounced, phase(progress, 0.6, 0.8), 0.3);
           passedGates(lights, change.position.z);
           const failed = progress >= 0.45;
@@ -169,12 +178,12 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const stopped = waitBefore(CHECK_GATE);
         return run(stage, [], (progress) => {
           popIn(change, phase(progress, 0, 0.08));
-          slide(change, roadPoint(ROAD_START), stopped, phase(progress, 0.05, 0.3));
+          slide(change, ENTRY, stopped, phase(progress, 0.05, 0.3));
           // The fix: a hop in place, and the crate comes back changed.
           const fixing = phase(progress, 0.4, 0.55);
           if (progress >= 0.4 && progress < 0.6) slide(change, stopped, stopped, fixing, 0.7);
           change.material = progress >= 0.5 ? colors.glow : colors.light;
-          if (progress >= 0.6) slide(change, stopped, roadPoint(ROAD_END), phase(progress, 0.6, 1));
+          if (progress >= 0.6) slide(change, stopped, EXIT, phase(progress, 0.6, 1));
           passedGates(lights, change.position.z, CHECK_GATE);
           const checkLight = lights[CHECK_GATE];
           if (checkLight) {
@@ -206,7 +215,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
             beam.material = off > 0 ? colors.dark : colors.glow;
           }
           popIn(bug, phase(progress, 0.25, 0.35));
-          slide(bug, roadPoint(ROAD_START), roadPoint(ROAD_END), phase(progress, 0.3, 1));
+          slide(bug, ENTRY, EXIT, phase(progress, 0.3, 1));
           // The other gates only check what they're built for, so they pass it too. The
           // switched-off gate's light stays dark: nothing there looked.
           passedGates(lights, bug.position.z, switchedOff);
@@ -256,10 +265,10 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         return run(stage, [], (progress) => {
           popIn(vaultKey, phase(progress, 0, 0.15));
           popIn(change, phase(progress, 0, 0.1));
-          slide(change, roadPoint(ROAD_START), stopped, phase(progress, 0.05, 0.35));
+          slide(change, ENTRY, stopped, phase(progress, 0.05, 0.35));
           slide(vaultKey, VAULT, overGate, phase(progress, 0.35, 0.55), 1);
           if (progress >= 0.65) slide(vaultKey, overGate, VAULT, phase(progress, 0.65, 0.85), 1);
-          if (progress >= 0.6) slide(change, stopped, roadPoint(ROAD_END), phase(progress, 0.6, 1));
+          if (progress >= 0.6) slide(change, stopped, EXIT, phase(progress, 0.6, 1));
           passedGates(lights, change.position.z, keyGate);
           const keyLight = lights[keyGate];
           if (keyLight) keyLight.material = progress >= 0.55 ? parts.pass : colors.dark;
@@ -273,7 +282,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       seconds: 2.8,
       start: () => {
         const lights = signals();
-        const leaked = key(colors.alert, new THREE.Vector3(0, 0.5, 2.8));
+        const leaked = key(colors.alert, LEAK_SPOT);
         const fresh = key(colors.glow, VAULT);
         return run(stage, [], (progress) => {
           const shown = phase(progress, 0, 0.15);
@@ -309,7 +318,7 @@ export function gates(colors: Palette): Props {
     lights.push(light);
     group.add(light);
   });
-  for (const x of [-5.5, 5.5]) {
+  for (const x of TOWER_X) {
     group.add(part(TOWER, colors.base, x, 2, -3), part(CAP, colors.glow, x, 4.6, -3));
   }
   const stage = createStage(group);
