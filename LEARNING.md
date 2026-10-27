@@ -2332,4 +2332,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/167
 1. Each copy opens two tabs that both draw the 3D world, so 8 copies meant 16 full 3D scenes on one GPU. The older tab's main thread couldn't get time to run, so it missed the 20-second limit.
 2. When the starved tab finally answered, its status said "other tab" and it showed the notice. That's exactly the handover the test expects, just very late.
 3. A real browser stops drawing a tab you can't see (`requestAnimationFrame` pauses), so the hidden tab uses almost no GPU. Playwright keeps every tab "visible", so nothing pauses there.
+
+</details>
+
+---
+
+## #166 fix: keep the 3d canvas's last size while its container is collapsed
+
+https://github.com/KyleBuildsAI/ship-it/pull/166
+
+1. Why did WebGPU warn on every frame instead of just once?
+2. Why does `fit` in `boot.ts` check the size itself, when `fitToContainer` already checks it?
+3. Why keep the last size rather than resize to something small like 1 by 1?
+<details><summary>Answers</summary>
+
+1. The game draws a new frame about 60 times a second, and each frame asked WebGPU to draw into a canvas with no pixels. Each attempt failed and logged again.
+2. `fit` also updates the camera, and the camera's shape is width divided by height. With a height of 0 that division breaks the camera, so `fit` has to stop before it reaches `world.resize`, not just before the renderer.
+3. A collapsed box is almost always temporary (a pane folding away, a window being dragged). Keeping the last real size means nothing has to be rebuilt when it comes back, and the camera keeps its normal shape. 1 by 1 would still squash the camera and waste a resize.
 </details>

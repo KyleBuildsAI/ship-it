@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { devStatus } from '../devStatus';
 import { progress, whenProgressSettles } from '../progress';
 import type { Settings } from '../save/schema';
+import { canDrawAt } from './backend';
 import { createFrameRenderer } from './post';
 import { createRenderer, fitToContainer } from './renderer';
 import { createWorld } from './world';
@@ -29,6 +30,8 @@ export async function bootWorld(container: HTMLElement): Promise<void> {
   const frame = createFrameRenderer(renderer, world.scene, world.camera);
 
   const fit = () => {
+    // Collapsed, the camera would get an aspect ratio of width / 0. Keep the last one.
+    if (!canDrawAt(container.clientWidth, container.clientHeight)) return;
     world.resize(container.clientWidth, container.clientHeight);
     fitToContainer(renderer, container, pixelRatioCap);
   };

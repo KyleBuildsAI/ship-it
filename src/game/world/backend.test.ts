@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { chooseBackend, clampPixelRatio, MAX_PIXEL_RATIO, readForcedBackend } from './backend';
+import {
+  canDrawAt,
+  chooseBackend,
+  clampPixelRatio,
+  MAX_PIXEL_RATIO,
+  readForcedBackend,
+} from './backend';
 
 describe('readForcedBackend', () => {
   it('forces WebGL2 when the URL asks for it', () => {
@@ -36,5 +42,18 @@ describe('clampPixelRatio', () => {
   it('keeps normal ratios and never drops below 1', () => {
     expect(clampPixelRatio(1.5)).toBe(1.5);
     expect(clampPixelRatio(0.5)).toBe(1);
+  });
+});
+
+describe('canDrawAt', () => {
+  it('accepts any size with some area', () => {
+    expect(canDrawAt(1024, 768)).toBe(true);
+    expect(canDrawAt(1, 1)).toBe(true);
+  });
+
+  it('refuses a collapsed size, where WebGPU has no texture to draw into', () => {
+    expect(canDrawAt(0, 0)).toBe(false);
+    expect(canDrawAt(1024, 0)).toBe(false);
+    expect(canDrawAt(0, 768)).toBe(false);
   });
 });
