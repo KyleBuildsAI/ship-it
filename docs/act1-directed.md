@@ -260,7 +260,7 @@ These keep today's drill rules:
 
 ### 2.2 How a drill plays
 
-1. `loadSandbox(drill.setup)`. The world shows the laptop. The drill's `history` (lines Otto already ran) plays through the driver into the terminal at 3× speed (instantly under reduced motion). The world animates each line once its typing has shown, as in section 4, so it never runs ahead of the terminal.
+1. `loadSandbox(drill.setup)`. The world shows the laptop. The drill's `history` (lines Otto already ran) plays through the driver into the terminal at 3× speed (instantly under reduced motion). The terminal is put away during drills, so each line also shows on the drill card with its prompt and output as it runs (Otto says "Here's what I did:"), and stays there beside the question (`sceneEvidence` in `scenePlay.ts`). The world animates each line once its typing has shown, as in section 4, so it never runs ahead of the terminal.
 2. The question card appears. **The clock starts only now**: `startDrill(…, nowMs)` is called once the scene ends.
 3. Kyle answers, or time runs out.
 4. **Reveal.**
