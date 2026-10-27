@@ -7,7 +7,7 @@ import { createDefaultSave, type SaveData } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
 import type { Store } from '../../game/store';
 import { act8 } from '../../content/act8';
-import { FieldView } from './FieldView';
+import { FieldCheckResult, FieldView } from './FieldView';
 
 // Rendered to a string, so the hook just reads the store (as in ActMenu.test.tsx).
 vi.mock('../useStore', () => ({
@@ -72,6 +72,30 @@ describe('a Field Mission outside Act 2', () => {
     expect(html).toContain('field-task--done');
     expect(html).toContain('aria-label="Copy the command git status"');
     expect(html).toContain('aria-label="Copy the command git log --oneline -3"');
+  });
+});
+
+describe('a paste check’s result', () => {
+  it('says the mission is verified beside the check that finished it', () => {
+    const html = renderToStaticMarkup(
+      <FieldCheckResult
+        verdict={{ passed: true, message: 'Git tracks README.md.', completedMission: true }}
+      />,
+    );
+    expect(html).toContain('Git tracks README.md.');
+    expect(html).toContain('Verified. Real work, really done.');
+  });
+
+  it('says nothing more for a pass that leaves checks to do, or a fail', () => {
+    const pass = renderToStaticMarkup(
+      <FieldCheckResult verdict={{ passed: true, message: 'Git tracks README.md.' }} />,
+    );
+    expect(pass).not.toContain('Verified');
+    const fail = renderToStaticMarkup(
+      <FieldCheckResult verdict={{ passed: false, message: 'Not clean yet.' }} />,
+    );
+    expect(fail).toContain('class="drill-result"');
+    expect(fail).not.toContain('Verified');
   });
 });
 
