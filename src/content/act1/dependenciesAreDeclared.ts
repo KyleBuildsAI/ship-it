@@ -92,10 +92,10 @@ export const dependenciesAreDeclared = {
       options: [
         {
           id: 'init',
-          text: 'Go ahead. npm init -y will fix it.',
+          text: 'Go ahead: run npm init -y here to make the missing package.json, then npm install, and check it succeeds.',
           correct: false,
           feedback:
-            'That makes a new, empty project in your home folder. The API’s package.json is somewhere else, still not installed.',
+            'That makes a new, empty project in your home folder. npm install would succeed with nothing to install, and the API’s list still isn’t installed.',
         },
         {
           id: 'reinstall-node',
@@ -146,14 +146,14 @@ export const dependenciesAreDeclared = {
         },
         {
           id: 'commit-all',
-          text: 'Yes. It saves everyone a step.',
+          text: 'Yes. Commit all 4,812 files, so Priya and Dex can clone the repo and run the API without installing anything.',
           correct: false,
           feedback:
             'It bloats every clone, and some packages build files for your Windows laptop that break on Dex’s Linux CI.',
         },
         {
           id: 'just-express',
-          text: 'Commit only express’s folder. It’s the important one.',
+          text: 'Commit only express’s folder. It’s the one the API can’t start without, and it keeps the commit small.',
           correct: false,
           feedback:
             'express needs dozens of packages of its own. Half a node_modules is worse than none.',
@@ -241,10 +241,10 @@ export const dependenciesAreDeclared = {
         },
         {
           id: 'both',
-          text: 'Install both, to be safe.',
+          text: 'Install both dotnev and dotenv, to be safe. Then keep whichever one loads .env and uninstall the other.',
           correct: false,
           feedback:
-            'Installing an unknown package runs its code. There’s nothing safe about an extra one.',
+            'Installing a package can run its code at once, through install scripts. Uninstalling it afterwards doesn’t undo what already ran.',
         },
         {
           id: 'write-own',
@@ -289,9 +289,10 @@ export const dependenciesAreDeclared = {
       options: [
         {
           id: 'nothing',
-          text: 'Nothing. The description says it does what we need.',
+          text: 'Nothing. It’s MIT licensed, the description says it does what we need, and npm checks packages before listing them.',
           correct: false,
-          feedback: 'Anyone can write any description. Look at who made it and what it runs.',
+          feedback:
+            'Anyone can publish to npm, with any description, and nobody reviews it first. Look at who made it and what it runs.',
         },
         {
           id: 'license',
@@ -301,7 +302,7 @@ export const dependenciesAreDeclared = {
         },
         {
           id: 'one-dep',
-          text: 'It has a dependency.',
+          text: 'It has a dependency. A package that leans on another package can break, so pick a .env loader with none.',
           correct: false,
           feedback:
             'Most packages have some. Though a .env loader that needs tiny-beacon-x is odd.',
@@ -325,7 +326,7 @@ export const dependenciesAreDeclared = {
       options: [
         {
           id: 'global',
-          text: 'Fine. -g is quicker.',
+          text: 'Fine, -g is quicker. Run npm install -g nodemon, then add a dev script to package.json that runs nodemon server.js, and show me the diff.',
           correct: false,
           feedback:
             'It lands on your laptop only. Dex clones the repo, runs the dev script, and gets “nodemon is not recognized”.',
