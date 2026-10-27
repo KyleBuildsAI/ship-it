@@ -41,10 +41,10 @@ const PRIYA_ROOF = at(Math.sin(0.9) * HOUSE_RING, 2.3, -Math.cos(0.9) * HOUSE_RI
 /** Where your work sits before it's pushed: on the laptop at the front of the square. */
 const LAPTOP = at(-2.4, 0.75, 2.6);
 /**
- * Where new work on main lands, pushed or merged: pinned to the middle of the shared board,
- * clear of the issue card so a beat can show both.
+ * Where new work on main lands, pushed or merged: the empty middle of the board's bottom
+ * row. Kept clear of notices so a card landing there reads as new rather than blending in.
  */
-const BOARD_FRONT = at(0, 1.64, -1.3);
+const BOARD_FRONT = at(0, 1.33, -1.3);
 /** The top-right card on the board, the one beats treat as "the issue". */
 const ISSUE_SLOT = at(0.98, 1.95, -1.43);
 /** Where an open pull request stands in the square, waiting to be read. */
@@ -369,6 +369,8 @@ export function town(colors: Palette): Props {
   const cards: THREE.Mesh[] = [];
   for (let row = 0; row < 2; row++) {
     for (let column = 0; column < 4; column++) {
+      // The bottom row's middle stays empty: beats land new work on main there.
+      if (row === 1 && (column === 1 || column === 2)) continue;
       const material = (row + column) % 3 === 0 ? colors.glow : colors.light;
       const mesh = part(NOTICE, material, -1 + column * 0.66, 1.95 - row * 0.62, -1.43);
       mesh.rotation.z = ((row * 4 + column) % 3) * 0.05 - 0.05;
