@@ -182,7 +182,9 @@ interface WantedBeat {
 }
 
 function wantedBeat(current: Activity | null): WantedBeat | null {
-  if (current?.kind !== 'lesson') return null;
+  // A placement test gives no hints. Its cards are borrowed with their beats, and many of
+  // those act out the right answer for anyone standing on the island.
+  if (current?.kind !== 'lesson' || current.placement !== undefined) return null;
   const { lesson, run } = current;
   const zone = beatZoneForAct(lesson.act);
   const id = run.phase === 'briefing' ? lesson.briefingBeat : currentCard(run, lesson)?.beat;

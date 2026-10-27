@@ -21,6 +21,7 @@ import {
   moveLessonStep,
   nextLessonCard,
   startLesson,
+  startLessonPlacement,
   watchLessonBeats,
 } from './lessonPlay';
 import { startMission } from './missionPlay';
@@ -42,8 +43,8 @@ function saved(id: string) {
   return { mission: save.missions[id], xp: save.profile.xp };
 }
 
-/** Answers the card on screen: right first try, or one wrong pick first when `miss`. */
-function answer(miss = false): void {
+/** Solves the card on screen: right first try, or one wrong pick first when `miss`. */
+function solve(miss = false): void {
   const { lesson: playing, run } = lesson();
   const card = currentCard(run, playing);
   if (card === undefined) throw new Error('no card');
@@ -59,6 +60,11 @@ function answer(miss = false): void {
     if (miss && wrong !== undefined) answerLesson(wrong.id, T0);
     if (right !== undefined) answerLesson(right.id, T0);
   }
+}
+
+/** Solves the card on screen, then moves on to the next one. */
+function answer(miss = false): void {
+  solve(miss);
   nextLessonCard(T0);
 }
 
@@ -233,6 +239,24 @@ describe('lesson scenes', () => {
     startLesson(pointers.id);
     expect(worldState.get().beat).not.toBeNull();
     leavePlay();
+    expect(worldState.get().beat).toBeNull();
+  });
+
+  it('plays no scene in a placement test, which gives no hints', () => {
+    startLessonPlacement(3);
+    expect(lesson().placement).toBeDefined();
+    expect(worldState.get().beat).toBeNull();
+    endLessonBriefing(T0);
+    const count = lesson().lesson.cards.length;
+    // The borrowed cards keep their beats, so the test proves they are never cued.
+    expect(lesson().lesson.cards.some((card) => card.beat !== undefined)).toBe(true);
+    for (let index = 0; index < count; index++) {
+      expect(worldState.get().beat).toBeNull();
+      solve();
+      expect(worldState.get().beat).toBeNull();
+      nextLessonCard(T0);
+    }
+    expect(lesson().run.phase).toBe('done');
     expect(worldState.get().beat).toBeNull();
   });
 
