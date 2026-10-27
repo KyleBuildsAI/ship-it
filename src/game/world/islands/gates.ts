@@ -70,6 +70,14 @@ const roadPoint = (z: number) => new THREE.Vector3(0, CRATE_Y, z);
  */
 const ENTRY = roadPoint(-6.5);
 const EXIT = roadPoint(6.5);
+/**
+ * Two changes that both made it past the gates, side by side: a revert in the left lane
+ * and the change it undoes on the right. One behind the other, the nearer crate would
+ * hide the farther from the lesson camera.
+ */
+const REVERT_ENTRY = new THREE.Vector3(-0.5, CRATE_Y, ENTRY.z);
+const REVERT_LANDED = new THREE.Vector3(-0.5, CRATE_Y, 6.1);
+const UNDONE_SPOT = new THREE.Vector3(0.5, CRATE_Y, 6.1);
 const waitBefore = (gate: number) => roadPoint((GATE_Z[gate] ?? 0) - WAIT_GAP);
 
 /** The idle island's parts that beats change, plus the green its lights shine. */
@@ -109,8 +117,8 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       stage.add(signal);
       return signal;
     });
-  const crate = (material: THREE.Material) => {
-    const mesh = part(CRATE, material, ENTRY.x, ENTRY.y, ENTRY.z);
+  const crate = (material: THREE.Material, at = ENTRY) => {
+    const mesh = part(CRATE, material, at.x, at.y, at.z);
     mesh.visible = false;
     stage.add(mesh);
     return mesh;
@@ -225,6 +233,25 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
           if (failLight) failLight.material = failLightAt(progress);
           // The boom drops on the red and lifts only once the fixed change passes that check.
           popIn(boom, Math.min(phase(progress, 0.22, 0.3), 1 - phase(progress, 0.7, 0.78)));
+        });
+      },
+    },
+    // Undoing a change that broke main: the broken change (red) already sits past the
+    // gates. A revert is a new change: it rolls through every gate like any other and
+    // lands beside it, and the broken one goes dark. Undone, not erased: it stays in
+    // history, which is why a revert is safe on a shared branch.
+    'change-reverted': {
+      seconds: 2.8,
+      start: () => {
+        const lights = signals();
+        const broken = crate(colors.alert, UNDONE_SPOT);
+        const revert = crate(colors.light, REVERT_ENTRY);
+        return run(stage, [], (progress) => {
+          popIn(broken, phase(progress, 0, 0.12));
+          popIn(revert, phase(progress, 0.1, 0.2));
+          slide(revert, REVERT_ENTRY, REVERT_LANDED, phase(progress, 0.15, 0.7));
+          passedGates(lights, revert.position.z);
+          broken.material = progress >= 0.78 ? colors.dark : colors.alert;
         });
       },
     },

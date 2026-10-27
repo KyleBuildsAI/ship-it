@@ -109,7 +109,7 @@ export const redCi = {
     },
     {
       id: 'revert-or-fix',
-      beat: 'red-to-green',
+      beat: 'change-reverted',
       kind: 'choose',
       situation:
         '#413 touched 23 files. The right fix isn’t obvious, two teammates are blocked, and the release is in two hours.',
@@ -140,7 +140,7 @@ export const redCi = {
     },
     {
       id: 'brief-revert',
-      beat: 'red-to-green',
+      beat: 'change-reverted',
       kind: 'prompt',
       situation: 'You ask Otto to do the revert.',
       question: 'Which instruction?',

@@ -30,6 +30,7 @@ export const ISLAND_BEATS = {
     'change-passes',
     'gate-blocks',
     'red-to-green',
+    'change-reverted',
     'gate-bypassed',
     'flaky-check',
     'test-layers',
