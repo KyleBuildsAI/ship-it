@@ -26,3 +26,9 @@ export function splitFeedback(correct: boolean, feedback: string): Feedback {
   }
   return { verdict: correct ? 'Right.' : 'Not quite.', rest: feedback };
 }
+
+/** What a wrong "Check order" says: how many steps already sit in their place. */
+export function stepsInPlaceText(inPlace: number, total: number): string {
+  const verb = inPlace === 1 ? 'is' : 'are';
+  return `Not yet: ${String(inPlace)} of ${String(total)} ${verb} in the right place. Move some and check again.`;
+}

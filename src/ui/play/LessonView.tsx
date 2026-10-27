@@ -33,7 +33,7 @@ import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { answersOn, revealBehavior } from './lessonReveal';
-import { splitFeedback } from './lessonText';
+import { splitFeedback, stepsInPlaceText } from './lessonText';
 import { useClock } from './useClock';
 
 /** The label on an artifact's box when content gives none of its own. */
@@ -251,8 +251,7 @@ function OrderResult({ card, run, last }: { card: OrderCard; run: LessonRun; las
     <>
       {wrongOrders > 0 ? (
         <p className="drill-result" aria-live="polite">
-          Not yet: {stepsInPlace(run, card)} of {card.steps.length} are in the right place. Move
-          some and check again.
+          {stepsInPlaceText(stepsInPlace(run, card), card.steps.length)}
         </p>
       ) : null}
       <div className="play-panel__actions">

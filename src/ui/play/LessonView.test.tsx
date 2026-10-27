@@ -130,16 +130,20 @@ describe('the lesson view', () => {
     );
   });
 
+  /** The run at the sample's order card, its steps still scrambled. */
+  function atOrderCard(): LessonRun {
+    const first = nextCard(pickOption(cards(), sampleLesson, 'ask-units'), sampleLesson);
+    return nextCard(pickOption(first, sampleLesson, 'specific'), sampleLesson);
+  }
+
   it('shows an order card with up and down moves and Check order', () => {
-    let run = cards();
-    run = nextCard(pickOption(run, sampleLesson, 'ask-units'), sampleLesson);
-    run = nextCard(pickOption(run, sampleLesson, 'specific'), sampleLesson);
+    const run = atOrderCard();
     const markup = view(run);
     expect(text(markup)).toContain('Put it in order');
     expect(markup.match(/aria-label="Move up: /g)).toHaveLength(4);
     expect(text(markup)).toContain('Check order');
     const wrong = checkOrder(run, sampleLesson);
-    expect(text(view(wrong))).toMatch(/Not yet: \d of 4 are in the right place\./);
+    expect(text(view(wrong))).toMatch(/Not yet: \d of 4 (is|are) in the right place\./);
     let sorted = wrong;
     for (const id of ['ci-green', 'review', 'approve', 'merge']) {
       while (
@@ -149,6 +153,14 @@ describe('the lesson view', () => {
       }
     }
     expect(text(view(checkOrder(sorted, sampleLesson)))).toContain('Right order.');
+  });
+
+  it('says "1 of 4 is in the right place" when only one step is', () => {
+    const run = atOrderCard();
+    // Only CI finishing green is in its place; the other three are shifted along.
+    const order = ['ci-green', 'approve', 'merge', 'review'];
+    const checked = checkOrder({ ...run, card: { ...run.card, order } }, sampleLesson);
+    expect(text(view(checked))).toContain('Not yet: 1 of 4 is in the right place.');
   });
 
   it("shows a final's clock beside the progress", () => {

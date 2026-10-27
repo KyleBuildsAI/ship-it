@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { ACTS } from '../../content';
 import { isPickCard } from '../../game/missions/lessonSchema';
-import { splitFeedback } from './lessonText';
+import { splitFeedback, stepsInPlaceText } from './lessonText';
+
+describe('what a wrong Check order says', () => {
+  it('counts the steps already in place, in a sentence that agrees with the count', () => {
+    expect(stepsInPlaceText(1, 4)).toBe(
+      'Not yet: 1 of 4 is in the right place. Move some and check again.',
+    );
+    expect(stepsInPlaceText(0, 4)).toContain('0 of 4 are in the right place.');
+    expect(stepsInPlaceText(2, 4)).toContain('2 of 4 are in the right place.');
+  });
+});
 
 describe('the verdict before an answer’s feedback', () => {
   it('is the feedback’s own when it opens with one, so it isn’t said twice', () => {
