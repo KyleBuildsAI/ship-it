@@ -338,6 +338,29 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         });
       },
     },
+    // A pull request from a stranger's fork: its change (red, since this one tries to send
+    // the key away) rolls up to the gate that would need the key, and the vault won't hand
+    // it over. The key shakes "no" and stays home. The stranger's other checks still run,
+    // just without secrets, and the gate that needed one never lights.
+    'secret-withheld': {
+      seconds: 2.6,
+      start: () => {
+        const lights = signals();
+        const stranger = crate(colors.alert);
+        const vaultKey = key(colors.glow, VAULT);
+        const stopped = waitBefore(LAST_GATE);
+        return run(stage, [], (progress) => {
+          popIn(vaultKey, phase(progress, 0, 0.15));
+          popIn(stranger, phase(progress, 0, 0.1));
+          slide(stranger, ENTRY, stopped, phase(progress, 0.05, 0.4));
+          passedGates(lights, stranger.position.z, LAST_GATE);
+          // Two shakes of the head, starting and ending still, so it ends exactly home.
+          const refusing = (progress - 0.45) / 0.4;
+          const shaking = refusing > 0 && refusing < 1;
+          vaultKey.position.x = VAULT.x + (shaking ? Math.sin(refusing * Math.PI * 4) * 0.35 : 0);
+        });
+      },
+    },
     // A leaked key: it lies out on the road, flashing red. Revoking it can't take it back:
     // copies are out there and git history keeps it. So it stays, but goes dark and still:
     // it opens nothing now. A fresh key appears in the vault, and the first gate lights up:

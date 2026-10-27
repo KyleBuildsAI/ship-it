@@ -34,6 +34,7 @@ export const ISLAND_BEATS = {
     'flaky-check',
     'test-layers',
     'secret-vault',
+    'secret-withheld',
     'key-revoked',
   ],
   act6: [],

