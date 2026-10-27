@@ -2350,3 +2350,69 @@ https://github.com/KyleBuildsAI/ship-it/pull/166
 2. `fit` also updates the camera, and the camera's shape is width divided by height. With a height of 0 that division breaks the camera, so `fit` has to stop before it reaches `world.resize`, not just before the renderer.
 3. A collapsed box is almost always temporary (a pane folding away, a window being dragged). Keeping the last real size means nothing has to be rebuilt when it comes back, and the camera keeps its normal shape. 1 by 1 would still squash the camera and waste a resize.
 </details>
+
+---
+
+## #175 fix: show directed-mission evidence on screen, not in the closed terminal
+
+https://github.com/KyleBuildsAI/ship-it/pull/175
+
+1. The evidence box doesn't re-run a look's command to get its output. Where does the output come from instead, and why is that safer than running the command a second time?
+2. Why does Act 2's placement test hide whether each drill was right, while a mission's drills and the Standup Board still show the answer straight away?
+3. Starting the Laptop sandbox or a drill placement test now calls `travelTo`, but a Standup Board review doesn't. What's the rule for when an activity should travel?
+<details><summary>Answers</summary>
+
+1. From the same driven step the terminal gets: `runLook` (and the drill scene in `scenePlay.ts`) already runs the line once through the shell driver, and `evidenceOf` turns that result into an entry for the panel. Running it a second time could give a different answer if anything changed in between, and it would add a second, invisible command to the sandbox's history. Using one result means the panel and the terminal always match.
+2. A passing placement test marks a whole Act as tested out (for Act 2 it completes the Act). If each drill revealed its answer, a player could fail once, note the answers, and retake to pass without learning anything. Mission drills and reviews are practice, where seeing the right answer straight away is the point, so they keep the reveal. The lesson placement tests already worked this way.
+3. An activity travels when its island acts out what's happening: the Laptop sandbox grows The Machine's terraces as you type, and a drill placement's scenes move Git World's crates. A Standup Board review mixes drills from every Act, so no single island fits, and it stays where the player is. A lesson placement and a Field Mission have nothing to watch, so they stay put too.
+</details>
+
+---
+
+## #177 fix: make field mission checks strict and their steps clear
+
+https://github.com/KyleBuildsAI/ship-it/pull/177
+
+1. The "no secret files" check already failed on a list containing `.env`. Why wasn't that enough, and why must the shape check run *before* the secret check?
+2. Before this PR, an empty paste for `git log --oneline -1 origin/main -- README.md` said "no commit has touched origin/main yet. Ask your agent to commit it". Where did `origin/main` come from in that sentence, and why is "commit it" the wrong advice there?
+3. Moving a brief from `text` to `prompt` stopped selection from ticking the task. What does the browser do with a click inside a `<label>`, and why did a triple-click leave the box ticked?
+<details><summary>Answers</summary>
+
+1. The secret check looks for something bad and passes when it finds nothing. `all clean` or `hello` contains no secret file name, so it passed, saved a ✓ and counted toward finishing the Act, though it proved nothing. Running the shape check first means "found nothing" only counts when we were looking at git's own list. It also catches a bulleted chat list, where `- .env.local` doesn't match the secret name `.env.local`, so the secret check alone would have missed a real leak.
+2. The old code took the first word after `git log` that wasn't a flag and called it the file, and that word was the branch `origin/main`. The `--` separates the branch from the file, and the new `loggedTarget` reads both sides. "Commit it" is wrong because `origin/main` is GitHub's main: a commit only gets there through a merged pull request, and the missions say never to commit straight to main. The new message says to merge the PR, run `git fetch`, and check again.
+3. A click anywhere inside a `<label>` is passed on to the input it wraps, so the checkbox toggles. A triple-click is three clicks: on, off, on, and the box ends up ticked (and saved). The brief now renders in its own box after the label closes, so clicking or selecting it doesn't touch the checkbox, and its Copy button means nobody has to select it by hand.
+</details>
+
+---
+
+## #178 fix: tidy how lesson cards show feedback, artifacts and scores
+
+https://github.com/KyleBuildsAI/ship-it/pull/178
+
+1. Why does the verdict check need punctuation after the word ("Right." but not "Right flag")? What would go wrong without it?
+2. After you answer, the panel scrolls with `block: 'nearest'` and sometimes jumps instead of gliding. Why "nearest" and not "start", and when does it jump?
+3. Why does a wrapped diff line hang 5 characters in (past the "+  " and 2 more), while an agent's message wraps flush?
+<details><summary>Answers</summary>
+
+1. Some *wrong* answers' feedback starts with the word "Right" in an ordinary sentence, like "Right flag, wrong scope." Without the punctuation rule, the game would take "Right" as the verdict and show a wrong answer as **Right**. Requiring "Right." / "Yes." / "Not yet:" etc. matches only real verdicts, and a test runs every shipped card through it.
+2. "nearest" scrolls only as far as it needs to bring the result into view, so as much of the question and options as possible stays visible. "start" would throw the question off the top every time. It jumps (instant) when Settings > Reduced motion is On, when it's set to "Follow Windows" and Windows asks for less motion, and when a test robot (Playwright) drives the browser, so tests never wait for an animation.
+3. In code, where a line ends is part of what it says. If the rest of a wrapped line started at the left edge, it would look like a new line of code, or under a diff's +/- like a new added or removed line. Hanging it past the line's own indent and the +/- shows it's the same line carrying on. An agent's message, an issue or a PR is prose, where wrapping flush like a paragraph is normal and easiest to read.
+</details>
+
+---
+
+## #181 fix: keep git world crate labels apart and the newest commit in view
+
+https://github.com/KyleBuildsAI/ship-it/pull/181
+
+1. Why does `crateYard.ts` create every crate's view before it places any of them?
+2. Before this PR, new Workbench crates streaked in from the left of the screen. What was the actual bug, and why didn't the "drop from above" fallback catch it?
+3. `gitWorld.test.ts` checks that commits are on screen without opening a browser. How does it do that, and what can it not catch?
+
+<details><summary>Answers</summary>
+
+1. Where a crate goes depends on its neighbours: each column is as wide as the longest name in it, and the number of columns depends on how many fit across the floor. A name's width is only known once its label exists (the label measures its text on a canvas). So the first pass makes every view and the second pass places them all.
+2. The code looked up `bench:<file name>` to find the crate a new crate should fly out of. That is right for a staged crate (it leaves its Workbench crate), but for a new Workbench crate the key is the crate itself, which was just created at (0, 0, 0), the world's origin, far to the left of the Git World. Because the lookup found something, the `??` fallback ("start above your spot") never ran. `launchKey` now returns `null` for Workbench crates, so they always drop from above.
+3. It builds the same camera as the game (same angle, height and distance, shifted for the play panel), uses `project` to turn each corner of every commit's label box into pixel coordinates, and checks they fall between the play panel and the window edges at 1280x800, with both the normal and the extra-large panel. It only models the view you get on arrival: if the player orbits the camera, commits can still leave the screen. And if someone changes the camera in `world.ts` without changing the test's copy, the test could pass while the game is wrong. That is why the browser check still matters.
+
+</details>
