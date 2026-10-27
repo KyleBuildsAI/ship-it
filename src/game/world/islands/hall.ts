@@ -85,8 +85,11 @@ const overBoard = (point: THREE.Vector3) => point.clone().setZ(BOARD_Z + 0.1);
 
 /** The parts of the idle hall that beats change. */
 interface HallParts {
-  /** The three panel seats, left to right. They light up when the panel follows along. */
-  readonly panelSeats: readonly THREE.Mesh[];
+  /**
+   * The backs of the three panel chairs, left to right. They light up when the panel
+   * follows along: from where the player stands the table hides the seats, not the backs.
+   */
+  readonly panelBacks: readonly THREE.Mesh[];
   /** The idle scribble on the whiteboard, hidden while a beat draws there. */
   readonly marker: THREE.Mesh;
 }
@@ -174,15 +177,15 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
       seconds: 2.4,
       start: () => {
         const bubbles = PANEL.map(() => add(BUBBLE, colors.glow, CANDIDATE));
-        return run(stage, hall.panelSeats, (progress) => {
+        return run(stage, hall.panelBacks, (progress) => {
           bubbles.forEach((bubble, index) => {
             const start = index * 0.22;
             const flight = phase(progress, start, start + 0.45);
             const target = PANEL[index] ?? CANDIDATE;
             slide(bubble, CANDIDATE, target, flight, 0.6);
             popIn(bubble, Math.min(1, flight * 4));
-            const seat = hall.panelSeats[index];
-            if (seat) seat.material = flight >= 1 ? colors.glow : colors.base;
+            const chairBack = hall.panelBacks[index];
+            if (chairBack) chairBack.material = flight >= 1 ? colors.glow : colors.base;
           });
         });
       },
@@ -438,7 +441,7 @@ export function hall(colors: Palette): Props {
   for (const x of [-1.5, 1.5]) group.add(part(tableLeg, colors.dark, x, 0.45, TABLE_Z));
   const seat = new THREE.BoxGeometry(0.6, 0.1, 0.6);
   const back = new THREE.BoxGeometry(0.6, 0.7, 0.1);
-  const panelSeats: THREE.Mesh[] = [];
+  const panelBacks: THREE.Mesh[] = [];
   // The panel on the far side, and the candidate's chair on the near side.
   for (const [x, z, facing] of [
     [-1, -3.1, 1],
@@ -446,10 +449,10 @@ export function hall(colors: Palette): Props {
     [1, -3.1, 1],
     [0, -0.9, -1],
   ] as const) {
-    const chairSeat = part(seat, colors.base, x, 0.55, z);
-    group.add(chairSeat);
-    if (facing === 1) panelSeats.push(chairSeat);
-    group.add(part(back, colors.base, x, 0.9, z - facing * 0.28));
+    group.add(part(seat, colors.base, x, 0.55, z));
+    const chairBack = part(back, colors.base, x, 0.9, z - facing * 0.28);
+    group.add(chairBack);
+    if (facing === 1) panelBacks.push(chairBack);
   }
   group.add(
     part(
@@ -469,6 +472,6 @@ export function hall(colors: Palette): Props {
       // Someone is drawing on the whiteboard: the line grows and starts again.
       marker.scale.x = 0.2 + ((elapsed * 0.25) % 1) * 0.8;
     },
-    beats: act8Beats(stage, { panelSeats, marker }, colors),
+    beats: act8Beats(stage, { panelBacks, marker }, colors),
   };
 }
