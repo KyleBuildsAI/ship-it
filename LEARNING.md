@@ -2320,6 +2320,23 @@ https://github.com/KyleBuildsAI/ship-it/pull/162
 
 ---
 
+## #167 test: run e2e tests one at a time everywhere
+
+https://github.com/KyleBuildsAI/ship-it/pull/167
+
+1. Why did the cross-tab test pass alone but fail when 8 copies ran at once?
+2. What evidence showed the save handover code itself was working?
+3. Why does a real player with two tabs never run into this?
+<details><summary>Answers</summary>
+
+1. Each copy opens two tabs that both draw the 3D world, so 8 copies meant 16 full 3D scenes on one GPU. The older tab's main thread couldn't get time to run, so it missed the 20-second limit.
+2. When the starved tab finally answered, its status said "other tab" and it showed the notice. That's exactly the handover the test expects, just very late.
+3. A real browser stops drawing a tab you can't see (`requestAnimationFrame` pauses), so the hidden tab uses almost no GPU. Playwright keeps every tab "visible", so nothing pauses there.
+
+</details>
+
+---
+
 ## #166 fix: keep the 3d canvas's last size while its container is collapsed
 
 https://github.com/KyleBuildsAI/ship-it/pull/166
