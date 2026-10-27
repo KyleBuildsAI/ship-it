@@ -18,7 +18,8 @@ import {
  * Its beats act out the Act's ideas with things a non-coder can follow: a brief card goes
  * in and the right blocks come out, a loop circles the bench, a magnifier finds the bad
  * line on a PR card, a test gate lets one block through and stops another, eval scores
- * rise as bars, a fence turns a stranger's note away, and a stop sign halts a runaway loop.
+ * rise as bars, a fence turns a stranger's note away with the key locked outside it, and a
+ * stop sign halts a runaway loop.
  */
 
 /** The bench top's height, where built blocks sit. */
@@ -37,6 +38,9 @@ const GATE_POST = new THREE.BoxGeometry(0.2, 2, 0.2);
 const GATE_BEAM = new THREE.BoxGeometry(2.2, 0.22, 0.22);
 const SCORE_BAR = new THREE.BoxGeometry(0.42, 1, 0.42);
 const FENCE_POST = new THREE.CylinderGeometry(0.09, 0.09, 1.6, 8);
+const SAFE = new THREE.BoxGeometry(0.9, 0.7, 0.9);
+const KEY_RING = new THREE.TorusGeometry(0.17, 0.06, 8, 20);
+const KEY_SHAFT = new THREE.BoxGeometry(0.09, 0.5, 0.09);
 const STOP_SIGN = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 8);
 
 /** How high a card's line of "text" sits on it, by its place from the top. */
@@ -262,42 +266,71 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         });
       },
     },
-    // Guardrails: a fence rises round Otto's bench, and a stranger's red note flying in
-    // with orders bounces off it and drops outside.
+    // Guardrails, the three the lesson names: a fence rises round Otto's bench (limited
+    // access), the key drops into a safe outside it (no secrets in reach), and a
+    // stranger's red note flying in with orders bounces off the fence and drops outside.
     'guardrails-up': {
       seconds: 2.8,
       start: () => {
         const radius = 3.2;
-        const angles = [-80, -55, -30, -10, 10, 30, 55, 80].map((deg) => (deg * Math.PI) / 180);
-        const posts = angles.map((angle) =>
-          hidden(
-            FENCE_POST,
-            colors.glow,
-            new THREE.Vector3(Math.sin(angle) * radius, 0.8, ROBOT.z + Math.cos(angle) * radius),
-          ),
+        /** A point on the fence's arc round Otto, `degrees` from straight in front of him. */
+        const onFence = (degrees: number, y: number, outward = 0) => {
+          const angle = (degrees * Math.PI) / 180;
+          return new THREE.Vector3(
+            Math.sin(angle) * (radius + outward),
+            y,
+            ROBOT.z + Math.cos(angle) * (radius + outward),
+          );
+        };
+        const postDegrees = [-80, -55, -30, -10, 10, 30, 55, 80];
+        const posts = postDegrees.map((degrees) =>
+          hidden(FENCE_POST, colors.glow, onFence(degrees, 0.8)),
         );
-        const hitAngle = (42 * Math.PI) / 180;
+        // Rails between the posts, so the note meets a fence, not a gap between two poles.
+        const spans = postDegrees
+          .slice(1)
+          .map((to, index) => ({ from: postDegrees[index] ?? to, to }));
+        const rails = [0.55, 1.3].flatMap((y) =>
+          spans.map(({ from, to }) => {
+            const rail = segment(onFence(from, y), onFence(to, y), colors.glow);
+            rail.grow(0);
+            stage.add(rail.mesh);
+            return rail;
+          }),
+        );
+        const safeAt = new THREE.Vector3(4.6, 0.35, -1.6);
+        const safe = hidden(SAFE, colors.base, safeAt);
+        const key = new THREE.Group();
+        key.add(part(KEY_RING, colors.glow, 0, 0.42, 0), part(KEY_SHAFT, colors.glow, 0, 0, 0));
+        key.visible = false;
+        stage.add(key);
+        const keyAbove = new THREE.Vector3(safeAt.x, 1.7, safeAt.z);
+        // Low enough that the shaft is inside the safe and only the ring shows on top.
+        const keyLocked = new THREE.Vector3(safeAt.x, 0.55, safeAt.z);
         const outside = new THREE.Vector3(8, 3.2, 4);
-        const hit = new THREE.Vector3(
-          Math.sin(hitAngle) * (radius + 0.3),
-          1.5,
-          ROBOT.z + Math.cos(hitAngle) * (radius + 0.3),
-        );
+        const hit = onFence(42, 1.5, 0.3);
         const dropped = new THREE.Vector3(5.2, 0.4, 3.4);
         const note = card(outside, 2, colors.alert, colors.dark);
         return run(stage, [], (progress) => {
           posts.forEach((post, index) => {
-            const start = index * 0.04;
-            const rise = phase(progress, start, start + 0.3);
+            const start = index * 0.03;
+            const rise = phase(progress, start, start + 0.22);
             post.scale.set(1, Math.max(0.001, rise), 1);
             post.position.y = 0.8 * rise;
             post.visible = rise > 0;
           });
-          popIn(note.group, phase(progress, 0.4, 0.5), 0.6);
-          if (progress < 0.72) {
-            slide(note.group, outside, hit, phase(progress, 0.45, 0.72));
+          const railed = phase(progress, 0.38, 0.5);
+          rails.forEach((rail) => {
+            rail.grow(railed);
+          });
+          popIn(safe, phase(progress, 0.08, 0.2));
+          popIn(key, phase(progress, 0.18, 0.26));
+          slide(key, keyAbove, keyLocked, phase(progress, 0.28, 0.42));
+          popIn(note.group, phase(progress, 0.5, 0.56), 0.6);
+          if (progress < 0.74) {
+            slide(note.group, outside, hit, phase(progress, 0.52, 0.74));
           } else {
-            slide(note.group, hit, dropped, phase(progress, 0.72, 1), 0.6);
+            slide(note.group, hit, dropped, phase(progress, 0.74, 1), 0.6);
           }
         });
       },
