@@ -57,11 +57,13 @@ function endPlacement(current: LessonActivity, run: LessonRun, nowMs: number): L
   return { ...current, run, placement: { ...placement, result } };
 }
 
-/** Saves a lesson the moment its last card is answered, paying its XP the first time. */
+/**
+ * Saves a lesson the moment its last card is answered. The Done screen shows the XP the
+ * save actually paid: the lesson's XP the first time, the half a test-out left, or none.
+ */
 function finishLesson(current: LessonActivity, run: LessonRun, nowMs: number): LessonActivity {
   const { lesson } = current;
-  const firstTime = progress.get().save?.missions[lesson.id]?.completedAt == null;
-  saveProgressNow((save) =>
+  const paid = saveProgressNow((save) =>
     completeLesson(
       save,
       getAct(lesson.act).act,
@@ -70,7 +72,7 @@ function finishLesson(current: LessonActivity, run: LessonRun, nowMs: number): L
       new Date(nowMs),
     ),
   );
-  return { ...current, run, xpEarned: firstTime ? lesson.xp : 0 };
+  return { ...current, run, xpEarned: paid };
 }
 
 /**
