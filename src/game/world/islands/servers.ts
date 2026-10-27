@@ -554,7 +554,7 @@ function act6Beats(
 }
 
 /** Act 6: racks of servers joined by pipes, a database drum, and a writer's screen. */
-export function servers(colors: Palette): Props {
+export function servers(colors: Palette): Props<BeatId<'act6'>> {
   const group = new THREE.Group();
   const racks: THREE.Mesh[] = [];
   const blinkers: THREE.Mesh[] = [];

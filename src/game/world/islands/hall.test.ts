@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createBeatPlayer } from '../beatPlayer';
 import { ISLAND_BEATS, type BeatId } from '../beats';
 import { hall } from './hall';
-import { palette } from './kit';
+import { palette, type Props } from './kit';
 
 /*
  * Act 8's hall acts out its lesson cards. These tests play every beat the way the beat
@@ -29,8 +29,8 @@ function snapshot(root: THREE.Object3D): unknown[] {
   return objects;
 }
 
-/** A fresh hall in Act 8's gold, with its beats. */
-function buildHall() {
+/** A fresh hall in Act 8's gold, with its beats, looked up by any id as the player does. */
+function buildHall(): Props {
   return hall(palette(0xffe08a));
 }
 
@@ -104,7 +104,7 @@ describe("Act 8's hall", () => {
 
   it('uses red the way its lesson means it: calmed by a fix, still there once found', () => {
     const colors = palette(0xffe08a);
-    const { group, beats } = hall(colors);
+    const { group, beats }: Props = hall(colors);
     for (const [id, trouble] of Object.entries(TROUBLE)) {
       const run = beats[id]?.start();
       if (run === undefined) throw new Error(`The hall has no beat "${id}".`);

@@ -70,10 +70,10 @@ describe('the Act islands', () => {
     }
   });
 
-  it('each have their own accent, theme and place, far apart from every other island', () => {
+  it('each have their own accent and place, far apart from every other island', () => {
     const unique = (values: readonly unknown[]) => new Set(values).size === values.length;
     expect(unique(ACT_ISLANDS.map((island) => island.accent))).toBe(true);
-    expect(unique(ACT_ISLANDS.map((island) => island.theme))).toBe(true);
+    expect(unique(ACT_ISLANDS.map((island) => island.zone))).toBe(true);
     // Campus, the Git World and the machine island float here too.
     const centers = [
       { x: 0, z: 0 },

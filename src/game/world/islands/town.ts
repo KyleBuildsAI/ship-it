@@ -366,7 +366,7 @@ function act4Beats(stage: Stage, parts: TownParts, colors: Palette): Record<Beat
 }
 
 /** Act 4: a town square with a notice board of issues, and houses for the team around it. */
-export function town(colors: Palette): Props {
+export function town(colors: Palette): Props<BeatId<'act4'>> {
   const group = new THREE.Group();
   group.add(part(new THREE.CylinderGeometry(4, 4, 0.1, 48), colors.base, 0, 0.05, 0));
   // The notice board: two posts, a board, and coloured cards pinned on it.

@@ -279,7 +279,7 @@ function act3Beats(stage: Stage, graph: Graph, colors: Palette): Record<BeatId<'
 }
 
 /** Act 3: a trunk path that splits into two branches, commits along each, one merging back. */
-export function branches(colors: Palette): Props {
+export function branches(colors: Palette): Props<BeatId<'act3'>> {
   const group = new THREE.Group();
   const main = [-6, -3, 0, 3, 6].map((x) => at(x, 2));
   const feature = [at(-3, 2), at(-1, -1.5), at(1.5, -1.5), at(3, 2)];

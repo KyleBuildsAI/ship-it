@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import { createBeatPlayer } from '../beatPlayer';
 import { beatsForAct } from '../beats';
-import { palette } from './kit';
+import { palette, type Props } from './kit';
 import { servers } from './servers';
 
 /*
@@ -56,7 +56,7 @@ function allFinite(root: THREE.Object3D): boolean {
   return finite;
 }
 
-function beatOf(props: ReturnType<typeof servers>, id: string) {
+function beatOf(props: Props, id: string) {
   const beat = props.beats[id];
   if (beat === undefined) throw new Error(`The servers island has no beat "${id}".`);
   return beat;

@@ -430,7 +430,7 @@ function act8Beats(stage: Stage, hall: HallParts, colors: Palette): Record<BeatI
 }
 
 /** Act 8: an interview hall: pillars in a half circle, a table, chairs and a whiteboard. */
-export function hall(colors: Palette): Props {
+export function hall(colors: Palette): Props<BeatId<'act8'>> {
   const group = new THREE.Group();
   group.add(part(new THREE.CylinderGeometry(6, 6, 0.12, 48), colors.base, 0, 0.06, -2));
   const pillar = new THREE.CylinderGeometry(0.3, 0.35, 3.6, 16);

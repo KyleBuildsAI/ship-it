@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createBeatPlayer, easeInOut, phase, type Beat } from './beatPlayer';
 
 /** A beat that records every frame it draws and every reset, in place of meshes. */
@@ -72,13 +72,16 @@ describe('the beat player', () => {
     expect(grow.resets()).toBe(1);
   });
 
-  it('ignores a beat it does not have, leaving the island idle', () => {
+  it('plays nothing for a beat it does not have, and says so in the console', () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const grow = recordingBeat();
     const player = createBeatPlayer({ grow: grow.beat }, false);
     player.play('grow');
     player.play('no-such-beat');
     expect(grow.resets()).toBe(1);
     expect(player.current()).toBeNull();
+    expect(errors).toHaveBeenCalledWith('[ship-it] island has no beat', 'no-such-beat');
+    errors.mockRestore();
   });
 
   it('jumps straight to the last frame with reduced motion', () => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createBeatPlayer } from '../beatPlayer';
 import { ISLAND_BEATS, type BeatId } from '../beats';
 import { actIsland } from '../zones';
-import { palette, type Palette } from './kit';
+import { palette, type Palette, type Props } from './kit';
 import { workshop } from './workshop';
 
 /*
@@ -70,7 +70,7 @@ describe('the Act 7 workshop island', () => {
   });
 
   it('goes back to idle when the next card cuts a beat off, and when the lesson ends', () => {
-    const props = workshop(palette(0x66ccff));
+    const props: Props = workshop(palette(0x66ccff));
     const idle = snapshot(props.group);
     const player = createBeatPlayer(props.beats, false);
     let clock = 0;
@@ -90,7 +90,7 @@ describe('the Act 7 workshop island', () => {
   });
 
   it('shows the held picture at once with reduced motion', () => {
-    const props = workshop(palette(0x66ccff));
+    const props: Props = workshop(palette(0x66ccff));
     const idle = snapshot(props.group);
     const player = createBeatPlayer(props.beats, true);
     for (const id of ISLAND_BEATS.act7) {
@@ -123,7 +123,7 @@ interface Held {
 function heldFrame(id: string): Held {
   // The real accent, not a test one: Act 7's pink is what made pass and fail look alike.
   const colors = palette(actIsland('act7').accent);
-  const props = workshop(colors);
+  const props: Props = workshop(colors);
   const beat = props.beats[id];
   if (beat === undefined) throw new Error(`The workshop has no ${id} beat.`);
   beat.start().frame(1);

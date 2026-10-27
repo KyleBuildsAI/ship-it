@@ -29,9 +29,6 @@ export interface Zone {
   readonly doorways: readonly Doorway[];
 }
 
-/** The props an Act's island is dressed with, so it reads as that Act's place at a glance. */
-export type IslandTheme = 'branches' | 'town' | 'gates' | 'servers' | 'workshop' | 'hall';
-
 /**
  * Acts 3 to 8 each get a themed island from one kit (actIsland.ts). This is that kit's
  * data: which Act, its accent colour, where it floats, and what the title card says there.
@@ -41,7 +38,6 @@ export interface ActIsland {
   readonly act: number;
   readonly zone: ActIslandZone;
   readonly title: string;
-  readonly theme: IslandTheme;
   /** The accent for the title, the props' glow and the rim, as 0xRRGGBB. */
   readonly accent: number;
   readonly center: Flat;
@@ -58,7 +54,6 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     act: 3,
     zone: 'act3',
     title: 'Branching',
-    theme: 'branches',
     accent: 0x7ee2a8,
     center: { x: 0, z: 140 },
     hint: 'Paths split into branches and merge back. Start with 3.1 Branches Are Pointers.',
@@ -67,7 +62,6 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     act: 4,
     zone: 'act4',
     title: 'GitHub Team Flow',
-    theme: 'town',
     accent: 0xffb347,
     center: { x: 0, z: -140 },
     hint: 'The town square: issues on the board, PRs to review. Start with 4.1 Remotes and Pushing.',
@@ -76,7 +70,6 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     act: 5,
     zone: 'act5',
     title: 'Quality Gates',
-    theme: 'gates',
     accent: 0x6fd3ff,
     center: { x: 140, z: 140 },
     hint: 'Every change passes the gates: tests, types, lint, CI. Start with 5.1 Tests Are Guardrails.',
@@ -85,7 +78,6 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     act: 6,
     zone: 'act6',
     title: 'How Systems Work',
-    theme: 'servers',
     accent: 0xc792ea,
     center: { x: 140, z: -140 },
     hint: 'Servers, pipes and a database: how a request travels. Start with 6.1 Requests and Responses.',
@@ -94,7 +86,6 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     act: 7,
     zone: 'act7',
     title: 'AI-Native Engineering',
-    theme: 'workshop',
     accent: 0xff7b9c,
     center: { x: -140, z: 140 },
     hint: 'The robot workshop: brief agents, review their work. Start with 7.1 Brief the Agent.',
@@ -103,7 +94,6 @@ export const ACT_ISLANDS: readonly ActIsland[] = [
     act: 8,
     zone: 'act8',
     title: 'The Loop',
-    theme: 'hall',
     accent: 0xffe08a,
     center: { x: -140, z: -140 },
     hint: 'The interview hall: show what you know. Start with 8.1 Think Out Loud.',

@@ -1,5 +1,7 @@
 import * as THREE from 'three/webgpu';
+import type { ActIslandZone } from '../worldState';
 import { createBeatPlayer } from './beatPlayer';
+import type { BeatId } from './beats';
 import { createIsland, type Island } from './island';
 import { branches } from './islands/branches';
 import { gates } from './islands/gates';
@@ -10,7 +12,7 @@ import { town } from './islands/town';
 import { workshop } from './islands/workshop';
 import { Label } from './labels';
 import type { Flat } from './movement';
-import type { ActIsland as ActIslandData, IslandTheme } from './zones';
+import type { ActIsland as ActIslandData } from './zones';
 
 /*
  * One kit for the islands of Acts 3 to 8 (DESIGN.md section 4): a floating island in the
@@ -40,13 +42,21 @@ export interface ActIsland {
 const ISLAND_RADIUS = 15;
 const EXIT_SPOT: Flat = { x: -9, z: 9 };
 
-const THEMES: Record<IslandTheme, (colors: Palette) => Props> = {
-  branches,
-  town,
-  gates,
-  servers,
-  workshop,
-  hall,
+/**
+ * Each Act island's builder, by zone. The type ties a builder to its zone's list in
+ * beats.ts, so a list that grows without its island, or a misspelt beat, fails the
+ * typecheck instead of leaving cards whose scene never plays. (A table typed with plain
+ * string keys would slip past the type, so beatMeshes.test.ts checks the ids too.)
+ */
+export const ISLAND_BUILDERS: {
+  readonly [Zone in ActIslandZone]: (colors: Palette) => Props<BeatId<Zone>>;
+} = {
+  act3: branches,
+  act4: town,
+  act5: gates,
+  act6: servers,
+  act7: workshop,
+  act8: hall,
 };
 
 /** The ring back to Campus, like the machine island's, in this island's accent colour. */
@@ -81,7 +91,7 @@ export function createActIsland(data: ActIslandData, reducedMotion = false): Act
   const { group } = island;
   group.position.set(data.center.x, 0, data.center.z);
 
-  const props = THEMES[data.theme](palette(data.accent));
+  const props = ISLAND_BUILDERS[data.zone](palette(data.accent));
   group.add(props.group);
   const beats = createBeatPlayer(props.beats, reducedMotion);
 

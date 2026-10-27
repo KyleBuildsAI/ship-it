@@ -21,7 +21,10 @@ export interface Beat {
 }
 
 export interface BeatPlayer {
-  /** Starts a beat, ending any playing one first; null just ends it. Unknown ids are ignored. */
+  /**
+   * Starts a beat, ending any playing one first; null just ends it. An id the island
+   * doesn't have plays nothing and is reported in the console, since a card named it.
+   */
   play: (id: string | null) => void;
   /** Called every frame with the world's clock, in seconds. */
   update: (elapsed: number) => void;
@@ -72,8 +75,12 @@ export function createBeatPlayer(
   return {
     play: (id) => {
       stop();
-      const beat = id === null ? undefined : beats[id];
-      if (id === null || beat === undefined) return;
+      if (id === null) return;
+      const beat = beats[id];
+      if (beat === undefined) {
+        console.error('[ship-it] island has no beat', id);
+        return;
+      }
       const run = beat.start();
       playing = { id, beat, run, startedAt: null, held: reducedMotion };
       run.frame(reducedMotion ? 1 : 0);

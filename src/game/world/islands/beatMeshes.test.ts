@@ -1,32 +1,24 @@
 import * as THREE from 'three/webgpu';
 import { describe, expect, it } from 'vitest';
 import type { ActIslandZone } from '../../worldState';
+import { ISLAND_BUILDERS } from '../actIsland';
 import { createBeatPlayer } from '../beatPlayer';
 import { ISLAND_BEATS } from '../beats';
-import { branches } from './branches';
-import { gates } from './gates';
-import { hall } from './hall';
-import { palette, type Palette, type Props } from './kit';
-import { servers } from './servers';
-import { town } from './town';
-import { workshop } from './workshop';
+import { palette, type Props } from './kit';
 
 /*
- * Every Act island's beats, played again and again, as a lesson replayed all session would.
+ * Every Act island as the world builds it, checked against beats.ts and played again and
+ * again, as a lesson replayed all session would be.
+ *
  * A beat takes its meshes from its stage and never builds new ones as it starts: three's
  * WebGPU renderer keeps each mesh it has drawn alive through the palette's materials, which
  * are never disposed, so a beat that built fresh meshes would leak a few more every play.
  * No renderer runs here, so the test counts the distinct meshes each island ever holds.
  */
 
-const ISLANDS: Record<ActIslandZone, (colors: Palette) => Props> = {
-  act3: branches,
-  act4: town,
-  act5: gates,
-  act6: servers,
-  act7: workshop,
-  act8: hall,
-};
+function build(zone: ActIslandZone): Props {
+  return ISLAND_BUILDERS[zone](palette(0x7c9cff));
+}
 
 function collectMeshes(group: THREE.Group, into: Set<THREE.Object3D>): void {
   group.traverse((object) => {
@@ -34,9 +26,13 @@ function collectMeshes(group: THREE.Group, into: Set<THREE.Object3D>): void {
   });
 }
 
-describe.each(Object.keys(ISLANDS) as ActIslandZone[])('the %s island', (zone) => {
+describe.each(Object.keys(ISLAND_BEATS) as ActIslandZone[])('the %s island', (zone) => {
+  it('plays exactly the beats beats.ts lists for it, so every card it is named on plays', () => {
+    expect(Object.keys(build(zone).beats).sort()).toEqual([...ISLAND_BEATS[zone]].sort());
+  });
+
   it('replays every beat on the meshes it made the first time', () => {
-    const props = ISLANDS[zone](palette(0x7c9cff));
+    const props = build(zone);
     const player = createBeatPlayer(props.beats, false);
     const seen = new Set<THREE.Object3D>();
     const playEveryBeat = () => {

@@ -423,7 +423,7 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
 }
 
 /** Act 5: a road through a row of gates, each with a light, and two watchtowers. */
-export function gates(colors: Palette): Props {
+export function gates(colors: Palette): Props<BeatId<'act5'>> {
   const group = new THREE.Group();
   group.add(part(ROAD, colors.base, 0, 0.03, 0));
   const pass = new THREE.MeshStandardMaterial({

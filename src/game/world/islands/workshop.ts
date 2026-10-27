@@ -517,7 +517,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
 }
 
 /** Act 7: a workbench with a robot on it, and gears turning on the wall behind. */
-export function workshop(colors: Palette): Props {
+export function workshop(colors: Palette): Props<BeatId<'act7'>> {
   const group = new THREE.Group();
   group.add(part(new THREE.BoxGeometry(5, 0.2, 2), colors.base, 0, 1, -1));
   const leg = new THREE.BoxGeometry(0.2, 1, 0.2);

@@ -35,13 +35,18 @@ export function palette(accent: number): Palette {
   };
 }
 
-/** What a theme builder hands back: the props, the parts that move, and its beats. */
-export interface Props {
+/**
+ * What an island builder hands back: the props, the parts that move, and its beats. An
+ * island's builder returns Props<BeatId<its zone>>, and actIsland.ts holds it to that, so
+ * a beat beats.ts lists that the island doesn't play (or a misspelt one) fails the
+ * typecheck rather than leaving a lesson card with no scene.
+ */
+export interface Props<Id extends string = string> {
   readonly group: THREE.Group;
   /** Called every frame with the time, for the small motions that keep the island alive. */
   readonly animate: (elapsed: number) => void;
-  /** The lesson scenes this island can play, by id. Every id in beats.ts must be here. */
-  readonly beats: Readonly<Record<string, Beat>>;
+  /** The lesson scenes this island can play, by id. */
+  readonly beats: Readonly<Record<Id, Beat>>;
 }
 
 /**
@@ -204,6 +209,3 @@ export function remember(mesh: THREE.Mesh): () => void {
     mesh.material = material;
   };
 }
-
-/** For an island with no lesson scenes yet. Its lessons can't name a beat until it has some. */
-export const NO_BEATS: Readonly<Record<string, Beat>> = {};
