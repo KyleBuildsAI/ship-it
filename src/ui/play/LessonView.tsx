@@ -428,7 +428,8 @@ function Done({ activity }: { activity: LessonActivity }) {
             {'★'.repeat(stars)}
             <span>{'★'.repeat(3 - stars)}</span>
           </p>
-          <p className="drill-result drill-result--pass">
+          {/* Green only from 2 stars (60%) up: "0 of 9 right" in green read as praise. */}
+          <p className={stars >= 2 ? 'drill-result drill-result--pass' : 'drill-result'}>
             {right} of {lesson.cards.length} right on the first try.
           </p>
           <p className="play-panel__muted">

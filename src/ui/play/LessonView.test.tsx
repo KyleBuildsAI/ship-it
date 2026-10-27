@@ -185,6 +185,21 @@ describe('the lesson view', () => {
     expect(text(view(out, sampleFinal))).toContain('Time’s up. You answered 0 of 6 cards.');
     expect(text(view(out, sampleFinal))).toContain('Try again');
   });
+
+  it('shows the first-try score in green only from two stars up', () => {
+    /** The class of the Done screen's score line after these first tries. */
+    const scoreClass = (firstTry: boolean[]) => {
+      const done: LessonRun = { ...cards(), phase: 'done', outcome: 'finished', firstTry };
+      return /<p class="([^"]+)">\d+ of 6 right on the first try/.exec(view(done))?.[1];
+    };
+    expect(scoreClass([false, false, false, false, false, false])).toBe('drill-result');
+    // 3 of 6 is 50%: one star, so still not green.
+    expect(scoreClass([true, true, true, false, false, false])).toBe('drill-result');
+    // 4 of 6 is 67%: two stars.
+    expect(scoreClass([true, true, true, true, false, false])).toBe(
+      'drill-result drill-result--pass',
+    );
+  });
 });
 
 describe('a lesson Act’s placement test in the lesson view', () => {
