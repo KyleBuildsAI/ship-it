@@ -5,6 +5,7 @@ import { validateAct } from '../../game/missions/validateAct';
 import { requireFieldMission } from '../../game/missions/schema';
 import { completeLesson, recordFieldMission } from '../../game/play/saveRules';
 import { createDefaultSave } from '../../game/save/schema';
+import { beatsForAct } from '../../game/world/beats';
 import { act4, act4Lessons } from '.';
 
 const NOW = new Date('2026-10-03T12:00:00.000Z');
@@ -146,5 +147,49 @@ describe('Act 4: GitHub Team Flow', () => {
       NOW,
     );
     expect(verified.acts['4']).toMatchObject({ completedAt: NOW.toISOString() });
+  });
+
+  it('acts out most cards on the town island, naming only beats it knows', () => {
+    const known = beatsForAct(4);
+    const cards = lessons.flatMap((lesson) => lesson.cards);
+    // Every briefing, the final's included, opens on a picture of what the lesson is about.
+    for (const lesson of lessons) {
+      expect(known, lesson.id).toContain(lesson.briefingBeat);
+    }
+    for (const card of cards) {
+      if (card.beat !== undefined) expect(known, card.id).toContain(card.beat);
+    }
+    // Some cards stay bare on purpose: a picture that contradicts the card (checks passing
+    // on a card about a failing check) would teach the wrong thing.
+    const withBeat = cards.filter((card) => card.beat !== undefined).length;
+    expect(withBeat / cards.length).toBeGreaterThanOrEqual(0.8);
+    // Every beat the island has is used somewhere, or it's dead weight.
+    const used = new Set(cards.map((card) => card.beat));
+    for (const beat of known) expect(used).toContain(beat);
+  });
+
+  /** A card by id from any Act 4 lesson; throws if it's gone, so no check passes vacuously. */
+  function cardById(id: string): LessonCard {
+    const card = lessons.flatMap((lesson) => lesson.cards).find((each) => each.id === id);
+    if (card === undefined) throw new Error(`Act 4 has no card "${id}".`);
+    return card;
+  }
+
+  it('shows the two kinds of rejected push as two different pictures', () => {
+    // 4.3 teaches that "fetch first" and "protected branch" are different refusals, so the
+    // island must not act them out the same way.
+    expect(cardById('push-rejected').beat).toBe('push-behind');
+    expect(cardById('otto-push-rejected').beat).toBe('push-behind');
+    expect(cardById('protected-main').beat).toBe('main-protected');
+    expect(cardById('protected-reject').beat).toBe('main-protected');
+  });
+
+  it('leaves bare the cards no town beat can picture honestly', () => {
+    // Each beat would show the opposite of the card's answer: changes requested on a
+    // non-blocking nit, one PR patched and passed when the answer is to split it, checks
+    // passing on a card about a red check. No beat shows a self-review or a conflict with main.
+    for (const id of ['nit', 'too-big', 'flaky-or-real', 'self-review', 'brief-the-conflict']) {
+      expect(cardById(id).beat, id).toBeUndefined();
+    }
   });
 });

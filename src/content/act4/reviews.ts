@@ -9,6 +9,7 @@ export const reviewingPullRequests = {
   id: 'reviewing-pull-requests',
   act: 4,
   title: 'Reviewing Pull Requests',
+  briefingBeat: 'checks-gate',
   briefing: [
     'When an agent writes the code, reviewing it is the job. The diff is the truth; the description is a claim.',
     'Quillwork’s main branch is protected, so every change waits for checks and an approval. Yours counts.',
@@ -16,6 +17,7 @@ export const reviewingPullRequests = {
   cards: [
     {
       id: 'agent-skipped-test',
+      beat: 'review-changes',
       kind: 'choose',
       situation: 'Otto’s PR says it fixed the autosave bug. Here is part of the diff.',
       artifact: {
@@ -63,6 +65,7 @@ export const reviewingPullRequests = {
     },
     {
       id: 'redirect-otto',
+      beat: 'review-changes',
       kind: 'prompt',
       situation: 'You’ve requested changes on PR #70. Now you reply to Otto.',
       question: 'Which instruction gets a real fix?',
@@ -98,6 +101,7 @@ export const reviewingPullRequests = {
     },
     {
       id: 'review-comment',
+      beat: 'review-changes',
       kind: 'choose',
       situation: 'You’re reviewing Dex’s PR titled “tidy billing code”.',
       artifact: {
@@ -172,6 +176,7 @@ export const reviewingPullRequests = {
     },
     {
       id: 'protected-main',
+      beat: 'main-protected',
       kind: 'choose',
       situation: 'Priya tried to push a one-line typo fix straight to main.',
       artifact: {
@@ -211,6 +216,7 @@ export const reviewingPullRequests = {
     },
     {
       id: 'codeowners',
+      beat: 'checks-gate',
       kind: 'choose',
       situation:
         'Dex approved Otto’s PR, which changes src/billing/refund.ts. The merge button is still blocked.',
@@ -288,6 +294,7 @@ export const reviewingPullRequests = {
     },
     {
       id: 'review-routine',
+      beat: 'review-changes',
       kind: 'order',
       situation: 'Sage shows you how the team reviews any PR, from a person or from Otto.',
       question: 'Put the review in order.',
