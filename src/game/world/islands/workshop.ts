@@ -18,8 +18,9 @@ import {
  * Its beats act out the Act's ideas with things a non-coder can follow: a brief card goes
  * in and the right blocks come out, a loop circles the bench, a magnifier finds the bad
  * line on a PR card, a test gate lets one block through and stops another (or is knocked
- * flat so a bad one rolls over it), eval scores rise as bars, a fence turns a stranger's
- * note away with the key locked outside it, and a stop sign halts a runaway loop.
+ * flat so a bad one rolls over it), eval scores rise as bars, a fence stops the errand a
+ * stranger's note sends Otto on, with the key locked outside it, and a stop sign halts a
+ * runaway loop.
  */
 
 /** The bench top's height, where built blocks sit. */
@@ -325,11 +326,13 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         });
       },
     },
-    // Guardrails, the three the lesson names: a fence rises round Otto's bench (limited
-    // access), the key drops into a safe outside it (no secrets in reach), and a
-    // stranger's red note flying in with orders bounces off the fence and drops outside.
+    // Guardrails: a fence rises round Otto's bench (limited access) and the key drops into
+    // a safe outside it (no secrets in reach). A stranger's red note then flies in over the
+    // fence and lands by Otto, because he reads whatever he's given and no fence keeps words
+    // out. What the fence stops is the red errand the note sends him on: it heads for the
+    // key, hits the rail, and drops inside.
     'guardrails-up': {
-      seconds: 2.8,
+      seconds: 3,
       start: () => {
         const radius = 3.2;
         /** A point on the fence's arc round Otto, `degrees` from straight in front of him. */
@@ -358,7 +361,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           }),
         );
         // Light and in front, not base and behind: a dark box at the back was lost on the floor.
-        const safeAt = new THREE.Vector3(4.8, 0.35, 0.4);
+        // In front of the bench, too, so the errand meets the fence over open floor.
+        const safeAt = new THREE.Vector3(4, 0.35, 2.6);
         const safe = hidden(SAFE, colors.light, safeAt);
         const key = new THREE.Group();
         key.add(part(KEY_RING, colors.glow, 0, 0.42, 0), part(KEY_SHAFT, colors.glow, 0, 0, 0));
@@ -368,29 +372,39 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         // Low enough that the shaft is inside the safe and only the ring shows on top.
         const keyLocked = new THREE.Vector3(safeAt.x, 0.55, safeAt.z);
         const outside = new THREE.Vector3(8, 3.2, 4);
-        const hit = onFence(42, 1.5, 0.3);
-        const dropped = new THREE.Vector3(5.2, 0.4, 3.4);
+        // Propped on the bench at Otto's side, where he reads it.
+        const read = new THREE.Vector3(1.5, BENCH_TOP + 0.45, -0.3);
         const note = card(outside, 2, colors.alert, colors.dark);
+        // The errand leaves Otto's chest, clear of his body, on the straight line to the key.
+        const fromOtto = new THREE.Vector3(ROBOT.x + 0.7, BENCH_TOP + 0.7, ROBOT.z + 0.6);
+        const towardKey = (Math.atan2(safeAt.x - ROBOT.x, safeAt.z - ROBOT.z) * 180) / Math.PI;
+        // Level with the top rail and just inside it, so the orb touches the rail it hits.
+        const stopped = onFence(towardKey, 1.3, -0.4);
+        const dropped = onFence(towardKey, 0.22, -0.9);
+        const errand = hidden(ORB, colors.alert, fromOtto);
         return run(stage, [], (progress) => {
           posts.forEach((post, index) => {
-            const start = index * 0.03;
-            const rise = phase(progress, start, start + 0.22);
+            const start = index * 0.02;
+            const rise = phase(progress, start, start + 0.2);
             post.scale.set(1, Math.max(0.001, rise), 1);
             post.position.y = 0.8 * rise;
             post.visible = rise > 0;
           });
-          const railed = phase(progress, 0.38, 0.5);
+          const railed = phase(progress, 0.3, 0.4);
           rails.forEach((rail) => {
             rail.grow(railed);
           });
-          popIn(safe, phase(progress, 0.08, 0.2));
-          popIn(key, phase(progress, 0.18, 0.26));
-          slide(key, keyAbove, keyLocked, phase(progress, 0.28, 0.42));
-          popIn(note.group, phase(progress, 0.5, 0.56), 0.6);
-          if (progress < 0.74) {
-            slide(note.group, outside, hit, phase(progress, 0.52, 0.74));
+          popIn(safe, phase(progress, 0.06, 0.16));
+          popIn(key, phase(progress, 0.14, 0.2));
+          slide(key, keyAbove, keyLocked, phase(progress, 0.2, 0.34));
+          // A high arc, so the note clears the fence: it doesn't stop what Otto reads.
+          popIn(note.group, phase(progress, 0.38, 0.44), 0.6);
+          slide(note.group, outside, read, phase(progress, 0.4, 0.6), 0.6);
+          popIn(errand, phase(progress, 0.62, 0.68));
+          if (progress < 0.8) {
+            slide(errand, fromOtto, stopped, phase(progress, 0.64, 0.8));
           } else {
-            slide(note.group, hit, dropped, phase(progress, 0.74, 1), 0.6);
+            slide(errand, stopped, dropped, phase(progress, 0.8, 1), 0.25);
           }
         });
       },
