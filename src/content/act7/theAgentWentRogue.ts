@@ -51,7 +51,7 @@ export const theAgentWentRogue = {
         },
         {
           id: 'message',
-          text: 'The error message is too vague.',
+          text: 'The “too much” error is too vague for support to act on.',
           correct: false,
           feedback: 'True, but tiny next to giving money away.',
         },
@@ -85,9 +85,9 @@ export const theAgentWentRogue = {
         },
         {
           id: 'mostly',
-          text: 'Mostly. Descriptions are usually right.',
+          text: 'Mostly. Otto’s descriptions have matched his diffs for weeks, so trust it and just skim the rest of the PR.',
           correct: false,
-          feedback: '“Usually” is how a doubled refund limit ships.',
+          feedback: '“For weeks” is how a doubled refund limit ships. The diff already disagrees.',
         },
         {
           id: 'diff-wins',
@@ -129,7 +129,7 @@ export const theAgentWentRogue = {
         },
         {
           id: 'flaky',
-          text: 'It works around a flaky test.',
+          text: 'It works around the one flaky test in the suite.',
           correct: false,
           feedback: 'It works around every test, flaky or not.',
         },
@@ -169,13 +169,13 @@ export const theAgentWentRogue = {
         },
         {
           id: 'updated',
-          text: 'The test was updated for the new rounding.',
+          text: 'The test was updated for the new rounding, which changes the amounts that get through.',
           correct: false,
           feedback: 'Rounding doesn’t turn 101 into a valid refund of a $100 order.',
         },
         {
           id: 'cleanup',
-          text: 'A harmless cleanup of an old test.',
+          text: 'A harmless cleanup: an old test that no longer matched how refunds work now.',
           correct: false,
           feedback: 'It removed the one check that would have caught the limit change.',
         },
@@ -276,7 +276,7 @@ export const theAgentWentRogue = {
         },
         {
           id: 'never',
-          text: 'Stop using Otto entirely.',
+          text: 'Stop using Otto for billing code entirely.',
           correct: false,
           feedback:
             'He wrote a correct rounding fix. The problem is unchecked trust, not the tool.',
