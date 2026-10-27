@@ -168,6 +168,29 @@ describe('verifyPaste', () => {
     expect(leaked.message).toContain('.env');
   });
 
+  it('refuses a summary or another command’s output in place of a git ls-files list', () => {
+    const check = verification({
+      parser: 'ls-files',
+      command: 'git ls-files',
+      check: { kind: 'noTrackedSecrets' },
+    });
+    for (const summary of ['all clean', 'hello', 'No .env here', '## main...origin/main']) {
+      const verdict = verifyPaste(check, summary);
+      expect(verdict.passed, summary).toBe(false);
+      expect(verdict.message, summary).toContain("doesn't look like git ls-files output");
+      expect(verdict.message, summary).toContain('Run git ls-files');
+    }
+    // Real names with spaces still pass, printed bare or quoted by git.
+    const real = ['docs/Meeting notes.md', '"caf\\303\\251 menu.md"', 'src/app.ts'];
+    expect(verifyPaste(check, real.join('\n'))).toEqual({
+      passed: true,
+      message: 'No secret files are tracked.',
+    });
+    expect(verifyPaste(check, [...real, '.env'].join('\n')).message).toContain(
+      'Still tracked: .env',
+    );
+  });
+
   it('passes a tracked path only when it is on the list, and never beside a secret', () => {
     const check = verification({
       parser: 'ls-files',

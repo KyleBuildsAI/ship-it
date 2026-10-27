@@ -14,6 +14,7 @@ import {
   isPullRequestSubject,
   isSquashMergedSubject,
   isTypedBranchName,
+  looksLikePathList,
   matchesPathPattern,
   newestWrittenCommit,
   normalizePaste,
@@ -340,6 +341,13 @@ function verifySquashMerge(subject: string): FieldVerdict {
 function checkTrackedFiles(verification: Verification, text: string): FieldVerdict {
   const paths = parsePathList(text);
   if (paths.length === 0) return fail(`That paste lists no files. Run ${verification.command}.`);
+  // Finding no secret on a list proves nothing unless the list is git's, so a summary
+  // like "all clean" must fail here, before the secret check could pass it.
+  if (!looksLikePathList(text)) {
+    return fail(
+      `That doesn't look like ${PARSER_NAMES['ls-files']} output, which is one file per line. Run ${verification.command}, or have your agent run it, and paste exactly what it prints.`,
+    );
+  }
   const { check } = verification;
   if (check.kind === 'tracksAny') {
     const found = firstTracked(paths, check.paths);
