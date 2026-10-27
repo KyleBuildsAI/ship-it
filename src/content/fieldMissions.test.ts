@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FieldMission } from '../game/missions/schema';
 import { verifyPaste } from '../game/play/fieldCheck';
+import { cleanTheDirtyTree } from './act2/fieldMission';
 import { ACTS } from './index';
 
 /*
@@ -36,6 +37,20 @@ describe.each(FIELD_MISSIONS)('Act %i Field Mission', (_act, field) => {
     }
   });
 
+  it('says to run a command "again" only after an earlier step ran it', () => {
+    const texts = [
+      ...field.checklist.map((item) => item.text),
+      ...field.verifications.map((check) => check.instruction),
+    ];
+    texts.forEach((text, index) => {
+      for (const match of text.matchAll(/\b[Rr]un (git [a-z-]+(?: --?[a-z-]+)*) again/g)) {
+        const command = match[1] ?? '';
+        const earlier = texts.slice(0, index).join(' ');
+        expect(earlier, `"${command}" is run again before it was run once`).toContain(command);
+      }
+    });
+  });
+
   it('refuses a summary in place of git ls-files output, before the secret check', () => {
     const lists = field.verifications.filter((check) => check.parser === 'ls-files');
     for (const check of lists) {
@@ -45,5 +60,21 @@ describe.each(FIELD_MISSIONS)('Act %i Field Mission', (_act, field) => {
         expect(verdict.message, check.id).toContain("doesn't look like git ls-files output");
       }
     }
+  });
+});
+
+describe('Act 2 Field Mission text', () => {
+  it('calls node_modules a dependency folder, not build output', () => {
+    const ignore = cleanTheDirtyTree?.checklist.find((item) => item.id === 'ignore');
+    expect(ignore?.text).toContain('dependency folders (dist/, node_modules/)');
+    expect(ignore?.text).not.toContain('build output folders (like dist/ and node_modules/)');
+  });
+
+  it('says the message after the short id starts with a type, not the line', () => {
+    const history = cleanTheDirtyTree?.verifications.find(
+      (check) => check.id === 'conventional-history',
+    );
+    expect(history?.instruction).not.toContain('Each one should start with a type');
+    expect(history?.instruction).toContain('the message after it should start with a type');
   });
 });
