@@ -9,6 +9,7 @@ export const testsAreGuardrails = {
   id: 'tests-are-guardrails',
   act: 5,
   title: 'Tests Are Guardrails',
+  briefingBeat: 'change-passes',
   briefing: [
     'Quillwork ships every day, and Otto writes a lot of the code. Every change he makes is a guess until something checks it.',
     'Sage: "Tests are how a team trusts code nobody watched being written. Learn what each kind proves, and what a red one is telling you."',
@@ -16,6 +17,7 @@ export const testsAreGuardrails = {
   cards: [
     {
       id: 'test-kinds',
+      beat: 'test-layers',
       kind: 'choose',
       situation:
         'Priya lists three checks for the new Export button: wordCount() counts correctly, the API saves an export to the database, and a user can click Export in the browser and get a file.',
@@ -53,6 +55,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'right-layer',
+      beat: 'test-layers',
       kind: 'choose',
       situation: 'Otto proposes how to cover the word counter’s edge cases.',
       artifact: {
@@ -93,6 +96,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'read-failure',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation: 'You run the tests and one goes red.',
       artifact: {
@@ -145,6 +149,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'test-first',
+      beat: 'red-to-green',
       kind: 'prompt',
       situation:
         'Marco files a bug: a document that is only spaces shows “1 word”. You hand it to Otto.',
@@ -183,6 +188,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'weakened-test',
+      beat: 'gate-bypassed',
       kind: 'choose',
       situation: 'Otto reports “All 214 tests pass” on the hyphen bug. This is his whole diff.',
       artifact: {
@@ -222,6 +228,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'send-back',
+      beat: 'red-to-green',
       kind: 'prompt',
       situation: 'You’re sending Otto back to fix the hyphen bug properly.',
       question: 'Which instruction?',
@@ -256,6 +263,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'integration-catches',
+      beat: 'gate-blocks',
       kind: 'choose',
       situation: 'Every unit test passes on Otto’s export feature, but the integration test fails.',
       artifact: {
@@ -295,6 +303,7 @@ export const testsAreGuardrails = {
     },
     {
       id: 'bug-fix-loop',
+      beat: 'red-to-green',
       kind: 'order',
       situation: 'Sage asks how a professional fixes a bug.',
       question: 'Put the steps in order.',

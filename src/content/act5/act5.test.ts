@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { LessonSchema, isPickCard, type Lesson } from '../../game/missions/lessonSchema';
 import { validateAct } from '../../game/missions/validateAct';
+import { beatsForAct } from '../../game/world/beats';
 import { act5, act5Lessons } from './index';
 
 const lessons = act5.lessons;
@@ -121,5 +122,24 @@ describe('Act 5: Quality Gates content', () => {
     for (const place of new Set(places)) {
       expect(places.filter((entry) => entry === place).length / places.length).toBeLessThan(0.4);
     }
+  });
+
+  it('acts out most cards on the gates island, naming only beats it knows', () => {
+    const known = beatsForAct(5);
+    const cards = lessons.flatMap((lesson) => lesson.cards);
+    for (const lesson of lessons) {
+      if (lesson.briefingBeat !== undefined)
+        expect(known, lesson.id).toContain(lesson.briefingBeat);
+    }
+    for (const card of cards) {
+      if (card.beat !== undefined) expect(known, card.id).toContain(card.beat);
+    }
+    const withBeat = cards.filter((card) => card.beat !== undefined).length;
+    expect(withBeat / cards.length).toBeGreaterThanOrEqual(0.8);
+    // The final is acted out too: it's where the habits get tested under pressure.
+    expect(final?.cards.every((card) => card.beat !== undefined)).toBe(true);
+    // Every beat the island has is used somewhere, or it's dead weight.
+    const used = new Set(cards.map((card) => card.beat));
+    for (const beat of known) expect(used).toContain(beat);
   });
 });
