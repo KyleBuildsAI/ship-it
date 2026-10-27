@@ -470,6 +470,19 @@ describe('explain', () => {
     ]);
   });
 
+  it('flattens an unlabelled all inside another, as a directed step wraps its success', () => {
+    // all(success, ...guards), where the success is itself an unlabelled all.
+    const q = gitQueries(project());
+    const success: Predicate = { kind: 'all', of: [{ kind: 'isRepo' }, { kind: 'clean' }] };
+    const rows = explain({ kind: 'all', of: [success, { kind: 'isRepo', label: 'Guard' }] }, q);
+    expect(rows).toEqual([
+      { label: 'This folder is a git repository', passed: true },
+      { label: 'Working tree is clean', passed: false },
+      { label: 'Guard', passed: true },
+    ]);
+    expect(rows.map((row) => row.label)).not.toContain('All of these are true');
+  });
+
   it('keeps a labelled all, or any other predicate, as a single row', () => {
     const q = gitQueries(project());
     expect(explain({ kind: 'all', label: 'Ready', of: [{ kind: 'isRepo' }] }, q)).toEqual([

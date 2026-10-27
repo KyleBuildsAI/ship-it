@@ -2416,3 +2416,35 @@ https://github.com/KyleBuildsAI/ship-it/pull/181
 3. It builds the same camera as the game (same angle, height and distance, shifted for the play panel), uses `project` to turn each corner of every commit's label box into pixel coordinates, and checks they fall between the play panel and the window edges at 1280x800, with both the normal and the extra-large panel. It only models the view you get on arrival: if the player orbits the camera, commits can still leave the screen. And if someone changes the camera in `world.ts` without changing the test's copy, the test could pass while the game is wrong. That is why the browser check still matters.
 
 </details>
+
+---
+
+## #176 fix: correct directed-mission result, approval and briefing cards
+
+https://github.com/KyleBuildsAI/ship-it/pull/176
+
+1. After a Missed check, why does the result show the feedback of the option that is true instead of the one you picked? What exactly went wrong before?
+2. The "Now untrack .env" card got a `when` condition that checks `.gitignore` and the disk. Why is that better than hiding the card whenever the player denied `git rm .env`?
+3. The dry run compares the file before and after, so it sees an edit and a full rewrite the same way. How does the card still know to say "Changes part of", and why does that come from one shared function?
+<details><summary>Answers</summary>
+
+1. Every option's feedback is written as the evidence that the option is true. On a Missed or False alarm the option you picked is false by definition, so its evidence is false too. Before, the game said "you were wrong" and then showed a sentence that agreed with your wrong answer (in 2.1: "No commits yet" when there was no repository at all). Showing the true option's evidence teaches what you should have noticed.
+2. "Denied `git rm .env`" describes what you clicked, not what's on the laptop. The card only works when a rule already names `.env` and the file is still there, because its script just untracks it. Checking that state directly means the card appears on every route that reaches that state (after "Add .env to .gitignore.", or after a Stop) and on no route where it would fail. This is the repo's rule: decide by the resulting state, never by the exact steps.
+3. The action itself knows it is an edit (`do: 'edit'`), so the card passes the edited file's path into `describeChanges`. Only that file reads "Changes part of", and any other file the same dry run rewrites still says "Overwrites". The card and Otto's "I need this to finish: ..." line both call `gateEffects`, so they always say the same thing. Before, one place was fixed and the other still said "overwrites".
+</details>
+
+---
+
+## #179 fix: make lesson progress and xp match what the game says
+
+https://github.com/KyleBuildsAI/ship-it/pull/179
+
+1. Why does the Done screen read the XP from the save's change instead of showing `lesson.xp` the first time?
+2. The save already has `drillHistory`. Why add a separate `paidDrillIds` list?
+3. Why does a lesson's resume point keep the wrong pick on the card you left, and why don't timed finals resume at all?
+<details><summary>Answers</summary>
+
+1. "First time" has three cases: never played (full XP), tested out (half already paid, so the other half now) and already done (nothing). The rule for that lives in one place, `completionXp` in `saveRules.ts`. The old Done screen kept its own simpler copy ("first time = full XP"), and that copy was wrong after a test-out. Reading how much `profile.xp` changed shows exactly what was paid, even if the rule changes later.
+2. `drillHistory` is capped: once it's full, the oldest attempts drop off. After a drill's pass dropped off, the game would think it was never passed and pay again. `paidDrillIds` is never trimmed and grows by at most one id per drill, so it stays small. For saves made before it existed, a pass still in the history counts as paid.
+3. Without the kept wrong pick, you could miss a card, reload, and then answer it right as a "first try", which would raise your stars for nothing. A timed final's clock can't wait: resuming would either let the clock run while you were away, which is unfair, or pause it, which the challenge isn't meant to allow. So it starts over, and its row never says "In progress".
+</details>

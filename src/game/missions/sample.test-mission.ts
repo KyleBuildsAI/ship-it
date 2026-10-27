@@ -407,7 +407,7 @@ export const sampleAgentTaskInput = {
         id: 'api',
         text: 'C:\\Users\\kyle\\quillwork\\api',
         truth: { kind: 'currentDirectory', path: API },
-        feedback: 'Right: the prompt names the API folder.',
+        feedback: 'The prompt names the API folder.',
       },
       {
         id: 'home',
@@ -667,7 +667,7 @@ export const notesAgentTaskInput = {
         id: 'api',
         text: 'Only in the API folder',
         truth: { kind: 'all', of: [apiNotes, { ...homeNotes, exists: false }] },
-        feedback: 'Right: the Directory line shows the API folder.',
+        feedback: 'The Directory line shows the API folder.',
       },
       {
         id: 'home',
