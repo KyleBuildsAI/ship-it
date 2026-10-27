@@ -17,7 +17,8 @@ import {
  * screen out front where a writer sits. Its beats act out the Act's lesson cards with
  * glowing packets: a request travels in and a response travels back, a gate checks who's
  * asking, a query runs down the pipe, a cache answers early, jobs wait in a queue, a log
- * scrolls to its one red line, and a bad release is rolled back.
+ * scrolls to its one red line, database connections run out, and a bad release is rolled
+ * back.
  */
 
 const PACKET = new THREE.BoxGeometry(0.34, 0.34, 0.34);
@@ -30,6 +31,10 @@ const CACHE_BOX = new THREE.BoxGeometry(0.8, 0.6, 0.7);
 const BELT = new THREE.BoxGeometry(3.4, 0.1, 0.6);
 const LOG_LINE = new THREE.BoxGeometry(1.8, 0.14, 0.05);
 const MARKER = new THREE.ConeGeometry(0.15, 0.4, 12);
+/** One database connection: a ring, a link the server borrows. It faces the camera. */
+const RING = new THREE.TorusGeometry(0.16, 0.05, 8, 20);
+/** The connection pool: the tray the rings wait in while they're free. */
+const TRAY = new THREE.BoxGeometry(1.7, 0.08, 0.45);
 /** A release, sitting on top of the rack that runs it. */
 const CRATE = new THREE.BoxGeometry(1, 0.5, 0.8);
 const SCREEN = new THREE.BoxGeometry(1.4, 0.9, 0.08);
@@ -95,6 +100,15 @@ const LOG_Z = -1;
 const LOG_WIDTHS = [1, 0.7, 0.9, 0.6, 0.85, 0.75, 0.95];
 /** Which line of the log is the error. */
 const ERROR_LINE = 4;
+/** The connection pool's tray rests on the pipe beside the answering rack. */
+const TRAY_SPOT = point(3.45, 0.39, -0.8);
+const POOL_SLOTS = [2.85, 3.25, 3.65, 4.05].map((x) => point(x, 0.64, -0.8));
+/** Where a ring stands while its connection is open: on the database's top drum. */
+const IN_USE_SPOTS = [4.55, 4.85, 5.15, 5.45].map((x) => point(x, 1.99, 1.8));
+/** When each ring leaves the tray for good, once the leak starts. */
+const LEAK_START = 0.36;
+const LEAK_GAP = 0.08;
+const POOL_EMPTY_AT = LEAK_START + (POOL_SLOTS.length - 1) * LEAK_GAP + LEAK_GAP;
 /** Where a release sits, on top of the middle rack (x = 0). */
 const CRATE_SPOT = point(0, 2.85, -2);
 
@@ -360,6 +374,48 @@ function act6Beats(
           });
           popIn(marker, phase(progress, 0.55, 0.7));
           slide(marker, markerFrom, markerTo, phase(progress, 0.55, 0.8));
+        });
+      },
+    },
+    // The server borrows a database connection (a ring from the tray) for each request and
+    // should hand it back. One ring makes that round trip. Then rings go out and never come
+    // back, the tray runs empty and turns red, and the next request waits at the rack with
+    // no connection to use until it times out red.
+    'connections-run-out': {
+      seconds: 3,
+      start: () => {
+        const tray = part(TRAY, colors.base, TRAY_SPOT.x, TRAY_SPOT.y, TRAY_SPOT.z);
+        tray.visible = false;
+        const rings = POOL_SLOTS.map((slot) => {
+          const ring = part(RING, colors.light, slot.x, slot.y, slot.z);
+          ring.visible = false;
+          return ring;
+        });
+        stage.add(tray, ...rings);
+        const request = packet(colors.glow);
+        return run(stage, [screen], (progress) => {
+          const shown = phase(progress, 0, 0.08);
+          popIn(tray, shown);
+          rings.forEach((ring, index) => {
+            const slot = POOL_SLOTS[index] ?? TRAY_SPOT;
+            const spot = IN_USE_SPOTS[index] ?? TRAY_SPOT;
+            // The first ring shows the healthy way once: out to the database and back.
+            const returned =
+              index === 0 ? phase(progress, 0.1, 0.18) - phase(progress, 0.22, 0.3) : 0;
+            const leakedAt = LEAK_START + index * LEAK_GAP;
+            const out = returned + phase(progress, leakedAt, leakedAt + LEAK_GAP);
+            popIn(ring, shown);
+            slide(ring, slot, spot, out, 0.7);
+            ring.material = out > 0 ? colors.glow : colors.light;
+          });
+          tray.material = progress >= POOL_EMPTY_AT ? colors.alert : colors.base;
+          popIn(request, phase(progress, 0.62, 0.68));
+          travel(request, TO_RACK, phase(progress, 0.62, 0.76), 0.5);
+          // It fidgets at the rack while it waits for a ring that never comes.
+          const waiting = progress >= 0.76 && progress < 0.92;
+          if (waiting) request.position.x += Math.sin(progress * 120) * 0.05;
+          request.material = progress >= 0.92 ? colors.alert : colors.glow;
+          screen.material = progress >= 0.95 ? colors.alert : colors.light;
         });
       },
     },

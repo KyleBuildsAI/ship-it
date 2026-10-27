@@ -34,6 +34,7 @@ export const ISLAND_BEATS = {
     'cache-hit',
     'queue-worker',
     'log-trail',
+    'connections-run-out',
     'incident-rollback',
   ],
   act7: [],
