@@ -212,8 +212,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
         // Right of the wall's gear, so the card isn't read against a glowing ring.
         const to = new THREE.Vector3(4.6, 2.6, 2.4);
         const pr = card(from, 4);
-        // Glow, not light: a light ring would be lost against the light card.
-        const lens = part(LENS, colors.glow, 0, lineY(0), 0.12);
+        // Dark on the light card: a light ring would be lost against the paper, and a
+        // glowing pink one blurs into the red line it comes to rest on.
+        const lens = part(LENS, colors.dark, 0, lineY(0), 0.12);
         lens.visible = false;
         pr.group.add(lens);
         const badLine = 2;
