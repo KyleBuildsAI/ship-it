@@ -32,12 +32,17 @@ const CARD_LINE = new THREE.BoxGeometry(0.7, 0.1, 0.04);
 const BLOCK = new THREE.BoxGeometry(0.45, 0.45, 0.45);
 const ORB = new THREE.SphereGeometry(0.22, 16, 12);
 const STATION = new THREE.CylinderGeometry(0.42, 0.42, 0.16, 20);
-const LENS = new THREE.TorusGeometry(0.32, 0.06, 10, 28);
+const LENS = new THREE.TorusGeometry(0.26, 0.05, 10, 28);
 const GATE_POST = new THREE.BoxGeometry(0.2, 2, 0.2);
 const GATE_BEAM = new THREE.BoxGeometry(2.2, 0.22, 0.22);
 const SCORE_BAR = new THREE.BoxGeometry(0.42, 1, 0.42);
 const FENCE_POST = new THREE.CylinderGeometry(0.09, 0.09, 1.6, 8);
 const STOP_SIGN = new THREE.CylinderGeometry(0.5, 0.5, 0.08, 8);
+
+/** How high a card's line of "text" sits on it, by its place from the top. */
+function lineY(index: number): number {
+  return 0.4 - index * 0.26;
+}
 
 /** The parts of the idle workshop that beats change. */
 interface Workshop {
@@ -82,7 +87,7 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     const group = new THREE.Group();
     group.add(part(CARD, paper, 0, 0, 0));
     const lines = Array.from({ length: lineCount }, (_, index) => {
-      const line = part(CARD_LINE, ink, 0, 0.4 - index * 0.26, 0.05);
+      const line = part(CARD_LINE, ink, 0, lineY(index), 0.05);
       group.add(line);
       return line;
     });
@@ -98,22 +103,17 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     'brief-handed': {
       seconds: 2.8,
       start: () => {
-        const brief = card(new THREE.Vector3(4, 2.2, 3), 3, colors.light, colors.glow);
+        const handedFrom = new THREE.Vector3(4, 2.2, 3);
+        const brief = card(handedFrom, 3, colors.light, colors.glow);
         const nearOtto = new THREE.Vector3(0.9, 2.4, -0.5);
         const blocks = [1.1, 1.65, 2.2].map((x) =>
           hidden(BLOCK, colors.glow, new THREE.Vector3(x, BENCH_TOP + 0.23, -0.8)),
         );
         return run(stage, [], (progress) => {
-          slide(
-            brief.group,
-            new THREE.Vector3(4, 2.2, 3),
-            nearOtto,
-            phase(progress, 0.1, 0.45),
-            0.8,
-          );
+          slide(brief.group, handedFrom, nearOtto, phase(progress, 0.1, 0.45), 0.8);
           // The card shrinks away as Otto reads it in.
           const read = phase(progress, 0.45, 0.6);
-          popIn(brief.group, Math.min(phase(progress, 0, 0.15), 1 - read));
+          popIn(brief.group, Math.min(phase(progress, 0, 0.15), 1 - read), 1.2);
           blocks.forEach((block, index) => {
             const start = 0.6 + index * 0.12;
             popIn(block, phase(progress, start, start + 0.15));
@@ -126,8 +126,9 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
     'agent-loop': {
       seconds: 3,
       start: () => {
-        const center = new THREE.Vector3(0, 0.12, 2);
-        const radius = 2.4;
+        // Far enough forward that the back station isn't hidden under the bench.
+        const center = new THREE.Vector3(0, 0.12, 2.8);
+        const radius = 2.2;
         const orbHeight = 0.7;
         /**
          * Puts `target` on the loop, a quarter-turn per station, starting nearest the
@@ -140,7 +141,8 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
             center.z + Math.cos(turn * Math.PI * 2) * radius,
           );
         const stations = [0, 0.25, 0.5, 0.75].map((turn) =>
-          hidden(STATION, colors.dark, onLoop(new THREE.Vector3(), turn, center.y)),
+          // Base, not dark: dark is nearly the island floor's colour, so they'd vanish unlit.
+          hidden(STATION, colors.base, onLoop(new THREE.Vector3(), turn, center.y)),
         );
         const orb = hidden(ORB, colors.glow, onLoop(new THREE.Vector3(), 0, orbHeight));
         return run(stage, [], (progress) => {
@@ -153,32 +155,38 @@ function act7Beats(stage: Stage, shop: Workshop, colors: Palette): Record<BeatId
           const turn = Math.min(1, Math.max(0, (progress - 0.15) / 0.8));
           onLoop(orb.position, turn, orbHeight);
           stations.forEach((station, index) => {
-            station.material = turn >= index / 4 + 0.02 ? colors.glow : colors.dark;
+            station.material = turn >= index / 4 + 0.02 ? colors.glow : colors.base;
           });
         });
       },
     },
     // Otto's PR looks tidy, but reading it line by line finds the one that's wrong: a
-    // lens sweeps down the card and one line turns red.
+    // lens sweeps down the card, one line turns red, and the lens goes back to rest on it.
     'diff-inspected': {
       seconds: 2.8,
       start: () => {
         const from = new THREE.Vector3(0.9, 2, -0.6);
-        const to = new THREE.Vector3(2.6, 2.3, 2);
+        const to = new THREE.Vector3(2.8, 2.4, 2);
         const pr = card(from, 4);
-        const lens = part(LENS, colors.light, 0, 0, 0);
+        // Glow, not light: a light ring would be lost against the light card.
+        const lens = part(LENS, colors.glow, 0, lineY(0), 0.12);
         lens.visible = false;
         pr.group.add(lens);
         const badLine = 2;
+        const lastLine = pr.lines.length - 1;
         return run(stage, [], (progress) => {
-          popIn(pr.group, phase(progress, 0, 0.15));
+          popIn(pr.group, phase(progress, 0, 0.15), 1.4);
           slide(pr.group, from, to, phase(progress, 0.05, 0.35), 0.5);
-          const sweep = phase(progress, 0.4, 0.85);
-          lens.visible = progress >= 0.4;
-          // The lens rides over each line in turn, from the top line to the bottom one.
-          lens.position.set(0, 0.4 - sweep * 0.78, 0.12);
+          // Every line is read, top to bottom, before the lens goes back to the wrong one.
+          const read = phase(progress, 0.38, 0.75);
+          const back = phase(progress, 0.8, 0.95);
+          lens.visible = progress >= 0.38;
+          lens.position.y =
+            lineY(0) +
+            (lineY(lastLine) - lineY(0)) * read +
+            (lineY(badLine) - lineY(lastLine)) * back;
           pr.lines.forEach((line, index) => {
-            const found = index === badLine && sweep >= (badLine + 0.5) / pr.lines.length;
+            const found = index === badLine && read >= badLine / lastLine;
             line.material = found ? colors.alert : colors.base;
           });
         });
