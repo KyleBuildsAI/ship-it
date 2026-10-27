@@ -70,7 +70,7 @@ export const theThreeAmPage = {
       options: [
         {
           id: 'traffic',
-          text: 'A traffic spike overloaded us.',
+          text: 'Traffic spiked at 02:40 and overloaded the database, so checkouts slowed to about 5 seconds and nearly a third of them fail.',
           correct: false,
           feedback: 'Requests per minute barely moved. Load didn’t change; something else did.',
         },
@@ -192,7 +192,7 @@ export const theThreeAmPage = {
         },
         {
           id: 'deep-dive',
-          text: 'A full technical analysis of the connection pool.',
+          text: 'A full technical write-up of the connection pool: what v4.12.0 changed, why it runs dry, and the fix.',
           correct: false,
           feedback:
             'Too early, and the wrong audience. Say what’s happening and when you’ll update.',
@@ -226,7 +226,7 @@ export const theThreeAmPage = {
       options: [
         {
           id: 'done',
-          text: 'Fully fixed. Redeploy v4.12.0 tomorrow.',
+          text: 'Fully fixed: errors are back to 0.4% and connections to 23/100. Redeploy v4.12.0 tomorrow.',
           correct: false,
           feedback: 'It would break again the same way.',
         },

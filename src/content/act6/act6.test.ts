@@ -161,6 +161,23 @@ describe('Act 6: How Systems Work', () => {
     expect(final?.briefingBeat).not.toBe('incident-rollback');
     expect(cards.slice(0, asked).map((card) => card.beat)).not.toContain('incident-rollback');
   });
+
+  it('gives The 3am Page wrong answers nearly as detailed as its right ones', () => {
+    // validateAct keeps "always the longest" to half the cards, but a timed final also
+    // tempts "pick the one that's clearly longer". Next to one-line wrong answers, that
+    // habit still beat 60% here, so at most one card's right answer may stand out so.
+    const standsOut = (final?.cards ?? []).filter((card) => {
+      if (!isPickCard(card)) return false;
+      const longest = (correct: boolean) =>
+        Math.max(
+          ...card.options
+            .filter((option) => option.correct === correct)
+            .map((option) => option.text.length),
+        );
+      return longest(true) >= 1.3 * longest(false);
+    });
+    expect(standsOut.length, standsOut.map((card) => card.id).join(', ')).toBeLessThanOrEqual(1);
+  });
 });
 
 describe('Act 6 Field Mission: Document One Request', () => {
