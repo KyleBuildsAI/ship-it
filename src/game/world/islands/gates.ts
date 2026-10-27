@@ -154,21 +154,27 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
       signal.material = crateZ > (GATE_Z[index] ?? 0) ? parts.pass : colors.dark;
     });
   };
+  /** A crate rolling the whole road, every gate passing it in turn. */
+  const rollThrough = (material: THREE.Material): Beat => ({
+    seconds: 2.8,
+    start: () => {
+      const lights = signals();
+      const change = crate(material);
+      return run(stage, [], (progress) => {
+        popIn(change, phase(progress, 0, 0.12));
+        slide(change, ENTRY, EXIT, phase(progress, 0.1, 0.95));
+        passedGates(lights, change.position.z);
+      });
+    },
+  });
 
   return {
     // A change rolls down the road and every gate checks it in turn: each light goes green.
-    'change-passes': {
-      seconds: 2.8,
-      start: () => {
-        const lights = signals();
-        const change = crate(colors.light);
-        return run(stage, [], (progress) => {
-          popIn(change, phase(progress, 0, 0.12));
-          slide(change, ENTRY, EXIT, phase(progress, 0.1, 0.95));
-          passedGates(lights, change.position.z);
-        });
-      },
-    },
+    'change-passes': rollThrough(colors.light),
+    // Green isn't the same as right: a bug (a red crate) that no gate was built to look for
+    // rolls through every one of them, all switched on, and every light goes green. Gates
+    // only catch what someone taught them to check.
+    'bug-slips-through': rollThrough(colors.alert),
     // A check fails: the change passes the first gates, the next goes red, the boom drops,
     // and the change bounces back. Nothing gets further until that check is green, and the
     // gate after it stays dark: a step after the first failure never runs.

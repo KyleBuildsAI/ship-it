@@ -240,6 +240,7 @@ export const lintAndTypes = {
     },
     {
       id: 'green-means',
+      beat: 'bug-slips-through',
       kind: 'choose',
       situation:
         'Every gate is green on Otto’s seat-pricing PR. Reading the diff, you notice it rounds prices down to whole dollars.',

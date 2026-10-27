@@ -32,6 +32,7 @@ export const ISLAND_BEATS = {
     'red-to-green',
     'change-reverted',
     'gate-bypassed',
+    'bug-slips-through',
     'flaky-check',
     'test-layers',
     'secret-vault',
