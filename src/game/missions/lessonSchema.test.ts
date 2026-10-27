@@ -187,8 +187,10 @@ describe('a lesson scene (beat)', () => {
   });
 
   it('refuses any beat in an Act whose island has none yet', () => {
-    expect(problems(withFirstCard({ beat: 'branch-splits' }))).toEqual([
-      'Act 4\'s island has no beat "branch-splits". Its beats: none yet.',
+    // Act 1 plays on the machine island, which has no lesson scenes, so this stays true
+    // as each Act island gets its beats.
+    expect(problems({ ...withFirstCard({ beat: 'branch-splits' }), act: 1 })).toEqual([
+      'Act 1\'s island has no beat "branch-splits". Its beats: none yet.',
     ]);
   });
 
