@@ -23,8 +23,13 @@ import {
 
 const PACKET = new THREE.BoxGeometry(0.34, 0.34, 0.34);
 const SMALL_PACKET = new THREE.BoxGeometry(0.24, 0.24, 0.24);
-/** The pass a signed-in request carries: a flat tag riding on its packet. */
-const BADGE = new THREE.BoxGeometry(0.22, 0.08, 0.22);
+/**
+ * The pass a signed-in request carries: a card standing up on its packet, facing the
+ * camera. Lying flat on top, it was seen edge-on from the camera's height and barely showed.
+ */
+const PASS = new THREE.BoxGeometry(0.3, 0.24, 0.04);
+/** How high the pass's middle stands above its packet's middle. */
+const PASS_HEIGHT = 0.31;
 const GATE_POST = new THREE.BoxGeometry(0.14, 2.4, 0.14);
 const GATE_BAR = new THREE.BoxGeometry(1.74, 0.16, 0.16);
 const CACHE_BOX = new THREE.BoxGeometry(0.8, 0.6, 0.7);
@@ -70,10 +75,11 @@ const GATE = point(2.25, 0, 1.6);
 const GATE_FRONT = point(2.25, 1.65, 2.3);
 const TO_GATE = [CLIENT, GATE_FRONT];
 /**
- * A turned-back request lands on the ground beside the path, so it stays in the picture:
- * right of the writer's screen, where the screen can't hide it from the camera.
+ * A turned-back request lands on the ground on the writer's side of the gate, left of the
+ * screen so the screen can't hide it. Landing right of the screen put it against the
+ * database's drums, as if it had been sent there.
  */
-const TURNED_BACK = [GATE_FRONT, point(4.1, 0.17, 3.6)];
+const TURNED_BACK = [GATE_FRONT, point(1, 0.17, 3)];
 /**
  * The cache stands in the gap between the middle rack and the answering one: against the
  * dark racks it reads clearly, where beside the writer's screen it blurred into its glow.
@@ -220,6 +226,30 @@ function act6Beats(
   const { screen } = parts;
   /** The middle drum always glows; the outer two light up while the database reads. */
   const readingDrums = parts.drums.filter((_, index) => index !== 1);
+  /** The gate that checks who's asking, across the path to the racks, hidden until popped in. */
+  const gate = () => {
+    const group = new THREE.Group();
+    const bar = part(GATE_BAR, colors.base, 0, 2.4, 0);
+    group.add(
+      part(GATE_POST, colors.light, -0.8, 1.2, 0),
+      part(GATE_POST, colors.light, 0.8, 1.2, 0),
+      bar,
+    );
+    group.position.copy(GATE);
+    group.visible = false;
+    stage.add(group);
+    return { group, bar };
+  };
+  /** A request carrying its session's pass, hidden at the writer's screen until popped in. */
+  const passHolder = () => {
+    const body = part(PACKET, colors.glow, 0, 0, 0);
+    const holder = new THREE.Group();
+    holder.add(body, part(PASS, colors.light, 0, PASS_HEIGHT, 0));
+    holder.position.copy(CLIENT);
+    holder.visible = false;
+    stage.add(holder);
+    return { holder, body };
+  };
 
   return {
     // A request leaves the writer's screen, the server works on it, and a response comes
@@ -242,27 +272,16 @@ function act6Beats(
       },
     },
     // A gate checks who's asking. A request with no pass is turned back red (401) and
-    // left lying by the path; one carrying its session's pass lights the gate up and goes
-    // through to the server. The held picture keeps both outcomes side by side.
+    // left lying on the writer's side; one carrying its session's pass lights the gate up
+    // and goes through to the server. The held picture keeps both outcomes side by side.
     'auth-gate': {
       seconds: 2.8,
       start: () => {
-        const gate = new THREE.Group();
-        const bar = part(GATE_BAR, colors.base, 0, 2.4, 0);
-        gate.add(
-          part(GATE_POST, colors.light, -0.8, 1.2, 0),
-          part(GATE_POST, colors.light, 0.8, 1.2, 0),
-          bar,
-        );
-        gate.position.copy(GATE);
-        gate.visible = false;
+        const { group: checkpoint, bar } = gate();
         const stranger = packet(colors.glow);
-        const member = new THREE.Group();
-        member.add(part(PACKET, colors.glow, 0, 0, 0), part(BADGE, colors.light, 0, 0.24, 0));
-        member.visible = false;
-        stage.add(gate, member);
+        const { holder: member } = passHolder();
         return run(stage, [], (progress) => {
-          popIn(gate, phase(progress, 0, 0.15));
+          popIn(checkpoint, phase(progress, 0, 0.15));
           popIn(stranger, phase(progress, 0.08, 0.15));
           const turnedBack = progress >= 0.35;
           stranger.material = turnedBack ? colors.alert : colors.glow;
