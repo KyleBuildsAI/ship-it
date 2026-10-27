@@ -47,6 +47,17 @@ function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string 
   return `${STATUS['in-progress']} · card ${String(card)} of ${String(lesson.cards.length)}`;
 }
 
+/**
+ * The status a lesson's row is drawn with. A lesson started but left with nothing to pick
+ * up starts again at its briefing, so its Play looks like a fresh start's, matching a note
+ * that no longer says "In progress".
+ */
+function lessonRowStatus(lesson: Lesson, saved: MissionProgress | undefined): MissionStatus {
+  const status = saved?.status ?? 'available';
+  if (status !== 'in-progress') return status;
+  return lessonResumeFor(lesson, saved) === null ? 'available' : status;
+}
+
 /** A row that starts a mission or a lesson: Play the first time, Replay once it's done. */
 function PlayRow({
   label,
@@ -285,7 +296,7 @@ export function ActMenu({ act: number }: { act: number }) {
               key={id}
               label={`${number} ${lesson.kind === 'final' ? 'Final: ' : ''}${lesson.title}`}
               note={lessonNote(lesson, saved)}
-              status={status}
+              status={lessonRowStatus(lesson, saved)}
               onPlay={() => {
                 startLesson(id);
               }}
