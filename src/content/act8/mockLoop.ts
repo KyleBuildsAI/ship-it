@@ -46,13 +46,13 @@ export const theMockLoop = {
         },
         {
           id: 'split',
-          text: 'A TypeError, because split() needs an argument.',
+          text: 'A TypeError on the first line of the loop, because split() needs a separator to know where to cut.',
           correct: false,
           feedback: 'With no argument, split() splits on any whitespace. That part is fine.',
         },
         {
           id: 'empty',
-          text: 'It returns an empty dict.',
+          text: 'It returns an empty dict, because += on a key that isn’t there yet does nothing.',
           correct: false,
           feedback: 'It never gets as far as returning.',
         },
@@ -87,7 +87,7 @@ export const theMockLoop = {
       options: [
         {
           id: 'deploy',
-          text: 'A bad deploy last week.',
+          text: 'A bad deploy last week. Test it by rolling back to the version from Sep 02, when reports took 120ms.',
           correct: false,
           feedback:
             'The log says nothing touching reports was deployed, and the slowdown is gradual.',
@@ -123,7 +123,7 @@ export const theMockLoop = {
         },
         {
           id: 'faster',
-          text: 'Make the reports faster.',
+          text: 'Make the reports fast again: add caching or indexes, whatever works, run the tests, and show me the new timings.',
           correct: false,
           feedback:
             'Otto might add caching everywhere and call it done, with no proof of the cause.',
@@ -154,13 +154,13 @@ export const theMockLoop = {
         },
         {
           id: 'inline',
-          text: 'Make the thumbnail inside the upload request.',
+          text: 'Make the thumbnail inside the upload request, so it’s ready the moment the upload finishes.',
           correct: false,
           feedback: 'Uploads get slow, and a failed thumbnail can fail the whole upload.',
         },
         {
           id: 'users',
-          text: 'Ask users to upload a thumbnail as well.',
+          text: 'Ask users to upload a small thumbnail along with each image, so there’s nothing to make.',
           correct: false,
           feedback: 'That pushes your job onto your users.',
         },
@@ -184,7 +184,7 @@ export const theMockLoop = {
         },
         {
           id: 'their-side',
-          text: 'Your spreadsheet probably cut them off.',
+          text: 'Your spreadsheet probably cut them off; some apps stop at a row limit. Try opening the file in another one.',
           correct: false,
           feedback: 'Maybe. Check first, then explain with evidence.',
         },
@@ -213,7 +213,7 @@ export const theMockLoop = {
       options: [
         {
           id: 'vague',
-          text: 'There were lots of hard bugs. It was a tough project.',
+          text: 'There were lots of hard bugs. It was a tough project, but I pushed through every one of them.',
           correct: false,
           feedback: 'A vague answer sounds like no answer.',
         },
@@ -249,9 +249,10 @@ export const theMockLoop = {
         },
         {
           id: 'just-do',
-          text: 'Add CSV export. Push to main when it works.',
+          text: 'Add CSV export to the invoices page, write tests for it, and push to main once they pass so Marco can try it today. Keep the diff small.',
           correct: false,
-          feedback: '“When it works” by whose check? And straight to main skips review.',
+          feedback:
+            'Tests Otto writes and grades himself, then straight to main: no plan, no checkpoint, no review.',
         },
         {
           id: 'everything',
