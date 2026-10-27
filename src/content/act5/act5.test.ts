@@ -124,6 +124,19 @@ describe('Act 5: Quality Gates content', () => {
     }
   });
 
+  it('grades the local gates on what the card shows, not on a file the player never sees', () => {
+    // Lint and typecheck both just read the code in seconds, so as two steps either order
+    // was defensible, and the card graded one against the repo's CLAUDE.md. One step for
+    // the static checks, and the timings in the situation, leave a single right order.
+    const card = lessons
+      .find((lesson) => lesson.id === 'lint-and-types')
+      ?.cards.find((entry) => entry.id === 'local-gates');
+    if (card?.kind !== 'order') throw new Error('local-gates should be an order card');
+    expect(card.steps.map((step) => step.id)).toEqual(['static-checks', 'unit', 'build', 'e2e']);
+    expect(card.situation).toContain('unit tests take about 20 seconds');
+    expect(card.explanation).not.toContain('CLAUDE.md');
+  });
+
   it('acts out most cards on the gates island, naming only beats it knows', () => {
     const known = beatsForAct(5);
     const cards = lessons.flatMap((lesson) => lesson.cards);

@@ -108,7 +108,7 @@ export const secretsAndUpdates = {
         { id: 'scanner', text: 'Add a secret scanner like gitleaks to CI' },
       ],
       explanation:
-        'Each step needs the one before. Along the way, remove .env and gitignore it, and check the provider’s logs for use of the old keys. Last, add a gate so the next leak is caught before it’s merged.',
+        'Revoke first: the leaked keys work for anyone who copied them. Then create new ones, store them, and prove the deploy works. Meanwhile, remove .env and check the provider’s logs for the old keys. Last, add a gate to catch the next leak before merge.',
     },
     {
       id: 'fork-secrets',
@@ -174,7 +174,7 @@ export const secretsAndUpdates = {
         },
         {
           id: 'never-update',
-          text: 'Pin every package forever, so nothing changes.',
+          text: 'Pin vite at 6.3.1 in package.json and tell the bot to skip major versions from now on, so nothing breaks under us again.',
           correct: false,
           feedback: 'You’d stop getting security fixes, and the gap only grows.',
         },
@@ -204,7 +204,7 @@ export const secretsAndUpdates = {
       options: [
         {
           id: 'delete-lock',
-          text: 'Delete package-lock.json. It’s generated anyway.',
+          text: 'Delete package-lock.json and add it to .gitignore. npm rebuilds it on every install, so it’s only noise in reviews.',
           correct: false,
           feedback: 'Without it, CI and teammates install whatever versions are newest that day.',
         },
@@ -233,7 +233,7 @@ export const secretsAndUpdates = {
       options: [
         {
           id: 'all-latest',
-          text: 'Update all our dependencies to latest while you’re at it.',
+          text: 'On a branch, upgrade vite to 7 and bring every other dependency up to its latest version while you’re in there. Run every gate and show me the results.',
           correct: false,
           feedback: 'If something breaks, you won’t know which of 40 upgrades did it.',
         },
@@ -288,9 +288,10 @@ export const secretsAndUpdates = {
         },
         {
           id: 'copy',
-          text: 'Copy its source into our repo without reading it.',
+          text: 'Don’t install it. Copy its source into src/utils instead, so we skip the dependency, and add a unit test for 7, 42 and 1000.',
           correct: false,
-          feedback: 'Same unknown code, now with no updates at all.',
+          feedback:
+            'Same unknown code, now with no updates at all, when a built-in already does this.',
         },
       ],
       explanation:
