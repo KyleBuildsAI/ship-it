@@ -200,4 +200,14 @@ describe('Act 3: Branching', () => {
     const used = new Set(cards.map((card) => card.beat));
     for (const beat of known) expect(used).toContain(beat);
   });
+
+  it('opens Tools for Bad Days on the stuck fix, not on the cherry-pick that answers it', () => {
+    // A briefing's scene plays before any question (DESIGN.md, Lesson scenes). The
+    // cherry-pick scene copies the fix onto main, the answer to the first card.
+    const badDays = lessons.find((lesson) => lesson.id === 'tools-for-bad-days');
+    const firstCard = badDays?.cards[0];
+    expect(firstCard?.question).toBe('How do you get just the fix to main?');
+    expect(firstCard?.beat).toBe('cherry-pick');
+    expect(badDays?.briefingBeat).not.toBe(firstCard?.beat);
+  });
 });
