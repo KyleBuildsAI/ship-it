@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { folder, repo } from '../../engine/git/fixtures';
 import { testDeps } from '../../engine/git/testDeps';
-import { describeCrates, gridCell } from './crateLayout';
+import { CRATE_FLOORS, describeCrates, gridCell, LABEL_GAP, placeCrates } from './crateLayout';
 
 const summary = (specs: ReturnType<typeof describeCrates>) =>
   specs.map((spec) => `${spec.area}:${spec.path}:${spec.look}:${String(spec.slot)}`);
@@ -66,5 +66,122 @@ describe('gridCell', () => {
     expect(gridCell(0, 4, 2)).toEqual({ column: 0, row: 0, layer: 0 });
     expect(gridCell(5, 4, 2)).toEqual({ column: 1, row: 1, layer: 0 });
     expect(gridCell(9, 4, 2)).toEqual({ column: 1, row: 0, layer: 1 });
+  });
+});
+
+/**
+ * A label's width in world units, a little wider than labels.ts draws it: 0.32 tall, a
+ * generous 26px a character at its 44px font, and 24px of padding each side, on a 72px
+ * tall canvas. Generous, so a layout that passes here passes with the real font.
+ */
+const labelWidth = (name: string) => (0.32 * (name.length * 26 + 48)) / 72;
+
+/** Each placed crate's label as a span across its floor, with its row and layer. */
+function labelSpans(names: readonly string[], floor = CRATE_FLOORS.bench) {
+  return placeCrates(names, labelWidth, floor).map(({ crate, place }) => ({
+    name: crate,
+    ...place,
+    from: place.x - labelWidth(crate) / 2,
+    to: place.x + labelWidth(crate) / 2,
+  }));
+}
+
+/** Every pair of labels sharing a row and a layer whose spans overlap or touch. */
+function collisions(spans: ReturnType<typeof labelSpans>): string[] {
+  return spans.flatMap((a, i) =>
+    spans
+      .slice(i + 1)
+      .filter((b) => a.row === b.row && a.layer === b.layer)
+      .filter((b) => a.from < b.to + LABEL_GAP / 2 && b.from < a.to + LABEL_GAP / 2)
+      .map((b) => `${a.name} / ${b.name}`),
+  );
+}
+
+/** Mission 2.4 after Otto commits everything: the audit saw these names run together. */
+const IGNORE_LIST_BENCH = [
+  '.env',
+  'README.md',
+  'debug.log',
+  'app.js',
+  'index.html',
+  'package.json',
+  'error.log',
+  'app.ts',
+];
+
+describe('placeCrates', () => {
+  it('keeps the Workbench labels of Mission 2.4 apart', () => {
+    const spans = labelSpans(IGNORE_LIST_BENCH);
+    expect(collisions(spans)).toEqual([]);
+    // ...without spilling off either end of the Workbench.
+    for (const span of spans) {
+      expect(span.from).toBeGreaterThanOrEqual(0);
+      expect(span.to).toBeLessThanOrEqual(CRATE_FLOORS.bench.width);
+    }
+  });
+
+  it('keeps long names apart on every floor, wrapping them onto more rows', () => {
+    const longNames = [
+      '.env.example',
+      'package-lock.json',
+      'CONTRIBUTING.md',
+      'tsconfig.json',
+      'docker-compose.yml',
+      'checkout.test.ts',
+      'vite.config.ts',
+      '.gitignore',
+      'a.ts',
+    ];
+    for (const floor of Object.values(CRATE_FLOORS)) {
+      const spans = labelSpans(longNames, floor);
+      expect(collisions(spans)).toEqual([]);
+      expect(new Set(spans.map((span) => span.row)).size).toBeGreaterThan(1);
+    }
+  });
+
+  it('puts short names a crate apart, as many to a row as the floor holds', () => {
+    const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+    const places = placeCrates(names, labelWidth, CRATE_FLOORS.bench).map(({ place }) => place);
+    expect(places.slice(0, 8).map((place) => place.row)).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(places[1]?.x).toBeCloseTo(0.44 + 0.88);
+    expect(places[8]).toMatchObject({ column: 0, row: 1, x: 0.44 });
+  });
+
+  it('gives each column the width of the longest label in it', () => {
+    const places = placeCrates(['a', 'package.json', 'b', 'c'], labelWidth, {
+      ...CRATE_FLOORS.dock,
+      width: 3,
+    }).map(({ place }) => place);
+    // Two columns fit: the second as wide as package.json's label, which shares it with c.
+    expect(places.map((place) => [place.column, place.row])).toEqual([
+      [0, 0],
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ]);
+    expect(places[3]?.x).toBeCloseTo(0.97 + (labelWidth('package.json') + LABEL_GAP) / 2);
+  });
+
+  it('stacks crates on the same columns once every row is full', () => {
+    const names = Array.from({ length: 30 }, (_, index) => `file-${String(index)}.ts`);
+    const places = placeCrates(names, labelWidth, CRATE_FLOORS.bench).map(({ place }) => place);
+    const stacked = places.filter((place) => place.layer > 0);
+    expect(stacked.length).toBeGreaterThan(0);
+    for (const upper of stacked) {
+      const below = places.find(
+        (place) => place.layer === 0 && place.row === upper.row && place.column === upper.column,
+      );
+      expect(below?.x).toBe(upper.x);
+    }
+  });
+
+  it('gives a name wider than the whole floor a row of its own', () => {
+    const huge = 'x'.repeat(80);
+    const places = placeCrates(['a', huge, 'b'], labelWidth, CRATE_FLOORS.blocklist);
+    expect(places.map(({ place }) => place.row)).toEqual([0, 1, 2]);
+  });
+
+  it('places nothing on an empty floor', () => {
+    expect(placeCrates([], labelWidth, CRATE_FLOORS.dock)).toEqual([]);
   });
 });
