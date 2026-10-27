@@ -66,6 +66,8 @@ const KEY_BINDINGS: Record<string, keyof MoveKeys> = {
 /** A press shorter and stiller than this is a click; anything else is a camera drag. */
 const CLICK_MAX_PIXELS = 6;
 const CLICK_MAX_MS = 400;
+/** How long the view takes to fade back in after a trip: theme.css's #scene transition. */
+const FADE_IN_SECONDS = 0.35;
 
 /**
  * Builds the explorable world: Campus, the Git World, the machine island and the themed
@@ -184,6 +186,9 @@ export function createWorld(
   let jump: Jump = GROUNDED;
   let walking = false;
   let travelling = false;
+  /** The world's clock at the last frame, and when the player last arrived on an island. */
+  let clock = 0;
+  let arrivedAt = -Infinity;
   const keys: MoveKeys = { forward: false, back: false, left: false, right: false };
 
   const placeCamera = (at: Flat) => {
@@ -206,6 +211,7 @@ export function createWorld(
       if (!usesTerminal(to)) closeTerminal();
       fadeTarget.style.opacity = '1';
       travelling = false;
+      arrivedAt = clock;
     };
     if (reducedMotion) {
       arrive();
@@ -409,10 +415,17 @@ export function createWorld(
     scene,
     camera,
     update: (dt, elapsed) => {
+      clock = elapsed;
       campus.update(elapsed);
       gitWorld.update(elapsed);
       machine.update(elapsed);
-      for (const built of Object.values(actIslands)) built.update(elapsed);
+      // A lesson scene plays only where the player can see it: on the island they stand on,
+      // once the trip's fade is over. Started any earlier, half of it would play unseen.
+      const fading = !reducedMotion && elapsed - arrivedAt < FADE_IN_SECONDS;
+      const settled = !travelling && !fading;
+      for (const [island, built] of Object.entries(actIslands)) {
+        built.update(elapsed, settled && island === zone);
+      }
       if (cratesDirty && watched) {
         yard.sync(describeCrates(watched), committedSinceSync);
         path.sync(watched.repo ? describeHistory(watched.repo) : null);

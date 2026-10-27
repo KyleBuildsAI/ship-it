@@ -26,7 +26,11 @@ export interface ActIsland {
   readonly spawn: Flat;
   /** The portal back to Campus: its ring stands at `at`. */
   readonly exit: { readonly group: THREE.Group; readonly at: Flat };
-  update: (elapsed: number) => void;
+  /**
+   * Called every frame. `onScreen` says the player is here and the view has faded in: a
+   * lesson scene only plays then, so one cued during the trip starts on arrival.
+   */
+  update: (elapsed: number, onScreen: boolean) => void;
   /** Plays one of this island's lesson scenes, or with null returns it to its idle look. */
   playBeat: (id: string | null) => void;
   /** The beat playing or held now, for tests. */
@@ -93,11 +97,11 @@ export function createActIsland(data: ActIslandData, reducedMotion = false): Act
     island,
     spawn: { x: data.center.x, z: data.center.z + 10 },
     exit: { group: exit, at: { x: data.center.x + EXIT_SPOT.x, z: data.center.z + EXIT_SPOT.z } },
-    update: (elapsed) => {
+    update: (elapsed, onScreen) => {
       props.animate(elapsed);
       // After the idle motion, so a beat that moves a prop wins over its idle bob. A held
       // beat redraws its last frame here too, or the idle motion would undo it.
-      beats.update(elapsed);
+      if (onScreen) beats.update(elapsed);
     },
     playBeat: beats.play,
     currentBeat: beats.current,
