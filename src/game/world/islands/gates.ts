@@ -133,6 +133,12 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
     stage.add(group);
     return group;
   };
+  /** Recolours a whole key: its ring, shank and tooth. */
+  const paintKey = (keyGroup: THREE.Group, material: THREE.Material) => {
+    keyGroup.children.forEach((piece) => {
+      if (piece instanceof THREE.Mesh) piece.material = material;
+    });
+  };
   /** Lights every gate the crate has rolled past green, except any `skip`ped gate. */
   const passedGates = (signalMeshes: readonly THREE.Mesh[], crateZ: number, skip = -1) => {
     signalMeshes.forEach((signal, index) => {
@@ -332,9 +338,10 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         });
       },
     },
-    // A leaked key: it lies out on the road, flashing red. It's revoked (it shrinks away),
-    // a fresh key appears in the vault, and the first gate lights up: a scan that catches
-    // the next leak before it's merged.
+    // A leaked key: it lies out on the road, flashing red. Revoking it can't take it back:
+    // copies are out there and git history keeps it. So it stays, but goes dark and still:
+    // it opens nothing now. A fresh key appears in the vault, and the first gate lights up:
+    // a scan that catches the next leak before it's merged.
     'key-revoked': {
       seconds: 2.8,
       start: () => {
@@ -342,11 +349,11 @@ function act5Beats(stage: Stage, parts: GateParts, colors: Palette): Record<Beat
         const leaked = key(colors.alert, LEAK_SPOT);
         const fresh = key(colors.glow, VAULT);
         return run(stage, [], (progress) => {
-          const shown = phase(progress, 0, 0.15);
-          const revoked = phase(progress, 0.4, 0.6);
-          popIn(leaked, Math.min(shown, 1 - revoked), 1.3);
-          leaked.rotation.z = progress < 0.4 ? Math.sin(progress * 50) * 0.15 : 0;
-          popIn(fresh, phase(progress, 0.6, 0.8));
+          popIn(leaked, phase(progress, 0, 0.15), 1.3);
+          const revoked = progress >= 0.45;
+          leaked.rotation.z = revoked ? 0 : Math.sin(progress * 50) * 0.15;
+          paintKey(leaked, revoked ? colors.dark : colors.alert);
+          popIn(fresh, phase(progress, 0.55, 0.75));
           const scanLight = lights[0];
           if (scanLight) scanLight.material = progress >= 0.85 ? parts.pass : colors.dark;
         });
