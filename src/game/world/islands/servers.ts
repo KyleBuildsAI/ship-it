@@ -65,7 +65,6 @@ const PIPE_BEND = point(5, 0.5, -0.8);
 const DRUM_EDGE = point(5, 0.5, 0.8);
 const TO_DATABASE = [RACK_FOOT, PIPE_BEND, DRUM_EDGE];
 const FROM_DATABASE = [DRUM_EDGE, PIPE_BEND, RACK_FOOT];
-const DATABASE_ROUND_TRIP = [...TO_DATABASE, PIPE_BEND, RACK_FOOT];
 /** The gate stands across the request's path, halfway between screen and rack. */
 const GATE = point(2.25, 0, 1.6);
 const GATE_FRONT = point(2.25, 1.65, 2.3);
@@ -82,7 +81,11 @@ const TURNED_BACK = [GATE_FRONT, point(4.1, 0.17, 3.6)];
 const CACHE_SPOT = point(1, 0.3, -0.3);
 const CACHE_TOP = point(1, 0.8, -0.3);
 const TO_CACHE = [CLIENT, RACK_DOOR, CACHE_TOP];
-const FROM_CACHE = [CACHE_TOP, CLIENT];
+/**
+ * The cached answer goes back through the server that looked it up, not straight from the
+ * cache to the writer: the cache sits inside our system, and only the server answers.
+ */
+const FROM_CACHE = [CACHE_TOP, RACK_DOOR, CLIENT];
 /** The rack (x = -2) that works through the queue, and the belt's slots, nearest first. */
 const WORKER_DOOR = point(-2, 0.6, -1.2);
 const QUEUE_SLOTS = [point(-1, 0.3, 0.9), point(-0.2, 0.3, 0.9), point(0.6, 0.3, 0.9)];
@@ -209,6 +212,8 @@ function act6Beats(
   const answering = rackAt(parts, 3);
   const worker = rackAt(parts, 1);
   const { screen } = parts;
+  /** The middle drum always glows; the outer two light up while the database reads. */
+  const readingDrums = parts.drums.filter((_, index) => index !== 1);
 
   return {
     // A request leaves the writer's screen, the server works on it, and a response comes
@@ -277,15 +282,13 @@ function act6Beats(
         const query = packet(colors.glow, SMALL_PACKET);
         const rows = packet(colors.light, SMALL_PACKET);
         const response = packet(colors.light);
-        // The middle drum always glows; the outer two light up while the query reads.
-        const lit = parts.drums.filter((_, index) => index !== 1);
-        return run(stage, [screen, ...lit], (progress) => {
+        return run(stage, [screen, ...readingDrums], (progress) => {
           popIn(request, phase(progress, 0, 0.05) - phase(progress, 0.22, 0.27));
           travel(request, TO_RACK, phase(progress, 0, 0.22), 0.4);
           popIn(query, phase(progress, 0.24, 0.3) - phase(progress, 0.5, 0.55));
           travel(query, TO_DATABASE, phase(progress, 0.25, 0.5));
           const reading = progress >= 0.5 && progress < 0.65;
-          lit.forEach((drum) => {
+          readingDrums.forEach((drum) => {
             drum.material = reading ? colors.glow : colors.light;
           });
           popIn(rows, phase(progress, 0.6, 0.65) - phase(progress, 0.8, 0.84));
@@ -296,8 +299,9 @@ function act6Beats(
         });
       },
     },
-    // The first read pays the slow trip to the database and keeps a copy in a cache box by
-    // the rack. The next request is answered from that copy, without touching the database.
+    // The first read pays the slow trip: the database reads (its drums light up) and a copy
+    // is kept in a cache box by the rack. The next request is answered from that copy,
+    // through the server, while the database stays dark: a hit never touches it.
     'cache-hit': {
       seconds: 3,
       start: () => {
@@ -307,9 +311,17 @@ function act6Beats(
         stage.add(cache);
         const request = packet(colors.glow);
         const response = packet(colors.light);
-        return run(stage, [screen], (progress) => {
+        return run(stage, [screen, ...readingDrums], (progress) => {
           popIn(query, phase(progress, 0, 0.04) - phase(progress, 0.38, 0.42));
-          travel(query, DATABASE_ROUND_TRIP, phase(progress, 0, 0.4));
+          // Out to the database, a pause while it reads, then back with the answer.
+          const answered = progress >= 0.24;
+          if (answered) travel(query, FROM_DATABASE, phase(progress, 0.24, 0.4));
+          else travel(query, TO_DATABASE, phase(progress, 0, 0.16));
+          query.material = answered ? colors.light : colors.glow;
+          const reading = progress >= 0.16 && progress < 0.26;
+          readingDrums.forEach((drum) => {
+            drum.material = reading ? colors.glow : colors.light;
+          });
           popIn(cache, phase(progress, 0.38, 0.5));
           popIn(request, phase(progress, 0.5, 0.55) - phase(progress, 0.72, 0.76));
           travel(request, TO_CACHE, phase(progress, 0.5, 0.74));
