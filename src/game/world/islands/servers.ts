@@ -221,7 +221,9 @@ function act6Beats(
         return run(stage, [answering, screen], (progress) => {
           popIn(request, phase(progress, 0, 0.08) - phase(progress, 0.4, 0.48));
           travel(request, TO_RACK, phase(progress, 0.05, 0.4), 0.5);
-          answering.material = progress >= 0.4 && progress < 0.6 ? colors.base : colors.dark;
+          // A busy server glows, as the drums do while they read. Swapping to the slightly
+          // lighter base colour didn't show from the camera against the dark racks.
+          answering.material = progress >= 0.4 && progress < 0.6 ? colors.glow : colors.dark;
           popIn(response, phase(progress, 0.5, 0.58));
           travel(response, FROM_RACK, phase(progress, 0.55, 0.9), 0.5);
           screen.material = progress >= 0.9 ? colors.glow : colors.light;
@@ -350,11 +352,11 @@ function act6Beats(
               0.4,
             );
           });
-          // The worker lights up while a job sits at its door being worked on.
+          // The worker glows while a job sits at its door being worked on.
           const working = JOB_TURNS.some(
             (turn) => progress >= turn.takenAt + TO_WORKER_TIME && progress < turn.doneAt,
           );
-          worker.material = working ? colors.base : colors.dark;
+          worker.material = working ? colors.glow : colors.dark;
           screen.material = progress >= 0.2 ? colors.glow : colors.light;
         });
       },
