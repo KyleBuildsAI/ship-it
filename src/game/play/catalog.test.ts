@@ -260,6 +260,8 @@ describe('loaded content on a lazy catalog', () => {
     expect(() => loadedLesson(sampleLesson.id)).toThrow("Act 4 isn't loaded.");
     await loadAct(4);
     expect(loadedLesson(sampleLesson.id)).toBe(sampleLesson);
+    // A mission's id needs its Act loaded too, before it can come back undefined.
+    expect(() => loadedLesson(sampleMission.id)).toThrow("Act 2 isn't loaded.");
     await loadAct(2);
     expect(loadedLesson(sampleMission.id)).toBeUndefined();
     expect(loadedLesson('nothing')).toBeUndefined();

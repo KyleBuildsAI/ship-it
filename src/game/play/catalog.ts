@@ -215,7 +215,11 @@ export function loadedMission(id: string): Mission {
   throw new Error(`No mission has the id "${id}".`);
 }
 
-/** The lesson with this id, or undefined when the id names a mission (or nothing). */
+/**
+ * The lesson with this id, or undefined when the id names a mission or nothing this build
+ * has. Throws ActNotLoadedError while the id's Act hasn't loaded, a mission's id included,
+ * so a lesson whose Act is still downloading is never mistaken for a missing one.
+ */
 export function loadedLesson(id: string): Lesson | undefined {
   const lesson = findInLoadedActs(id, (content) => content.lessons ?? []);
   if (lesson === undefined) requireOwnerLoaded(actOfPart(id));
