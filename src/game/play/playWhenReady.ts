@@ -29,12 +29,20 @@ export type PlayRequest =
 
 /**
  * How a request ended. 'superseded': it did nothing, because before it could start a newer
- * click came, its menu closed, or the save wasn't ready (see startIfSaveReady).
+ * click came, the menu it came from closed, or the save wasn't ready (see startIfSaveReady).
  * 'failed': an Act it needed didn't download.
  */
 export type PlayOutcome = 'started' | 'superseded' | 'failed';
 
+/**
+ * The menu a press came from. The Standup Board opens over the Act menu, so both can be
+ * open at once, and each one shows (and on closing, drops) only its own press.
+ */
+export type PlayMenu = 'act-menu' | 'standup-board';
+
 export interface PendingPlay {
+  /** The menu the waiting or failed press came from. Only that menu shows them. */
+  readonly from: PlayMenu | null;
   /** The request whose Acts are downloading, so its button can say "Loading…". */
   readonly waiting: PlayRequest | null;
   /** The request whose download failed, so its menu can say so until the next click. */
@@ -42,7 +50,7 @@ export interface PendingPlay {
 }
 
 /** What the menus show about the newest click while its Acts download. */
-export const pendingPlay = createStore<PendingPlay>({ waiting: null, failed: null });
+export const pendingPlay = createStore<PendingPlay>({ from: null, waiting: null, failed: null });
 
 /**
  * Numbers the clicks. A request keeps its number and may start or report anything only
@@ -96,43 +104,51 @@ export function actsNeeded(request: PlayRequest, now: Date): readonly number[] {
 }
 
 /**
- * Drops the request still on its way, as when its menu closes or switches Act: the player
- * has left the button they pressed, so play mustn't start behind their back.
+ * Drops the request still on its way, so play never starts behind the player's back.
+ * - Named a menu (as when that menu closes or switches Act), it drops the press only if it
+ *   came from there. A press from the other menu, still open, carries on.
+ * - Named no menu, it drops whatever is on its way: something started play without the
+ *   gate, and that newer choice must not be replaced when an old download arrives.
  */
-export function cancelPendingPlay(): void {
+export function cancelPendingPlay(menu?: PlayMenu): void {
+  if (menu !== undefined && pendingPlay.get().from !== menu) return;
   latestTicket += 1;
-  pendingPlay.update({ waiting: null, failed: null });
+  pendingPlay.update({ from: null, waiting: null, failed: null });
 }
 
 /**
  * What a menu does while it's open. Opening it starts downloading the Acts its buttons
  * need, so Play is nearly always instant. The function it returns is for when the menu
- * closes or switches Act: it drops the press still waiting for a download. A menu's effect
- * returns that function, so React runs it at the right moment.
+ * closes or switches Act: it drops the menu's own press still waiting for a download. A
+ * menu's effect returns that function, so React runs it at the right moment.
  */
-export function whileMenuOpen(acts: readonly number[]): () => void {
+export function whileMenuOpen(menu: PlayMenu, acts: readonly number[]): () => void {
   for (const act of acts) prefetchAct(act);
-  return cancelPendingPlay;
+  return () => {
+    cancelPendingPlay(menu);
+  };
 }
 
 /**
- * Starts `request` once every Act it needs has loaded. When they all have (nearly always:
- * opening a menu prefetches its Act), play starts during the click itself, because an
- * async function runs straight through until its first await.
+ * Starts `request`, pressed in `from`, once every Act it needs has loaded. When they all
+ * have (nearly always: opening a menu prefetches its Act), play starts during the click
+ * itself, because an async function runs straight through until its first await.
  */
 export async function playWhenReady(
   request: PlayRequest,
+  from: PlayMenu,
   now: Date = new Date(),
 ): Promise<PlayOutcome> {
   latestTicket += 1;
   const ticket = latestTicket;
-  pendingPlay.update({ waiting: null, failed: null });
+  // A new press clears what the last one left on screen, in whichever menu.
+  pendingPlay.update({ from: null, waiting: null, failed: null });
   // A loop because a review's drills come from the save, which can change while an Act
   // downloads. Each round loads at least one more Act and none is ever dropped, so it ends.
   for (;;) {
     const missing = actsNeeded(request, now).filter((act) => !isActLoaded(act));
     if (missing.length === 0) return startIfSaveReady(request, now);
-    pendingPlay.update({ waiting: request });
+    pendingPlay.update({ from, waiting: request });
     try {
       await Promise.all(missing.map((act) => loadAct(act)));
     } catch {
@@ -155,7 +171,7 @@ export async function playWhenReady(
  * 'elsewhere' (another tab has it) or 'failed' (it couldn't be read).
  */
 function startIfSaveReady(request: PlayRequest, now: Date): PlayOutcome {
-  pendingPlay.update({ waiting: null });
+  pendingPlay.update({ from: null, waiting: null });
   if (progress.get().status !== 'ready') return 'superseded';
   start(request, now);
   return 'started';

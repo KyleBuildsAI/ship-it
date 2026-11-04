@@ -16,7 +16,10 @@ export function StandupBoard() {
   // Above the early return: React needs the same hooks, in the same order, every render.
   // It runs again once the save loads: the save holds the review queue, which says which
   // Acts today's review draws from, so until then there's nothing to fetch.
-  useEffect(() => whileMenuOpen(actsNeeded({ kind: 'review' }, new Date())), [saveLoaded]);
+  useEffect(
+    () => whileMenuOpen('standup-board', actsNeeded({ kind: 'review' }, new Date())),
+    [saveLoaded],
+  );
   if (save === null) return null;
   const now = new Date();
   const today = localDay(now);
@@ -48,10 +51,11 @@ export function StandupBoard() {
               </li>
             ))}
           </ol>
-          <LoadFailedAlert />
+          <LoadFailedAlert from="standup-board" />
           <div className="play-panel__actions">
             <PlayButton
               request={{ kind: 'review' }}
+              from="standup-board"
               className="play-button play-button--primary"
               onStarted={() => {
                 openMenu(null);

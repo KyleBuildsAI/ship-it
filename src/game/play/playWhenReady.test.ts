@@ -36,6 +36,8 @@ if (firstDrill === undefined || secondDrill === undefined) {
 const actTwoDrill = firstDrill.id;
 const actThreeDrills = [`other-${firstDrill.id}`, `other-${secondDrill.id}`];
 const missionInActTwo: PlayRequest = { kind: 'mission', id: sampleMission.id };
+/** No press waiting or failed, so no menu shows "Loading…" or an alert. */
+const NOTHING_PENDING = { from: null, waiting: null, failed: null };
 
 async function startWithSave(save: SaveData): Promise<void> {
   await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
@@ -111,7 +113,7 @@ describe('playWhenReady with every Act loaded', () => {
   it.each(cases)('starts %o during the click itself', async (request, kind) => {
     const changes = vi.fn();
     const stop = pendingPlay.subscribe(changes);
-    const outcome = playWhenReady(request, NOW);
+    const outcome = playWhenReady(request, 'act-menu', NOW);
     // No await yet: the activity is already running, as when the button called the starter.
     expect(play.get().activity?.kind).toBe(kind);
     await expect(outcome).resolves.toBe('started');
@@ -122,7 +124,7 @@ describe('playWhenReady with every Act loaded', () => {
 
   it('starts nothing once another tab has the save', async () => {
     progress.update({ status: 'elsewhere' });
-    await expect(playWhenReady(missionInActTwo, NOW)).resolves.toBe('superseded');
+    await expect(playWhenReady(missionInActTwo, 'act-menu', NOW)).resolves.toBe('superseded');
     expect(play.get().activity).toBeNull();
   });
 });
@@ -131,22 +133,22 @@ describe('playWhenReady with an Act still to download', () => {
   it('shows the request as waiting, then starts it once the Act arrives', async () => {
     const download = slowDownload(actTwo);
     setLazyCatalog([download.entry]);
-    const outcome = playWhenReady(missionInActTwo, NOW);
-    expect(pendingPlay.get()).toEqual({ waiting: missionInActTwo, failed: null });
+    const outcome = playWhenReady(missionInActTwo, 'act-menu', NOW);
+    expect(pendingPlay.get()).toEqual({ from: 'act-menu', waiting: missionInActTwo, failed: null });
     expect(play.get().activity).toBeNull();
 
     download.arrive();
     await expect(outcome).resolves.toBe('started');
     expect(play.get().activity?.kind).toBe('mission');
-    expect(pendingPlay.get()).toEqual({ waiting: null, failed: null });
+    expect(pendingPlay.get()).toEqual(NOTHING_PENDING);
   });
 
   it("starts only the newer of two requests, even when the older one's Act arrives last", async () => {
     const actTwoDownload = slowDownload(actTwo);
     setLazyCatalog([actTwoDownload.entry, lazy(actThree)]);
-    const older = playWhenReady(missionInActTwo, NOW);
+    const older = playWhenReady(missionInActTwo, 'act-menu', NOW);
     const newerRequest: PlayRequest = { kind: 'field', act: 3 };
-    const newer = playWhenReady(newerRequest, NOW);
+    const newer = playWhenReady(newerRequest, 'act-menu', NOW);
     expect(pendingPlay.get().waiting).toBe(newerRequest);
     await expect(newer).resolves.toBe('started');
 
@@ -167,14 +169,14 @@ describe('playWhenReady with an Act still to download', () => {
       vi.spyOn(console, 'error').mockImplementation(() => undefined);
       const actThreeDownload = slowDownload(actThree);
       setLazyCatalog([lazy(actTwo, loadActTwo), actThreeDownload.entry]);
-      const older = playWhenReady(missionInActTwo, NOW);
+      const older = playWhenReady(missionInActTwo, 'act-menu', NOW);
       const newerRequest: PlayRequest = { kind: 'field', act: 3 };
-      const newer = playWhenReady(newerRequest, NOW);
+      const newer = playWhenReady(newerRequest, 'act-menu', NOW);
 
       await expect(older).resolves.toBe('superseded');
       // The older click started nothing, and left the newer click's button as it was.
       expect(play.get().activity).toBeNull();
-      expect(pendingPlay.get()).toEqual({ waiting: newerRequest, failed: null });
+      expect(pendingPlay.get()).toEqual({ from: 'act-menu', waiting: newerRequest, failed: null });
 
       actThreeDownload.arrive();
       await expect(newer).resolves.toBe('started');
@@ -182,12 +184,12 @@ describe('playWhenReady with an Act still to download', () => {
     },
   );
 
-  it('drops a request once cancelPendingPlay runs, as when its menu closes', async () => {
+  it('drops a request once the menu it came from closes', async () => {
     const download = slowDownload(actTwo);
     setLazyCatalog([download.entry]);
-    const outcome = playWhenReady(missionInActTwo, NOW);
-    cancelPendingPlay();
-    expect(pendingPlay.get()).toEqual({ waiting: null, failed: null });
+    const outcome = playWhenReady(missionInActTwo, 'act-menu', NOW);
+    cancelPendingPlay('act-menu');
+    expect(pendingPlay.get()).toEqual(NOTHING_PENDING);
 
     download.arrive();
     await expect(outcome).resolves.toBe('superseded');
@@ -206,19 +208,22 @@ describe('playWhenReady with an Act still to download', () => {
     closeTerminal();
     const saveBefore = progress.get().save;
 
-    await expect(playWhenReady(missionInActTwo, NOW)).resolves.toBe('failed');
-    expect(pendingPlay.get()).toEqual({ waiting: null, failed: missionInActTwo });
+    await expect(playWhenReady(missionInActTwo, 'act-menu', NOW)).resolves.toBe('failed');
+    expect(pendingPlay.get()).toEqual({ from: 'act-menu', waiting: null, failed: missionInActTwo });
     expect(play.get().activity).toBeNull();
     // Starting a mission writes to the save and opens the terminal; neither happened.
     expect(progress.get().save).toBe(saveBefore);
     expect(hud.get().terminalOpen).toBe(false);
     // loadAct logged the failure; the gate doesn't log it a second time.
     expect(error).toHaveBeenCalledOnce();
-    // Closing the menu forgets the failure too.
-    cancelPendingPlay();
+    // Closing the Standup Board leaves the Act menu's failure on show; closing the Act menu
+    // forgets it.
+    cancelPendingPlay('standup-board');
+    expect(pendingPlay.get().failed).toEqual(missionInActTwo);
+    cancelPendingPlay('act-menu');
     expect(pendingPlay.get().failed).toBeNull();
 
-    await expect(playWhenReady(missionInActTwo, NOW)).resolves.toBe('started');
+    await expect(playWhenReady(missionInActTwo, 'act-menu', NOW)).resolves.toBe('started');
     expect(play.get().activity?.kind).toBe('mission');
     expect(load).toHaveBeenCalledTimes(2);
   });
@@ -226,8 +231,10 @@ describe('playWhenReady with an Act still to download', () => {
   it('lets only the newest click report a failed download', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     setLazyCatalog([lazy(actTwo, () => Promise.reject(new Error('offline'))), lazy(actThree)]);
-    const older = playWhenReady(missionInActTwo, NOW);
-    await expect(playWhenReady({ kind: 'field', act: 3 }, NOW)).resolves.toBe('started');
+    const older = playWhenReady(missionInActTwo, 'act-menu', NOW);
+    await expect(playWhenReady({ kind: 'field', act: 3 }, 'act-menu', NOW)).resolves.toBe(
+      'started',
+    );
     await expect(older).resolves.toBe('superseded');
     // Act 3's menu never says Act 2 failed: the player had moved on from that click.
     expect(pendingPlay.get().failed).toBeNull();
@@ -236,33 +243,46 @@ describe('playWhenReady with an Act still to download', () => {
   it('starts nothing when another tab takes the save while the Act downloads', async () => {
     const download = slowDownload(actTwo);
     setLazyCatalog([download.entry]);
-    const outcome = playWhenReady(missionInActTwo, NOW);
+    const outcome = playWhenReady(missionInActTwo, 'act-menu', NOW);
     progress.update({ status: 'elsewhere' });
 
     download.arrive();
     await expect(outcome).resolves.toBe('superseded');
     expect(play.get().activity).toBeNull();
     // The button stops saying "Loading…", though nothing started.
-    expect(pendingPlay.get()).toEqual({ waiting: null, failed: null });
+    expect(pendingPlay.get()).toEqual(NOTHING_PENDING);
   });
 });
 
 describe('whileMenuOpen', () => {
-  it("downloads a menu's Acts as it opens, and drops a press still waiting as it closes", async () => {
+  it("downloads a menu's Acts as it opens, and drops its own press as it closes", async () => {
     const actTwoDownload = slowDownload(actTwo);
     const actThreeEntry = lazy(actThree);
     setLazyCatalog([actTwoDownload.entry, actThreeEntry]);
-    const close = whileMenuOpen([2, 3]);
+    const closeActMenu = whileMenuOpen('act-menu', [2, 3]);
     expect(actTwoDownload.entry.load).toHaveBeenCalledOnce();
     expect(actThreeEntry.load).toHaveBeenCalledOnce();
 
-    const press = playWhenReady(missionInActTwo, NOW);
-    close();
+    const press = playWhenReady(missionInActTwo, 'act-menu', NOW);
+    closeActMenu();
     actTwoDownload.arrive();
     await expect(press).resolves.toBe('superseded');
     expect(play.get().activity).toBeNull();
     // The press waited on the download the menu had started, rather than starting another.
     expect(actTwoDownload.entry.load).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the other menu's press to start when it closes", async () => {
+    const download = slowDownload(actTwo);
+    setLazyCatalog([download.entry]);
+    const closeBoard = whileMenuOpen('standup-board', []);
+    const press = playWhenReady(missionInActTwo, 'act-menu', NOW);
+    // The Standup Board sits over the Act menu. Closing it mustn't drop the Act menu's press.
+    closeBoard();
+    expect(pendingPlay.get().waiting).toEqual(missionInActTwo);
+    download.arrive();
+    await expect(press).resolves.toBe('started');
+    expect(play.get().activity?.kind).toBe('mission');
   });
 });
 
@@ -289,7 +309,7 @@ describe('playWhenReady with a review', () => {
   it('loads only the Acts its drills come from', async () => {
     // Two drills from Act 3 need Act 3 once.
     expect(actsNeeded({ kind: 'review' }, NOW)).toEqual([3]);
-    const outcome = playWhenReady({ kind: 'review' }, NOW);
+    const outcome = playWhenReady({ kind: 'review' }, 'standup-board', NOW);
     actThreeDownload.arrive();
     await expect(outcome).resolves.toBe('started');
     expect(actTwoEntry.load).not.toHaveBeenCalled();
@@ -297,7 +317,7 @@ describe('playWhenReady with a review', () => {
   });
 
   it('plans again when its queue grows during the download', async () => {
-    const outcome = playWhenReady({ kind: 'review' }, NOW);
+    const outcome = playWhenReady({ kind: 'review' }, 'standup-board', NOW);
     missAnActTwoDrill();
     actThreeDownload.arrive();
     await expect(outcome).resolves.toBe('started');
@@ -317,7 +337,7 @@ describe('playWhenReady with a review', () => {
     // instead of the click's NOW would load Act 2, or play a drill whose Act isn't loaded.
     vi.useFakeTimers({ now: new Date('2026-10-05T12:00:00.000Z'), toFake: ['Date'] });
 
-    const outcome = playWhenReady({ kind: 'review' }, NOW);
+    const outcome = playWhenReady({ kind: 'review' }, 'standup-board', NOW);
     actThreeDownload.arrive();
     await expect(outcome).resolves.toBe('started');
     expect(actTwoEntry.load).not.toHaveBeenCalled();
@@ -325,7 +345,7 @@ describe('playWhenReady with a review', () => {
   });
 
   it('plans no further once a newer click has taken over', async () => {
-    const outcome = playWhenReady({ kind: 'review' }, NOW);
+    const outcome = playWhenReady({ kind: 'review' }, 'standup-board', NOW);
     missAnActTwoDrill();
     cancelPendingPlay();
     actThreeDownload.arrive();

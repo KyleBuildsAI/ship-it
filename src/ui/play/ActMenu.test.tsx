@@ -443,7 +443,7 @@ describe('an Act menu with no Act content loaded', () => {
     ],
   ])('says Loading… on the %s button alone while its Act downloads', (label, content, request) => {
     const before = rows(summaryMenuFor(content, reviewDue));
-    pendingPlay.update({ waiting: request });
+    pendingPlay.update({ from: 'act-menu', waiting: request });
     const after = rows(summaryMenuFor(content, reviewDue));
     const changed = after.filter((row, index) => row !== before[index]);
     expect(changed).toHaveLength(1);
@@ -455,7 +455,7 @@ describe('an Act menu with no Act content loaded', () => {
   it("names the Act that didn't load, and leaves every button ready to try again", () => {
     const before = summaryMenuFor(act2, reviewDue);
     expect(alertLine(before)).toBeNull();
-    pendingPlay.update({ failed: { kind: 'boss', act: 2 } });
+    pendingPlay.update({ from: 'act-menu', failed: { kind: 'boss', act: 2 } });
     const markup = summaryMenuFor(act2, reviewDue);
     expect(alertLine(markup)).toBe(
       "Act 2 didn't load. Check SHIP IT is still running, then try again. " +
@@ -465,8 +465,16 @@ describe('an Act menu with no Act content loaded', () => {
   });
 
   it('drops the alert once the Act has loaded after all, since Play would work now', () => {
-    pendingPlay.update({ failed: { kind: 'mission', id: sampleMission.id } });
+    pendingPlay.update({ from: 'act-menu', failed: { kind: 'mission', id: sampleMission.id } });
     expect(alertLine(menuFor(act2))).toBeNull();
+  });
+
+  it('shows neither Loading… nor an alert for a press made on the Standup Board', () => {
+    const before = summaryMenuFor(act2, reviewDue);
+    pendingPlay.update({ from: 'standup-board', waiting: { kind: 'review' } });
+    expect(summaryMenuFor(act2, reviewDue)).toBe(before);
+    pendingPlay.update({ waiting: null, failed: { kind: 'review' } });
+    expect(summaryMenuFor(act2, reviewDue)).toBe(before);
   });
 });
 

@@ -91,18 +91,26 @@ describe('the Standup Board with no Act content loaded', () => {
 
   it('says Loading… on Start review, and keeps it from a second press, while Acts download', () => {
     expect(startButton()).toBe('Start review');
-    pendingPlay.update({ waiting: { kind: 'review' } });
+    pendingPlay.update({ from: 'standup-board', waiting: { kind: 'review' } });
     expect(startButton()).toBe('Loading…, disabled');
   });
 
   it("names the Act that didn't load when Start review fails, and lets the player retry", () => {
     expect(board()).not.toContain("didn't load");
-    pendingPlay.update({ failed: { kind: 'review' } });
+    pendingPlay.update({ from: 'standup-board', failed: { kind: 'review' } });
     // The review's drills come from the sample Act 2, which hasn't loaded.
     expect(board()).toContain(
       "Act 2 didn't load. Check SHIP IT is still running, then try again. " +
         'If it keeps failing, reload the page; your progress is saved.',
     );
     expect(startButton()).toBe('Start review');
+  });
+
+  it('shows neither Loading… nor an alert for a press made in an Act menu', () => {
+    const before = renderToStaticMarkup(<StandupBoard />);
+    pendingPlay.update({ from: 'act-menu', waiting: { kind: 'review' } });
+    expect(renderToStaticMarkup(<StandupBoard />)).toBe(before);
+    pendingPlay.update({ waiting: null, failed: { kind: 'review' } });
+    expect(renderToStaticMarkup(<StandupBoard />)).toBe(before);
   });
 });

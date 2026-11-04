@@ -81,6 +81,7 @@ function PlayRow({
       </span>
       <PlayButton
         request={request}
+        from="act-menu"
         className={status === 'available' ? 'play-button play-button--primary' : 'play-button'}
       >
         {status === 'completed' || status === 'tested-out' ? 'Replay' : 'Play'}
@@ -129,7 +130,9 @@ function PlacementRow({ actNumber, actProgress, test }: PartRowProps & { test: P
               : test.pitch}
         </small>
       </span>
-      <PlayButton request={{ kind: 'placement', act: actNumber }}>Take</PlayButton>
+      <PlayButton request={{ kind: 'placement', act: actNumber }} from="act-menu">
+        Take
+      </PlayButton>
     </li>
   );
 }
@@ -162,7 +165,11 @@ function BossRow({
         Boss: {boss.title}
         <small>{actProgress?.bossCompletedAt ? 'Beaten' : bossHint(access, hasPlacement)}</small>
       </span>
-      <PlayButton request={{ kind: 'boss', act: actNumber }} disabled={access === 'locked'}>
+      <PlayButton
+        request={{ kind: 'boss', act: actNumber }}
+        from="act-menu"
+        disabled={access === 'locked'}
+      >
         Fight
       </PlayButton>
     </li>
@@ -184,7 +191,9 @@ function FieldRow({
             : `Real work on your ${field.repoName} repo`}
         </small>
       </span>
-      <PlayButton request={{ kind: 'field', act: actNumber }}>Open</PlayButton>
+      <PlayButton request={{ kind: 'field', act: actNumber }} from="act-menu">
+        Open
+      </PlayButton>
     </li>
   );
 }
@@ -226,7 +235,7 @@ function EarlyAccessNote({ act, save }: { act: ActOutline; save: SaveData }) {
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   // Above the early return: React needs the same hooks, in the same order, every render.
-  useEffect(() => whileMenuOpen([number]), [number]);
+  useEffect(() => whileMenuOpen('act-menu', [number]), [number]);
   if (save === null) return null;
   const summary = findActSummary(number);
   if (summary === undefined) {
@@ -253,7 +262,7 @@ export function ActMenu({ act: number }: { act: number }) {
         {rank} · {save.profile.xp} XP{actProgress?.completedAt ? ' · Act complete' : ''}
       </p>
       {act.earlyAccess ? <EarlyAccessNote act={act} save={save} /> : null}
-      <LoadFailedAlert />
+      <LoadFailedAlert from="act-menu" />
       <ol className="act-menu">
         {placementTest ? (
           <PlacementRow actNumber={act.act} actProgress={actProgress} test={placementTest} />
@@ -308,7 +317,9 @@ export function ActMenu({ act: number }: { act: number }) {
                 {reviews} {reviews === 1 ? 'review' : 'reviews'} due today
               </small>
             </span>
-            <PlayButton request={{ kind: 'review' }}>Review</PlayButton>
+            <PlayButton request={{ kind: 'review' }} from="act-menu">
+              Review
+            </PlayButton>
           </li>
         ) : null}
       </ol>

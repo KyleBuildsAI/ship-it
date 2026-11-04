@@ -21,7 +21,12 @@ const actTwo = { act: sampleAct, missions: [sampleMission] };
 const playMission: PlayRequest = { kind: 'mission', id: sampleMission.id };
 
 function press(request: PlayRequest, onStarted: () => void): void {
-  const button: ReactElement = PlayButton({ request, onStarted, children: 'Play' });
+  const button: ReactElement = PlayButton({
+    request,
+    from: 'act-menu',
+    onStarted,
+    children: 'Play',
+  });
   (button.props as { onClick: () => void }).onClick();
 }
 
