@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   earlyActInput,
   earlySampleAct,
@@ -22,6 +22,7 @@ import { setCatalog, setLazyCatalog, type ActContent } from '../../game/play/cat
 import { startLesson } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import { play } from '../../game/play/playStore';
+import { cancelPendingPlay, pendingPlay, type PlayRequest } from '../../game/play/playWhenReady';
 import { withUnlock } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { localDay } from '../../game/progression/days';
@@ -76,10 +77,16 @@ function rows(markup: string): string[] {
     text(
       (match[1] ?? '')
         .replace(/<small>(.+?)<\/small>/, ' · $1')
-        .replace(/<button[^>]*disabled[^>]*>(.*?)<\/button>/, ' [$1, locked]')
+        .replace(/<button[^>]*disabled[^>]*>(.*?)<\/button>/, ' [$1, disabled]')
         .replace(/<button[^>]*>(.*?)<\/button>/, ' [$1]'),
     ),
   );
+}
+
+/** What the menu's alert line says, or null when it has none. */
+function alertLine(markup: string): string | null {
+  const line = /<p[^>]*role="alert"[^>]*>(.*?)<\/p>/.exec(markup);
+  return line ? text(line[1] ?? '') : null;
 }
 
 /** What the "Early access" line says after its label, or null when there's no line. */
@@ -140,7 +147,7 @@ describe('the Act menu of an early-access Act', () => {
 
   it("leaves the placement test out of the boss's locked hint, since there isn't one", () => {
     expect(rows(menuFor(earlyWith({ boss: sampleActInput.boss })))).toContain(
-      'Boss: The Dirty Tree (sample) · Opens after every mission [Fight, locked]',
+      'Boss: The Dirty Tree (sample) · Opens after every mission [Fight, disabled]',
     );
   });
 });
@@ -153,7 +160,7 @@ describe('the Act menu of a finished Act', () => {
       '2.1 Three Rooms (sample) [Play]',
       '2.2 Reading History (sample) [Play]',
       '2.3 Good Commits (sample) [Play]',
-      'Boss: The Dirty Tree (sample) · Opens after every mission (or the placement test) [Fight, locked]',
+      'Boss: The Dirty Tree (sample) · Opens after every mission (or the placement test) [Fight, disabled]',
       'Field Mission: Clean the Dirty Tree (sample) · Real work on your SandCastles repo [Open]',
     ]);
     expect(note(markup)).toBeNull();
@@ -379,14 +386,20 @@ describe('an Act menu with no Act content loaded', () => {
     return renderToStaticMarkup(<ActMenu act={content.act.act} />);
   }
 
+  /** Preview mode opens the boss and a review is due, so every kind of button is enabled. */
+  const reviewDue: SaveData = {
+    ...withUnlock(newSave, true),
+    reviewQueue: [createReviewItem(firstDrillId, localDay(new Date()))],
+  };
+
+  afterEach(() => {
+    cancelPendingPlay();
+  });
+
   it('with setLazyCatalog and a loader that throws, every row renders', () => {
     const lessonResume = { answered: firstThreeAnswered, open: null };
     const started = { ...createMissionProgress(), status: 'in-progress' as const, lessonResume };
     const resumed: SaveData = { ...newSave, missions: { [sampleLesson.id]: started } };
-    const reviewDue: SaveData = {
-      ...withUnlock(newSave, true),
-      reviewQueue: [createReviewItem(firstDrillId, localDay(new Date()))],
-    };
     const laptop: ActContent = { ...early, freePlay: { steps: [], notice: 'A laptop.' } };
     const cases: [ActContent, SaveData][] = [
       [act2, reviewDue],
@@ -415,6 +428,45 @@ describe('an Act menu with no Act content loaded', () => {
     const markup = renderToStaticMarkup(<ActMenu act={2} />);
     expect(markup.match(/role="tab"/g)).toHaveLength(2);
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, ActContent, PlayRequest]>([
+    ['Placement test', act2, { kind: 'placement', act: 2 }],
+    ['2.2 Reading History', act2, { kind: 'mission', id: secondMission.id }],
+    ['Boss: The Dirty Tree', act2, { kind: 'boss', act: 2 }],
+    ['Field Mission: Clean the Dirty Tree', act2, { kind: 'field', act: 2 }],
+    ['Standup Board', act2, { kind: 'review' }],
+    [
+      `4.2 ${sampleSecondLesson.title}`,
+      sampleLessonAct(),
+      { kind: 'lesson', id: sampleSecondLesson.id },
+    ],
+  ])('says Loading… on the %s button alone while its Act downloads', (label, content, request) => {
+    const before = rows(summaryMenuFor(content, reviewDue));
+    pendingPlay.update({ waiting: request });
+    const after = rows(summaryMenuFor(content, reviewDue));
+    const changed = after.filter((row, index) => row !== before[index]);
+    expect(changed).toHaveLength(1);
+    expect(changed[0]?.startsWith(label)).toBe(true);
+    // Disabled, so a second press can't start a second download of the same thing.
+    expect(changed[0]?.endsWith('[Loading…, disabled]')).toBe(true);
+  });
+
+  it("names the Act that didn't load, and leaves every button ready to try again", () => {
+    const before = summaryMenuFor(act2, reviewDue);
+    expect(alertLine(before)).toBeNull();
+    pendingPlay.update({ failed: { kind: 'boss', act: 2 } });
+    const markup = summaryMenuFor(act2, reviewDue);
+    expect(alertLine(markup)).toBe(
+      "Act 2 didn't load. Check SHIP IT is still running, then try again. " +
+        'If it keeps failing, reload the page; your progress is saved.',
+    );
+    expect(rows(markup)).toEqual(rows(before));
+  });
+
+  it('drops the alert once the Act has loaded after all, since Play would work now', () => {
+    pendingPlay.update({ failed: { kind: 'mission', id: sampleMission.id } });
+    expect(alertLine(menuFor(act2))).toBeNull();
   });
 });
 
