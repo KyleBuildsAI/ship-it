@@ -136,8 +136,16 @@ It runs these in order and stops at the first failure:
 | `npm run format:check` | Prettier formatting check. `npm run format` fixes it. |
 | `npm run typecheck` | TypeScript strict compile, no output files. |
 | `npm run test:coverage` | Vitest unit tests with a coverage report in `coverage/`. `npm test` runs them without coverage. |
-| `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. |
+| `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. Each Act's content becomes a file of its own (`act1-….js` to `act8-….js`), downloaded only when that Act is needed. The build fails, naming the import, if any Act's content would land in the first download. |
 | `npm run e2e` | Playwright end-to-end tests in your installed Chrome against the build in `dist/`: boot, terminal, editor, walking, playing a step, reload, and save export/import. Run `npm run build` first. |
+
+**Changed an Act's content?** Run this, then commit the file it rewrites, `src/content/actSummaries.generated.ts`:
+
+```powershell
+npm run content:summaries
+```
+
+The menus draw every Act from these summaries before its content downloads. Until you rerun it, `npm test` and CI fail with a message that names the command.
 
 To see the production build exactly as Pages will serve it, run `npm run preview` after a build and open `http://localhost:18174/ship-it/`. Like the dev server's 18173, the port is fixed and sits above 15000, where Windows doesn't reserve ports for Hyper-V and WSL.
 
