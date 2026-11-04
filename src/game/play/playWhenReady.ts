@@ -15,8 +15,9 @@ import { startReview, todaysItems } from './seriesPlay';
  * Buttons inside an activity (Replay, Try again) call starters directly: the activity's
  * Act has loaded already, and a loaded Act is never dropped.
  *
- * Nothing calls this yet: the Act menus and the Standup Board switch to it in the next
- * change. Until the game downloads Acts on demand, every Act is loaded from the start.
+ * The Act menus and the Standup Board press it through PlayButton (src/ui/play). Until the
+ * game downloads Acts on demand, every Act is loaded from the start, so play still starts
+ * during the press.
  */
 
 /** What a player pressed Play on, named by ids and Act numbers, never by content. */
