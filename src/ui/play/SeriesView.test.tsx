@@ -76,6 +76,13 @@ describe('judgment drills in a series', () => {
     expect(done).not.toContain('A fresh terminal stands at home.');
   });
 
+  it('counts the drills ahead in words that fit the number', () => {
+    expect(review()).toContain('2 timed drills.');
+    const one = review({ drills: directedMission.drills.slice(0, 1) });
+    expect(one).toContain('1 timed drill.');
+    expect(one).not.toContain('1 timed drills');
+  });
+
   it("keeps a typed drill's checklist and I'm done button", () => {
     const text = review({
       drills: sampleMission.drills.slice(0, 1),

@@ -110,7 +110,8 @@ export function SeriesView({
           <DrillDone drill={lastDrill} result={last} locked={locked} />
         ) : (
           <p className="play-panel__instruction">
-            {drills.length} timed drills. No hints and no Sage: this is what you can do alone.
+            {drills.length} timed {drills.length === 1 ? 'drill' : 'drills'}. No hints and no Sage:
+            this is what you can do alone.
           </p>
         )}
         <div className="play-panel__actions">
