@@ -455,13 +455,13 @@ describe('an Act menu with no Act content loaded', () => {
     ],
   ])('says Loading… on the %s button alone while its Act downloads', (label, content, request) => {
     const before = rows(summaryMenuFor(content, reviewDue));
+    expect(before.filter((row) => row.startsWith(label))).toHaveLength(1);
     pendingPlay.update({ from: 'act-menu', waiting: request });
-    const after = rows(summaryMenuFor(content, reviewDue));
-    const changed = after.filter((row, index) => row !== before[index]);
-    expect(changed).toHaveLength(1);
-    expect(changed[0]?.startsWith(label)).toBe(true);
     // Disabled, so a second press can't start a second download of the same thing.
-    expect(changed[0]?.endsWith('[Loading…, disabled]')).toBe(true);
+    const loading = (row: string) => row.replace(/\[[^\]]*\]$/, '[Loading…, disabled]');
+    expect(rows(summaryMenuFor(content, reviewDue))).toEqual(
+      before.map((row) => (row.startsWith(label) ? loading(row) : row)),
+    );
   });
 
   it("names the Act that didn't load, and leaves every button ready to try again", () => {
