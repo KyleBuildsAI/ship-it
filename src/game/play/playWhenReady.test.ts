@@ -46,6 +46,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   cancelPendingPlay();
   leavePlay();
   await flushProgress();
@@ -282,6 +283,25 @@ describe('playWhenReady with a review', () => {
     await expect(outcome).resolves.toBe('started');
     expect(actTwoEntry.load).toHaveBeenCalledOnce();
     expect(reviewDrillIds()).toEqual([...actThreeDrills, actTwoDrill]);
+  });
+
+  it('plays the drills planned for the click, even once the clock reaches another day', async () => {
+    // Five drills due by NOW fill that day's set, so the Act 2 drill due later is left out.
+    const actThreeDue = sampleMission.drills.map((drill) => `other-${drill.id}`);
+    const reviewQueue = [
+      ...actThreeDue.map((id) => createReviewItem(id, '2026-09-20')),
+      createReviewItem(actTwoDrill, '2026-09-30'),
+    ];
+    updateSave((save) => ({ ...save, reviewQueue }));
+    // By this day the Act 2 drill is due as well. Planning or starting with this clock
+    // instead of the click's NOW would load Act 2, or play a drill whose Act isn't loaded.
+    vi.useFakeTimers({ now: new Date('2026-10-05T12:00:00.000Z'), toFake: ['Date'] });
+
+    const outcome = playWhenReady({ kind: 'review' }, NOW);
+    actThreeDownload.arrive();
+    await expect(outcome).resolves.toBe('started');
+    expect(actTwoEntry.load).not.toHaveBeenCalled();
+    expect(new Set(reviewDrillIds())).toEqual(new Set(actThreeDue));
   });
 
   it('plans no further once a newer click has taken over', async () => {
