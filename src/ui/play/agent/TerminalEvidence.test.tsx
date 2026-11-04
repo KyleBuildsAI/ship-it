@@ -58,6 +58,13 @@ describe('terminal evidence in the panel', () => {
     expect(html).toContain('<pre tabindex="0">');
   });
 
+  it('keeps each action in a box of its own, so the newest can be scrolled to its start', () => {
+    expect(markup([WRITE, STATUS])).toContain(
+      '<pre tabindex="0"><span><span class="evidence__words">Wrote .gitignore\n</span></span>' +
+        '<span><span><span class="evidence__prompt">quillwork $ </span>',
+    );
+  });
+
   it('shows nothing until there is something to show', () => {
     expect(markup([])).toBe('');
   });
