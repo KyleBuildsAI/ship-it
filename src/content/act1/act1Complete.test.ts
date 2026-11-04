@@ -10,6 +10,7 @@ import { verifyPaste } from '../../game/play/fieldCheck';
 import {
   completeLesson,
   completeMission,
+  leftAfterTestOut,
   recordFieldMission,
   recordPlacement,
 } from '../../game/play/saveRules';
@@ -179,9 +180,20 @@ describe("Act 1's placement test", () => {
   });
 
   it('says it covers lessons 1.5 and 1.6, not the whole Act', () => {
-    expect(test.pitch).toContain('lessons 1.5 and 1.6');
-    expect(test.pitch).toContain('Missions 1.1 to 1.4 and the Field Mission still need doing');
+    expect(test.pitch).toContain('lessons 1.5 and 1.6, not the missions before them');
     expect(played.briefing.join(' ')).toContain('to test out of the lessons these cards come from');
+  });
+
+  it('says what a pass leaves from the save, never claiming a done part still needs doing', () => {
+    // The pitch is shown whatever the save holds, so it claims nothing about it.
+    expect(test.pitch).not.toContain('still need');
+    expect(played.briefing[2]).toBe(
+      'Missions 1.1 to 1.4 still need doing before the Act is complete, and so does the Field Mission, "Brief Your Real Agent", on your real repo.',
+    );
+    const done = verifyField(finishMissions(createDefaultSave(NOW)));
+    const left = leftAfterTestOut(done, act1, act1Lessons);
+    expect(left).toEqual({ actComplete: false, missionIds: [], final: true, fieldMission: false });
+    expect(placementLesson(act1, act1Lessons, 0, left).briefing).toHaveLength(2);
   });
 
   it('records a miss as an attempt without testing out', () => {

@@ -107,13 +107,118 @@ export function placementLessonId(act: number): string {
 }
 
 /**
+ * What an Act still needs once its placement test is passed. The placement texts say only
+ * these, so they never call a part that's already done "still to do".
+ */
+export interface TestOutLeft {
+  /** The Act is complete already, so a pass can only raise the best score. */
+  readonly actComplete: boolean;
+  /** Parts no card covers and that aren't done, which a pass can't skip (Act 1's missions). */
+  readonly missionIds: readonly string[];
+  /** The final isn't beaten. A pass never skips it, but the Act completes without it. */
+  readonly final: boolean;
+  /** The Field Mission isn't verified, and the Act completes only once it is. */
+  readonly fieldMission: boolean;
+}
+
+/**
+ * What a pass leaves on a new save: every part no card covers, the final, and the Field
+ * Mission. saveRules' leftAfterTestOut takes out whatever the save says is done.
+ */
+export function testOutLeaves(act: Act, lessons: readonly Lesson[]): TestOutLeft {
+  const covered = new Set(lessons.map((lesson) => lesson.id));
+  return {
+    actComplete: false,
+    missionIds: act.missionIds.filter((id) => id !== act.finalLessonId && !covered.has(id)),
+    final: act.finalLessonId !== undefined,
+    fieldMission: act.fieldMission !== undefined,
+  };
+}
+
+/** Joins names the way a sentence lists them: "a", "a and b", "a, b and c". */
+function listed(names: readonly string[]): string {
+  const last = names.at(-1) ?? '';
+  return names.length < 2 ? last : `${names.slice(0, -1).join(', ')} and ${last}`;
+}
+
+/**
+ * Missions by their menu numbers: "Mission 1.3", "Missions 1.2 and 1.4", or a run of three
+ * or more as "Missions 1.1 to 1.4". `plural` picks the verb that follows.
+ */
+export function missionNumbers(
+  act: Act,
+  ids: readonly string[],
+): { text: string; plural: boolean } {
+  const numbers = ids
+    .map((id) => act.missionIds.indexOf(id) + 1)
+    .filter((number) => number > 0)
+    .toSorted((a, b) => a - b);
+  const name = (number: number) => `${String(act.act)}.${String(number)}`;
+  const first = numbers[0] ?? 0;
+  const last = numbers.at(-1) ?? 0;
+  if (numbers.length === 1) return { text: `Mission ${name(first)}`, plural: false };
+  const run = numbers.length >= 3 && last - first === numbers.length - 1;
+  const text = run ? `${name(first)} to ${name(last)}` : listed(numbers.map(name));
+  return { text: `Missions ${text}`, plural: true };
+}
+
+/**
+ * The briefing's line on what a pass leaves, or null when there's nothing to say: no part a
+ * pass can't skip is left, and the Act isn't complete yet.
+ */
+export function placementLeavesLine(act: Act, left: TestOutLeft): string | null {
+  if (left.actComplete) {
+    return `Act ${String(act.act)} is already complete, so a pass only raises your best score.`;
+  }
+  // Cards can be guessed and a Field Mission can't, so testing out never skips it.
+  const field = left.fieldMission ? act.fieldMission : undefined;
+  if (left.missionIds.length === 0) {
+    if (field === undefined) return null;
+    return `The Field Mission, "${field.title}", still needs doing on your real repo before the Act is complete.`;
+  }
+  const missions = missionNumbers(act, left.missionIds);
+  const needs = `${missions.text} still ${missions.plural ? 'need' : 'needs'} doing before the Act is complete`;
+  if (field === undefined) return `${needs}.`;
+  return `${needs}, and so does the Field Mission, "${field.title}", on your real repo.`;
+}
+
+/**
+ * The Done screen's words after a pass, from what the save says is left: the Act complete,
+ * or what's still to do and what completing it takes. The final is never needed for that,
+ * so it's named only while it's still there to play.
+ */
+export function testedOutText(act: Act, left: TestOutLeft): string {
+  const finalNote = left.final ? '; the final is still yours to play.' : '.';
+  if (left.actComplete) return `Act ${String(act.act)} is complete${finalNote}`;
+  const missions = left.missionIds.length > 0 ? missionNumbers(act, left.missionIds) : null;
+  const completes = [
+    ...(missions === null ? [] : [`${missions.text} ${missions.plural ? 'are' : 'is'} played`]),
+    ...(left.fieldMission ? ['the Field Mission is verified'] : []),
+  ];
+  if (completes.length === 0) return `The lessons it covers are marked done${finalNote}`;
+  const todo = [
+    ...(missions === null ? [] : [missions.text]),
+    ...(left.final ? ['the final'] : []),
+    ...(left.fieldMission ? ['the Field Mission'] : []),
+  ];
+  const verb = todo.length > 1 || missions?.plural === true ? 'are' : 'is';
+  return `The lessons it covers are marked done; ${listed(todo)} ${verb} still yours to do, and the Act completes once ${listed(completes)}.`;
+}
+
+/**
  * The placement test as a lesson the runner can play: the borrowed cards in the order the
  * Act lists them, on one clock. It's built as a final because a final is what has a clock.
- * `attempt` (how many tries the save has counted so far) picks the options' order.
+ * `attempt` (how many tries the save has counted so far) picks the options' order, and
+ * `left` (what the save says a pass would leave) words the briefing's last line.
  * Throws a ContentError for a card the Act's lessons don't have, which validateAct
  * catches in the tests long before a player could.
  */
-export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 0): Lesson {
+export function placementLesson(
+  act: Act,
+  lessons: readonly Lesson[],
+  attempt = 0,
+  left: TestOutLeft = testOutLeaves(act, lessons),
+): Lesson {
   const test = requireLessonPlacement(act);
   const cards = test.cardIds.map((id): LessonCard => {
     const card = lessons
@@ -125,6 +230,7 @@ export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 
     }
     return forAttempt(card, attempt);
   });
+  const leaves = placementLeavesLine(act, left);
   return {
     id: placementLessonId(act.act),
     act: act.act,
@@ -133,12 +239,7 @@ export function placementLesson(act: Act, lessons: readonly Lesson[], attempt = 
     briefing: [
       test.pitch,
       `Get ${String(cardsToPass(cards.length, test.passPercent))} of ${String(cards.length)} right (${String(test.passPercent)}%), so ${missesAllowed(cards.length, test.passPercent)}, to test out of the lessons these cards come from. Each card takes one answer, and you see your score at the end. No hints.`,
-      // Cards can be guessed and a Field Mission can't, so testing out never skips it.
-      ...(act.fieldMission === undefined
-        ? []
-        : [
-            `The Field Mission, "${act.fieldMission.title}", still needs doing on your real repo before the Act is complete.`,
-          ]),
+      ...(leaves === null ? [] : [leaves]),
     ],
     cards,
     // A placement pays the test-out XP from its lessons, never XP of its own.

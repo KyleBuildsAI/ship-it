@@ -126,7 +126,10 @@ export interface LessonActivity {
   readonly kind: 'lesson';
   readonly lesson: Lesson;
   readonly run: LessonRun;
-  /** XP this run paid into the save: the lesson's XP the first time, 0 on a replay. */
+  /**
+   * XP this run paid into the save: the lesson's XP the first time, the half a test-out
+   * left, or 0 on a replay.
+   */
   readonly xpEarned: number;
   /**
    * Set when this run is a lesson Act's placement test rather than one of its lessons:

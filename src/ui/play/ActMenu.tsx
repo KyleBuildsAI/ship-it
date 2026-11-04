@@ -7,6 +7,7 @@ import type { Lesson } from '../../game/missions/lessonSchema';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startFreePlay } from '../../game/play/freePlay';
 import { startLesson } from '../../game/play/lessonPlay';
+import { lessonResumeFor, resumeCardNumber } from '../../game/play/lessonResume';
 import { startActPlacement } from '../../game/play/play';
 import { startMission } from '../../game/play/missionPlay';
 import { reviewItemsToday, startReview } from '../../game/play/seriesPlay';
@@ -27,7 +28,9 @@ const STATUS: Record<MissionStatus, string> = {
 
 /**
  * What a lesson's row says under its title: its stars once done (the save keeps the best
- * first-try percent in bestDrillScore), and for a final, that it's timed.
+ * first-try percent in bestDrillScore), and for a final, that it's timed. It says "In
+ * progress" only when Play will pick the lesson up partway. A timed final, or a lesson left
+ * before its first answer, starts again at the briefing, so its row shows only its kind.
  */
 function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string {
   const status = saved?.status ?? 'available';
@@ -37,7 +40,22 @@ function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string 
   }
   const kind =
     lesson.kind === 'final' ? 'Timed final challenge' : `${String(lesson.cards.length)} cards`;
-  return status === 'available' ? kind : `${STATUS[status]} · ${kind}`;
+  if (status === 'tested-out') return `${STATUS[status]} · ${kind}`;
+  const resume = lessonResumeFor(lesson, saved);
+  if (resume === null) return kind;
+  const card = resumeCardNumber(lesson, resume);
+  return `${STATUS['in-progress']} · card ${String(card)} of ${String(lesson.cards.length)}`;
+}
+
+/**
+ * The status a lesson's row is drawn with. A lesson started but left with nothing to pick
+ * up starts again at its briefing, so its Play looks like a fresh start's, matching a note
+ * that no longer says "In progress".
+ */
+function lessonRowStatus(lesson: Lesson, saved: MissionProgress | undefined): MissionStatus {
+  const status = saved?.status ?? 'available';
+  if (status !== 'in-progress') return status;
+  return lessonResumeFor(lesson, saved) === null ? 'available' : status;
 }
 
 /** A row that starts a mission or a lesson: Play the first time, Replay once it's done. */
@@ -282,7 +300,7 @@ export function ActMenu({ act: number }: { act: number }) {
               key={id}
               label={`${number} ${lesson.kind === 'final' ? 'Final: ' : ''}${lesson.title}`}
               note={lessonNote(lesson, saved)}
-              status={status}
+              status={lessonRowStatus(lesson, saved)}
               onPlay={() => {
                 startLesson(id);
               }}

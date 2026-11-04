@@ -28,6 +28,7 @@ import {
   createDefaultSave,
   createMissionProgress,
   type ActProgress,
+  type LessonResume,
   type SaveData,
 } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
@@ -287,6 +288,24 @@ describe('an Act made of lessons', () => {
     return { ...newSave, missions: { ...newSave.missions, [sampleLesson.id]: done } };
   }
 
+  /** The save with a lesson started, and where Play would pick it up, if anywhere. */
+  function withLessonStarted(id: string, lessonResume?: LessonResume): SaveData {
+    const started = { ...createMissionProgress(), status: 'in-progress' as const };
+    const entry = lessonResume === undefined ? started : { ...started, lessonResume };
+    return { ...newSave, missions: { ...newSave.missions, [id]: entry } };
+  }
+
+  /** Whether each row's button is drawn as the primary one, as an untouched part's is. */
+  function primaryButtons(markup: string): boolean[] {
+    return [...markup.matchAll(/<li[^>]*>(.*?)<\/li>/g)].map((match) =>
+      (match[1] ?? '').includes('play-button--primary'),
+    );
+  }
+
+  const firstThreeAnswered = sampleLesson.cards
+    .slice(0, 3)
+    .map((card) => ({ cardId: card.id, firstTry: true }));
+
   it('lists each lesson with Play, its card count, and the final as timed', () => {
     expect(rows(menuFor(lessonAct))).toEqual([
       `4.1 ${sampleLesson.title} · 6 cards [Play]`,
@@ -302,6 +321,33 @@ describe('an Act made of lessons', () => {
     expect(rows(menuFor(lessonAct, withLessonDone(67)))[0]).toBe(
       `4.1 ${sampleLesson.title} · Done · ★★☆ [Replay]`,
     );
+  });
+
+  it('says In progress, and the card, only when Play picks the lesson up partway', () => {
+    const answered = firstThreeAnswered;
+    expect(
+      rows(menuFor(lessonAct, withLessonStarted(sampleLesson.id, { answered, open: null })))[0],
+    ).toBe(`4.1 ${sampleLesson.title} · In progress · card 4 of 6 [Play]`);
+    // Left at the briefing: Play starts there, so the row doesn't claim it's under way.
+    expect(rows(menuFor(lessonAct, withLessonStarted(sampleLesson.id)))[0]).toBe(
+      `4.1 ${sampleLesson.title} · 6 cards [Play]`,
+    );
+    // A timed final always starts over, so it never reads as in progress.
+    expect(
+      rows(menuFor(lessonAct, withLessonStarted(sampleFinal.id, { answered, open: null })))[2],
+    ).toBe(`4.3 Final: ${sampleFinal.title} · Timed final challenge [Play]`);
+  });
+
+  it("draws Play as a fresh start's when it starts over at the briefing", () => {
+    const answered = firstThreeAnswered;
+    // Picked up partway: its Play continues, so it isn't drawn as a fresh start.
+    const resumed = withLessonStarted(sampleLesson.id, { answered, open: null });
+    expect(primaryButtons(menuFor(lessonAct, resumed))[0]).toBe(false);
+    // Left at the briefing, or a timed final left partway: Play starts over, like a new one.
+    expect(primaryButtons(menuFor(lessonAct, withLessonStarted(sampleLesson.id)))[0]).toBe(true);
+    const final = withLessonStarted(sampleFinal.id, { answered, open: null });
+    expect(primaryButtons(menuFor(lessonAct, final))[2]).toBe(true);
+    expect(primaryButtons(menuFor(lessonAct, withLessonDone(100)))[0]).toBe(false);
   });
 
   it('starts the lesson from its row', () => {

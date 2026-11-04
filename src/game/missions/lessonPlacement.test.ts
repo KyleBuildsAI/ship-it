@@ -6,9 +6,14 @@ import {
   cardsToPass,
   lessonPlacementResult,
   missesAllowed,
+  missionNumbers,
+  placementLeavesLine,
   placementLesson,
   placementLessonId,
   shuffledBy,
+  testedOutText,
+  testOutLeaves,
+  type TestOutLeft,
 } from './lessonPlacement';
 import { sampleLessonAct } from './sample.test-lesson';
 import { fullSampleLessonAct, fullSamplePlacement } from './sample.test-lessonAct';
@@ -176,6 +181,17 @@ describe('the placement run', () => {
     expect(placementLesson(withoutField, full.lessons).briefing).toHaveLength(2);
   });
 
+  it("words its last line from what the save says a pass leaves, never a done part's", () => {
+    const left = testOutLeaves(full.act, full.lessons);
+    const verified = placementLesson(full.act, full.lessons, 0, { ...left, fieldMission: false });
+    expect(verified.briefing).toHaveLength(2);
+    expect(verified.briefing.join(' ')).not.toContain('Field Mission');
+    const complete = placementLesson(full.act, full.lessons, 0, { ...left, actComplete: true });
+    expect(complete.briefing[2]).toBe(
+      'Act 6 is already complete, so a pass only raises your best score.',
+    );
+  });
+
   it('says how many cards a pass needs, rounding the percent up to whole cards', () => {
     expect(cardsToPass(12, 85)).toBe(11);
     expect(cardsToPass(20, 85)).toBe(17);
@@ -301,6 +317,82 @@ describe('a placement test that picking by length could pass', () => {
     expect(problems).toEqual([
       'The right option is the longest on 5 of 5 pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.',
     ]);
+  });
+});
+
+describe('what the placement texts say a pass leaves', () => {
+  const nothing: TestOutLeft = {
+    actComplete: false,
+    missionIds: [],
+    final: false,
+    fieldMission: false,
+  };
+  const ids = full.act.missionIds;
+  /** The sample Act's lessons standing in for missions no card covers, as Act 1's do. */
+  const missions = (...numbers: number[]) => numbers.map((number) => ids[number - 1] ?? '');
+
+  it('names missions by their menu numbers, a run of three or more as a range', () => {
+    expect(missionNumbers(full.act, missions(2))).toEqual({ text: 'Mission 6.2', plural: false });
+    expect(missionNumbers(full.act, missions(3, 1))).toEqual({
+      text: 'Missions 6.1 and 6.3',
+      plural: true,
+    });
+    expect(missionNumbers(full.act, missions(1, 2, 3)).text).toBe('Missions 6.1 to 6.3');
+  });
+
+  it("leaves the briefing's last line out when no part a pass can't skip is left", () => {
+    expect(placementLeavesLine(full.act, nothing)).toBeNull();
+    expect(placementLeavesLine(full.act, { ...nothing, final: true })).toBeNull();
+  });
+
+  it('says which missions and Field Mission still need doing, and only those', () => {
+    expect(placementLeavesLine(full.act, { ...nothing, fieldMission: true })).toBe(
+      'The Field Mission, "Land a Real Branch (sample)", still needs doing on your real repo before the Act is complete.',
+    );
+    expect(placementLeavesLine(full.act, { ...nothing, missionIds: missions(1) })).toBe(
+      'Mission 6.1 still needs doing before the Act is complete.',
+    );
+    expect(
+      placementLeavesLine(full.act, {
+        ...nothing,
+        missionIds: missions(1, 2),
+        fieldMission: true,
+      }),
+    ).toBe(
+      'Missions 6.1 and 6.2 still need doing before the Act is complete, and so does the Field Mission, "Land a Real Branch (sample)", on your real repo.',
+    );
+  });
+
+  it('says the Act is complete after a pass, naming the final only while it is open', () => {
+    expect(testedOutText(full.act, { ...nothing, actComplete: true, final: true })).toBe(
+      'Act 6 is complete; the final is still yours to play.',
+    );
+    expect(testedOutText(full.act, { ...nothing, actComplete: true })).toBe('Act 6 is complete.');
+  });
+
+  it('lists what a pass left, and what completing the Act still takes', () => {
+    expect(testedOutText(full.act, { ...nothing, final: true, fieldMission: true })).toBe(
+      'The lessons it covers are marked done; the final and the Field Mission are still yours to do, and the Act completes once the Field Mission is verified.',
+    );
+    expect(testedOutText(full.act, { ...nothing, fieldMission: true })).toBe(
+      'The lessons it covers are marked done; the Field Mission is still yours to do, and the Act completes once the Field Mission is verified.',
+    );
+    expect(
+      testedOutText(full.act, {
+        ...nothing,
+        missionIds: missions(1, 2, 3),
+        final: true,
+        fieldMission: true,
+      }),
+    ).toBe(
+      'The lessons it covers are marked done; Missions 6.1 to 6.3, the final and the Field Mission are still yours to do, and the Act completes once Missions 6.1 to 6.3 are played and the Field Mission is verified.',
+    );
+    expect(testedOutText(full.act, { ...nothing, missionIds: missions(2) })).toBe(
+      'The lessons it covers are marked done; Mission 6.2 is still yours to do, and the Act completes once Mission 6.2 is played.',
+    );
+    expect(testedOutText(full.act, { ...nothing, final: true })).toBe(
+      'The lessons it covers are marked done; the final is still yours to play.',
+    );
   });
 });
 

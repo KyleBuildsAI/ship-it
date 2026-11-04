@@ -16,6 +16,9 @@ import { isPickCard, type Artifact, type Lesson } from '../../game/missions/less
 import { sampleFinal, sampleLesson } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { setCatalog } from '../../game/play/catalog';
+import { completeLesson, recordFieldMission, recordPlacement } from '../../game/play/saveRules';
+import { progress } from '../../game/progress';
+import { createDefaultSave } from '../../game/save/schema';
 import { LessonView } from './LessonView';
 
 const T0 = Date.now();
@@ -221,13 +224,40 @@ describe('a lesson Act’s placement test in the lesson view', () => {
     const done: LessonRun = { ...cards(lesson), phase: 'done', outcome: 'finished' };
     const passed = text(placementView(done, { percent: 100, testedOut: true }));
     expect(passed).toContain('100% right.');
-    expect(passed).toContain('Tested out. Every lesson in Act 6 is marked done');
+    expect(passed).toContain('Tested out. The lessons it covers are marked done');
     // The sample Act has a Field Mission, which a test-out doesn't skip.
     expect(passed).toContain('the final and the Field Mission are still yours to do');
     expect(passed).not.toContain('★');
     const missed = text(placementView(done, { percent: 67, testedOut: false }));
     expect(missed).toContain('85% tests out. Play the lessons, or try again.');
     expect(missed).toContain('Try again');
+  });
+
+  it('names only what the save still has to do after a pass', () => {
+    const done: LessonRun = { ...cards(lesson), phase: 'done', outcome: 'finished' };
+    const passedText = () => text(placementView(done, { percent: 100, testedOut: true }));
+    const checks = full.act.fieldMission?.verifications.map((check) => check.id) ?? [];
+    let save = recordFieldMission(createDefaultSave(new Date(T0)), full.act, checks, new Date(T0));
+    progress.update({ status: 'ready', save, problem: null });
+    // Verified before the pass, so the pass completed the Act.
+    save = recordPlacement(
+      save,
+      full.act,
+      full.lessons,
+      { percent: 100, testedOut: true },
+      new Date(T0),
+    );
+    progress.update({ save });
+    expect(passedText()).toContain(
+      'Tested out. Act 6 is complete; the final is still yours to play.',
+    );
+    expect(passedText()).not.toContain('Field Mission');
+    const finalLesson = full.lessons.at(-1);
+    if (finalLesson === undefined) throw new Error('the full sample has a final');
+    progress.update({ save: completeLesson(save, full.act, finalLesson, 100, new Date(T0)) });
+    expect(passedText()).toContain('Tested out. Act 6 is complete.');
+    expect(passedText()).not.toContain('final');
+    progress.update({ status: 'loading', save: null });
   });
 
   it('says how many cards were answered when the clock ran out', () => {
