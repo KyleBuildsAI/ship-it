@@ -20,7 +20,7 @@ import type {
 } from '../../game/missions/lessonSchema';
 import { testedOutText } from '../../game/missions/lessonPlacement';
 import { formatClock } from '../../game/play/bossPlay';
-import { getAct } from '../../game/play/catalog';
+import { loadedAct } from '../../game/play/catalog';
 import {
   answerLesson,
   checkLessonOrder,
@@ -381,7 +381,7 @@ function DoneActions({
  * (the Act completes only once it's verified), so the Done screen names it while it's open.
  */
 function stillToDo(actNumber: number): string {
-  const { act, lessons = [] } = getAct(actNumber);
+  const { act, lessons = [] } = loadedAct(actNumber);
   return testedOutText(act, leftAfterTestOut(progress.get().save, act, lessons));
 }
 

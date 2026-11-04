@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { requireFieldMission } from '../../game/missions/schema';
-import { getAct } from '../../game/play/catalog';
+import { loadedAct } from '../../game/play/catalog';
 import type { FieldVerdict } from '../../game/play/fieldCheck';
 import {
   checkFieldOnGitHub,
@@ -67,7 +67,7 @@ export function FieldCheckResult({ verdict }: { verdict: FieldSubmission }) {
  * as he goes, saved with the rest of the mission.
  */
 export function FieldView({ activity }: { activity: FieldActivity }) {
-  const field = requireFieldMission(getAct(activity.act).act);
+  const field = requireFieldMission(loadedAct(activity.act).act);
   const { save } = useStore(progress);
   const [pastes, setPastes] = useState<Record<string, string>>({});
   const [verdicts, setVerdicts] = useState<Record<string, FieldSubmission>>({});
