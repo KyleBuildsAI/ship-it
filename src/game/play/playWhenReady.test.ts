@@ -139,7 +139,7 @@ describe('playWhenReady with an Act still to download', () => {
     expect(pendingPlay.get()).toEqual({ waiting: null, failed: null });
   });
 
-  it('starts only the newer of two requests, whichever Act arrives first', async () => {
+  it("starts only the newer of two requests, even when the older one's Act arrives last", async () => {
     const actTwoDownload = slowDownload(actTwo);
     setLazyCatalog([actTwoDownload.entry, lazy(actThree)]);
     const older = playWhenReady(missionInActTwo, NOW);
@@ -153,6 +153,32 @@ describe('playWhenReady with an Act still to download', () => {
     await expect(older).resolves.toBe('superseded');
     expect(play.get().activity).toMatchObject({ kind: 'field', act: 3 });
   });
+
+  const olderActSettles: readonly [string, () => Promise<ActContent>][] = [
+    ['arrives', () => Promise.resolve(actTwo)],
+    ['fails to download', () => Promise.reject(new Error('offline'))],
+  ];
+
+  it.each(olderActSettles)(
+    "leaves the newer click Loading… when the older click's Act %s first",
+    async (_, loadActTwo) => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const actThreeDownload = slowDownload(actThree);
+      setLazyCatalog([lazy(actTwo, loadActTwo), actThreeDownload.entry]);
+      const older = playWhenReady(missionInActTwo, NOW);
+      const newerRequest: PlayRequest = { kind: 'field', act: 3 };
+      const newer = playWhenReady(newerRequest, NOW);
+
+      await expect(older).resolves.toBe('superseded');
+      // The older click started nothing, and left the newer click's button as it was.
+      expect(play.get().activity).toBeNull();
+      expect(pendingPlay.get()).toEqual({ waiting: newerRequest, failed: null });
+
+      actThreeDownload.arrive();
+      await expect(newer).resolves.toBe('started');
+      expect(play.get().activity).toMatchObject({ kind: 'field', act: 3 });
+    },
+  );
 
   it('drops a request once cancelPendingPlay runs, as when its menu closes', async () => {
     const download = slowDownload(actTwo);
