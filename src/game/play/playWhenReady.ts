@@ -145,7 +145,10 @@ function startIfSaveReady(request: PlayRequest, now: Date): PlayOutcome {
   return 'started';
 }
 
-/** The starters the menus' buttons called directly before Acts downloaded on demand. */
+/**
+ * Hands the request to the starter for its kind. The gate only decides when play starts;
+ * what starting does stays in the starters, so buttons inside an activity can call them too.
+ */
 function start(request: PlayRequest, now: Date): void {
   // A boss's clock and a lesson's resume read the time when play starts, not when the
   // button was pressed, so a slow download doesn't eat into them.
@@ -169,5 +172,12 @@ function start(request: PlayRequest, now: Date): void {
       // The day actsNeeded planned for, so the drills it loaded are the drills played.
       startReview(now);
       return;
+    default: {
+      // Every kind returned above, so TypeScript knows `request` can't be anything here
+      // (its type is `never`). Add a kind to PlayRequest without a case, and this line stops
+      // compiling, instead of the gate saying 'started' while nothing plays.
+      const unhandled: never = request;
+      throw new Error(`No starter for the play request ${JSON.stringify(unhandled)}.`);
+    }
   }
 }
