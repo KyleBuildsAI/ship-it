@@ -51,7 +51,8 @@ describe('the commit path', () => {
   const start = new THREE.Vector3(COMMIT_PATH.start.x, COMMIT_PATH.start.y, COMMIT_PATH.start.z);
   const along = new THREE.Vector3(COMMIT_PATH.direction.x, 0, COMMIT_PATH.direction.z).normalize();
 
-  // 416px is the play panel at its usual size; 520px is the same panel with extra-large text.
+  // 416px is the play panel's right edge at every text size: larger text zooms what is inside
+  // it, not the panel (theme.css). 520px is the panel a zoomed one used to be, kept as margin.
   it.each([416, 520])(
     'keeps every commit and its label in view beside a %ipx play panel at 1280x800',
     (panelRight) => {

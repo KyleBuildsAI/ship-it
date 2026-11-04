@@ -426,8 +426,8 @@ body {
   left: 16px;
   /*
    * Stops 64px above the bottom: the Terminal button and the HUD menu sit in that strip
-   * (16px up, about 32px tall), and with the terminal closed by default the button is how
-   * a player finds it. 140 top + 64 bottom = 204.
+   * (16px up, about 32px tall, 39px with Extra large text), and with the terminal closed by
+   * default the button is how a player finds it. 140 top + 64 bottom = 204.
    */
   max-height: calc(100vh - 204px);
   box-sizing: border-box;
@@ -1441,11 +1441,20 @@ body {
   background: rgba(255, 123, 123, 0.14);
 }
 
-html[data-text-size='large'] :is(.play-panel, .overlay, .command-chip, .title-card, .hud-menu) {
+/*
+ * Larger text zooms what is inside the play panel, and each HUD menu button, never the
+ * boxes placed on the screen. Zoom scales every length on the element it is set on, its
+ * top, width and 100vh included, so a zoomed panel ran past the bottom of the window, over
+ * the HUD, and a quarter wider over the Git World. The panel keeps its place and size, and
+ * its own scroll takes the bigger text (panelLayout.test.ts checks the gaps).
+ */
+html[data-text-size='large']
+  :is(.play-panel__content, .overlay, .command-chip, .title-card, .hud-menu__button) {
   zoom: 1.12;
 }
 
-html[data-text-size='x-large'] :is(.play-panel, .overlay, .command-chip, .title-card, .hud-menu) {
+html[data-text-size='x-large']
+  :is(.play-panel__content, .overlay, .command-chip, .title-card, .hud-menu__button) {
   zoom: 1.25;
 }
 

@@ -84,14 +84,66 @@ function pixels(css: string, selector: string, pattern: RegExp): number {
   return Number(match[1]);
 }
 
+/** A HUD button's height at `zoom`: 13px text, padding above and below, a 1px border each side. */
+function buttonHeight(selector: string, zoom = 1): number {
+  return zoom * (13 + 2 * pixels(themeCss, selector, /padding: (\d+)px/) + 2);
+}
+
+/** Each text size's zoom, with the selectors it zooms (theme.css). */
+const TEXT_SIZES = [
+  ...themeCss.matchAll(
+    /html\[data-text-size='([\w-]+)'\]\s*:is\(([^)]*)\)\s*\{\s*zoom: ([\d.]+);/g,
+  ),
+].map(([, size = '', list = '', zoom = '']) => ({
+  size,
+  zoomed: list.split(',').map((selector) => selector.trim()),
+  zoom: Number(zoom),
+}));
+const LARGEST_ZOOM = Math.max(...TEXT_SIZES.map(({ zoom }) => zoom));
+
 describe('the play panel with the terminal closed', () => {
   it('stops above the Terminal button and HUD menu instead of covering them', () => {
     const top = pixels(themeCss, '.play-panel', /top: (\d+)px/);
     const cut = pixels(themeCss, '.play-panel', /max-height: calc\(100vh - (\d+)px\)/);
-    const buttonBottom = pixels(themeCss, '.hud-button', /bottom: (\d+)px/);
-    const buttonPadding = pixels(themeCss, '.hud-button', /padding: (\d+)px/);
-    // 13px text, padding above and below, and a 1px border each side.
-    const buttonTop = buttonBottom + 13 + 2 * buttonPadding + 2;
+    const buttonTop =
+      pixels(themeCss, '.hud-button', /bottom: (\d+)px/) + buttonHeight('.hud-button');
     expect(cut - top).toBeGreaterThanOrEqual(buttonTop + 8);
+  });
+
+  it('stops above the HUD menu even when Extra large text makes its buttons taller', () => {
+    const top = pixels(themeCss, '.play-panel', /top: (\d+)px/);
+    const cut = pixels(themeCss, '.play-panel', /max-height: calc\(100vh - (\d+)px\)/);
+    const menuBottom = pixels(themeCss, '.hud-menu', /bottom: (\d+)px/);
+    const menuTop = menuBottom + buttonHeight('.hud-menu__button', LARGEST_ZOOM);
+    expect(cut - top).toBeGreaterThanOrEqual(menuTop + 8);
+  });
+});
+
+describe('the play panel with the terminal open', () => {
+  it('stops above the HUD menu that rides on the terminal, at every text size', () => {
+    const top = pixels(themeCss, '.play-panel', /top: (\d+)px/);
+    const block = /\.play-panel--above-terminal \{[^}]*max-height: calc\((\d+)vh - (\d+)px\)/;
+    const [, panelVh = '', panelCut = ''] = block.exec(themeCss) ?? [];
+    const riding = /\.hud-menu--above-terminal \{[^}]*bottom: calc\((\d+)vh \+ (\d+)px\)/;
+    const [, menuVh = '', menuLift = ''] = riding.exec(themeCss) ?? [];
+    // The panel's bottom and the menu's both sit a share of the window up, the same share.
+    expect(100 - Number(panelVh)).toBe(Number(menuVh));
+    const panelGap = Number(panelCut) - top;
+    const menuTop = Number(menuLift) + buttonHeight('.hud-menu__button', LARGEST_ZOOM);
+    expect(panelGap).toBeGreaterThanOrEqual(menuTop + 8);
+  });
+});
+
+describe('the play panel at larger text sizes', () => {
+  it('zooms the text inside the panel and the HUD buttons, never the boxes placed on screen', () => {
+    expect(TEXT_SIZES.map(({ size }) => size)).toEqual(['large', 'x-large']);
+    for (const { zoomed } of TEXT_SIZES) {
+      expect(zoomed).toContain('.play-panel__content');
+      expect(zoomed).toContain('.hud-menu__button');
+      // Zoom scales a box's own top, width and 100vh too: a zoomed panel ran off the
+      // window and over the Git World's Workbench, and a zoomed menu left the terminal.
+      expect(zoomed).not.toContain('.play-panel');
+      expect(zoomed).not.toContain('.hud-menu');
+    }
   });
 });

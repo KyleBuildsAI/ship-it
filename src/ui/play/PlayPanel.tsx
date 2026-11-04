@@ -74,9 +74,11 @@ export function PlayPanel() {
   }, [scrollKey]);
 
   if (!visible) return null;
+  // Larger text sizes zoom the inner box, never the section: zoom would scale the section's
+  // place and size too, so it ran past the window and over more of the world (theme.css).
   return (
     <section ref={panel} className={panelClassName(terminalOpen, activity)} aria-label="Missions">
-      {content}
+      <div className="play-panel__content">{content}</div>
     </section>
   );
 }
