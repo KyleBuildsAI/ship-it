@@ -31,8 +31,8 @@ void getMentorStatus();
 void startProgress();
 
 // Every shipped Act's summary, so the menus draw at once. Each Act's content downloads only
-// when its menu opens or a Play button needs it (src/content/lazyActs.ts). Play grades the
-// sandbox after every change.
+// when a menu that needs it opens or a Play button needs it (src/content/lazyActs.ts). Play
+// grades the sandbox after every change.
 setLazyCatalog(LAZY_ACTS);
 startPlay();
 
