@@ -9,11 +9,16 @@ import { act7 } from './act7';
 import { act8 } from './act8';
 
 /**
- * Every shipped Act, in play order, for the game to import. Content is plain data
- * (DESIGN.md section 10). Act 1 is finished: a placement test, four directed missions,
- * then lessons 1.5 and 1.6 and its timed final, and its Field Mission. Act 2 is five
- * directed missions, then its timed final in place of a boss. Acts 3 to 8 are taught by lessons answered with clicks (DESIGN.md section 5, Lessons),
- * each ending in a timed final that stands in for its boss.
+ * Every shipped Act, in play order, all loaded at once: for the content tests and for the
+ * generator of the Act summaries (actSummaries.test.ts). The game never imports this file.
+ * It downloads each Act on its own through lazyActs.ts, and the build fails if any Act's
+ * content lands in the first download (vite.config.ts).
+ *
+ * Content is plain data (DESIGN.md section 10). Act 1 is finished: a placement test, four
+ * directed missions, then lessons 1.5 and 1.6 and its timed final, and its Field Mission.
+ * Act 2 is five directed missions, then its timed final in place of a boss. Acts 3 to 8
+ * are taught by lessons answered with clicks (DESIGN.md section 5, Lessons), each ending
+ * in a timed final that stands in for its boss.
  */
 export const ACTS = [
   {

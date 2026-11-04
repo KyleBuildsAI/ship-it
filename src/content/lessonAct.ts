@@ -31,7 +31,7 @@ export interface LessonActParts {
  * Builds an Act taught by lessons (DESIGN.md section 5, Lessons) from its lessons in play
  * order, final last. The final is named as the Act's finalLessonId, which is what lets
  * finishing it complete the Act in place of a boss fight. Parsing happens once, when the
- * game loads, and the content tests prove it never throws.
+ * Act downloads, and the content tests prove it never throws.
  */
 export function lessonAct(
   number: number,

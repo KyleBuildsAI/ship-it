@@ -8,7 +8,7 @@ export { act7Lessons } from './lessons';
 export { act7Placement } from './placementTest';
 
 /**
- * Act 7: AI-Native Engineering, taught as lessons and parsed once when the game loads.
+ * Act 7: AI-Native Engineering, taught as lessons and parsed once when the Act downloads.
  * It's a finished Act: a placement test of cards from its lessons, its timed final as the
  * boss, and a Field Mission on Kyle's real repo with his own AI agent.
  */

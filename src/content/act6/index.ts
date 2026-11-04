@@ -4,7 +4,7 @@ import { act6Lessons } from './lessons';
 import { act6Placement } from './placementTest';
 
 /**
- * Act 6: How Systems Work, taught as lessons and parsed once when the game loads. It's a
+ * Act 6: How Systems Work, taught as lessons and parsed once when the Act downloads. It's a
  * finished Act: a placement test of cards from its lessons, the timed final as its boss,
  * and a Field Mission on Kyle's real SandCastles repo, which completing the Act needs.
  */
