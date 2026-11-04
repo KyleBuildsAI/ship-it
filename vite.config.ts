@@ -127,6 +127,16 @@ function keepActContentLazy(): Plugin {
     apply: 'build',
     generateBundle(_options, bundle) {
       const chunks = Object.values(bundle).flatMap((file) => (file.type === 'chunk' ? [file] : []));
+      // The build always holds Act content. If none matches ACT_CONTENT, the build has
+      // changed how it names modules, and the check below would pass without looking.
+      const everyModule = chunks.flatMap((chunk) => chunk.moduleIds);
+      if (!everyModule.some((id) => ACT_CONTENT.test(withSlashes(id)))) {
+        this.error(
+          'No module in the build is under src/content/actN/, so the check that keeps each ' +
+            "Act's content in its own file would check nothing. Update ACT_CONTENT and " +
+            'ACT_INDEX in vite.config.ts to match how the build names modules.',
+        );
+      }
       const upFront = new Set(downloadsWithoutAnAct(chunks).flatMap((chunk) => chunk.moduleIds));
       const leaked = [...upFront].filter((id) => {
         const path = withSlashes(id);
