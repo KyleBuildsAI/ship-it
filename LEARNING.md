@@ -2448,3 +2448,19 @@ https://github.com/KyleBuildsAI/ship-it/pull/179
 2. `drillHistory` is capped: once it's full, the oldest attempts drop off. After a drill's pass dropped off, the game would think it was never passed and pay again. `paidDrillIds` is never trimmed and grows by at most one id per drill, so it stays small. For saves made before it existed, a pass still in the history counts as paid.
 3. Without the kept wrong pick, you could miss a card, reload, and then answer it right as a "first try", which would raise your stars for nothing. A timed final's clock can't wait: resuming would either let the clock run while you were away, which is unfair, or pause it, which the challenge isn't meant to allow. So it starts over, and its row never says "In progress".
 </details>
+
+---
+
+## #180 fix: balance lesson option lengths and correct teaching errors
+
+https://github.com/KyleBuildsAI/ship-it/pull/180
+
+1. The length rule used to cover only placement tests, which hide feedback. Lessons and finals show feedback after every pick, so why do they need it too?
+2. Why did 6.5 lose its briefing scene, and why did card 1's scene change from the rollback to the log trail?
+3. On 7.4 card 5, why must "Remove the line that printed it" come before "Put a new key in .env and restart staging"?
+<details><summary>Answers</summary>
+
+1. Stars count only your first try. If the longest option is usually right, a player who never reads earns stars by habit, and in a timed final, guessing the detailed-looking answer is tempting. Feedback helps only after the first try has already been scored.
+2. The island's only incident scene ends by putting the last good release back. That is the answer to card 4, "What do you do now, at 3am?". Played in the briefing, or after card 1, it showed the answer before the question. Card 1 asks what changed around 02:40, and the log trail fits that without giving anything away.
+3. The debug line prints the key every time the app starts. If you put in the new key and restart staging first, the line prints the new key into the same shared logs, and that key leaks too. Removing the line first is the only order that doesn't leak twice.
+</details>
