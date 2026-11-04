@@ -18,7 +18,8 @@ import { wrapAtSpaces } from './wordBreaks';
 const VERIFIED_MESSAGE = 'Verified. Real work, really done.';
 
 /**
- * A prompt or command that wraps only at its spaces (wordBreaks.ts). A browser would also
+ * Text that wraps only at its spaces (wordBreaks.ts): a task, an agent brief, a check's
+ * instruction or its command, since any of them can name a command. A browser would also
  * end a line after a hyphen, and "Get-" over "Command" reads as two commands.
  */
 function WrapAtSpaces({ text }: { text: string }) {
@@ -104,7 +105,9 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
                     setFieldTaskDone(item.id, event.target.checked);
                   }}
                 />
-                <span>{item.text}</span>
+                <span>
+                  <WrapAtSpaces text={item.text} />
+                </span>
               </label>
               {item.prompt === undefined ? null : (
                 <div className="field-task__prompt">
@@ -131,7 +134,7 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
           <div key={check.id} className="field-check">
             <p className="play-panel__instruction">
               <span className={done ? 'checklist__done' : ''}>{done ? '✓ ' : ''}</span>
-              {check.instruction}
+              <WrapAtSpaces text={check.instruction} />
             </p>
             <div className="field-check__run">
               <code className="field-check__command">

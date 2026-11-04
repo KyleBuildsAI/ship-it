@@ -7,6 +7,7 @@ import { createDefaultSave, type SaveData } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
 import type { Store } from '../../game/store';
 import { act1, act1Lessons, act1Missions } from '../../content/act1';
+import { act2, act2Lessons, act2Missions } from '../../content/act2';
 import { act7 } from '../../content/act7';
 import { act8 } from '../../content/act8';
 import { FieldCheckResult, FieldView } from './FieldView';
@@ -111,6 +112,24 @@ describe('the Act 1 Field Mission panel', () => {
     // The commands to run, too, while Copy still copies the line exactly.
     expect(html).toContain('git status <span class="whole-word">-sb</span>');
     expect(html).toContain('aria-label="Copy the command git status -sb -- CLAUDE.md AGENTS.md"');
+  });
+
+  it('keeps a flag whole in the check instructions too, where commands are named in words', () => {
+    setCatalog({ acts: [{ act: act1, missions: act1Missions, lessons: act1Lessons }] });
+    progress.update({ status: 'ready', save: createDefaultSave(TEST_NOW), problem: null });
+    const html = renderToStaticMarkup(<FieldView activity={{ kind: 'field', act: 1 }} />);
+    expect(html).toContain('Run git log <span class="whole-word">--oneline</span>');
+  });
+});
+
+describe('the Act 2 Field Mission panel', () => {
+  it('keeps a flag whole in a task’s own words, so it never splits into "--" and "cached"', () => {
+    setCatalog({ acts: [{ act: act2, missions: act2Missions, lessons: act2Lessons }] });
+    progress.update({ status: 'ready', save: createDefaultSave(TEST_NOW), problem: null });
+    const html = renderToStaticMarkup(<FieldView activity={{ kind: 'field', act: 2 }} />);
+    const labels = [...html.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)].map((match) => match[1]);
+    expect(labels.join(' ')).toContain('git rm <span class="whole-word">-r</span>');
+    expect(labels.join(' ')).toContain('<span class="whole-word">--cached</span>');
   });
 });
 
