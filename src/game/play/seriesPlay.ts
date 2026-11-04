@@ -17,7 +17,7 @@ import { progress, saveProgressNow } from '../progress';
 import type { ReviewItem } from '../save/schema';
 import { zoneForAct } from '../world/zones';
 import { travelTo } from '../worldState';
-import { allMissions, findDrill, getAct } from './catalog';
+import { findDrill, getAct, knownDrillIds } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
 import { beginScene, endScene, frameScene } from './scenePlay';
@@ -83,12 +83,12 @@ export function startPlacement(act: number): void {
  * still list a drill that a later build removed: it can never be played or graded, so it
  * would never leave the queue. Leaving it out here keeps the menu's count, the Standup
  * Board's list and the review itself in step, and keeps it from taking a slot in the
- * day's set.
+ * day's set. The ids come from the summaries, so counting reviews downloads nothing.
  */
 export function todaysItems(now: Date): ReviewItem[] {
   const save = progress.get().save;
   if (save === null) return [];
-  const known = new Set(allMissions().flatMap((mission) => mission.drills.map((d) => d.id)));
+  const known = knownDrillIds();
   const playable = save.reviewQueue.filter((item) => known.has(item.drillId));
   return dailySet(playable, localDay(now));
 }

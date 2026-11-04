@@ -1,8 +1,8 @@
 import { closeActMenu, hud } from '../hud';
-import type { Act } from '../missions/schema';
 import { progress, updateSave } from '../progress';
 import type { SaveData } from '../save/schema';
-import { findAct } from './catalog';
+import type { ActOutline } from './actSummary';
+import { findActSummary } from './catalog';
 import { missionDone } from './saveRules';
 
 /*
@@ -89,7 +89,7 @@ export function unlockFromAddress(address: AddressBar): () => void {
  */
 export type BossAccess = 'earned' | 'preview' | 'locked';
 
-export function bossAccess(save: SaveData, act: Act): BossAccess {
+export function bossAccess(save: SaveData, act: ActOutline): BossAccess {
   if (act.missionIds.every((id) => missionDone(save, id))) return 'earned';
   return isUnlocked(save) ? 'preview' : 'locked';
 }
@@ -101,5 +101,5 @@ export function bossAccess(save: SaveData, act: Act): BossAccess {
 export function setUnlockAll(on: boolean): void {
   updateSave((save) => withUnlock(save, on));
   const open = hud.get().actMenu;
-  if (!on && open !== null && findAct(open) === undefined) closeActMenu();
+  if (!on && open !== null && findActSummary(open) === undefined) closeActMenu();
 }
