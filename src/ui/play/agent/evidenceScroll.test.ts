@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvidenceEntry } from '../../../game/agent/evidence';
-import { evidenceScroll } from './evidenceScroll';
+import { applyEvidenceScroll, evidenceScroll, type EvidenceBox } from './evidenceScroll';
 
 function ran(typed: string): EvidenceEntry {
   return { tab: 1, prompt: 'quillwork $ ', typed, words: null, lines: [] };
@@ -32,5 +32,39 @@ describe('where an evidence box scrolls', () => {
     expect(evidenceScroll(shown, shown)).toBe('stay');
     expect(evidenceScroll(shown, [...shown])).toBe('stay');
     expect(evidenceScroll([], [])).toBe('stay');
+  });
+});
+
+/**
+ * A stand-in for the evidence `pre`, scrolled to `scrollTop`: its first entry starts 13px
+ * down, below the box's padding, and its newest 213px down.
+ */
+function box(scrollTop: number): EvidenceBox {
+  return { scrollTop, firstElementChild: { offsetTop: 13 }, lastElementChild: { offsetTop: 213 } };
+}
+
+describe('moving an evidence box', () => {
+  it('opens at its first line for new output, not at the bottom half of a git status', () => {
+    const scrolled = box(480);
+    applyEvidenceScroll(scrolled, 'top');
+    expect(scrolled.scrollTop).toBe(0);
+  });
+
+  it('brings the newest entry in from its typed line, where the first entry starts', () => {
+    const scrolled = box(0);
+    applyEvidenceScroll(scrolled, 'newest');
+    expect(scrolled.scrollTop).toBe(200);
+  });
+
+  it('leaves the box where Kyle scrolled it when nothing changed', () => {
+    const scrolled = box(120);
+    applyEvidenceScroll(scrolled, 'stay');
+    expect(scrolled.scrollTop).toBe(120);
+  });
+
+  it('stays put when there is no entry to scroll to', () => {
+    const empty: EvidenceBox = { scrollTop: 40, firstElementChild: null, lastElementChild: null };
+    applyEvidenceScroll(empty, 'newest');
+    expect(empty.scrollTop).toBe(40);
   });
 });

@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import type { EvidenceEntry } from '../../../game/agent/evidence';
 import type { Typist } from '../../../game/agent/feed';
 import type { Tone } from '../../../engine/git/cli/output';
-import { evidenceScroll } from './evidenceScroll';
+import { applyEvidenceScroll, evidenceScroll } from './evidenceScroll';
 
 /**
  * Output colours by meaning, as the terminal's own (ui/terminal/tones.ts): what git calls
@@ -55,19 +55,6 @@ function EntryLines({ entry }: { entry: EvidenceEntry }) {
   );
 }
 
-/**
- * Scrolls `box` so its newest entry starts where its first one does, in sight from its
- * typed line on. The box can't scroll past its end, so a short newest entry just brings
- * the bottom into view, as a terminal does.
- */
-function scrollToNewest(box: HTMLElement): void {
-  const first = box.firstElementChild;
-  const newest = box.lastElementChild;
-  if (first instanceof HTMLElement && newest instanceof HTMLElement) {
-    box.scrollTop = newest.offsetTop - first.offsetTop;
-  }
-}
-
 const NO_ENTRIES: readonly EvidenceEntry[] = [];
 
 /**
@@ -94,10 +81,7 @@ export function TerminalEvidence({
   useLayoutEffect(() => {
     const move = evidenceScroll(shown.current, entries);
     shown.current = entries;
-    const box = screen.current;
-    if (box === null) return;
-    if (move === 'top') box.scrollTop = 0;
-    if (move === 'newest') scrollToNewest(box);
+    if (screen.current !== null) applyEvidenceScroll(screen.current, move);
   }, [entries]);
   if (entries.length === 0) return null;
   return (
@@ -105,7 +89,7 @@ export function TerminalEvidence({
       <figcaption>{caption}</figcaption>
       <pre ref={screen} tabIndex={0}>
         {entries.map((entry, index) => (
-          // One span per entry, so scrollToNewest can find where the newest starts.
+          // One span per entry, so applyEvidenceScroll can find where the newest starts.
           <span key={String(index)}>
             <EntryLines entry={entry} />
           </span>
