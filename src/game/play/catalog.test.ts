@@ -157,11 +157,14 @@ describe('prefetchAct', () => {
     expect(entry.load).not.toHaveBeenCalled();
   });
 
-  it('reports a failed download to the console and leaves the Act to load later', async () => {
+  it('reports a failed download to the console once and leaves the Act to load later', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     setLazyCatalog([lazy(finished, () => Promise.reject(new Error('offline')))]);
+    // React's StrictMode runs a menu's effect twice in dev, so a menu prefetches twice.
+    prefetchAct(2);
     prefetchAct(2);
     await expect(loadAct(2)).rejects.toThrow('offline');
+    expect(error).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledWith('[ship-it] Act 2 did not load', expect.any(Error));
     expect(isActLoaded(2)).toBe(false);
   });

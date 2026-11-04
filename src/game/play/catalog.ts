@@ -175,6 +175,8 @@ async function fetchContent(entry: LazyAct, act: number): Promise<ActContent> {
 export function prefetchAct(act: number): void {
   // Preview mode has tabs for Acts the game doesn't ship; there's nothing to fetch for them.
   if (findActSummary(act) === undefined || isActLoaded(act)) return;
+  // Whoever started a download in flight reports its failure, so it's logged only once.
+  if (currentState().loading.has(act)) return;
   loadAct(act).catch((error: unknown) => {
     console.error(`[ship-it] Act ${String(act)} did not load`, error);
   });
