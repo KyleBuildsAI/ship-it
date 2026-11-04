@@ -17,7 +17,7 @@ import { progress, saveProgressNow } from '../progress';
 import type { ReviewItem } from '../save/schema';
 import { zoneForAct } from '../world/zones';
 import { travelTo } from '../worldState';
-import { findDrill, getAct, knownDrillIds } from './catalog';
+import { knownDrillIds, loadedAct, loadedDrill } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
 import { beginScene, endScene, frameScene } from './scenePlay';
@@ -50,7 +50,7 @@ function begin(
 ): void {
   endDrill();
   endScene();
-  const drills = drillIds.map(findDrill);
+  const drills = drillIds.map(loadedDrill);
   // Act 2's drills are typed, so the terminal opens for them; a judgment drill is answered
   // in the panel, so a set of only those keeps it put away (DESIGN.md, First-run tutorial).
   if (drills.some((drill) => !isJudgmentDrill(drill))) openTerminal();
@@ -73,7 +73,7 @@ function begin(
  * mix every Act's drills, so they stay wherever the player is.
  */
 export function startPlacement(act: number): void {
-  const { drillIds } = requireDrillPlacement(getAct(act).act);
+  const { drillIds } = requireDrillPlacement(loadedAct(act).act);
   travelTo(zoneForAct(act));
   begin('placement', act, drillIds);
 }
@@ -183,7 +183,7 @@ function finish(current: SeriesActivity, nowMs: number, graded: JudgmentGrade | 
   const done = results.length === current.drills.length;
   let placement = current.placement;
   if (done && current.kind === 'placement' && current.act !== null) {
-    const { act, missions } = getAct(current.act);
+    const { act, missions } = loadedAct(current.act);
     placement = placementResult(results, requireDrillPlacement(act).passPercent);
     const result = placement;
     saveProgressNow((save) => recordPlacement(save, act, missions, result, now));
