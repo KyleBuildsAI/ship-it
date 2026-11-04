@@ -219,8 +219,18 @@ describe('Act 8 Field Mission: Tell the SandCastles Story', () => {
     const commit = field.checklist.find((item) => item.id === 'commit-it');
     expect(commit?.prompt).toMatch(/Commit only those two files/);
     expect(commit?.prompt).toMatch(/stash/);
-    // The workflow Act 3 taught: a branch and a squash-merged pull request.
+    // A branch and a pull request, squash-merged as in Acts 4 to 6.
     expect(commit?.prompt).toMatch(/branch called docs\/story/);
     expect(commit?.prompt).toMatch(/squash-merge/);
+  });
+
+  it('stops the agent at an open pull request, so Kyle reviews and merges it, as Act 3 taught', () => {
+    // The brief Kyle copies tells his agent not to merge, and says the merge is Kyle's.
+    const commit = field.checklist.find((item) => item.id === 'commit-it');
+    expect(commit?.prompt).toMatch(/Don’t merge it: I’ll review and squash-merge it/);
+    expect(commit?.text).toMatch(/then stop/);
+    const merge = field.checklist.find((item) => item.id === 'review-and-merge');
+    expect(merge?.text).toMatch(/Files changed/);
+    expect(merge?.text).toMatch(/Squash and merge/);
   });
 });
