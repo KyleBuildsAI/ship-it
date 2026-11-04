@@ -106,10 +106,15 @@ describe('whether Play picks a lesson up', () => {
   it("gives the Act menu the same answer from a row's summary, with no lesson content", () => {
     const [lessonRow, , finalRow] = summarizeAct(sampleLessonAct()).parts;
     if (lessonRow === undefined || finalRow === undefined) throw new Error('Rows are missing.');
-    expect(partResumeFor(lessonRow, inProgress(kept))).toEqual(kept);
-    expect(partResumeFor(finalRow, inProgress(kept))).toBeNull();
     const renamed = { ...kept, answered: [{ cardId: 'gone', firstTry: true }] };
-    expect(partResumeFor(lessonRow, inProgress(renamed))).toBeNull();
+    const saves = [undefined, inProgress(kept), inProgress(renamed), inProgress(undefined)];
+    // Asked of Play's own rule each time, so the two can't drift apart unnoticed.
+    for (const saved of saves) {
+      expect(partResumeFor(lessonRow, saved)).toEqual(lessonResumeFor(sampleLesson, saved));
+      expect(partResumeFor(finalRow, saved)).toEqual(lessonResumeFor(sampleFinal, saved));
+    }
+    // One fixed answer too, so the loop isn't only ever comparing two nulls.
+    expect(partResumeFor(lessonRow, inProgress(kept))).toEqual(kept);
   });
 
   it('never resumes a mission row, whatever lesson progress the save holds', () => {
