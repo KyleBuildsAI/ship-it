@@ -194,9 +194,9 @@ export function prefetchAct(act: number): void {
 }
 
 /*
- * Content of loaded Acts only. Everything below runs inside an activity, and play starts
- * only once its Act has loaded (the playWhenReady rule), so the content is always here.
- * Each lookup needs just the one Act that holds the id; the others may still be downloading.
+ * Content of loaded Acts only, for code inside an activity: an activity starts only once
+ * its Act has loaded, and a loaded Act is never dropped, so its content is always here.
+ * Each lookup needs just the one Act that holds the id; others may still be downloading.
  */
 
 /** The Act numbered `act`, already loaded. */
