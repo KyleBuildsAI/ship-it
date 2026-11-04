@@ -124,7 +124,7 @@ The story line, from Marco in the first briefing: *"The Quillwork API must run o
 **Voice.** 12 words or fewer per line.
 - Upbeat and literal. He reports "Done: …".
 - He reports what he *meant* to do without checking what happened. That is the real agent failure mode, not cartoon villainy.
-- When caught, he answers plainly with the evidence: "You're right. The Directory line says C:\Users\kyle."
+- When caught, he answers plainly with evidence Kyle can see (a look or the island, never output only the put-away terminal shows): "You're right. List home shows notes in C:\Users\kyle."
 - When denied on a harmful line: "Good stop. That was the whole project."
 - His first line says he is scripted: "I'm Otto. Scripted for this course, so my slips teach."
 
@@ -367,7 +367,7 @@ Start plans:
 
   Each option is reachable by some path.
 - Guards: `driveFolder HOME/notes exists:false` "No stray notes folder at home"; `driveFile API/package.json` "The API is intact".
-- Success: `driveFolder API/notes`. The evidence is the real `Directory: C:\Users\kyle` line above the mkdir table.
+- Success: `driveFolder API/notes`. The evidence Kyle reads is the List home look, which shows whether notes landed at home, and the island, which shows the API's folders (§5.9). The `Directory: C:\Users\kyle` line above Otto's mkdir table prints only in the terminal, which stays put away, so no feedback points at it.
 
 ---
 
