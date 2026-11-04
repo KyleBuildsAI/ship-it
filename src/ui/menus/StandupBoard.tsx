@@ -1,20 +1,10 @@
 import { openMenu } from '../../game/hud';
-import { findDrill } from '../../game/play/catalog';
+import { drillPrompt } from '../../game/play/catalog';
 import { startReview, todaysItems } from '../../game/play/seriesPlay';
 import { progress } from '../../game/progress';
 import { compareDays, localDay } from '../../game/progression/days';
 import { useStore } from '../useStore';
 import { Overlay } from './Overlay';
-
-function drillPrompt(id: string): string {
-  try {
-    return findDrill(id).prompt;
-  } catch {
-    // todaysItems already leaves out drills this build no longer has, so this is only a
-    // guard: an id is still better than a board that fails to open.
-    return id;
-  }
-}
 
 /** Today's review set (DESIGN.md section 6): missed drills, brought back by SM-2. */
 export function StandupBoard() {
@@ -43,7 +33,9 @@ export function StandupBoard() {
           <ol className="standup-list">
             {items.map((item) => (
               <li key={item.drillId}>
-                {drillPrompt(item.drillId)}
+                {/* todaysItems already leaves out drills this build doesn't ship, so the id
+                    is only a guard: it beats a blank line. */}
+                {drillPrompt(item.drillId) ?? item.drillId}
                 <small>{compareDays(item.dueOn, today) <= 0 ? 'Due' : `Due ${item.dueOn}`}</small>
               </li>
             ))}
