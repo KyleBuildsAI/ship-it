@@ -60,13 +60,15 @@ export function lessonResumeFor(
 /**
  * The same answer for an Act menu row, from the lesson's summary alone, so the menu can
  * say "In progress" before the lesson's content has downloaded. The summary has no time
- * limit to check, but it doesn't need one: lessonSchema gives a clock to finals only.
+ * limit to check, but it doesn't need one: lessonSchema gives a clock to finals only, so
+ * a plain lesson is the one kind that resumes. A mission row never does: Play has no
+ * lesson to pick up there, whatever the save holds.
  */
 export function partResumeFor(
   part: PartSummary,
   saved: MissionProgress | undefined,
 ): LessonResume | null {
-  return keptResume(part.kind !== 'final', part.cardIds, saved);
+  return keptResume(part.kind === 'lesson', part.cardIds, saved);
 }
 
 /** The rule both of the above share, so the menu and Play can never disagree. */

@@ -8,6 +8,7 @@ import {
   type LessonRun,
 } from '../missions/lessonRunner';
 import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
+import { sampleAct, sampleMission } from '../missions/sample.test-mission';
 import { createMissionProgress, type MissionProgress } from '../save/schema';
 import { summarizeAct } from './actSummary';
 import {
@@ -109,6 +110,14 @@ describe('whether Play picks a lesson up', () => {
     expect(partResumeFor(finalRow, inProgress(kept))).toBeNull();
     const renamed = { ...kept, answered: [{ cardId: 'gone', firstTry: true }] };
     expect(partResumeFor(lessonRow, inProgress(renamed))).toBeNull();
+  });
+
+  it('never resumes a mission row, whatever lesson progress the save holds', () => {
+    const [missionRow] = summarizeAct({ act: sampleAct, missions: [sampleMission] }).parts;
+    if (missionRow === undefined) throw new Error('The mission row is missing.');
+    // Nothing answered but an open card: the one shape that passes every other check.
+    const openOnly = { answered: [], open: { cardId: 'any', picked: [], wrongOrders: 1 } };
+    expect(partResumeFor(missionRow, inProgress(openOnly))).toBeNull();
   });
 });
 
