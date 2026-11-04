@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
 import {
   earlySampleAct,
   otherSampleAct,
@@ -7,6 +8,7 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
+import { ContentError } from '../missions/schema';
 import {
   createActProgress,
   createDefaultSave,
@@ -16,23 +18,201 @@ import {
   type SaveData,
 } from '../save/schema';
 import { TEST_NOW } from '../save/testFixtures';
+import { summarizeAct } from './actSummary';
 import {
+  actOfDrill,
+  actOfPart,
+  actSummaries,
+  ActNotLoadedError,
   allMissions,
+  drillPrompt,
+  findAct,
+  findActSummary,
   findDrill,
   findMission,
   getAct,
   hasWorkLeft,
+  isActLoaded,
+  knownDrillIds,
+  loadAct,
+  prefetchAct,
   recommendedAct,
   setCatalog,
+  setLazyCatalog,
+  type ActContent,
 } from './catalog';
 
 const finished = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
 const other = otherSampleAct();
 const early = earlySampleAct();
 const EARLY_MISSION = 'early-three-rooms';
+const firstDrill = sampleMission.drills[0];
+if (firstDrill === undefined) throw new Error('The sample mission needs a drill.');
 
 beforeEach(() => {
   setCatalog({ acts: [finished, other] });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** A catalog entry as the game will have it: the summary now, the content when asked. */
+function lazy(content: ActContent, load = () => Promise.resolve(content)) {
+  return { summary: summarizeAct(content), load: vi.fn(load) };
+}
+
+describe('setCatalog', () => {
+  it('has every Act loaded already, with a summary of each', async () => {
+    expect(isActLoaded(2)).toBe(true);
+    expect(isActLoaded(3)).toBe(true);
+    expect(actSummaries()).toEqual([summarizeAct(finished), summarizeAct(other)]);
+    await expect(loadAct(3)).resolves.toBe(other);
+  });
+
+  it('puts an Act’s free-play sandbox on its summary', () => {
+    const freePlay = { steps: [], notice: 'Nothing here is graded.' };
+    setCatalog({ acts: [{ ...finished, freePlay }] });
+    expect(findActSummary(2)?.freePlay).toBe(freePlay);
+  });
+});
+
+describe('setLazyCatalog', () => {
+  it('has every summary straight away and loads nothing', () => {
+    const entries = [lazy(finished), lazy(other)];
+    setLazyCatalog(entries);
+    expect(actSummaries().map(({ act }) => act.title)).toEqual([sampleAct.title, 'Other Sample']);
+    expect(findActSummary(3)?.parts).toHaveLength(3);
+    expect(findActSummary(7)).toBeUndefined();
+    expect(isActLoaded(2)).toBe(false);
+    for (const entry of entries) expect(entry.load).not.toHaveBeenCalled();
+  });
+
+  it('downloads an Act once, however many ask for it at the same time', async () => {
+    const entries = [lazy(finished), lazy(other)];
+    setLazyCatalog(entries);
+    const first = loadAct(2);
+    expect(loadAct(2)).toBe(first);
+    await expect(first).resolves.toBe(finished);
+    expect(isActLoaded(2)).toBe(true);
+    await expect(loadAct(2)).resolves.toBe(finished);
+    expect(entries[0]?.load).toHaveBeenCalledTimes(1);
+    expect(entries[1]?.load).not.toHaveBeenCalled();
+  });
+
+  it('forgets a failed download, so the next call tries again', async () => {
+    const load = vi
+      .fn<() => Promise<ActContent>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockImplementationOnce(() => {
+        throw new Error('no such file');
+      })
+      .mockResolvedValue(finished);
+    setLazyCatalog([{ summary: summarizeAct(finished), load }]);
+    await expect(loadAct(2)).rejects.toThrow('offline');
+    expect(isActLoaded(2)).toBe(false);
+    // A loader that throws before it returns a promise fails the same way, not mid-call.
+    await expect(loadAct(2)).rejects.toThrow('no such file');
+    await expect(loadAct(2)).resolves.toBe(finished);
+    expect(load).toHaveBeenCalledTimes(3);
+  });
+
+  it('refuses content for a different Act than the one asked for', async () => {
+    setLazyCatalog([lazy(finished, () => Promise.resolve(other))]);
+    await expect(loadAct(2)).rejects.toThrow(ContentError);
+    expect(isActLoaded(2)).toBe(false);
+    expect(isActLoaded(3)).toBe(false);
+  });
+
+  it('says clearly when the game has no such Act', async () => {
+    setLazyCatalog([lazy(finished)]);
+    await expect(loadAct(7)).rejects.toThrow('The game has no Act 7.');
+  });
+
+  it('drops a download that finishes after the catalog was replaced', async () => {
+    setLazyCatalog([lazy(finished)]);
+    const stale = loadAct(2);
+    setLazyCatalog([lazy(finished)]);
+    await stale;
+    expect(isActLoaded(2)).toBe(false);
+  });
+});
+
+describe('prefetchAct', () => {
+  it('starts the download that a later loadAct shares', async () => {
+    const entry = lazy(finished);
+    setLazyCatalog([entry]);
+    prefetchAct(2);
+    expect(entry.load).toHaveBeenCalledTimes(1);
+    await loadAct(2);
+    expect(entry.load).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing for an Act the game doesn’t ship, like a roadmap tab', () => {
+    const entry = lazy(finished);
+    setLazyCatalog([entry]);
+    expect(() => {
+      prefetchAct(7);
+    }).not.toThrow();
+    expect(entry.load).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed download to the console and leaves the Act to load later', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    setLazyCatalog([lazy(finished, () => Promise.reject(new Error('offline')))]);
+    prefetchAct(2);
+    await expect(loadAct(2)).rejects.toThrow('offline');
+    expect(error).toHaveBeenCalledWith('[ship-it] Act 2 did not load', expect.any(Error));
+    expect(isActLoaded(2)).toBe(false);
+  });
+});
+
+describe('summary lookups', () => {
+  beforeEach(() => {
+    // Lazy, with loaders that must not run: every lookup here reads summaries only.
+    const refuse = () => Promise.reject(new Error('a summary lookup loaded an Act'));
+    setLazyCatalog([lazy(finished, refuse), lazy(other, refuse), lazy(sampleLessonAct(), refuse)]);
+  });
+
+  it('finds the Act a mission, lesson or drill belongs to', () => {
+    expect(actOfPart(sampleMission.id)).toBe(2);
+    expect(actOfPart(`other-${sampleMission.id}`)).toBe(3);
+    expect(actOfPart(sampleLesson.id)).toBe(4);
+    expect(actOfPart('nothing')).toBeUndefined();
+    expect(actOfDrill(firstDrill.id)).toBe(2);
+    expect(actOfDrill(`other-${firstDrill.id}`)).toBe(3);
+    expect(actOfDrill('nothing')).toBeUndefined();
+  });
+
+  it('knows every drill id and prompt', () => {
+    const drills = [...finished.missions, ...other.missions].flatMap((mission) => mission.drills);
+    expect(knownDrillIds()).toEqual(new Set(drills.map((drill) => drill.id)));
+    expect(drillPrompt(firstDrill.id)).toBe(firstDrill.prompt);
+    expect(drillPrompt('removed-in-a-later-build')).toBeUndefined();
+  });
+});
+
+describe('the old getters on a lazy catalog', () => {
+  it('throw ActNotLoadedError until the Act loads, then find it', async () => {
+    setLazyCatalog([lazy(finished), lazy(other)]);
+    expect(() => getAct(2)).toThrow(ActNotLoadedError);
+    expect(() => allMissions()).toThrow(ActNotLoadedError);
+    expect(findAct(7)).toBeUndefined();
+    await loadAct(2);
+    expect(getAct(2)).toBe(finished);
+    // Every mission means every Act, and Act 3 is still waiting.
+    expect(() => findMission(sampleMission.id)).toThrow("Act 3 isn't loaded.");
+    await loadAct(3);
+    expect(findMission(`other-${sampleMission.id}`).act).toBe(3);
+    expect(findDrill(firstDrill.id).prompt).toBe(firstDrill.prompt);
+  });
+
+  it('point at the fix when an Act is missing', () => {
+    const error = new ActNotLoadedError(5);
+    expect(error.act).toBe(5);
+    expect(error.name).toBe('ActNotLoadedError');
+    expect(error.message).toContain('playWhenReady');
+  });
 });
 
 function withCompleted(...acts: number[]): SaveData {
