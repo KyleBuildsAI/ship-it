@@ -62,6 +62,11 @@ function lazy(content: ActContent, load = () => Promise.resolve(content)) {
   return { summary: summarizeAct(content), load: vi.fn(load) };
 }
 
+/** loadAct logs a failed download; this counts those calls and keeps them out of the output. */
+function captureConsoleError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => undefined);
+}
+
 describe('setCatalog', () => {
   it('has every Act loaded already, with a summary of each', async () => {
     expect(isActLoaded(2)).toBe(true);
@@ -101,6 +106,7 @@ describe('setLazyCatalog', () => {
   });
 
   it('forgets a failed download, so the next call tries again', async () => {
+    const error = captureConsoleError();
     const load = vi
       .fn<() => Promise<ActContent>>()
       .mockRejectedValueOnce(new Error('offline'))
@@ -115,18 +121,35 @@ describe('setLazyCatalog', () => {
     await expect(loadAct(2)).rejects.toThrow('no such file');
     await expect(loadAct(2)).resolves.toBe(finished);
     expect(load).toHaveBeenCalledTimes(3);
+    // One log for each of the two failed downloads.
+    expect(error).toHaveBeenCalledTimes(2);
+  });
+
+  it('logs a failed download once, however many callers share it', async () => {
+    const error = captureConsoleError();
+    setLazyCatalog([lazy(finished, () => Promise.reject(new Error('offline')))]);
+    const first = loadAct(2);
+    const second = loadAct(2);
+    await expect(first).rejects.toThrow('offline');
+    await expect(second).rejects.toThrow('offline');
+    expect(error).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalledWith('[ship-it] Act 2 did not load', expect.any(Error));
   });
 
   it('refuses content for a different Act than the one asked for', async () => {
+    const error = captureConsoleError();
     setLazyCatalog([lazy(finished, () => Promise.resolve(other))]);
     await expect(loadAct(2)).rejects.toThrow(ContentError);
     expect(isActLoaded(2)).toBe(false);
     expect(isActLoaded(3)).toBe(false);
+    expect(error).toHaveBeenCalledOnce();
   });
 
   it('says clearly when the game has no such Act', async () => {
+    const error = captureConsoleError();
     setLazyCatalog([lazy(finished)]);
     await expect(loadAct(7)).rejects.toThrow('The game has no Act 7.');
+    expect(error).toHaveBeenCalledOnce();
   });
 
   it('drops a download that finishes after the catalog was replaced', async () => {
@@ -157,12 +180,13 @@ describe('prefetchAct', () => {
     expect(entry.load).not.toHaveBeenCalled();
   });
 
-  it('reports a failed download to the console once and leaves the Act to load later', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  it('logs one failure when a menu’s prefetch and a click share the download', async () => {
+    const error = captureConsoleError();
     setLazyCatalog([lazy(finished, () => Promise.reject(new Error('offline')))]);
     // React's StrictMode runs a menu's effect twice in dev, so a menu prefetches twice.
     prefetchAct(2);
     prefetchAct(2);
+    // The player clicks Play before the download finishes, so the click joins it.
     await expect(loadAct(2)).rejects.toThrow('offline');
     expect(error).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalledWith('[ship-it] Act 2 did not load', expect.any(Error));

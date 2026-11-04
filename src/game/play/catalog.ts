@@ -128,7 +128,8 @@ export function isActLoaded(act: number): boolean {
 
 /**
  * Act `act`'s content, downloading it the first time. Callers share a download in flight.
- * A failed one is forgotten, so the next call tries again.
+ * A failed one is forgotten, so the next call tries again. The failure is logged here, once
+ * per download however many callers share it, so a caller only has to tell the player.
  */
 export function loadAct(act: number): Promise<ActContent> {
   // Held for the whole download: if a new catalog replaces this one meanwhile, the content
@@ -138,11 +139,7 @@ export function loadAct(act: number): Promise<ActContent> {
   if (done !== undefined) return Promise.resolve(done);
   const inFlight = stateAtStart.loading.get(act);
   if (inFlight !== undefined) return inFlight;
-  const entry = stateAtStart.entries.find(({ summary }) => summary.act.act === act);
-  if (entry === undefined) {
-    return Promise.reject(new Error(`The game has no Act ${String(act)}.`));
-  }
-  const download = fetchContent(entry, act)
+  const download = fetchContent(stateAtStart.entries, act)
     .then((content) => {
       stateAtStart.loaded.set(act, content);
       return content;
@@ -150,15 +147,24 @@ export function loadAct(act: number): Promise<ActContent> {
     // .then and .finally always run later, never during this call, so this delete can't
     // come before the loading.set below, even when the loader fails straight away.
     .finally(() => stateAtStart.loading.delete(act));
+  // A side branch, not part of the chain callers get: they still see the failure. Being
+  // attached already, it also means a caller that ignores the result leaves no unhandled
+  // rejection behind.
+  download.catch((error: unknown) => {
+    console.error(`[ship-it] Act ${String(act)} did not load`, error);
+  });
   stateAtStart.loading.set(act, download);
   return download;
 }
 
 /**
- * Runs the loader and checks it brought the Act it was asked for. Being async, it turns a
- * loader that throws before returning a promise into a failed download like any other.
+ * Finds the Act's loader, runs it, and checks it brought the Act it was asked for. Being
+ * async, it turns every problem, even a loader that throws before returning a promise,
+ * into a failed download like any other.
  */
-async function fetchContent(entry: LazyAct, act: number): Promise<ActContent> {
+async function fetchContent(entries: readonly LazyAct[], act: number): Promise<ActContent> {
+  const entry = entries.find(({ summary }) => summary.act.act === act);
+  if (entry === undefined) throw new Error(`The game has no Act ${String(act)}.`);
   const content = await entry.load();
   if (content.act.act !== act) {
     throw new ContentError(
@@ -170,16 +176,13 @@ async function fetchContent(entry: LazyAct, act: number): Promise<ActContent> {
 
 /**
  * Starts loading an Act the player is likely to play soon, such as the one whose menu just
- * opened. A failure is only logged: the click that needs the Act retries and tells the player.
+ * opened. Nothing waits for it: loadAct logs a failure and forgets it, so the next request
+ * for that Act tries again.
  */
 export function prefetchAct(act: number): void {
   // Preview mode has tabs for Acts the game doesn't ship; there's nothing to fetch for them.
-  if (findActSummary(act) === undefined || isActLoaded(act)) return;
-  // Whoever started a download in flight reports its failure, so it's logged only once.
-  if (currentState().loading.has(act)) return;
-  loadAct(act).catch((error: unknown) => {
-    console.error(`[ship-it] Act ${String(act)} did not load`, error);
-  });
+  if (findActSummary(act) === undefined) return;
+  void loadAct(act);
 }
 
 /** Loaded content of Act `act`; the getters below need it here already. */
