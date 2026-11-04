@@ -7,7 +7,12 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
-import { sampleFinal, sampleLessonAct } from '../missions/sample.test-lesson';
+import {
+  sampleFinal,
+  sampleLesson,
+  sampleLessonAct,
+  sampleSecondLesson,
+} from '../missions/sample.test-lesson';
 import { fullSampleLessonAct, fullSamplePlacement } from '../missions/sample.test-lessonAct';
 import { outlineAct, summarizeAct, type ActOutline } from './actSummary';
 
@@ -43,15 +48,18 @@ describe('summarizeAct', () => {
   });
 
   it('keeps each lesson’s kind and card ids, in order, for a lesson and a final', () => {
-    const content = sampleLessonAct();
-    const parts = summarizeAct(content).parts;
+    const parts = summarizeAct(sampleLessonAct()).parts;
     expect(parts.map((part) => part.kind)).toEqual(['lesson', 'lesson', 'final']);
-    expect(parts.at(-1)).toEqual({
-      id: sampleFinal.id,
-      title: sampleFinal.title,
-      kind: 'final',
-      cardIds: sampleFinal.cards.map((card) => card.id),
-    });
+    // Every row, not just the final's: the menu counts an ordinary lesson's cards and
+    // checks its resume point against them, so those are the ids that must be right.
+    expect(parts).toEqual(
+      [sampleLesson, sampleSecondLesson, sampleFinal].map((lesson) => ({
+        id: lesson.id,
+        title: lesson.title,
+        kind: lesson.kind,
+        cardIds: lesson.cards.map((card) => card.id),
+      })),
+    );
   });
 
   it('lists every drill of every mission with its prompt', () => {
