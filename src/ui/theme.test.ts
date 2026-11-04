@@ -27,6 +27,16 @@ describe('text in the mono font', () => {
   });
 });
 
+describe('a word kept whole in a Field Mission prompt or command', () => {
+  it('moves to the next line as one piece, and wraps inside only if wider than a line', () => {
+    // A box of its own takes the width its text needs, up to the line's: a word that fits
+    // never breaks after its hyphen, and one that doesn't still can't run past the edge.
+    const body = ruleBody('.whole-word');
+    expect(body).toContain('display: inline-block;');
+    expect(body).toContain('overflow-wrap: anywhere;');
+  });
+});
+
 describe('a lesson artifact box', () => {
   it('shows 13 whole lines before it scrolls, and half a 14th to say there is more', () => {
     const lines = /max-height: ([\d.]+)lh;/.exec(ruleBody('.lesson-artifact pre'))?.[1];

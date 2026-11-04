@@ -1249,6 +1249,17 @@ body {
   font-variant-ligatures: none;
 }
 
+/*
+ * A word in a prompt or command kept on one line (FieldView.tsx, wordBreaks.ts), so lines
+ * wrap only at spaces: a break after a hyphen showed Get-Command as "Get-" and "Command",
+ * which reads as two commands. A word wider than the whole line still wraps inside it,
+ * rather than running past the edge.
+ */
+.whole-word {
+  display: inline-block;
+  overflow-wrap: anywhere;
+}
+
 .field-check__run {
   display: flex;
   flex-wrap: wrap;

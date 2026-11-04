@@ -13,8 +13,29 @@ import type { FieldActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
 import { CopyButton } from './CopyButton';
+import { wrapAtSpaces } from './wordBreaks';
 
 const VERIFIED_MESSAGE = 'Verified. Real work, really done.';
+
+/**
+ * A prompt or command that wraps only at its spaces (wordBreaks.ts). A browser would also
+ * end a line after a hyphen, and "Get-" over "Command" reads as two commands.
+ */
+function WrapAtSpaces({ text }: { text: string }) {
+  return (
+    <>
+      {wrapAtSpaces(text).map((piece, index) =>
+        piece.whole ? (
+          <span key={String(index)} className="whole-word">
+            {piece.text}
+          </span>
+        ) : (
+          piece.text
+        ),
+      )}
+    </>
+  );
+}
 
 /**
  * What one paste check said. The pass that finishes the mission also says it's verified
@@ -87,7 +108,9 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
               </label>
               {item.prompt === undefined ? null : (
                 <div className="field-task__prompt">
-                  <p>{item.prompt}</p>
+                  <p>
+                    <WrapAtSpaces text={item.prompt} />
+                  </p>
                   <CopyButton
                     text={item.prompt}
                     label={`Copy the agent brief for step ${String(index + 1)}`}
@@ -111,7 +134,9 @@ export function FieldView({ activity }: { activity: FieldActivity }) {
               {check.instruction}
             </p>
             <div className="field-check__run">
-              <code className="field-check__command">{check.command}</code>
+              <code className="field-check__command">
+                <WrapAtSpaces text={check.command} />
+              </code>
               <CopyButton text={check.command} label={`Copy the command ${check.command}`} />
             </div>
             <textarea
