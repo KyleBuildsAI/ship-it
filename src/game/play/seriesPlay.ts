@@ -48,9 +48,11 @@ function begin(
   act: number | null,
   drillIds: readonly string[],
 ): void {
+  // Throws before anything changes when a drill's Act hasn't loaded, so the drill or scene
+  // already running keeps going.
+  const drills = drillIds.map(loadedDrill);
   endDrill();
   endScene();
-  const drills = drillIds.map(loadedDrill);
   // Act 2's drills are typed, so the terminal opens for them; a judgment drill is answered
   // in the panel, so a set of only those keeps it put away (DESIGN.md, First-run tutorial).
   if (drills.some((drill) => !isJudgmentDrill(drill))) openTerminal();
