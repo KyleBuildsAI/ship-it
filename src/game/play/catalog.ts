@@ -252,63 +252,6 @@ function requireOwnerLoaded(owner: number | undefined): void {
   if (owner !== undefined && !isActLoaded(owner)) throw new ActNotLoadedError(owner);
 }
 
-/** Loaded content of Act `act`; the getters below need it here already. */
-function contentOf(act: number): ActContent {
-  const content = currentState().loaded.get(act);
-  if (content === undefined) throw new ActNotLoadedError(act);
-  return content;
-}
-
-/** Every shipped Act's content. Throws ActNotLoadedError if any hasn't loaded. */
-export function getCatalog(): Catalog {
-  return { acts: actSummaries().map((summary) => contentOf(summary.act.act)) };
-}
-
-/**
- * The Act numbered `number`, or undefined when the game doesn't have it yet. Throws
- * ActNotLoadedError when the game has it but its content hasn't loaded.
- */
-export function findAct(number: number): ActContent | undefined {
-  return findActSummary(number) === undefined ? undefined : contentOf(number);
-}
-
-/** The Act numbered `number`. */
-export function getAct(number: number): ActContent {
-  const content = findAct(number);
-  if (content === undefined) throw new Error(`The game has no Act ${String(number)}.`);
-  return content;
-}
-
-/** Every mission of every Act. */
-export function allMissions(): readonly Mission[] {
-  return getCatalog().acts.flatMap((entry) => entry.missions);
-}
-
-export function findMission(id: string): Mission {
-  const mission = allMissions().find((entry) => entry.id === id);
-  if (mission === undefined) throw new Error(`No mission has the id "${id}".`);
-  return mission;
-}
-
-/** Every lesson of every Act. */
-export function allLessons(): readonly Lesson[] {
-  return getCatalog().acts.flatMap((entry) => entry.lessons ?? []);
-}
-
-/** The lesson with this id, or undefined when the id names a mission (or nothing). */
-export function findLesson(id: string): Lesson | undefined {
-  return allLessons().find((entry) => entry.id === id);
-}
-
-/** Drills live inside missions; placement tests and reviews refer to them by id. */
-export function findDrill(id: string): Drill {
-  for (const mission of allMissions()) {
-    const drill = mission.drills.find((entry) => entry.id === id);
-    if (drill !== undefined) return drill;
-  }
-  throw new Error(`No drill has the id "${id}".`);
-}
-
 /**
  * Whether an Act still has something built for the player to do: a mission not done, or a
  * boss or Field Mission that exists and isn't finished. Parts an early-access Act hasn't
