@@ -167,6 +167,42 @@ describe('the last drill of a mission', () => {
   });
 });
 
+describe('the briefing', () => {
+  /** The panel's buttons at the briefing's first caption, by their text. */
+  function briefingButtons(mission: Mission): string[] {
+    const activity: MissionActivity = {
+      kind: 'mission',
+      attempt: 1,
+      mission,
+      run: startRun(mission),
+      hint: null,
+      hintLoading: false,
+      lastDrill: null,
+      questionScore: null,
+      freeTextGrade: null,
+      xpEarned: 0,
+      agent: null,
+      stars: {},
+      slips: [],
+      scene: null,
+    };
+    const markup = renderToStaticMarkup(<MissionView activity={activity} checklist={[]} />);
+    return [...markup.matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((match) => match[1] ?? '');
+  }
+
+  it('waits on its first caption for Next, with Skip briefing, and never starts by itself', () => {
+    expect(startRun(notesMission).phase).toBe('briefing');
+    // × is the panel's close button. No Start yet: the mission waits for the player.
+    expect(briefingButtons(notesMission)).toEqual(['×', 'Next', 'Skip briefing']);
+  });
+
+  it('offers Start straight away when there is only one caption', () => {
+    const [first = ''] = notesMission.briefing.captions;
+    const short = { ...notesMission, briefing: { ...notesMission.briefing, captions: [first] } };
+    expect(briefingButtons(short)).toEqual(['×', 'Start']);
+  });
+});
+
 describe('a typed sim step', () => {
   const sim = { ...startRun(sampleMission), phase: 'sim' as const };
 

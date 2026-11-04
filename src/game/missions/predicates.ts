@@ -394,12 +394,14 @@ function explainOne(predicate: Predicate, q: SandboxQueries): CheckRow {
 
 /**
  * The objective checklist for a predicate: one row per objective, each ticked or not.
- * An unlabelled `all` at the top is how missions list several objectives, so each of its
- * children becomes its own row instead of one "All of these are true" row.
+ * An unlabelled `all` is how missions list several objectives, so each of its children
+ * becomes its own row instead of one "All of these are true" row. That holds at any depth:
+ * a directed step's checklist wraps its success, itself often an unlabelled `all`, in
+ * another `all` with the guards, and the checklist shows no row's children.
  */
 export function explain(predicate: Predicate, q: SandboxQueries): CheckRow[] {
   if (predicate.kind === 'all' && predicate.label === undefined) {
-    return predicate.of.map((child) => explainOne(child, q));
+    return predicate.of.flatMap((child) => explain(child, q));
   }
   return [explainOne(predicate, q)];
 }

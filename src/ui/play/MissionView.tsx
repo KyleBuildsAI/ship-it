@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   askForHint,
   endBriefing,
@@ -21,8 +21,6 @@ import { AgentStepView } from './agent/AgentStepView';
 import { Stars } from './agent/Stars';
 import { JudgmentDrillView, JudgmentReveal, ScenePlaying } from './JudgmentDrillView';
 
-const CAPTION_MS = 5000;
-
 /** Act 2's three rooms, the strip under a git mission's briefing. */
 const GIT_ROOMS = ['Workbench', 'Loading Dock', 'Vault'];
 
@@ -31,19 +29,15 @@ const BRIEFING_STRIP: Readonly<Partial<Record<number, readonly string[]>>> = {
   1: ['C:\\', 'Users', 'kyle', 'quillwork', 'api'],
 };
 
-/** The briefing: a few captions that advance on their own, skippable at any time. */
+/**
+ * The briefing: a few captions, read at the player's own pace like a lesson's. Nothing
+ * moves on or starts until a button is pressed: a timer would start the mission under a
+ * player still reading. Back re-reads a caption, and Skip briefing starts at once.
+ */
 function Briefing({ activity }: { activity: MissionActivity }) {
   const { captions } = activity.mission.briefing;
   const [index, setIndex] = useState(0);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (index + 1 >= captions.length) endBriefing();
-      else setIndex(index + 1);
-    }, CAPTION_MS);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [index, captions.length]);
+  const last = index + 1 >= captions.length;
   return (
     <div className="briefing">
       <p className="play-panel__eyebrow">Briefing</p>
@@ -59,9 +53,32 @@ function Briefing({ activity }: { activity: MissionActivity }) {
         ))}
       </div>
       <div className="play-panel__actions">
-        <button type="button" className="play-button play-button--primary" onClick={endBriefing}>
-          {index + 1 >= captions.length ? 'Start' : 'Skip briefing'}
+        <button
+          type="button"
+          className="play-button play-button--primary"
+          onClick={() => {
+            if (last) endBriefing();
+            else setIndex(index + 1);
+          }}
+        >
+          {last ? 'Start' : 'Next'}
         </button>
+        {index === 0 ? null : (
+          <button
+            type="button"
+            className="play-button"
+            onClick={() => {
+              setIndex(index - 1);
+            }}
+          >
+            Back
+          </button>
+        )}
+        {last ? null : (
+          <button type="button" className="play-button" onClick={endBriefing}>
+            Skip briefing
+          </button>
+        )}
       </div>
     </div>
   );

@@ -187,7 +187,7 @@ export const everyTerminal: MissionInput = {
               id: 'fresh',
               text: 'Yes: its PATH lists nodejs, and Node is there',
               truth: { kind: 'all', of: [NODE_ON_PATH, NODE_INSTALLED] },
-              feedback: 'Right: a terminal opened after the install copied the new PATH.',
+              feedback: 'A terminal opened after the install copied the new PATH.',
             },
             {
               id: 'stale',
@@ -307,7 +307,7 @@ export const everyTerminal: MissionInput = {
               id: 'ready',
               text: 'Yes: it prints dev, in the API',
               truth: { kind: 'all', of: [SEES_QUILL_ENV, IN_API] },
-              feedback: 'Right: it opened after the save, then moved to the API.',
+              feedback: 'It opened after the save, then moved to the API.',
             },
             {
               id: 'missing',
@@ -430,7 +430,7 @@ export const everyTerminal: MissionInput = {
               id: 'dotenv',
               text: "In the API's .env, beside PORT and the key",
               truth: { kind: 'all', of: [DEBUG_IN_ENV, ENV_KEPT] },
-              feedback: 'Right: the API reads .env each time it starts.',
+              feedback: 'The API reads .env each time it starts.',
             },
             {
               id: 'nowhere',

@@ -222,7 +222,11 @@ const CheckOptionSchema = z.strictObject({
   text: ScreenTextSchema,
   /** When this option is the right answer. The engine decides, never a flag. */
   truth: PredicateSchema,
-  /** Shown on a miss or a false alarm. validateAct keeps it to 25 words. */
+  /**
+   * The evidence that this option is true, like "The prompt names the API folder.", so it
+   * must hold wherever `truth` does. After a miss or a false alarm the result shows it for
+   * the option that is true, never the one Kyle picked. validateAct keeps it to 25 words.
+   */
   feedback: ScreenTextSchema,
 });
 

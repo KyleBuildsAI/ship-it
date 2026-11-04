@@ -3,7 +3,13 @@ import { testDeps } from '../../engine/git/testDeps';
 import { drive } from '../../engine/shell/driver';
 import { describeChanges } from '../../game/agent/effects';
 import { dryRun, replay } from '../../game/agent/replay';
-import { answerCheck, beginAgentStep, openFixRound } from '../../game/missions/agentRunner';
+import {
+  answerCheck,
+  beginAgentStep,
+  offeredPlans,
+  openFixRound,
+  stepPasses,
+} from '../../game/missions/agentRunner';
 import { validateAct } from '../../game/missions/validateAct';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
 import { canonicalStart, playCard, queriesOf, trueChecks } from '../act1/play.test-helpers';
@@ -55,10 +61,10 @@ describeDirectedMission(mission, {
       'ignore-debug > ignore-rules': { passed: true, check: 'hidden' },
     },
     'untrack-env': {
+      // untrack-now only untracks, so it is offered only once the rule-only card wrote the
+      // rule: not after git rm, allowed (.env is gone) or denied (no rule names .env yet).
       'rule-only > untrack-now': { passed: true, check: 'safe' },
       'rule-only > rm-cached': { passed: true, check: 'safe' },
-      // .env is gone from disk and the dock, so --cached has nothing to untrack.
-      'git-rm > untrack-now': 'direct',
     },
     'commit-cleanup': {
       'copy-env > blank-example': { passed: true, check: 'names' },
@@ -78,10 +84,8 @@ describeDirectedMission(mission, {
     'untrack-env > rule-only > rm-cached > git rm --cached .env': false,
     'untrack-env > rule-only > untrack-now > git rm --cached .env': false,
     'untrack-env > git-rm > rm-cached > git rm --cached .env': false,
-    'untrack-env > git-rm > untrack-now > git rm --cached .env': false,
-    // Denied, .env is still tracked and on disk, so the untrack cards run as from the start.
+    // Denied, .env is still tracked and on disk, so the untrack card runs as from the start.
     'untrack-env > git-rm (denied) > rm-cached > git rm --cached .env': false,
-    'untrack-env > git-rm (denied) > untrack-now > git rm --cached .env': false,
   },
 });
 
@@ -159,6 +163,42 @@ describe('The Ignore List, directed', () => {
     expect(q.status().staged).toEqual([{ kind: 'deleted', path: '.env' }]);
     const safe = untrackEnv.agent?.check.options.find((option) => option.id === 'safe');
     expect(safe?.feedback).toContain('only as a removal for the next commit');
+  });
+
+  it('offers no untrack-only fix after Kyle denies plain git rm: no rule names .env yet', () => {
+    const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
+    const denied = playCard(mission, untrackEnv, begun, 'git-rm', 'deny-harmful');
+    expect(denied.gates).toEqual([{ line: 'git rm .env', harmful: true }]);
+    expect(denied.state.stage.at).toBe('direct');
+    // Untracking alone would leave .env untracked but not ignored, while Otto claimed both.
+    const offered = offeredPlans(denied.state, untrackEnv, queriesOf(denied.log));
+    expect(offered.map((plan) => plan.id)).toEqual(['rm-cached', 'rule-only']);
+    // The right call still leaves a way on: the strong card untracks and ignores it.
+    const fixed = playCard(mission, untrackEnv, denied, 'rm-cached', 'deny-harmful');
+    expect(stepPasses(untrackEnv, queriesOf(fixed.log))).toBe(true);
+    expect(trueChecks(untrackEnv, fixed.log)).toEqual(['safe']);
+  });
+
+  it('offers the untrack-only fix once the rule is there, where its claim comes true', () => {
+    const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
+    const ruled = playCard(mission, untrackEnv, begun, 'rule-only', 'deny-harmful');
+    const checked = answerCheck(ruled.state, untrackEnv, 'exposed', queriesOf(ruled.log));
+    const round = { log: ruled.log, state: openFixRound(checked) };
+    const offered = offeredPlans(round.state, untrackEnv, queriesOf(round.log));
+    expect(offered.map((plan) => plan.id)).toContain('untrack-now');
+    const fixed = playCard(mission, untrackEnv, round, 'untrack-now', 'deny-harmful');
+    expect(stepPasses(untrackEnv, queriesOf(fixed.log))).toBe(true);
+  });
+
+  it('never says git tracks .env when it is untracked but no rule hides it', () => {
+    const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
+    // Stopped right after git rm --cached, before Otto writes the rule.
+    const stopped = playCard(mission, untrackEnv, begun, 'rm-cached', 'allow-all', 1);
+    expect(queriesOf(stopped.log).untrackedPaths()).toContain('.env');
+    expect(trueChecks(untrackEnv, stopped.log)).toEqual(['exposed']);
+    const exposed = untrackEnv.agent?.check.options.find((option) => option.id === 'exposed');
+    expect(exposed?.text).not.toContain('tracks');
+    expect(exposed?.feedback).not.toMatch(/untrack it first/i);
   });
 
   it('grades the step 1 check by the last commit, since an older one may still hold the noise', () => {

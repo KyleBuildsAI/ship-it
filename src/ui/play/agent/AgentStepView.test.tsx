@@ -14,7 +14,7 @@ import {
 import { finishBriefing, startRun } from '../../../game/missions/runner';
 import { notesMission } from '../../../game/missions/sample.test-mission';
 import type { MissionStep } from '../../../game/missions/schema';
-import { ottoRun, type OttoRun } from '../../../game/play/agentPlay';
+import { ottoRun, trueCheckOptions, type OttoRun } from '../../../game/play/agentPlay';
 import type { MissionActivity } from '../../../game/play/playStore';
 import type { Store } from '../../../game/store';
 import { AgentStepView } from './AgentStepView';
@@ -26,10 +26,11 @@ vi.mock('../../useStore', () => ({
 }));
 
 // The true check option comes from the live laptop, which these tests don't build:
-// play.test.ts proves trueCheckOptions itself. Here, "home" is what's true.
+// play.test.ts proves trueCheckOptions itself. Here, "home" is what's true unless a test
+// says otherwise.
 vi.mock('../../../game/play/agentPlay', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../game/play/agentPlay')>()),
-  trueCheckOptions: () => ['home'],
+  trueCheckOptions: vi.fn(() => ['home']),
 }));
 
 function notesStep(): MissionStep {
@@ -181,16 +182,32 @@ describe('the directing panel', () => {
 
   it('tells an edit of one piece apart from a write of the whole file', () => {
     const path = 'Users/kyle/quillwork/api/config.json';
+    // Play names the file on the gate's line the way Windows prints it (agentPlay's gateLine).
+    const line = 'C:\\Users\\kyle\\quillwork\\api\\config.json';
     const changes = [{ kind: 'modified', path, how: 'replaced' }] as const;
-    const gate = { kind: 'line', line: path, changes, harmful: false } as const;
+    const gate = { kind: 'line', line, changes, harmful: false } as const;
     const edit = { do: 'edit', path, find: '8080', replace: '3000', onDeny: [] } as const;
     const edited = shown(atGate(edit, gate));
-    expect(edited).toContain('Otto wants to edit the file:' + path);
+    expect(edited).toContain('Otto wants to edit the file:' + line);
     expect(edited).toContain('Changes 8080 to 3000, and keeps the rest.');
+    // The dry run's line agrees: an edit changes part of the file, it doesn't overwrite it.
+    expect(edited).toContain('Changes part of ' + line);
+    expect(edited).not.toContain('Overwrites');
     const write = { do: 'write', path, content: '{}', onDeny: [] } as const;
     const written = shown(atGate(write, gate));
-    expect(written).toContain('Otto wants to write the whole file:' + path);
+    expect(written).toContain('Otto wants to write the whole file:' + line);
+    expect(written).toContain('Overwrites ' + line);
     expect(written).not.toContain('keeps the rest');
+  });
+
+  it("shows an edit's text without the line end it finds, which reads as a stray space", () => {
+    const path = 'Users/kyle/quillwork/api/.env';
+    const changes = [{ kind: 'modified', path, how: 'replaced' }] as const;
+    const gate = { kind: 'line', line: path, changes, harmful: false } as const;
+    const port = { do: 'edit', path, find: 'PORT=\n', replace: 'PORT=3000\n', onDeny: [] } as const;
+    expect(shown(atGate(port, gate))).toContain('Changes PORT= to PORT=3000, and keeps the rest.');
+    const cut = { do: 'edit', path, find: 'DEBUG=true\n', replace: '\n', onDeny: [] } as const;
+    expect(shown(atGate(cut, gate))).toContain('Removes DEBUG=true, and keeps the rest.');
   });
 
   it("asks Kyle to check Otto's claim, with his looks beside the answers", () => {
@@ -282,17 +299,37 @@ describe('the directing panel', () => {
     expect(text).not.toContain('earned)');
   });
 
-  it("shows a miss with the option's feedback, and Rewind first when a guard broke", () => {
+  it("shows a miss with the true option's evidence, and Rewind first when a guard broke", () => {
     const text = shown(result('missed', 'api', false, true));
     expect(text).toContain("Missed. Otto's claim was wrong.");
-    // The feedback written for the option Kyle picked, not the card's lesson.
-    expect(text).toContain('Right: the Directory line shows the API folder.');
+    // The evidence for what is true, never the picked option's, which would restate the
+    // false answer; and not the card's lesson.
+    expect(text).toContain('Read the Directory line above the table: it says where mkdir put it.');
+    expect(text).not.toContain('the Directory line shows the API folder');
     expect(text).not.toContain('A fresh terminal stands at home');
     expect(text).toContain('The true answer: In C:\\Users\\kyle, where fresh terminals start');
     expect(text).toContain('[Rewind step][Direct a fix]');
     // The Plan star is gone whichever button Kyle picks, so the note claims no trade-off.
     expect(text).toContain('A real laptop has no rewind.');
     expect(text).not.toContain('Plan star');
+  });
+
+  it("explains a false alarm with what is true, not the picked option's claim", () => {
+    // Otto was right: notes landed only in the API. Kyle said they landed at home.
+    vi.mocked(trueCheckOptions).mockReturnValueOnce(['api']);
+    const text = shown(result('false-alarm', 'home', true));
+    expect(text).toContain('False alarm. Otto was right this time.');
+    expect(text).toContain('The Directory line shows the API folder.');
+    expect(text).not.toContain('Read the Directory line above the table');
+    // Only a miss spells out the true answer: a false alarm's step passed.
+    expect(text).not.toContain('The true answer');
+  });
+
+  it("falls back to the card's lesson when no option is true after a misread", () => {
+    vi.mocked(trueCheckOptions).mockReturnValueOnce([]);
+    const text = shown(result('missed', 'api', false));
+    expect(text).toContain('A fresh terminal stands at home, so notes landed in C:\\Users\\kyle.');
+    expect(text).not.toContain('The true answer');
   });
 
   it('draws the rows that fail at a result red, as broken rather than still to do', () => {

@@ -38,7 +38,10 @@ export function ResultCard({
   stage: Extract<AgentStage, { at: 'result' }>;
   checklist: readonly CheckRow[];
   earned: StarSet | null;
-  /** The check options true now: shown after a Missed check, so Kyle sees the answer. */
+  /**
+   * The check options true now. After a Missed check they are shown, so Kyle sees the
+   * answer, and after any misread their feedback is what he should have seen.
+   */
   trueIds: readonly string[];
   /**
    * The card's slip reached Kyle (a gate or a broken check). A slip card that passed with
@@ -49,12 +52,14 @@ export function ResultCard({
 }) {
   const verdict = VERDICTS[stage.verdict];
   const plan = planById(task, stage.planId);
-  const chosen = task.check.options.find((option) => option.id === stage.optionId);
-  // The option's feedback explains a misread; otherwise the card's lesson is the takeaway.
+  const truth = task.check.options.filter((option) => trueIds.includes(option.id));
+  // Each option's feedback is the evidence that it is true. On a misread the option Kyle
+  // picked is false, so its feedback would restate his mistake: the true option's evidence
+  // explains it instead. Otherwise, or if no option holds, the card's lesson is the takeaway.
   const misread = stage.verdict === 'missed' || stage.verdict === 'false-alarm';
-  const takeaway = misread ? chosen?.feedback : plan?.lesson;
-  const answers = stage.verdict === 'missed' ? task.check.options : [];
-  const truth = answers.filter((option) => trueIds.includes(option.id));
+  const evidence = truth.map((option) => option.feedback).join(' ');
+  const takeaway = misread && evidence !== '' ? evidence : plan?.lesson;
+  const answers = stage.verdict === 'missed' ? truth : [];
   return (
     <div className="result-card" role="group" aria-label="Step result">
       <p
@@ -64,7 +69,7 @@ export function ResultCard({
       >
         <strong>{verdict.title}.</strong> {verdict.detail}
       </p>
-      {truth.map((option) => (
+      {answers.map((option) => (
         <p key={option.id}>The true answer: {option.text}</p>
       ))}
       <Checklist rows={checklist} result />
