@@ -397,8 +397,9 @@ describe('an Act menu with no Act content loaded', () => {
       [fullSampleLessonAct(), newSave],
       [laptop, newSave],
     ];
+    // The whole menu, not only its rows: the header, tabs and Early access line count too.
     for (const [content, save] of cases) {
-      expect(rows(summaryMenuFor(content, save))).toEqual(rows(menuFor(content, save)));
+      expect(summaryMenuFor(content, save)).toBe(menuFor(content, save));
     }
     expect(rows(summaryMenuFor(act2, reviewDue))).toContain(
       'Standup Board · 1 review due today [Review]',
