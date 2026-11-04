@@ -14,6 +14,9 @@ import { startReview, todaysItems } from './seriesPlay';
  * playWhenReady, which loads every Act the request needs and only then calls its starter.
  * Buttons inside an activity (Replay, Try again) call starters directly: the activity's
  * Act has loaded already, and a loaded Act is never dropped.
+ *
+ * Nothing calls this yet: the Act menus and the Standup Board switch to it in the next
+ * change. Until the game downloads Acts on demand, every Act is loaded from the start.
  */
 
 /** What a player pressed Play on, named by ids and Act numbers, never by content. */
@@ -127,8 +130,9 @@ export async function playWhenReady(
       pendingPlay.update({ waiting: null, failed: request });
       return 'failed';
     }
-    // Checked after every wait, since between waits nothing else can run: the next round,
-    // or the start, happens only for the newest click. A click that never waits is newest.
+    // JavaScript runs everything between two awaits without stopping, so no other click can
+    // get in between this check and the next round or the start. That makes one check after
+    // each await enough. A click that never awaits is still the newest when it starts.
     if (ticket !== latestTicket) return 'superseded';
   }
 }
