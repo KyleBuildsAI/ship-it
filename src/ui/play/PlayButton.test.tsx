@@ -64,7 +64,7 @@ it("leaves onStarted unrun when the Act doesn't download, so the menu stays to s
   press(playMission, onStarted);
   expect(pendingPlay.get().waiting).toEqual(playMission);
   await settle();
-  expect(pendingPlay.get().failed).toEqual(playMission);
+  expect(pendingPlay.get().failed).toEqual({ request: playMission, act: 2 });
   expect(onStarted).not.toHaveBeenCalled();
   expect(play.get().activity).toBeNull();
 });

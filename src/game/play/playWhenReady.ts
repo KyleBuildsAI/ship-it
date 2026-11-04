@@ -40,13 +40,19 @@ export type PlayOutcome = 'started' | 'superseded' | 'failed';
  */
 export type PlayMenu = 'act-menu' | 'standup-board';
 
+/** A press whose download failed, and the Act that didn't arrive, for the menu to name. */
+export interface FailedPlay {
+  readonly request: PlayRequest;
+  readonly act: number;
+}
+
 export interface PendingPlay {
   /** The menu the waiting or failed press came from. Only that menu shows them. */
   readonly from: PlayMenu | null;
   /** The request whose Acts are downloading, so its button can say "Loading…". */
   readonly waiting: PlayRequest | null;
-  /** The request whose download failed, so its menu can say so until the next click. */
-  readonly failed: PlayRequest | null;
+  /** The press whose download failed, so its menu can say so until the next click. */
+  readonly failed: FailedPlay | null;
 }
 
 /** What the menus show about the newest click while its Acts download. */
@@ -149,20 +155,27 @@ export async function playWhenReady(
     const missing = actsNeeded(request, now).filter((act) => !isActLoaded(act));
     if (missing.length === 0) return startIfSaveReady(request, now);
     pendingPlay.update({ from, waiting: request });
-    try {
-      await Promise.all(missing.map((act) => loadAct(act)));
-    } catch {
-      // loadAct has logged the error already. Here the player is told, unless a newer
-      // click has taken over the menu since.
-      if (ticket !== latestTicket) return 'superseded';
-      pendingPlay.update({ waiting: null, failed: request });
-      return 'failed';
-    }
+    const failedAct = await firstFailedDownload(missing);
     // JavaScript runs everything between two awaits without stopping, so no other click can
     // get in between this check and the next round or the start. That makes one check after
     // each await enough. A click that never awaits is still the newest when it starts.
     if (ticket !== latestTicket) return 'superseded';
+    if (failedAct !== undefined) {
+      // loadAct has logged the error already. Here the player is told which Act it was.
+      pendingPlay.update({ waiting: null, failed: { request, act: failedAct } });
+      return 'failed';
+    }
   }
+}
+
+/**
+ * Downloads every Act in `acts` at once, then names the first that failed, or undefined
+ * if they all arrived. It waits for all of them, even after one fails: that way the menu
+ * names an Act that really failed, never one still on its way.
+ */
+async function firstFailedDownload(acts: readonly number[]): Promise<number | undefined> {
+  const results = await Promise.allSettled(acts.map((act) => loadAct(act)));
+  return acts.find((_, index) => results[index]?.status === 'rejected');
 }
 
 /**

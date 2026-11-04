@@ -209,7 +209,8 @@ describe('playWhenReady with an Act still to download', () => {
     const saveBefore = progress.get().save;
 
     await expect(playWhenReady(missionInActTwo, 'act-menu', NOW)).resolves.toBe('failed');
-    expect(pendingPlay.get()).toEqual({ from: 'act-menu', waiting: null, failed: missionInActTwo });
+    const failed = { request: missionInActTwo, act: 2 };
+    expect(pendingPlay.get()).toEqual({ from: 'act-menu', waiting: null, failed });
     expect(play.get().activity).toBeNull();
     // Starting a mission writes to the save and opens the terminal; neither happened.
     expect(progress.get().save).toBe(saveBefore);
@@ -219,7 +220,7 @@ describe('playWhenReady with an Act still to download', () => {
     // Closing the Standup Board leaves the Act menu's failure on show; closing the Act menu
     // forgets it.
     cancelPendingPlay('standup-board');
-    expect(pendingPlay.get().failed).toEqual(missionInActTwo);
+    expect(pendingPlay.get().failed).toEqual(failed);
     cancelPendingPlay('act-menu');
     expect(pendingPlay.get().failed).toBeNull();
 
@@ -323,6 +324,24 @@ describe('playWhenReady with a review', () => {
     await expect(outcome).resolves.toBe('started');
     expect(actTwoEntry.load).toHaveBeenCalledOnce();
     expect(reviewDrillIds()).toEqual([...actThreeDrills, actTwoDrill]);
+  });
+
+  it('names the Act that failed, not one still on its way', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const offline = () => Promise.reject(new Error('offline'));
+    setLazyCatalog([lazy(actTwo, offline), actThreeDownload.entry]);
+    missAnActTwoDrill();
+    // Act 3's drills are the more overdue, so the review lists Act 3 first.
+    expect(actsNeeded({ kind: 'review' }, NOW)).toEqual([3, 2]);
+    const review: PlayRequest = { kind: 'review' };
+    const outcome = playWhenReady(review, 'standup-board', NOW);
+
+    // Act 2 has failed by now, but Act 3 is still on its way, so the board waits for it.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pendingPlay.get().waiting).toBe(review);
+    actThreeDownload.arrive();
+    await expect(outcome).resolves.toBe('failed');
+    expect(pendingPlay.get().failed).toEqual({ request: review, act: 2 });
   });
 
   it('plays the drills planned for the click, even once the clock reaches another day', async () => {

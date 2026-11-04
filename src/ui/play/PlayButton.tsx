@@ -1,7 +1,5 @@
 import type { ReactNode } from 'react';
-import { isActLoaded } from '../../game/play/catalog';
 import {
-  actsNeeded,
   pendingPlay,
   playWhenReady,
   samePlayRequest,
@@ -51,20 +49,16 @@ export function PlayButton({
 }
 
 /**
- * The line a menu shows when its own press's Act didn't download. The failed download is
- * forgotten, so that Act still counts as not loaded, and the next press tries again.
+ * The line a menu shows when its own press's Act didn't download, until the next press or
+ * until the menu closes. The failed download is forgotten, so the next press tries again.
  */
 export function LoadFailedAlert({ from }: { from: PlayMenu }) {
-  const pending = useStore(pendingPlay);
+  const { from: pressedIn, failed } = useStore(pendingPlay);
   // The other menu's failed press is for that menu to report.
-  if (pending.failed === null || pending.from !== from) return null;
-  // A review can need two Acts, so this names one still missing. If none is, it has loaded
-  // since (another menu fetched it), and pressing again will work: nothing to warn about.
-  const act = actsNeeded(pending.failed, new Date()).find((needed) => !isActLoaded(needed));
-  if (act === undefined) return null;
+  if (failed === null || pressedIn !== from) return null;
   return (
     <p className="play-panel__alert" role="alert">
-      {`Act ${String(act)} didn't load. Check SHIP IT is still running, then try again. ` +
+      {`Act ${String(failed.act)} didn't load. Check SHIP IT is still running, then try again. ` +
         'If it keeps failing, reload the page; your progress is saved.'}
     </p>
   );
