@@ -65,20 +65,28 @@ function currentState(): CatalogState {
   return state;
 }
 
-/** Tests set a catalog whose content is all here already, so every Act counts as loaded. */
+/**
+ * Set at startup from src/content, and by tests. All of the content is here, so every Act
+ * counts as loaded. The game moves to setLazyCatalog once play goes through the loader.
+ */
 export function setCatalog(catalog: Catalog): void {
   const entries = catalog.acts.map((content) => ({
     summary: {
       ...summarizeAct(content),
       ...(content.freePlay === undefined ? {} : { freePlay: content.freePlay }),
     },
+    // Never called: every Act goes into `loaded` below and is never dropped, so loadAct
+    // returns it before it looks for a loader. A LazyAct just has to have one.
     load: () => Promise.resolve(content),
   }));
   const loaded = new Map(catalog.acts.map((content) => [content.act.act, content]));
   state = { entries, loaded, loading: new Map() };
 }
 
-/** The game sets summaries at startup; each Act's content loads when play needs it. */
+/**
+ * Summaries now, each Act's content when play needs it. Nothing calls this yet: main.tsx
+ * switches to it once each Act's content is split into a file of its own.
+ */
 export function setLazyCatalog(acts: readonly LazyAct[]): void {
   state = { entries: acts, loaded: new Map(), loading: new Map() };
 }
