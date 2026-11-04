@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sampleAct, sampleMission } from '../../game/missions/sample.test-mission';
 import { summarizeAct } from '../../game/play/actSummary';
 import { setCatalog, setLazyCatalog } from '../../game/play/catalog';
+import { cancelPendingPlay, pendingPlay } from '../../game/play/playWhenReady';
 import { reviewItemsToday } from '../../game/play/seriesPlay';
 import { startProgress } from '../../game/progress';
 import { localDay } from '../../game/progression/days';
@@ -20,7 +21,16 @@ vi.mock('../useStore', () => ({
 function board(): string {
   return renderToStaticMarkup(<StandupBoard />)
     .replace(/<[^>]+>/g, ' ')
+    .replaceAll('&#x27;', "'")
     .replace(/\s+/g, ' ');
+}
+
+/** The board's own button (the other is ×, which closes it), and whether it's disabled. */
+function startButton(): string {
+  const markup = renderToStaticMarkup(<StandupBoard />);
+  const button = /<button[^>]*play-button[^>]*>(.*?)<\/button>/.exec(markup);
+  if (button === null) throw new Error('The board has no Start review button.');
+  return button[0].includes('disabled') ? `${button[1] ?? ''}, disabled` : (button[1] ?? '');
 }
 
 describe('the Standup Board', () => {
@@ -47,16 +57,18 @@ describe('the Standup Board', () => {
 });
 
 describe('the Standup Board with no Act content loaded', () => {
-  it('lists each drill by the prompt in its summary, and leaves a removed one out', async () => {
-    // The loader stands in for an Act's download. The board reads summaries only.
-    const load = vi.fn(() => {
-      throw new Error('The Standup Board must never load an Act.');
-    });
-    const summary = summarizeAct({ act: sampleAct, missions: [sampleMission] });
-    setLazyCatalog([{ summary, load }]);
+  // The loader stands in for an Act's download. The board reads summaries only.
+  const load = vi.fn(() => {
+    throw new Error('The Standup Board must never load an Act.');
+  });
+  const [first, second] = sampleMission.drills;
+  if (first === undefined || second === undefined) throw new Error('Two drills are needed.');
+
+  beforeEach(async () => {
+    setLazyCatalog([
+      { summary: summarizeAct({ act: sampleAct, missions: [sampleMission] }), load },
+    ]);
     const now = new Date();
-    const [first, second] = sampleMission.drills;
-    if (first === undefined || second === undefined) throw new Error('Two drills are needed.');
     const save = {
       ...createDefaultSave(now),
       reviewQueue: [first.id, 'removed-drill', second.id].map((id) =>
@@ -64,9 +76,33 @@ describe('the Standup Board with no Act content loaded', () => {
       ),
     };
     await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, now);
+  });
+
+  afterEach(() => {
+    cancelPendingPlay();
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('lists each drill by the prompt in its summary, and leaves a removed one out', () => {
     const text = board();
     expect(text).toContain(`${first.prompt} Due ${second.prompt} Due`);
     expect(text).not.toContain('removed-drill');
-    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('says Loading… on Start review, and keeps it from a second press, while Acts download', () => {
+    expect(startButton()).toBe('Start review');
+    pendingPlay.update({ waiting: { kind: 'review' } });
+    expect(startButton()).toBe('Loading…, disabled');
+  });
+
+  it("names the Act that didn't load when Start review fails, and lets the player retry", () => {
+    expect(board()).not.toContain("didn't load");
+    pendingPlay.update({ failed: { kind: 'review' } });
+    // The review's drills come from the sample Act 2, which hasn't loaded.
+    expect(board()).toContain(
+      "Act 2 didn't load. Check SHIP IT is still running, then try again. " +
+        'If it keeps failing, reload the page; your progress is saved.',
+    );
+    expect(startButton()).toBe('Start review');
   });
 });
