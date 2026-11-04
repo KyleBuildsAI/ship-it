@@ -14,7 +14,8 @@ import { clearSave, closeSaveDatabase, loadSave, writeSave } from '../save/db';
 import { validateSave } from '../save/migrations';
 import { createDefaultSave, createMissionProgress, type SaveData } from '../save/schema';
 import { TEST_NOW } from '../save/testFixtures';
-import { setCatalog } from './catalog';
+import { summarizeAct } from './actSummary';
+import { setCatalog, setLazyCatalog } from './catalog';
 import {
   asksToUnlock,
   bossAccess,
@@ -220,6 +221,15 @@ describe('turning preview off in Settings', () => {
     expect(hud.get().actMenu).toBe(sampleAct.act);
     updateSave((save) => withUnlock(save, true));
     setUnlockAll(true);
+    expect(hud.get().actMenu).toBe(sampleAct.act);
+  });
+
+  it("leaves a shipped Act's menu open before its content has downloaded", async () => {
+    await unlockedGame();
+    const content = { act: sampleAct, missions: [sampleMission] };
+    setLazyCatalog([{ summary: summarizeAct(content), load: () => Promise.resolve(content) }]);
+    hud.update({ actMenu: sampleAct.act });
+    setUnlockAll(false);
     expect(hud.get().actMenu).toBe(sampleAct.act);
   });
 });
