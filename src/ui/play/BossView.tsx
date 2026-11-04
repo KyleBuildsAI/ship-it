@@ -4,6 +4,7 @@ import { formatClock, startBossFight } from '../../game/play/bossPlay';
 import { loadedAct } from '../../game/play/catalog';
 import { leavePlay } from '../../game/play/play';
 import type { BossActivity } from '../../game/play/playStore';
+import { playAgain } from '../../game/play/playWhenReady';
 import { Checklist } from './Checklist';
 import { useClock } from './useClock';
 
@@ -68,7 +69,9 @@ export function BossView({
                 type="button"
                 className="play-button play-button--primary"
                 onClick={() => {
-                  startBossFight(activity.act);
+                  playAgain(() => {
+                    startBossFight(activity.act);
+                  });
                 }}
               >
                 Try again

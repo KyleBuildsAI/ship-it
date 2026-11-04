@@ -32,6 +32,7 @@ import {
 } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import type { LessonActivity } from '../../game/play/playStore';
+import { playAgain } from '../../game/play/playWhenReady';
 import { leftAfterTestOut } from '../../game/play/saveRules';
 import { progress } from '../../game/progress';
 import { hangingIndent } from './artifactLines';
@@ -364,7 +365,9 @@ function DoneActions({
       <button
         type="button"
         className={primary ? 'play-button play-button--primary' : 'play-button'}
-        onClick={onAgain}
+        onClick={() => {
+          playAgain(onAgain);
+        }}
       >
         {label}
       </button>
