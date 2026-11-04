@@ -1,15 +1,26 @@
+import {
+  Children,
+  isValidElement,
+  type EffectCallback,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { hud, openMenu } from '../../game/hud';
 import { sampleAct, sampleMission } from '../../game/missions/sample.test-mission';
 import { summarizeAct } from '../../game/play/actSummary';
 import { setCatalog, setLazyCatalog } from '../../game/play/catalog';
-import { cancelPendingPlay, pendingPlay } from '../../game/play/playWhenReady';
+import { leavePlay } from '../../game/play/play';
+import { play } from '../../game/play/playStore';
+import { cancelPendingPlay, pendingPlay, type PlayRequest } from '../../game/play/playWhenReady';
 import { reviewItemsToday } from '../../game/play/seriesPlay';
-import { startProgress } from '../../game/progress';
+import { flushProgress, startProgress } from '../../game/progress';
 import { localDay } from '../../game/progression/days';
 import { createReviewItem } from '../../game/progression/reviewQueue';
 import { createDefaultSave } from '../../game/save/schema';
 import type { Store } from '../../game/store';
+import { PlayButton } from '../play/PlayButton';
 import { StandupBoard } from './StandupBoard';
 
 // Rendered to an HTML string, as in ActMenu.test.tsx: the real hook has no server
@@ -17,6 +28,55 @@ import { StandupBoard } from './StandupBoard';
 vi.mock('../useStore', () => ({
   useStore: <T extends object>(store: Store<T>) => store.get(),
 }));
+
+// React runs no effects when it renders to a string, so these tests couldn't see what the
+// board does as it opens and closes. This stand-in for useEffect keeps each effect a
+// component asks for, so a test can run it (the board opening) and then run the cleanup it
+// returns (the board closing), as React does in the browser.
+const effects = vi.hoisted((): EffectCallback[] => []);
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
+  useEffect: (effect: EffectCallback) => {
+    effects.push(effect);
+  },
+}));
+
+/** Opens the board as React would: draws it, then runs its effect. Returns both. */
+function openBoard(): { tree: ReactNode; close: () => void } {
+  effects.length = 0;
+  const tree = StandupBoard();
+  const cleanups = effects.map((effect) => effect());
+  return {
+    tree,
+    close: () => {
+      for (const cleanup of cleanups) if (typeof cleanup === 'function') cleanup();
+    },
+  };
+}
+
+/** The first element of `type` in what a component returned, found without drawing it. */
+function findElement(node: ReactNode, type: unknown): ReactElement | undefined {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement(child)) continue;
+    if (child.type === type) return child;
+    const found = findElement((child.props as { children?: ReactNode }).children, type);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+/** Presses Start review in what the board drew, the way a click calls its handler. */
+function pressStartReview(tree: ReactNode): void {
+  const start = findElement(tree, PlayButton);
+  if (start === undefined) throw new Error('The board has no Start review button.');
+  const button: ReactElement = PlayButton(start.props as Parameters<typeof PlayButton>[0]);
+  (button.props as { onClick: () => void }).onClick();
+}
+
+/** Waits until every promise a press set off has settled. */
+function settle(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 function board(): string {
   return renderToStaticMarkup(<StandupBoard />)
@@ -111,5 +171,60 @@ describe('the Standup Board with no Act content loaded', () => {
     expect(renderToStaticMarkup(<StandupBoard />)).toBe(before);
     pendingPlay.update({ waiting: null, failed: { request: { kind: 'review' }, act: 2 } });
     expect(renderToStaticMarkup(<StandupBoard />)).toBe(before);
+  });
+});
+
+describe('opening, pressing and closing the Standup Board', () => {
+  const content = { act: sampleAct, missions: [sampleMission] };
+  const review: PlayRequest = { kind: 'review' };
+
+  beforeEach(async () => {
+    const now = new Date();
+    const drill = createReviewItem(sampleMission.drills[0]?.id ?? '', localDay(now));
+    const save = { ...createDefaultSave(now), reviewQueue: [drill] };
+    await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, now);
+    openMenu('standup');
+  });
+
+  afterEach(async () => {
+    cancelPendingPlay();
+    leavePlay();
+    openMenu(null);
+    await flushProgress();
+    vi.restoreAllMocks();
+  });
+
+  it("downloads the Acts today's review needs, and on closing drops only its own press", () => {
+    const load = vi.fn(() => Promise.resolve(content));
+    setLazyCatalog([{ summary: summarizeAct(content), load }]);
+    const board = openBoard();
+    expect(load).toHaveBeenCalledOnce();
+
+    // The Act menu under the board keeps its press when the board closes...
+    pendingPlay.update({ from: 'act-menu', waiting: { kind: 'mission', id: sampleMission.id } });
+    board.close();
+    expect(pendingPlay.get().waiting).not.toBeNull();
+    // ...but the board's own press goes with it.
+    pendingPlay.update({ from: 'standup-board', waiting: review });
+    board.close();
+    expect(pendingPlay.get().waiting).toBeNull();
+  });
+
+  it('closes once Start review has started the review', async () => {
+    setCatalog({ acts: [content] });
+    pressStartReview(openBoard().tree);
+    expect(play.get().activity?.kind).toBe('review');
+    await settle();
+    expect(hud.get().menu).toBeNull();
+  });
+
+  it("stays open to say so when the review's Act doesn't download", async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const offline = () => Promise.reject(new Error('offline'));
+    setLazyCatalog([{ summary: summarizeAct(content), load: offline }]);
+    pressStartReview(openBoard().tree);
+    await settle();
+    expect(hud.get().menu).toBe('standup');
+    expect(pendingPlay.get().failed).toEqual({ request: review, act: 2 });
   });
 });

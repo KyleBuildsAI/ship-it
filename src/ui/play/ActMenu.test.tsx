@@ -1,3 +1,4 @@
+import type { EffectCallback } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -43,6 +44,17 @@ import { ActMenu } from './ActMenu';
 // server snapshot (the game only renders in the browser), so here it just reads the store.
 vi.mock('../useStore', () => ({
   useStore: <T extends object>(store: Store<T>) => store.get(),
+}));
+
+// Rendering to a string runs no effects either. This stand-in for useEffect keeps each one
+// a component asks for, so a test can run it (the menu opening) and then run the cleanup
+// it returns (the menu closing or switching Act), as React does in the browser.
+const effects = vi.hoisted((): EffectCallback[] => []);
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
+  useEffect: (effect: EffectCallback) => {
+    effects.push(effect);
+  },
 }));
 
 const act2: ActContent = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
@@ -470,6 +482,35 @@ describe('an Act menu with no Act content loaded', () => {
     expect(summaryMenuFor(act2, reviewDue)).toBe(before);
     pendingPlay.update({ waiting: null, failed: { request: { kind: 'review' }, act: 2 } });
     expect(summaryMenuFor(act2, reviewDue)).toBe(before);
+  });
+});
+
+describe('opening and closing an Act menu', () => {
+  afterEach(() => {
+    cancelPendingPlay();
+  });
+
+  it('downloads its Act as it opens, and on closing drops only its own press', () => {
+    const load = vi.fn(() => Promise.resolve(act2));
+    setLazyCatalog([{ summary: summarizeAct(act2), load }]);
+    progress.update({ status: 'ready', save: newSave, problem: null });
+    effects.length = 0;
+    ActMenu({ act: 2 });
+    const [close] = effects.map((effect) => effect());
+    expect(load).toHaveBeenCalledOnce();
+    expect(close).toBeTypeOf('function');
+    const closeMenu = () => {
+      if (typeof close === 'function') close();
+    };
+
+    // The Standup Board keeps its press when the menu under it closes or switches Act...
+    pendingPlay.update({ from: 'standup-board', waiting: { kind: 'review' } });
+    closeMenu();
+    expect(pendingPlay.get().waiting).not.toBeNull();
+    // ...but the menu's own press goes with it.
+    pendingPlay.update({ from: 'act-menu', waiting: { kind: 'mission', id: sampleMission.id } });
+    closeMenu();
+    expect(pendingPlay.get().waiting).toBeNull();
   });
 });
 
