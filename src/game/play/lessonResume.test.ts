@@ -7,12 +7,14 @@ import {
   startLessonRun,
   type LessonRun,
 } from '../missions/lessonRunner';
-import { sampleFinal, sampleLesson } from '../missions/sample.test-lesson';
+import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
 import { createMissionProgress, type MissionProgress } from '../save/schema';
+import { summarizeAct } from './actSummary';
 import {
   lessonResumeFor,
   lessonResumeOf,
   lessonResumes,
+  partResumeFor,
   resumeCardNumber,
   resumedLessonRun,
 } from './lessonResume';
@@ -71,7 +73,7 @@ describe('whether Play picks a lesson up', () => {
   it('picks up an untimed lesson in progress, at its first unanswered card', () => {
     expect(lessonResumes(sampleLesson)).toBe(true);
     expect(lessonResumeFor(sampleLesson, inProgress(kept))).toEqual(kept);
-    expect(resumeCardNumber(sampleLesson, kept)).toBe(3);
+    expect(resumeCardNumber(sampleLesson.cards.length, kept)).toBe(3);
   });
 
   it('starts over at the briefing for a timed final, whose clock cannot wait', () => {
@@ -98,6 +100,15 @@ describe('whether Play picks a lesson up', () => {
       open: null,
     };
     expect(lessonResumeFor(sampleLesson, inProgress(tooMany))).toBeNull();
+  });
+
+  it("gives the Act menu the same answer from a row's summary, with no lesson content", () => {
+    const [lessonRow, , finalRow] = summarizeAct(sampleLessonAct()).parts;
+    if (lessonRow === undefined || finalRow === undefined) throw new Error('Rows are missing.');
+    expect(partResumeFor(lessonRow, inProgress(kept))).toEqual(kept);
+    expect(partResumeFor(finalRow, inProgress(kept))).toBeNull();
+    const renamed = { ...kept, answered: [{ cardId: 'gone', firstTry: true }] };
+    expect(partResumeFor(lessonRow, inProgress(renamed))).toBeNull();
   });
 });
 
@@ -129,7 +140,7 @@ describe('a picked-up run', () => {
     const run = resumedLessonRun(sampleLesson, { answered, open: null }, T0);
     const last = sampleLesson.cards.length - 1;
     expect(run).toMatchObject({ cardIndex: last, card: { solved: true } });
-    expect(resumeCardNumber(sampleLesson, { answered, open: null })).toBe(last + 1);
+    expect(resumeCardNumber(sampleLesson.cards.length, { answered, open: null })).toBe(last + 1);
     expect(nextCard(run, sampleLesson)).toMatchObject({ phase: 'done', outcome: 'finished' });
   });
 });

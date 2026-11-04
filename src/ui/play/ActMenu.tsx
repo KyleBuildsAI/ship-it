@@ -43,7 +43,7 @@ function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string 
   if (status === 'tested-out') return `${STATUS[status]} · ${kind}`;
   const resume = lessonResumeFor(lesson, saved);
   if (resume === null) return kind;
-  const card = resumeCardNumber(lesson, resume);
+  const card = resumeCardNumber(lesson.cards.length, resume);
   return `${STATUS['in-progress']} · card ${String(card)} of ${String(lesson.cards.length)}`;
 }
 
