@@ -87,7 +87,7 @@ export const issuesAndPullRequests = {
       kind: 'choose',
       situation: 'Dex filed this issue. Otto asks what to do with it.',
       artifact: {
-        kind: 'pull-request',
+        kind: 'issue',
         label: 'Issue #61',
         text: ['Title: export broken', '', 'its broken pls fix asap'].join('\n'),
       },

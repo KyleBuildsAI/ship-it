@@ -28,6 +28,24 @@ function disposeChildren(group: THREE.Group, sharedMaterials: readonly THREE.Mat
   group.clear();
 }
 
+/**
+ * Where a commit's platform floats: `depth` steps along the path from `start`, rising as
+ * it goes; side-lane commits sit off to its right.
+ */
+export function platformHome(
+  start: THREE.Vector3,
+  along: THREE.Vector3,
+  depth: number,
+  lane: 0 | 1,
+): THREE.Vector3 {
+  const right = new THREE.Vector3(-along.z, 0, along.x);
+  return start
+    .clone()
+    .addScaledVector(along, depth * SPACING)
+    .addScaledVector(right, lane * LANE_WIDTH)
+    .setY(start.y + depth * RISE);
+}
+
 /** Eases a group toward a target position a little each frame. */
 function glide(object: THREE.Object3D, target: THREE.Vector3, dt: number, rate = 6): void {
   object.position.lerp(target, Math.min(1, dt * rate));
@@ -118,15 +136,8 @@ export class CommitPath {
     return found ? found[0] : null;
   }
 
-  /** Along the path by depth, rising as it goes; side-lane commits sit off to its right. */
   private positionFor(spec: PlatformSpec): THREE.Vector3 {
-    const along = this.layout.pathDirection;
-    const right = new THREE.Vector3(-along.z, 0, along.x);
-    return this.layout.pathStart
-      .clone()
-      .addScaledVector(along, spec.depth * SPACING)
-      .addScaledVector(right, spec.lane * LANE_WIDTH)
-      .setY(this.layout.pathStart.y + spec.depth * RISE);
+    return platformHome(this.layout.pathStart, this.layout.pathDirection, spec.depth, spec.lane);
   }
 
   private upsertPlatform(spec: PlatformSpec): void {

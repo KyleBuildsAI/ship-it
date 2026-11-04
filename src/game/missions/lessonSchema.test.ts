@@ -147,6 +147,11 @@ describe('a choose or prompt card', () => {
     ]);
     expect(problems(withFirstCard({ artifact: { kind: 'tweet', text: 'x' } }))).not.toEqual([]);
   });
+
+  it('shows an issue as its own kind, apart from a pull request', () => {
+    const artifact = { kind: 'issue', label: 'Issue #61', text: 'Title: export broken' };
+    expect(problems(withFirstCard({ artifact }))).toEqual([]);
+  });
 });
 
 describe('an order card', () => {

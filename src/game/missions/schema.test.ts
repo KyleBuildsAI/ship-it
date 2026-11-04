@@ -578,6 +578,12 @@ describe('ActSchema', () => {
     expect(verify('log-oneline', { ...typed, types: ['wip'] }).success).toBe(false);
     expect(verify('log-oneline', { kind: 'newestCommitType', type: 'docs' }).success).toBe(true);
     expect(verify('log-oneline', { kind: 'newestCommitType', type: 'wip' }).success).toBe(false);
+    const withExample = { kind: 'newestCommitType', type: 'docs', example: 'docs: add a guide' };
+    expect(verify('log-oneline', withExample).success).toBe(true);
+    // The example is shown as a passing message, so one of another type can't ship.
+    expect(
+      problems(verify('log-oneline', { ...withExample, example: 'feat: add a guide' })),
+    ).toEqual(['The example must be a docs: commit message.']);
     expect(verify('select-string', { kind: 'documentsRequest', file: 'README.md' }).success).toBe(
       true,
     );

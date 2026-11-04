@@ -38,7 +38,9 @@ export const briefYourRealAgent = {
   checklist: [
     {
       id: 'runtimes',
-      text: 'Ask your agent which tools SandCastles needs, and to check which are installed. It can run: Get-Command node, npm, git, python, docker -ErrorAction SilentlyContinue. Missing ones print nothing.',
+      text: 'Ask your agent which tools SandCastles needs, and to check which are installed with the command in this brief. A tool that is missing prints nothing.',
+      prompt:
+        'Which tools does SandCastles need to run? Check which are installed with: Get-Command node, npm, git, python, docker -ErrorAction SilentlyContinue',
     },
     {
       id: 'env-names',
@@ -97,7 +99,11 @@ export const briefYourRealAgent = {
       command: 'git log --oneline -3',
       parser: 'log-oneline',
       // Only the newest commit is judged: the brief is one commit, whatever came before.
-      check: { kind: 'newestCommitType', type: 'docs' },
+      check: {
+        kind: 'newestCommitType',
+        type: 'docs',
+        example: 'docs: add environment setup for agents',
+      },
     },
   ],
 } satisfies FieldMissionInput;

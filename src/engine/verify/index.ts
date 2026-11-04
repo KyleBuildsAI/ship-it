@@ -42,7 +42,7 @@ export {
 export { headingProblems, parseMarkdownHeadings, type HeadingProblems } from './headings';
 export { parseLogGraph, parseLogOneline, type GraphCommit, type OnelineCommit } from './logOneline';
 export { normalizePaste, type NormalizedPaste } from './normalize';
-export { parsePathList } from './pathList';
+export { looksLikePathList, parsePathList } from './pathList';
 export { findSecretLike, type SecretKind } from './secretGuard';
 export { isGreenRun, parseRunList, type WorkflowRun } from './runList';
 export {

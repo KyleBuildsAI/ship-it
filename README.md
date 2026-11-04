@@ -22,9 +22,10 @@ For a desktop icon, right-click `start-ship-it.bat`, then **Show more options**,
 
 Yes, automatically, in Chrome's storage for this game (IndexedDB). Closing Chrome, closing the launcher, or rebooting loses nothing.
 
-- Every finished step, drill, mission, placement test, boss, and Field Mission check is saved the moment it happens. Settings save within half a second.
+- Every finished step, drill, lesson answer, mission, placement test, boss, and Field Mission check is saved the moment it happens. Settings save within half a second.
 - Only one tab saves at a time: the newest one. An older SHIP IT tab hands over, stores anything still pending, and shows "SHIP IT is open in another tab". **Play here instead** takes the save back. This stops two tabs from overwriting each other.
-- A mission you leave halfway starts again from its briefing next time, with a fresh Workbench. Steps you already finished don't pay XP twice.
+- A mission or lesson you leave halfway picks up where you left off next time, past its briefing: an Act 2 mission at its step, any mission in its drills at the next drill, and a lesson at its next unanswered card, first tries kept. An Act 1 mission left in the middle of a step starts over, because the laptop isn't saved, and so does a timed final or placement test, because its clock can't wait.
+- Nothing pays XP twice. Replaying a mission, a lesson or a drill, or retaking a placement test, is free practice.
 - The save belongs to **this Chrome profile at this address**. The launcher always opens http://localhost:18173, and the game never runs on any other port. The online version (https://kylebuildsai.github.io/ship-it/), `127.0.0.1` instead of `localhost`, another browser, and Incognito windows each keep their own separate save.
 - Clearing Chrome's "Cookies and other site data" deletes the save. Now and then, use **Settings, Export save** for a backup; **Import save** brings it back, on this computer or another.
 

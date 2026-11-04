@@ -24,7 +24,7 @@ export const cleanTheDirtyTree: ActInput['fieldMission'] = {
     },
     {
       id: 'ignore',
-      text: 'Add .env and your build output folders (like dist/ and node_modules/) to .gitignore. If one was committed before, untrack it with git rm -r --cached <path>.',
+      text: 'Add .env and your build output and dependency folders (dist/, node_modules/) to .gitignore. If one was committed before, untrack it with git rm -r --cached <path>.',
     },
     {
       id: 'commit',
@@ -47,7 +47,7 @@ export const cleanTheDirtyTree: ActInput['fieldMission'] = {
     {
       id: 'conventional-history',
       instruction:
-        'Run git log --oneline -3 and paste the three lines. Each one should start with a type like feat: or fix:.',
+        'Run git log --oneline -3 and paste the three lines. Each starts with a short commit id; the message after it should start with a type like feat: or fix:.',
       command: 'git log --oneline -3',
       parser: 'log-oneline',
       check: { kind: 'conventionalRatio', min: 1, last: 3 },
@@ -63,7 +63,7 @@ export const cleanTheDirtyTree: ActInput['fieldMission'] = {
     {
       id: 'build-output-ignored',
       instruction:
-        'Run git status --short --ignored again and paste the output. .env, dist/ and node_modules/ must show only with !! in front, or not at all.',
+        'Run git status --short --ignored and paste the output. .env, dist/ and node_modules/ must show only with !! in front, or not at all.',
       command: 'git status --short --ignored',
       parser: 'status-short',
       check: { kind: 'ignores', patterns: ['.env', 'dist/', 'node_modules/'] },

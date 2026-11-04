@@ -96,6 +96,15 @@ export function describeCrates(ws: Workspace): CrateSpec[] {
   ];
 }
 
+/**
+ * The crate a new one flies out of, so a change visibly moves its file: a staged or
+ * ignored crate leaves from its file's Workbench crate. A new Workbench crate has none (its
+ * own key would find itself, not yet placed) and drops in from above instead.
+ */
+export function launchKey(spec: CrateSpec): string | null {
+  return spec.area === 'bench' ? null : `bench:${spec.path}`;
+}
+
 /** Grid position for a slot: `columns` across, then rows, then stacked layers. */
 export function gridCell(
   slot: number,
@@ -106,4 +115,85 @@ export function gridCell(
   const layer = Math.floor(slot / perLayer);
   const inLayer = slot % perLayer;
   return { column: inLayer % columns, row: Math.floor(inLayer / columns), layer };
+}
+
+/**
+ * The floor of one crate area, in world units from its anchor in gitWorld.ts: crates go
+ * from `left` across `width`, in up to `rows` rows between `back` and `front`.
+ */
+export interface CrateFloor {
+  readonly left: number;
+  readonly width: number;
+  readonly rows: number;
+  readonly back: number;
+  readonly front: number;
+  /** The narrowest a column gets: one crate and the gap beside it. */
+  readonly minColumn: number;
+}
+
+export const CRATE_FLOORS: Readonly<Record<CrateArea, CrateFloor>> = {
+  // The Workbench's top is 7 wide and 3 deep: eight short names fit in a row.
+  bench: { left: -3.52, width: 7.04, rows: 3, back: -0.9, front: 0.9, minColumn: 0.88 },
+  // The Loading Dock is 4.2 wide; the margin keeps crates off its edges.
+  dock: { left: -1.94, width: 3.88, rows: 3, back: -1, front: 1, minColumn: 0.97 },
+  // On the ground beside the Workbench, stopping short of its end.
+  blocklist: { left: -0.4, width: 2.6, rows: 4, back: -1.2, front: 1.35, minColumn: 0.8 },
+};
+
+/** Clear space between two neighbouring labels, so two names never read as one. */
+export const LABEL_GAP = 0.12;
+
+/** Rounding in a sum of widths must never cost a floor a column it has room for. */
+const ROUNDING = 1e-9;
+
+export interface CratePlace {
+  readonly column: number;
+  readonly row: number;
+  readonly layer: number;
+  /** Where the crate stands on the floor, across and front to back, from its anchor. */
+  readonly x: number;
+  readonly z: number;
+}
+
+/** How wide each column must be for every label in it, with `columns` across. */
+function columnWidths(labels: readonly number[], columns: number, floor: CrateFloor): number[] {
+  const widths = Array.from({ length: columns }, () => floor.minColumn);
+  labels.forEach((label, slot) => {
+    const { column } = gridCell(slot, columns, floor.rows);
+    widths[column] = Math.max(widths[column] ?? floor.minColumn, label + LABEL_GAP);
+  });
+  return widths;
+}
+
+const total = (widths: readonly number[]) => widths.reduce((sum, width) => sum + width, 0);
+
+/**
+ * Where each crate on a floor goes, so no two names overlap: crates fill rows in reading
+ * order, and each column is as wide as the longest label in it. As many columns are used
+ * as fit across the floor, so short names share one row and long ones wrap onto the next.
+ * The rows in use spread from the back of the floor to its front, so the names of one row
+ * stay clear of the next. Once every row is full, crates stack on the same columns.
+ */
+export function placeCrates<T>(
+  crates: readonly T[],
+  labelWidth: (crate: T) => number,
+  floor: CrateFloor,
+): { crate: T; place: CratePlace }[] {
+  const labels = crates.map(labelWidth);
+  let columns = Math.max(1, labels.length);
+  let widths = columnWidths(labels, columns, floor);
+  // A name wider than the whole floor still gets a column: it just has a row to itself.
+  while (columns > 1 && total(widths) > floor.width + ROUNDING) {
+    columns -= 1;
+    widths = columnWidths(labels, columns, floor);
+  }
+  const rowsInUse = Math.min(floor.rows, Math.ceil(labels.length / columns));
+  const rowStep = rowsInUse > 1 ? (floor.front - floor.back) / (rowsInUse - 1) : 0;
+  return crates.map((crate, slot) => {
+    const cell = gridCell(slot, columns, floor.rows);
+    const before = total(widths.slice(0, cell.column));
+    const own = widths[cell.column] ?? floor.minColumn;
+    const x = floor.left + before + own / 2;
+    return { crate, place: { ...cell, x, z: floor.back + cell.row * rowStep } };
+  });
 }

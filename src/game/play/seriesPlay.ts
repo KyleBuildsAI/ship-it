@@ -15,6 +15,8 @@ import { localDay } from '../progression/days';
 import { dailySet } from '../progression/reviewQueue';
 import { progress, saveProgressNow } from '../progress';
 import type { ReviewItem } from '../save/schema';
+import { zoneForAct } from '../world/zones';
+import { travelTo } from '../worldState';
 import { allMissions, findDrill, getAct } from './catalog';
 import { play, type SeriesActivity } from './playStore';
 import { currentQueries, loadSandbox, scratchDeps } from './sandboxControl';
@@ -66,10 +68,14 @@ function begin(
 
 /**
  * An Act's placement test of drills: 85% or better tests out of the whole Act. A lesson
- * Act's placement test is cards instead, played as a lesson (lessonPlay.ts).
+ * Act's placement test is cards instead, played as a lesson (lessonPlay.ts). It's taken on
+ * the Act's island, as a mission is: each drill's scene plays Otto's lines there. Reviews
+ * mix every Act's drills, so they stay wherever the player is.
  */
 export function startPlacement(act: number): void {
-  begin('placement', act, requireDrillPlacement(getAct(act).act).drillIds);
+  const { drillIds } = requireDrillPlacement(getAct(act).act);
+  travelTo(zoneForAct(act));
+  begin('placement', act, drillIds);
 }
 
 /**

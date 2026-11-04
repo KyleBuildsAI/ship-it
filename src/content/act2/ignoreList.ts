@@ -60,6 +60,8 @@ const noiseCommitted: Predicate = {
 };
 /** .env is off the dock and hidden: only an untracked file on disk can be ignored. */
 const envIgnored: Predicate = { kind: 'ignored', paths: ['.env'] };
+/** .gitignore has the `.env` line, as the rule-only card writes it. */
+const envRuleWritten: Predicate = { kind: 'workingFile', path: '.gitignore', contains: '.env\n' };
 const exampleCommitted: Predicate = { kind: 'tracked', paths: ['.env.example'] };
 /** Either real value from .env, sealed into the shared example. */
 const valuesLeaked: Predicate = {
@@ -71,11 +73,22 @@ const valuesLeaked: Predicate = {
 };
 
 /** Read-only lines Kyle can have Otto run while he checks a claim. */
+const dockLook = { id: 'status', label: "What's on the dock?", line: 'git status' };
+const vaultLook = { id: 'log', label: "What's in the Vault?", line: 'git log --oneline' };
 const gitLooks = [
-  { id: 'status', label: "What's on the dock?", line: 'git status' },
-  { id: 'log', label: "What's in the Vault?", line: 'git log --oneline' },
+  dockLook,
+  vaultLook,
   { id: 'staged', label: 'What will commit?', line: 'git diff --staged' },
 ];
+/**
+ * Step 3 asks what the committed .env.example holds. Once Otto commits, the dock is empty
+ * and nothing else on screen shows a committed file's lines, so this look prints it.
+ */
+const committedExampleLook = {
+  id: 'example',
+  label: 'What did the commit share?',
+  line: 'git show HEAD:.env.example',
+};
 
 // ---- Step 1: hide the build output and the logs ------------------------------------------
 
@@ -288,6 +301,10 @@ const untrackEnvTask = {
       ],
       claim: 'Fixed: .env is untracked and ignored.',
       lesson: 'With .env off the dock, the rule you already have hides it.',
+      // It follows the rule-only card, and only untracks. Offered with no rule (after Kyle
+      // denies plain git rm), it would leave .env untracked but not ignored, and its claim
+      // would be false; with .env gone from disk there is nothing left to untrack.
+      when: { kind: 'all', of: [envRuleWritten, envOnDisk] },
     },
   ],
   hintPlan: 'rm-cached',
@@ -305,9 +322,12 @@ const untrackEnvTask = {
       },
       {
         id: 'exposed',
-        text: 'On your disk, and git still tracks it',
+        // True both while git still tracks .env and once it is untracked with no rule naming
+        // it (a Stop between Otto's two lines), so it claims neither.
+        text: 'On your disk, not hidden from git',
         truth: { kind: 'all', of: [envOnDisk, { kind: 'not', predicate: envIgnored }] },
-        feedback: 'An ignore rule skips files git already has. Untrack it first.',
+        feedback:
+          'Git hides .env only once it is untracked and a rule names it. One of those is still missing.',
       },
       {
         id: 'deleted',
@@ -419,7 +439,7 @@ const commitCleanupTask = {
     ],
   },
   guards: [envOnDisk],
-  looks: gitLooks,
+  looks: [dockLook, vaultLook, committedExampleLook],
 } satisfies AgentTaskInput;
 
 // ---- Judgment drills ---------------------------------------------------------------------

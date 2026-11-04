@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { shuffleFor } from '../../game/missions/judgment';
 import { sampleJudgmentDrillsInput } from '../../game/missions/sample.test-mission';
 import { JudgmentDrillSchema, type JudgmentDrill } from '../../game/missions/schema';
 import type { DrillResult } from '../../game/play/playStore';
+import { sceneEvidence } from '../../game/play/scenePlay';
 import type { Store } from '../../game/store';
 import { JudgmentDrillView, JudgmentReveal, ScenePlaying } from './JudgmentDrillView';
 import { actionText, attemptsBefore } from './judgmentText';
@@ -26,6 +27,7 @@ function text(markup: string): string {
   return markup
     .replace(/<[^>]+>/g, ' ')
     .replaceAll('&#x27;', "'")
+    .replaceAll('&gt;', '>')
     .replace(/\s+/g, ' ');
 }
 
@@ -148,10 +150,39 @@ describe('the reveal', () => {
   });
 });
 
+/** What a drill's scene showed: Otto's failed listing, as the terminal printed it. */
+const LISTING = {
+  tab: 1,
+  prompt: 'PS C:\\Users\\kyle> ',
+  typed: 'Get-ChildItem package.json',
+  words: null,
+  lines: [{ text: 'Get-ChildItem: Cannot find path', tone: 'error' }],
+} as const;
+
 describe('a scene playing', () => {
+  afterEach(() => {
+    sceneEvidence.update({ drillId: null, entries: [] });
+  });
+
   it('says the clock waits for Otto', () => {
     const shown = text(renderToStaticMarkup(<ScenePlaying label="Drill 2 of 2" />));
     expect(shown).toContain('Drill 2 of 2');
     expect(shown).toContain('The clock starts when Otto stops.');
+  });
+
+  it("shows Otto's lines and their output on the card, never the closed terminal", () => {
+    sceneEvidence.update({ drillId: 'sample-diagnose-home', entries: [LISTING] });
+    const playing = text(renderToStaticMarkup(<ScenePlaying label="Drill 2 of 2" />));
+    expect(playing).toContain("Here's what I did:");
+    expect(playing).not.toContain('terminal');
+    expect(playing).toContain('PS C:\\Users\\kyle> Get-ChildItem package.json');
+    expect(playing).toContain('Get-ChildItem: Cannot find path');
+
+    // The question that follows keeps the lines it asks about in view.
+    const question = text(card(drill('sample-diagnose-home')));
+    expect(question).toContain('What Otto ran');
+    expect(question).toContain('Get-ChildItem: Cannot find path');
+    // Another drill's scene never shows on this one's card.
+    expect(text(card(drill('sample-fix-cd')))).not.toContain('What Otto ran');
   });
 });

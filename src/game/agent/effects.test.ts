@@ -243,6 +243,19 @@ describe('describeChanges', () => {
     expect(describeChanges([], display)).toEqual([]);
   });
 
+  it("words an edit tool's change as a change to part of the file, not an overwrite", () => {
+    const config = `${API}/config.json`;
+    const replaced: MachineChange = { kind: 'modified', path: config, how: 'replaced' };
+    expect(describeChanges([replaced], display, config)).toEqual([
+      'Changes part of C:\\Users\\kyle\\quillwork\\api\\config.json',
+    ]);
+    // Only the file the edit names: another file the same dry run rewrote is still overwritten.
+    const other: MachineChange = { kind: 'modified', path: `${API}/.env`, how: 'replaced' };
+    expect(describeChanges([other], display, config)).toEqual([
+      'Overwrites C:\\Users\\kyle\\quillwork\\api\\.env',
+    ]);
+  });
+
   it('puts deletes from one folder on one line that counts everything they took', () => {
     const logs = `${API}/logs`;
     const logFiles = ['a.log', 'b.log', 'c.log'].map((name) => deletedFile(`${logs}/${name}`));

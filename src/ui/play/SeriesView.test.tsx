@@ -11,11 +11,11 @@ vi.mock('../useStore', () => ({
   useStore: <T extends object>(store: Store<T>) => store.get(),
 }));
 
-/** A review of the directed sample's judgment drills, as plain text. */
-function review(extra: Partial<SeriesActivity> = {}): string {
+/** A series of the directed sample's judgment drills, as plain text. */
+function series(kind: SeriesActivity['kind'], extra: Partial<SeriesActivity> = {}): string {
   const activity: SeriesActivity = {
-    kind: 'review',
-    act: null,
+    kind,
+    act: kind === 'placement' ? 1 : null,
     drills: directedMission.drills.slice(0, 2),
     active: null,
     results: [],
@@ -28,6 +28,9 @@ function review(extra: Partial<SeriesActivity> = {}): string {
     .replaceAll('&#x27;', "'")
     .replace(/\s+/g, ' ');
 }
+
+const review = (extra: Partial<SeriesActivity> = {}) => series('review', extra);
+const placement = (extra: Partial<SeriesActivity> = {}) => series('placement', extra);
 
 const missed = { drillId: 'sample-predict-typo', passed: false, seconds: 9, overtime: false };
 
@@ -51,6 +54,26 @@ describe('judgment drills in a series', () => {
     const done = review({ results: [missed, second] });
     expect(done).toContain('A fresh terminal stands at home.');
     expect(done).toContain('1 of 2 passed');
+  });
+
+  it('locks a placement test: no verdict or answer per drill, only the score at the end', () => {
+    const between = placement({ results: [{ ...missed, keyId: 'error' }] });
+    expect(between).toContain('Answer locked in. Your score comes at the end.');
+    expect(between).not.toContain('Missed');
+    expect(between).not.toContain('The right answer');
+    expect(between).not.toContain('quilwork is misspelled');
+    expect(between).toContain('Start 2 of 2');
+    // A drill that ran out of time says so, which gives no answer away.
+    expect(placement({ results: [{ ...missed, overtime: true }] })).toContain('Out of time.');
+
+    const second = { ...missed, drillId: 'sample-diagnose-home', passed: true, keyId: 'home' };
+    const done = placement({
+      results: [missed, second],
+      placement: { percent: 50, testedOut: false },
+    });
+    expect(done).toContain('1 of 2 passed · 50%');
+    expect(done).not.toContain('Right');
+    expect(done).not.toContain('A fresh terminal stands at home.');
   });
 
   it("keeps a typed drill's checklist and I'm done button", () => {

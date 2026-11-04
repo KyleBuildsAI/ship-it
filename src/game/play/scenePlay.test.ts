@@ -4,9 +4,10 @@ import { testDeps } from '../../engine/git/testDeps';
 import { INSTANT_PACE, NORMAL_PACE } from '../agent/pace';
 import { onTerminalFeed } from '../agent/terminalFeed';
 import { evaluate } from '../missions/predicates';
+import { CHOICES } from '../../engine/shell/machine/confirm';
 import { JudgmentDrillSchema, type JudgmentDrill } from '../missions/schema';
 import { currentLog, currentQueries, loadSandbox } from './sandboxControl';
-import { beginScene, endScene, frameScene, scenePace } from './scenePlay';
+import { beginScene, endScene, frameScene, sceneEvidence, scenePace } from './scenePlay';
 
 const HOME = 'Users/kyle';
 const API = 'Users/kyle/quillwork/api';
@@ -85,6 +86,34 @@ describe('a drill scene', () => {
     }
     expect(keys).toBe('Remove-Item notesAGet-ChildItem');
     expect(evaluate(notesGone, currentQueries())).toBe(true);
+  });
+
+  it('keeps each line Otto ran, with its prompt and output, for the drill card', () => {
+    const drill = askingDrill();
+    loadSandbox(drill.setup, 'scene', testDeps);
+    beginScene(drill);
+    expect(sceneEvidence.get()).toEqual({ drillId: drill.id, entries: [] });
+    frameScene(drill.id, 16, INSTANT_PACE);
+
+    // The terminal is put away during drills, so the card shows what it would have.
+    const { drillId, entries } = sceneEvidence.get();
+    expect(drillId).toBe(drill.id);
+    expect(entries.map((entry) => [entry.prompt, entry.typed])).toEqual([
+      ['PS C:\\Users\\kyle> ', 'Remove-Item notes'],
+      [CHOICES, 'A'],
+      ['PS C:\\Users\\kyle> ', 'Get-ChildItem'],
+    ]);
+    const asked = entries[0]?.lines.map((line) => line.text).join('\n');
+    expect(asked).toContain('Confirm');
+    // It outlives the scene: the question that shows next is about these lines.
+    expect(frameScene(drill.id, 16, INSTANT_PACE)).toBeNull();
+    expect(sceneEvidence.get().entries).toHaveLength(3);
+
+    // The next drill starts with nothing shown, even one with no scene, and so does leaving.
+    beginScene({ ...drill, id: 'no-scene', history: [] });
+    expect(sceneEvidence.get()).toEqual({ drillId: 'no-scene', entries: [] });
+    endScene();
+    expect(sceneEvidence.get()).toEqual({ drillId: null, entries: [] });
   });
 
   it("plays only the scene of the drill it was started for, and none after it's dropped", () => {

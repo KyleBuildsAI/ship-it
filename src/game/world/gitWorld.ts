@@ -6,6 +6,20 @@ import type { Flat } from './movement';
 /** Where the Git World island floats, far enough from Campus that fog hides each from the other. */
 export const GIT_WORLD_CENTER: Flat = { x: 140, z: 0 };
 
+/** Where the avatar arrives, in front of the Loading Dock; the camera starts framed on it. */
+export const GIT_WORLD_SPAWN: Flat = { x: GIT_WORLD_CENTER.x - 2.5, z: GIT_WORLD_CENTER.z + 5 };
+
+/**
+ * The commit path: its first platform beside the Vault, and the way it runs from there.
+ * It trails mostly straight back, so the newest commit of an Act 2 history stays in the
+ * arrival view beside the play panel instead of marching off its right edge (as
+ * gitWorld.test.ts checks).
+ */
+export const COMMIT_PATH = {
+  start: { x: GIT_WORLD_CENTER.x + 5, y: 0.6, z: GIT_WORLD_CENTER.z - 3.5 },
+  direction: { x: 0.3, z: -0.95 },
+} as const;
+
 export interface GitWorldLayout {
   readonly island: Island;
   readonly spawn: Flat;
@@ -119,18 +133,18 @@ export function createGitWorld(): GitWorldLayout {
   const world = (x: number, y: number, z: number) =>
     new THREE.Vector3(GIT_WORLD_CENTER.x + x, y, GIT_WORLD_CENTER.z + z);
 
+  const { start, direction } = COMMIT_PATH;
   return {
     island,
-    spawn: { x: GIT_WORLD_CENTER.x - 2.5, z: GIT_WORLD_CENTER.z + 5 },
+    spawn: GIT_WORLD_SPAWN,
     workbenchTop: world(-7, 1.03, 1.5),
     dockTop: world(0, 0.4, 1.5),
     vaultDoor: world(0, 1.8, -4.25),
     vaultDoorMaterial: doorMaterial,
     vaultMeshes: [vault, door],
     blocklistGround: world(-13, 0, 1.5),
-    pathStart: world(5, 0.6, -3.5),
-    // The path climbs away up and to the right, where the default camera can see it.
-    pathDirection: new THREE.Vector3(0.8, 0, -0.6).normalize(),
+    pathStart: new THREE.Vector3(start.x, start.y, start.z),
+    pathDirection: new THREE.Vector3(direction.x, 0, direction.z).normalize(),
     exit: {
       group: exitGroup,
       at: { x: GIT_WORLD_CENTER.x - 10, z: GIT_WORLD_CENTER.z + 10.5 },

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
+import { drive } from '../../engine/shell/driver';
 import { describeChanges } from '../../game/agent/effects';
 import { dryRun, replay } from '../../game/agent/replay';
 import { answerCheck, beginAgentStep, openFixRound } from '../../game/missions/agentRunner';
@@ -174,6 +175,12 @@ describe('Reading History, directed', () => {
       { question: 'Before Otto runs it: what will tax.ts say?', trueOptions: ['gone'] },
     ]);
     expect(trueChecks(step, played.log)).toEqual(['file-gone']);
+    // That option's feedback quotes the diff look, which is what shows the deletion.
+    const look = step.agent?.looks.find((candidate) => candidate.line === 'git diff src/tax.ts');
+    if (look === undefined) throw new Error('Step 1 has no look at the tax.ts diff.');
+    const { shell } = replay(played.log, testDeps());
+    const diff = drive(shell, { do: 'run', line: look.line }).lines.map((line) => line.text);
+    expect(diff).toContain('deleted file mode 100644');
   });
 
   it('shows Otto misreading the log: his restore leaves the bad rate in place', () => {

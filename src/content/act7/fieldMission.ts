@@ -43,11 +43,15 @@ export const specThenShip = {
     },
     {
       id: 'test-first',
-      text: 'Tell your agent: "Turn the spec’s How to verify into a test. Write it first and show me it failing. Then make it pass without editing the test."',
+      text: 'Tell your agent to turn the spec’s How to verify into a test, and to show it to you failing before it builds anything.',
+      prompt:
+        'Turn the spec’s How to verify into a test. Write it first and show me it failing. Then make it pass without editing the test.',
     },
     {
       id: 'brief',
-      text: 'Then: "Read docs/specs/<feature>.md. Plan first, then build it until that test passes. Stop and ask if the spec is unclear. Use Conventional Commit messages."',
+      text: 'Then give it the build brief, with your spec’s file name in place of <feature>.',
+      prompt:
+        'Read docs/specs/<feature>.md. Plan first, then build it until that test passes. Stop and ask if the spec is unclear. Use Conventional Commit messages.',
     },
     {
       id: 'check',

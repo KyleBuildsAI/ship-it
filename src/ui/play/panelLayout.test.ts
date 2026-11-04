@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import {
+  finishLessonBriefing,
+  nextCard,
+  pickOption,
+  startLessonRun,
+  type LessonRun,
+} from '../../game/missions/lessonRunner';
 import { startRun } from '../../game/missions/runner';
+import { sampleLesson } from '../../game/missions/sample.test-lesson';
 import { sampleMission } from '../../game/missions/sample.test-mission';
-import type { MissionActivity } from '../../game/play/playStore';
+import type { LessonActivity, MissionActivity } from '../../game/play/playStore';
 import themeCss from '../theme.css?raw';
-import { panelClassName } from './panelLayout';
+import { panelClassName, panelScrollKey } from './panelLayout';
 
 function missionAt(phase: MissionActivity['run']['phase']): MissionActivity {
   return {
@@ -38,6 +46,32 @@ describe('the play panel layout', () => {
 
   it('needs neither when the terminal is hidden', () => {
     expect(panelClassName(false, missionAt('question'))).toBe('glass play-panel');
+  });
+});
+
+describe('when the play panel goes back to the top', () => {
+  const lessonWith = (run: LessonRun): LessonActivity => ({
+    kind: 'lesson',
+    lesson: sampleLesson,
+    run,
+    xpEarned: 0,
+  });
+  const firstCard = finishLessonBriefing(startLessonRun(sampleLesson), 0);
+
+  it('stays put while a lesson card is answered, so its result can be scrolled to', () => {
+    const answered = pickOption(firstCard, sampleLesson, 'approve');
+    expect(panelScrollKey(lessonWith(answered))).toBe(panelScrollKey(lessonWith(firstCard)));
+  });
+
+  it('goes back up for the next card, which would open scrolled to the last one’s Next', () => {
+    const next = nextCard(pickOption(firstCard, sampleLesson, 'ask-units'), sampleLesson);
+    expect(panelScrollKey(lessonWith(next))).not.toBe(panelScrollKey(lessonWith(firstCard)));
+  });
+
+  it('goes back up for a new activity, but not as a mission moves along', () => {
+    expect(panelScrollKey(missionAt('sim'))).toBe(panelScrollKey(missionAt('question')));
+    expect(panelScrollKey(missionAt('sim'))).not.toBe(panelScrollKey(lessonWith(firstCard)));
+    expect(panelScrollKey(null)).toBeUndefined();
   });
 });
 

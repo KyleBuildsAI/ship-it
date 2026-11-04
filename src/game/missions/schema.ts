@@ -441,8 +441,15 @@ export const FieldCheckSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('ignores'), patterns: z.array(NameSchema).min(1) }),
   /** At least one of these files is tracked, e.g. the CLAUDE.md or AGENTS.md just written. */
   z.strictObject({ kind: z.literal('tracksAny'), paths: z.array(NameSchema).min(1) }),
-  /** The newest commit someone wrote has this Conventional type, e.g. `docs`. */
-  z.strictObject({ kind: z.literal('newestCommitType'), type: z.enum(CONVENTIONAL_TYPES) }),
+  /**
+   * The newest commit someone wrote has this Conventional type, e.g. `docs`. A failure
+   * shows `example`, a message of that type in this mission's own words, when it has one.
+   */
+  z.strictObject({
+    kind: z.literal('newestCommitType'),
+    type: z.enum(CONVENTIONAL_TYPES),
+    example: NameSchema.optional(),
+  }),
   /** The newest commit listed is GitHub's merge of a pull request, squashed or not. */
   z.strictObject({ kind: z.literal('viaPullRequest') }),
   /** Every one of `paths` is tracked by git, and (as ls-files lists them all) no secret is. */
@@ -495,12 +502,25 @@ const VerificationSchema = z
     advice: ScreenTextSchema.optional(),
   })
   .superRefine((verification, ctx) => {
-    const usable = PARSERS_FOR_CHECK[verification.check.kind];
+    const { check } = verification;
+    const usable = PARSERS_FOR_CHECK[check.kind];
     if (!usable.includes(verification.parser)) {
       ctx.addIssue({
         code: 'custom',
-        message: `A "${verification.check.kind}" check needs ${usable.join(' or ')} output.`,
+        message: `A "${check.kind}" check needs ${usable.join(' or ')} output.`,
         path: ['parser'],
+      });
+    }
+    // The example is shown as the way to pass, so it must be a message that would.
+    if (
+      check.kind === 'newestCommitType' &&
+      check.example !== undefined &&
+      !check.example.startsWith(`${check.type}: `)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `The example must be a ${check.type}: commit message.`,
+        path: ['check', 'example'],
       });
     }
   });

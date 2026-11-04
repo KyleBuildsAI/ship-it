@@ -7,10 +7,12 @@ import {
   createMissionProgress,
   type ActProgress,
   type FieldMissionProgress,
+  type LessonResume,
   type MissionProgress,
   type MissionResume,
   type SaveData,
 } from '../save/schema';
+import { testOutLeaves, type TestOutLeft } from '../missions/lessonPlacement';
 import type { Lesson } from '../missions/lessonSchema';
 import {
   isLessonPlacement,
@@ -66,6 +68,33 @@ export function recordResume(
   return withMission(save, missionId, { ...current, resume });
 }
 
+/** A lesson's progress with no resume point, so the next Play starts at its briefing. */
+function withoutLessonResume(progress: MissionProgress): MissionProgress {
+  const kept = { ...progress };
+  delete kept.lessonResume;
+  return kept;
+}
+
+/**
+ * Keeps how far an untimed lesson has got, so leaving or reloading picks it up at its
+ * next card; null forgets it. Only a first play keeps one: a done or tested-out lesson's
+ * row offers Replay, which starts at the briefing, so it saves nothing to resume.
+ */
+export function recordLessonResume(
+  save: SaveData,
+  lessonId: string,
+  resume: LessonResume | null,
+): SaveData {
+  const current = mission(save, lessonId);
+  if (resume === null) {
+    return current.lessonResume === undefined
+      ? save
+      : withMission(save, lessonId, withoutLessonResume(current));
+  }
+  if (current.status !== 'in-progress') return save;
+  return withMission(save, lessonId, { ...current, lessonResume: resume });
+}
+
 /**
  * Records finished sim steps. XP is paid once per step, ever: replaying a mission shows
  * the steps again but can't farm XP from them.
@@ -92,8 +121,23 @@ export function recordSteps(
 }
 
 /**
+ * Whether a drill has paid its XP. A save from before paidDrillIds existed paid on every
+ * pass, so a pass still in its history counts as paid too.
+ */
+function drillPaid(save: SaveData, drillId: string): boolean {
+  return (
+    save.paidDrillIds.includes(drillId) ||
+    save.drillHistory.some((attempt) => attempt.drillId === drillId && attempt.correct)
+  );
+}
+
+/**
  * Records one drill attempt: history for stats, a practice day, and, when missed, a place
  * in the review queue so the Standup Board brings it back (DESIGN.md section 6).
+ *
+ * A drill pays its XP on its first pass only, wherever that is: a mission, a placement
+ * test or a review. So a replay, a retake or a review of a drill already passed practises
+ * for free, like a mission replay, and a missed drill still pays once a review gets it.
  */
 export function recordDrill(
   save: SaveData,
@@ -102,6 +146,7 @@ export function recordDrill(
   now: Date,
 ): SaveData {
   const today = localDay(now);
+  const firstPass = result.passed && !drillPaid(save, drill.id);
   const drillHistory = recordDrillAttempt(save.drillHistory, {
     drillId: drill.id,
     correct: result.passed,
@@ -109,10 +154,16 @@ export function recordDrill(
     at: now.toISOString(),
   });
   const reviewQueue = result.passed ? save.reviewQueue : addMiss(save.reviewQueue, drill.id, today);
-  const xp = result.passed ? XP_AWARDS.drillCorrect : 0;
+  const paidDrillIds = firstPass ? [...save.paidDrillIds, drill.id] : save.paidDrillIds;
   return addXp(
-    { ...save, drillHistory, reviewQueue, profile: recordPractice(save.profile, today) },
-    xp,
+    {
+      ...save,
+      drillHistory,
+      paidDrillIds,
+      reviewQueue,
+      profile: recordPractice(save.profile, today),
+    },
+    firstPass ? XP_AWARDS.drillCorrect : 0,
   );
 }
 
@@ -177,9 +228,10 @@ export function completeMission(
 }
 /**
  * Finishes a lesson. Its XP is paid the first time only, like a mission's, so replays
- * practise without farming; after a test-out, only the half not already paid. The save has no stars field: a lesson's best first-try
- * percent goes in bestDrillScore (a lesson has no drills to need it), and the stars are
- * worked out from it, so no save migration is needed.
+ * practise without farming; after a test-out, only the half not already paid. The save
+ * has no stars field: a lesson's best first-try percent goes in bestDrillScore (a lesson
+ * has no drills to need it), and the stars are worked out from it, so no save migration
+ * is needed.
  */
 export function completeLesson(
   save: SaveData,
@@ -191,7 +243,8 @@ export function completeLesson(
   const current = mission(save, finished.id);
   const xp = completionXp(current, finished.xp);
   const updated: MissionProgress = {
-    ...current,
+    // A finished lesson has nothing to resume: Play replays it from the briefing.
+    ...withoutLessonResume(current),
     status: 'completed',
     completedAt: current.completedAt ?? now.toISOString(),
     bestDrillScore: Math.max(current.bestDrillScore ?? 0, firstTryPercent),
@@ -364,6 +417,31 @@ export function tickFieldTask(
 export function missionDone(save: SaveData, missionId: string): boolean {
   const status = save.missions[missionId]?.status;
   return status === 'completed' || status === 'tested-out';
+}
+
+/**
+ * What a lesson placement leaves for this save (its briefing and Done screen say it): the
+ * parts no card covers, the final and the Field Mission, less whatever is done already.
+ * No save yet reads as a new game.
+ */
+export function leftAfterTestOut(
+  save: SaveData | null,
+  target: Act,
+  lessons: readonly Lesson[],
+): TestOutLeft {
+  const fresh = testOutLeaves(target, lessons);
+  if (save === null) return fresh;
+  const current = act(save, target.act);
+  const finalId = target.finalLessonId;
+  // Beating the final records the boss too (completeLesson), so either one says it's done.
+  const finalBeaten =
+    current.bossCompletedAt !== null || (finalId !== undefined && missionDone(save, finalId));
+  return {
+    actComplete: current.completedAt !== null,
+    missionIds: fresh.missionIds.filter((id) => !missionDone(save, id)),
+    final: fresh.final && !finalBeaten,
+    fieldMission: fresh.fieldMission && current.fieldMissionCompletedAt === null,
+  };
 }
 
 /**

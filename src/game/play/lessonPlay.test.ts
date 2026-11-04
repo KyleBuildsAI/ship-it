@@ -9,8 +9,15 @@ import {
   thirdMission,
 } from '../missions/sample.test-mission';
 import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
-import { flushProgress, progress, startProgress, type ProgressStorage } from '../progress';
-import { createDefaultSave } from '../save/schema';
+import {
+  flushProgress,
+  progress,
+  saveProgressNow,
+  startProgress,
+  type ProgressStorage,
+} from '../progress';
+import { placementTestOutXp } from '../progression/xp';
+import { createDefaultSave, saveDataSchema } from '../save/schema';
 import { worldState } from '../worldState';
 import { findLesson, setCatalog } from './catalog';
 import {
@@ -27,6 +34,7 @@ import {
 import { startMission } from './missionPlay';
 import { leavePlay, tickPlay } from './play';
 import { play, type LessonActivity } from './playStore';
+import { recordPlacement } from './saveRules';
 
 const NOW = new Date('2026-10-03T12:00:00.000Z');
 const T0 = NOW.getTime();
@@ -146,6 +154,91 @@ describe('playing a lesson', () => {
     nextLessonCard(T0);
     lessonTick(T0);
     expect(play.get().activity).toBeNull();
+  });
+
+  it('shows on its Done screen only the XP the save paid, after a test-out too', () => {
+    // A test-out already paid half, so finishing the lesson pays only the other half.
+    saveProgressNow((save) =>
+      recordPlacement(
+        save,
+        sampleLessonAct().act,
+        [sampleLesson],
+        { percent: 100, testedOut: true },
+        NOW,
+      ),
+    );
+    const before = saved(sampleLesson.id).xp;
+    expect(before).toBe(placementTestOutXp([sampleLesson.xp]));
+    startLesson(sampleLesson.id);
+    playThrough();
+    expect(lesson().xpEarned).toBe(sampleLesson.xp - before);
+    expect(saved(sampleLesson.id).xp - before).toBe(lesson().xpEarned);
+  });
+});
+
+describe('a lesson left partway', () => {
+  /** Answers two cards (the second after a miss), misses the third once, then leaves. */
+  function leaveAtCardThree(): void {
+    startLesson(sampleLesson.id);
+    endLessonBriefing(T0);
+    answer();
+    answer(true);
+    checkLessonOrder(T0);
+    leavePlay();
+  }
+
+  it('picks up at its first unanswered card, past the briefing, with its first tries', () => {
+    leaveAtCardThree();
+    startLesson(sampleLesson.id, T0 + 60_000);
+    expect(lesson().run).toMatchObject({
+      phase: 'cards',
+      cardIndex: 2,
+      firstTry: [true, false],
+    });
+    // The wrong check made before leaving still counts: this card can't be a first try now.
+    expect(lesson().run.card.wrongOrders).toBe(1);
+    for (let index = 2; index < sampleLesson.cards.length; index++) answer();
+    expect(lesson().run.firstTry).toEqual([true, false, false, true, true, true]);
+    expect(saved(sampleLesson.id).mission).toMatchObject({
+      status: 'completed',
+      bestDrillScore: 67,
+    });
+  });
+
+  it('survives a reload: the resume point is in the save, and passes its schema', async () => {
+    leaveAtCardThree();
+    // Stored and read back the way IndexedDB and an exported file hold it.
+    const stored = saveDataSchema.parse(JSON.parse(JSON.stringify(progress.get().save)));
+    await startProgress(
+      { load: () => Promise.resolve(stored), write: () => Promise.resolve() },
+      NOW,
+    );
+    startLesson(sampleLesson.id);
+    expect(lesson().run).toMatchObject({ cardIndex: 2, firstTry: [true, false] });
+  });
+
+  it('forgets the resume point once finished, so Replay starts at the briefing', () => {
+    leaveAtCardThree();
+    startLesson(sampleLesson.id);
+    for (let index = 2; index < sampleLesson.cards.length; index++) answer();
+    expect(saved(sampleLesson.id).mission).not.toHaveProperty('lessonResume');
+    startLesson(sampleLesson.id);
+    endLessonBriefing(T0);
+    answer();
+    leavePlay();
+    // A replay keeps no resume point: its row offers Replay, which starts over.
+    startLesson(sampleLesson.id);
+    expect(lesson().run.phase).toBe('briefing');
+  });
+
+  it('starts a timed final over at its briefing, since its clock cannot wait', () => {
+    startLesson(sampleFinal.id);
+    endLessonBriefing(T0);
+    answer();
+    leavePlay();
+    expect(saved(sampleFinal.id).mission?.lessonResume).toBeUndefined();
+    startLesson(sampleFinal.id);
+    expect(lesson().run).toMatchObject({ phase: 'briefing', firstTry: [] });
   });
 });
 

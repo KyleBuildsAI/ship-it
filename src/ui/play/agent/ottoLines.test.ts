@@ -101,6 +101,28 @@ describe("Otto's lines", () => {
     );
   });
 
+  it('names an edit, denied while safe, as a change to part of the file, as its card does', () => {
+    const running = choosePlan(
+      { ...beginAgentStep(step), stage: { at: 'direct', round: 'fix' } },
+      step,
+      'tidy-and-redo',
+    );
+    const path = 'Users/kyle/quillwork/api/config.json';
+    const edit = { do: 'edit', path, find: '8080', replace: '3000', onDeny: [] } as const;
+    const gate = {
+      kind: 'line',
+      line: 'C:\\Users\\kyle\\quillwork\\api\\config.json',
+      changes: [{ kind: 'modified', path, how: 'replaced' }],
+      harmful: false,
+    } as const;
+    const editing = openGate(running, edit, gate);
+    // A snapshot can't tell an edit from a rewrite: without the edit's file this said
+    // "overwrites", while the card above it says the rest of the file is kept.
+    expect(ottoLine(decideGate(editing, false), task, null, false)).toBe(
+      'I need this to finish: changes part of C:\\Users\\kyle\\quillwork\\api\\config.json. Run it?',
+    );
+  });
+
   it('opens a fix round with why it opened', () => {
     const stopped = stopScript(choosePlan(start, step, 'full-path'));
     expect(ottoLine(stopped, task, { kind: 'stopped' }, true)).toBe(FIX_ROUND_LINES[0]);

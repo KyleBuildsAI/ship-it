@@ -114,13 +114,18 @@ export function isConsequential(pending: PendingAction, mode: ApprovalMode): boo
  * shows by name only, never its value. The riskiest lines come first, so when there are
  * more than MAX_EFFECT_LINES, the last line counts the mildest ones instead of listing them.
  * No changes gives no lines.
+ *
+ * `edited` names the file when the action is Otto's edit tool, which swaps one piece of a
+ * file and keeps the rest. A snapshot can't tell that from a rewrite, so without it the
+ * line would read "Overwrites", as if the whole file were replaced.
  */
 export function describeChanges(
   changes: readonly SandboxChange[],
   display: (path: string) => string,
+  edited?: string,
 ): string[] {
   // sort is stable, so lines of the same weight keep the order diffSnapshots gave them.
-  const lines = listEffects(changes, display)
+  const lines = listEffects(changes, display, edited)
     .sort((a, b) => WEIGHTS.indexOf(a.weight) - WEIGHTS.indexOf(b.weight))
     .map((effect) => effect.text);
   if (lines.length <= MAX_EFFECT_LINES) return lines;
@@ -156,6 +161,7 @@ interface Effect {
 function listEffects(
   changes: readonly SandboxChange[],
   display: (path: string) => string,
+  edited: string | undefined,
 ): Effect[] {
   const shown = groupDock(changes.filter((change) => !holdsNewItems(change, changes)));
   const effects: Effect[] = [];
@@ -163,7 +169,7 @@ function listEffects(
   for (const change of shown) {
     const weight = change.kind === 'dockGroup' ? 'additive' : weighChange(change);
     if (change.kind !== 'deleted') {
-      effects.push({ weight, text: describeChange(change, display) });
+      effects.push({ weight, text: describeChange(change, display, edited) });
       continue;
     }
     const folder = parentDir(change.path);
@@ -221,7 +227,7 @@ function holdsNewItems(change: SandboxChange, changes: readonly SandboxChange[])
   );
 }
 
-function describeChange(change: Shown, display: (path: string) => string): string {
+function describeChange(change: Shown, display: (path: string) => string, edited?: string): string {
   switch (change.kind) {
     case 'repoCreated':
     case 'workbench':
@@ -237,8 +243,9 @@ function describeChange(change: Shown, display: (path: string) => string): strin
       if (change.inside === 0) return `Deletes the empty folder ${display(change.path)}`;
       return `Deletes ${display(change.path)} and ${counted(change.inside, 'item')} inside`;
     case 'modified':
-      return change.how === 'appended'
-        ? `Adds to the end of ${display(change.path)}`
+      if (change.how === 'appended') return `Adds to the end of ${display(change.path)}`;
+      return change.path === edited
+        ? `Changes part of ${display(change.path)}`
         : `Overwrites ${display(change.path)}`;
     case 'moved':
       return describeMove(change, display);

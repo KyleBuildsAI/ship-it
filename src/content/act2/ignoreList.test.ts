@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { testDeps } from '../../engine/git/testDeps';
+import { drive } from '../../engine/shell/driver';
 import { describeChanges } from '../../game/agent/effects';
-import { dryRun } from '../../game/agent/replay';
-import { answerCheck, beginAgentStep, openFixRound } from '../../game/missions/agentRunner';
+import { dryRun, replay } from '../../game/agent/replay';
+import {
+  answerCheck,
+  beginAgentStep,
+  offeredPlans,
+  openFixRound,
+  stepPasses,
+} from '../../game/missions/agentRunner';
 import { validateAct } from '../../game/missions/validateAct';
 import { describeDirectedMission, describeJudgmentDrills } from '../act1/directed.test-helpers';
 import { canonicalStart, playCard, queriesOf, trueChecks } from '../act1/play.test-helpers';
@@ -54,10 +61,10 @@ describeDirectedMission(mission, {
       'ignore-debug > ignore-rules': { passed: true, check: 'hidden' },
     },
     'untrack-env': {
+      // untrack-now only untracks, so it is offered only once the rule-only card wrote the
+      // rule: not after git rm, allowed (.env is gone) or denied (no rule names .env yet).
       'rule-only > untrack-now': { passed: true, check: 'safe' },
       'rule-only > rm-cached': { passed: true, check: 'safe' },
-      // .env is gone from disk and the dock, so --cached has nothing to untrack.
-      'git-rm > untrack-now': 'direct',
     },
     'commit-cleanup': {
       'copy-env > blank-example': { passed: true, check: 'names' },
@@ -77,10 +84,8 @@ describeDirectedMission(mission, {
     'untrack-env > rule-only > rm-cached > git rm --cached .env': false,
     'untrack-env > rule-only > untrack-now > git rm --cached .env': false,
     'untrack-env > git-rm > rm-cached > git rm --cached .env': false,
-    'untrack-env > git-rm > untrack-now > git rm --cached .env': false,
-    // Denied, .env is still tracked and on disk, so the untrack cards run as from the start.
+    // Denied, .env is still tracked and on disk, so the untrack card runs as from the start.
     'untrack-env > git-rm (denied) > rm-cached > git rm --cached .env': false,
-    'untrack-env > git-rm (denied) > untrack-now > git rm --cached .env': false,
   },
 });
 
@@ -160,6 +165,42 @@ describe('The Ignore List, directed', () => {
     expect(safe?.feedback).toContain('only as a removal for the next commit');
   });
 
+  it('offers no untrack-only fix after Kyle denies plain git rm: no rule names .env yet', () => {
+    const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
+    const denied = playCard(mission, untrackEnv, begun, 'git-rm', 'deny-harmful');
+    expect(denied.gates).toEqual([{ line: 'git rm .env', harmful: true }]);
+    expect(denied.state.stage.at).toBe('direct');
+    // Untracking alone would leave .env untracked but not ignored, while Otto claimed both.
+    const offered = offeredPlans(denied.state, untrackEnv, queriesOf(denied.log));
+    expect(offered.map((plan) => plan.id)).toEqual(['rm-cached', 'rule-only']);
+    // The right call still leaves a way on: the strong card untracks and ignores it.
+    const fixed = playCard(mission, untrackEnv, denied, 'rm-cached', 'deny-harmful');
+    expect(stepPasses(untrackEnv, queriesOf(fixed.log))).toBe(true);
+    expect(trueChecks(untrackEnv, fixed.log)).toEqual(['safe']);
+  });
+
+  it('offers the untrack-only fix once the rule is there, where its claim comes true', () => {
+    const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
+    const ruled = playCard(mission, untrackEnv, begun, 'rule-only', 'deny-harmful');
+    const checked = answerCheck(ruled.state, untrackEnv, 'exposed', queriesOf(ruled.log));
+    const round = { log: ruled.log, state: openFixRound(checked) };
+    const offered = offeredPlans(round.state, untrackEnv, queriesOf(round.log));
+    expect(offered.map((plan) => plan.id)).toContain('untrack-now');
+    const fixed = playCard(mission, untrackEnv, round, 'untrack-now', 'deny-harmful');
+    expect(stepPasses(untrackEnv, queriesOf(fixed.log))).toBe(true);
+  });
+
+  it('never says git tracks .env when it is untracked but no rule hides it', () => {
+    const begun = { log: canonicalStart(mission, 1), state: beginAgentStep(untrackEnv) };
+    // Stopped right after git rm --cached, before Otto writes the rule.
+    const stopped = playCard(mission, untrackEnv, begun, 'rm-cached', 'allow-all', 1);
+    expect(queriesOf(stopped.log).untrackedPaths()).toContain('.env');
+    expect(trueChecks(untrackEnv, stopped.log)).toEqual(['exposed']);
+    const exposed = untrackEnv.agent?.check.options.find((option) => option.id === 'exposed');
+    expect(exposed?.text).not.toContain('tracks');
+    expect(exposed?.feedback).not.toMatch(/untrack it first/i);
+  });
+
   it('grades the step 1 check by the last commit, since an older one may still hold the noise', () => {
     const quiet = playCard(
       mission,
@@ -188,6 +229,21 @@ describe('The Ignore List, directed', () => {
     expect(played.gates).toEqual([]);
     const head = queriesOf(played.log).fileAt('HEAD', 'dist/app.js');
     expect(head).not.toBeNull();
+  });
+
+  it("prints the committed .env.example at the last check, so each answer's proof is on screen", () => {
+    const looked = (planId: string): string[] => {
+      const begun = { log: canonicalStart(mission, 2), state: beginAgentStep(commitCleanup) };
+      const played = playCard(mission, commitCleanup, begun, planId, 'allow-all');
+      const { shell } = replay(played.log, testDeps());
+      const look = commitCleanup.agent?.looks.find((candidate) => candidate.id === 'example');
+      if (look === undefined) throw new Error('Step 3 has no look at the committed example.');
+      return drive(shell, { do: 'run', line: look.line }).lines.map((line) => line.text);
+    };
+    // The names option's feedback quotes exactly this.
+    expect(looked('names-only')).toEqual(['API_KEY=', 'DATABASE_URL=']);
+    expect(looked('copy-env')).toContain('API_KEY=dev-only');
+    expect(looked('add-all').join('\n')).toContain("does not exist in 'HEAD'");
   });
 
   it('ends the reference path with .env on disk, out of the Vault, and the names shared', () => {
