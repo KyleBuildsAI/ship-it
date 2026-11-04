@@ -10,7 +10,8 @@ import { checkUniqueIds, countWords, IdSchema, NameSchema } from './schemaParts'
  * agent. A lesson is a short briefing, then a run of cards, each answered with a click.
  *
  * Like every content schema, every object is a `strictObject`: a misspelled field is an
- * error when the game loads, not a silently missing piece of a card.
+ * error when its Act is parsed (in the content tests, or when the Act downloads), not a
+ * silently missing piece of a card.
  */
 
 /**
