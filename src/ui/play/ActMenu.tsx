@@ -1,6 +1,11 @@
 import { roadmapAct } from '../../content/roadmap';
 import type { PlacementTest } from '../../game/missions/schema';
-import type { ActOutline, PartSummary } from '../../game/play/actSummary';
+import type {
+  ActOutline,
+  BossOutline,
+  FieldMissionOutline,
+  PartSummary,
+} from '../../game/play/actSummary';
 import { startBossFight } from '../../game/play/bossPlay';
 import { findActSummary, hasWorkLeft, type FreePlay } from '../../game/play/catalog';
 import { starsFor } from '../../game/missions/lessonRunner';
@@ -161,11 +166,7 @@ function BossRow({
   boss,
   access,
   hasPlacement,
-}: PartRowProps & {
-  boss: NonNullable<ActOutline['boss']>;
-  access: BossAccess;
-  hasPlacement: boolean;
-}) {
+}: PartRowProps & { boss: BossOutline; access: BossAccess; hasPlacement: boolean }) {
   return (
     <li>
       <span>
@@ -190,7 +191,7 @@ function FieldRow({
   actNumber,
   actProgress,
   field,
-}: PartRowProps & { field: NonNullable<ActOutline['fieldMission']> }) {
+}: PartRowProps & { field: FieldMissionOutline }) {
   return (
     <li>
       <span>

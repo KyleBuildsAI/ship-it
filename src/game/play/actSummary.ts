@@ -13,14 +13,20 @@ import type { Act, Boss, FieldMission, Mission } from '../missions/schema';
  * functions, no undefined values, no keys for parts an Act doesn't have.
  */
 
+/** What a menu prints about a boss: its title. The fight itself stays with the Act. */
+export type BossOutline = Pick<Boss, 'title'>;
+
+/** What a menu prints about a Field Mission: its title and the repo it's done in. */
+export type FieldMissionOutline = Pick<FieldMission, 'title' | 'repoName'>;
+
 /**
  * An Act's definition without its heavy parts: the boss and Field Mission keep only what a
  * menu prints. A full Act fits this type too, so code that only reads an outline can take
  * either. The placement test stays whole, because the menu shows its pitch and it's small.
  */
 export type ActOutline = Omit<Act, 'boss' | 'fieldMission'> & {
-  readonly boss?: Pick<Boss, 'title'>;
-  readonly fieldMission?: Pick<FieldMission, 'title' | 'repoName'>;
+  readonly boss?: BossOutline;
+  readonly fieldMission?: FieldMissionOutline;
 };
 
 /** One row of an Act menu: a mission, a lesson, or the Act's final. */
