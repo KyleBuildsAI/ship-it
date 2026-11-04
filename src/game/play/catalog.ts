@@ -133,24 +133,24 @@ export function isActLoaded(act: number): boolean {
 export function loadAct(act: number): Promise<ActContent> {
   // Held for the whole download: if a new catalog replaces this one meanwhile, the content
   // lands in the old catalog's maps and the new one never sees it.
-  const catalog = currentState();
-  const done = catalog.loaded.get(act);
+  const stateAtStart = currentState();
+  const done = stateAtStart.loaded.get(act);
   if (done !== undefined) return Promise.resolve(done);
-  const inFlight = catalog.loading.get(act);
+  const inFlight = stateAtStart.loading.get(act);
   if (inFlight !== undefined) return inFlight;
-  const entry = catalog.entries.find(({ summary }) => summary.act.act === act);
+  const entry = stateAtStart.entries.find(({ summary }) => summary.act.act === act);
   if (entry === undefined) {
     return Promise.reject(new Error(`The game has no Act ${String(act)}.`));
   }
   const download = fetchContent(entry, act)
     .then((content) => {
-      catalog.loaded.set(act, content);
+      stateAtStart.loaded.set(act, content);
       return content;
     })
     // .then and .finally always run later, never during this call, so this delete can't
-    // come before the set below even when the loader fails straight away.
-    .finally(() => catalog.loading.delete(act));
-  catalog.loading.set(act, download);
+    // come before the loading.set below, even when the loader fails straight away.
+    .finally(() => stateAtStart.loading.delete(act));
+  stateAtStart.loading.set(act, download);
   return download;
 }
 
