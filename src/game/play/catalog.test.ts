@@ -225,6 +225,14 @@ describe('summary lookups', () => {
     expect(drillPrompt(firstDrill.id)).toBe(firstDrill.prompt);
     expect(drillPrompt('removed-in-a-later-build')).toBeUndefined();
   });
+
+  it('recommends an Act, and counts the work left in one, from summaries alone', () => {
+    const save = withMissions(createDefaultSave(TEST_NOW), 'completed', ...sampleAct.missionIds);
+    expect(recommendedAct(null)).toBe(2);
+    expect(recommendedAct(withCompleted(2))).toBe(3);
+    const outline = findActSummary(2)?.act;
+    expect(outline && hasWorkLeft(save, outline)).toBe(true);
+  });
 });
 
 describe('the old getters on a lazy catalog', () => {
