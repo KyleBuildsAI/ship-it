@@ -13,6 +13,7 @@ import { createReviewItem } from '../progression/reviewQueue';
 import { createDefaultSave, type SaveData } from '../save/schema';
 import { summarizeAct } from './actSummary';
 import { isActLoaded, setCatalog, setLazyCatalog, type ActContent } from './catalog';
+import { startFreePlay } from './freePlay';
 import { leavePlay } from './play';
 import { play, type Activity } from './playStore';
 import {
@@ -239,6 +240,19 @@ describe('playWhenReady with an Act still to download', () => {
     await expect(older).resolves.toBe('superseded');
     // Act 3's menu never says Act 2 failed: the player had moved on from that click.
     expect(pendingPlay.get().failed).toBeNull();
+  });
+
+  it('drops a press still loading once the laptop sandbox opens, the newer choice', async () => {
+    const download = slowDownload(actTwo);
+    setLazyCatalog([download.entry]);
+    const outcome = playWhenReady(missionInActTwo, 'act-menu', NOW);
+    startFreePlay(1, [], 'A laptop.');
+    expect(pendingPlay.get()).toEqual(NOTHING_PENDING);
+
+    download.arrive();
+    await expect(outcome).resolves.toBe('superseded');
+    // The mission never started, so it never replaced the sandbox.
+    expect(play.get().activity).toBeNull();
   });
 
   it('starts nothing when another tab takes the save while the Act downloads', async () => {
