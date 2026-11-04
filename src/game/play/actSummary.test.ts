@@ -14,6 +14,7 @@ import {
   sampleSecondLesson,
 } from '../missions/sample.test-lesson';
 import { fullSampleLessonAct, fullSamplePlacement } from '../missions/sample.test-lessonAct';
+import type { Act } from '../missions/schema';
 import { outlineAct, summarizeAct, type ActOutline } from './actSummary';
 
 const missionAct = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
@@ -115,7 +116,10 @@ describe('outlineAct', () => {
 
   it('accepts a full Act wherever an outline is expected', () => {
     // A type check as much as a test: if Act stopped fitting ActOutline, tsc fails here.
-    const outline: ActOutline = sampleAct;
+    // sampleAct is a CompleteAct, whose boss is required; widening it to a plain Act, where
+    // the boss and Field Mission are optional, checks the type the menus will really pass.
+    const act: Act = sampleAct;
+    const outline: ActOutline = act;
     expect(outline.boss?.title).toBe(sampleAct.boss.title);
   });
 });
