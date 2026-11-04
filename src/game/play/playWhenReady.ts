@@ -24,8 +24,8 @@ export type PlayRequest =
   | { readonly kind: 'review' };
 
 /**
- * How a request ended. 'superseded': before it could start, it stopped being wanted (a
- * newer click, its menu closing, or this tab not holding the save), so it did nothing.
+ * How a request ended. 'superseded': it did nothing, because before it could start a newer
+ * click came, its menu closed, or the save wasn't ready (see startIfSaveReady).
  * 'failed': an Act it needed didn't download.
  */
 export type PlayOutcome = 'started' | 'superseded' | 'failed';
@@ -116,7 +116,7 @@ export async function playWhenReady(
   // downloads. Each round loads at least one more Act and none is ever dropped, so it ends.
   for (;;) {
     const missing = actsNeeded(request, now).filter((act) => !isActLoaded(act));
-    if (missing.length === 0) return startIfSavingHere(request, now);
+    if (missing.length === 0) return startIfSaveReady(request, now);
     pendingPlay.update({ waiting: request });
     try {
       await Promise.all(missing.map((act) => loadAct(act)));
@@ -134,10 +134,11 @@ export async function playWhenReady(
 }
 
 /**
- * Calls the request's starter, unless this tab can't save what play changes: another tab
- * has the save ('elsewhere'), or it couldn't be read.
+ * Calls the request's starter only while progress.status is 'ready', because play writes
+ * to the save. Any other status starts nothing: 'loading' (the save isn't read yet),
+ * 'elsewhere' (another tab has it) or 'failed' (it couldn't be read).
  */
-function startIfSavingHere(request: PlayRequest, now: Date): PlayOutcome {
+function startIfSaveReady(request: PlayRequest, now: Date): PlayOutcome {
   pendingPlay.update({ waiting: null });
   if (progress.get().status !== 'ready') return 'superseded';
   start(request, now);
