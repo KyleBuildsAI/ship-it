@@ -1,4 +1,4 @@
-import { allMissions } from '../../game/play/catalog';
+import { actSummaries } from '../../game/play/catalog';
 import { progress } from '../../game/progress';
 import { averageSeconds, drillAccuracy, practiceDayCount } from '../../game/progression/stats';
 import { completedActNumbers, nextRank, rankFor } from '../../game/progression/xp';
@@ -16,7 +16,10 @@ export function TrophyWall() {
   const acts = completedActNumbers(save.acts);
   const next = nextRank(acts);
   const average = averageSeconds(save.drillHistory);
-  const missions = allMissions();
+  // From summaries, so opening the wall never waits for an Act's content to download.
+  const missions = actSummaries().flatMap(({ parts }) =>
+    parts.filter((part) => part.kind === 'mission'),
+  );
   const finished = missions.filter((mission) => {
     const status = save.missions[mission.id]?.status;
     return status === 'completed' || status === 'tested-out';
