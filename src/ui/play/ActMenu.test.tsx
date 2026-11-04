@@ -50,6 +50,10 @@ const EARLY_MISSION = 'early-three-rooms';
 const firstDrillId = sampleMission.drills[0]?.id ?? '';
 /** A new save turned back to normal progression, so only shipped parts show. */
 const newSave = withUnlock(createDefaultSave(TEST_NOW), false);
+/** The sample lesson's first three cards, each right first time: Play resumes on card 4. */
+const firstThreeAnswered = sampleLesson.cards
+  .slice(0, 3)
+  .map((card) => ({ cardId: card.id, firstTry: true }));
 
 /** The menu for `content`'s Act, alone in the catalog, as the player with `save` sees it. */
 function menuFor(content: ActContent, save: SaveData = newSave): string {
@@ -306,10 +310,6 @@ describe('an Act made of lessons', () => {
     );
   }
 
-  const firstThreeAnswered = sampleLesson.cards
-    .slice(0, 3)
-    .map((card) => ({ cardId: card.id, firstTry: true }));
-
   it('lists each lesson with Play, its card count, and the final as timed', () => {
     expect(rows(menuFor(lessonAct))).toEqual([
       `4.1 ${sampleLesson.title} · 6 cards [Play]`,
@@ -380,10 +380,7 @@ describe('an Act menu with no Act content loaded', () => {
   }
 
   it('with setLazyCatalog and a loader that throws, every row renders', () => {
-    const answered = sampleLesson.cards
-      .slice(0, 3)
-      .map((card) => ({ cardId: card.id, firstTry: true }));
-    const lessonResume = { answered, open: null };
+    const lessonResume = { answered: firstThreeAnswered, open: null };
     const started = { ...createMissionProgress(), status: 'in-progress' as const, lessonResume };
     const resumed: SaveData = { ...newSave, missions: { [sampleLesson.id]: started } };
     const reviewDue: SaveData = {
