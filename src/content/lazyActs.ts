@@ -11,6 +11,9 @@ import { ACT_SUMMARIES } from './actSummaries.generated';
  *
  * Nothing else in the game may import an Act's folder directly: one static import would
  * pull that Act back into the first download. vite.config.ts fails the build if one does.
+ * The one exception is Act 1's laptop.ts (and shared.ts, which builds it), imported just
+ * below: the preview menu opens the laptop from the first screen, so it must load up front.
+ * vite.config.ts allows exactly those two files (ACT_FILES_ALLOWED_UP_FRONT).
  */
 
 /** The generated summary of Act `act`. The game can't draw its menus without one. */
