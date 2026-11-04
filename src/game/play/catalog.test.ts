@@ -171,12 +171,14 @@ describe('prefetchAct', () => {
     expect(entry.load).toHaveBeenCalledTimes(1);
   });
 
-  it('does nothing for an Act the game doesn’t ship, like a roadmap tab', () => {
+  it('does nothing for an Act the game doesn’t ship, like a roadmap tab', async () => {
+    const error = captureConsoleError();
     const entry = lazy(finished);
     setLazyCatalog([entry]);
-    expect(() => {
-      prefetchAct(7);
-    }).not.toThrow();
+    prefetchAct(7);
+    // A failed download logs a few microtasks later; waiting for a timer waits past them all.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(error).not.toHaveBeenCalled();
     expect(entry.load).not.toHaveBeenCalled();
   });
 
@@ -195,10 +197,16 @@ describe('prefetchAct', () => {
 });
 
 describe('summary lookups', () => {
+  let entries: ReturnType<typeof lazy>[] = [];
+
   beforeEach(() => {
-    // Lazy, with loaders that must not run: every lookup here reads summaries only.
-    const refuse = () => Promise.reject(new Error('a summary lookup loaded an Act'));
-    setLazyCatalog([lazy(finished, refuse), lazy(other, refuse), lazy(sampleLessonAct(), refuse)]);
+    entries = [lazy(finished), lazy(other), lazy(sampleLessonAct())];
+    setLazyCatalog(entries);
+  });
+
+  afterEach(() => {
+    // Every lookup here reads summaries only, so no Act may have loaded.
+    for (const entry of entries) expect(entry.load).not.toHaveBeenCalled();
   });
 
   it('finds the Act a mission, lesson or drill belongs to', () => {
