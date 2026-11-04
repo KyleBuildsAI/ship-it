@@ -1,13 +1,13 @@
 import { roadmapAct } from '../../content/roadmap';
-import type { Act, Boss, FieldMission, PlacementTest } from '../../game/missions/schema';
+import type { PlacementTest } from '../../game/missions/schema';
+import type { ActOutline, PartSummary } from '../../game/play/actSummary';
 import { startBossFight } from '../../game/play/bossPlay';
-import { findAct, hasWorkLeft, type ActContent } from '../../game/play/catalog';
+import { findActSummary, hasWorkLeft, type FreePlay } from '../../game/play/catalog';
 import { starsFor } from '../../game/missions/lessonRunner';
-import type { Lesson } from '../../game/missions/lessonSchema';
 import { startFieldMission } from '../../game/play/fieldPlay';
 import { startFreePlay } from '../../game/play/freePlay';
 import { startLesson } from '../../game/play/lessonPlay';
-import { lessonResumeFor, resumeCardNumber } from '../../game/play/lessonResume';
+import { partResumeFor, resumeCardNumber } from '../../game/play/lessonResume';
 import { startActPlacement } from '../../game/play/play';
 import { startMission } from '../../game/play/missionPlay';
 import { reviewItemsToday, startReview } from '../../game/play/seriesPlay';
@@ -32,19 +32,19 @@ const STATUS: Record<MissionStatus, string> = {
  * progress" only when Play will pick the lesson up partway. A timed final, or a lesson left
  * before its first answer, starts again at the briefing, so its row shows only its kind.
  */
-function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string {
+function lessonNote(lesson: PartSummary, saved: MissionProgress | undefined): string {
   const status = saved?.status ?? 'available';
   if (status === 'completed') {
     const stars = starsFor(saved?.bestDrillScore ?? 0);
     return `Done · ${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}`;
   }
-  const kind =
-    lesson.kind === 'final' ? 'Timed final challenge' : `${String(lesson.cards.length)} cards`;
+  const cards = lesson.cardIds.length;
+  const kind = lesson.kind === 'final' ? 'Timed final challenge' : `${String(cards)} cards`;
   if (status === 'tested-out') return `${STATUS[status]} · ${kind}`;
-  const resume = lessonResumeFor(lesson, saved);
+  const resume = partResumeFor(lesson, saved);
   if (resume === null) return kind;
-  const card = resumeCardNumber(lesson.cards.length, resume);
-  return `${STATUS['in-progress']} · card ${String(card)} of ${String(lesson.cards.length)}`;
+  const card = resumeCardNumber(cards, resume);
+  return `${STATUS['in-progress']} · card ${String(card)} of ${String(cards)}`;
 }
 
 /**
@@ -52,10 +52,10 @@ function lessonNote(lesson: Lesson, saved: MissionProgress | undefined): string 
  * up starts again at its briefing, so its Play looks like a fresh start's, matching a note
  * that no longer says "In progress".
  */
-function lessonRowStatus(lesson: Lesson, saved: MissionProgress | undefined): MissionStatus {
+function lessonRowStatus(lesson: PartSummary, saved: MissionProgress | undefined): MissionStatus {
   const status = saved?.status ?? 'available';
   if (status !== 'in-progress') return status;
-  return lessonResumeFor(lesson, saved) === null ? 'available' : status;
+  return partResumeFor(lesson, saved) === null ? 'available' : status;
 }
 
 /** A row that starts a mission or a lesson: Play the first time, Replay once it's done. */
@@ -88,11 +88,7 @@ function PlayRow({
 }
 
 /** An Act's free-play sandbox: open it and try things, with nothing graded. */
-function FreePlayRow({
-  actNumber,
-  steps,
-  notice,
-}: NonNullable<ActContent['freePlay']> & { actNumber: number }) {
+function FreePlayRow({ actNumber, steps, notice }: FreePlay & { actNumber: number }) {
   return (
     <li>
       <span>
@@ -165,7 +161,11 @@ function BossRow({
   boss,
   access,
   hasPlacement,
-}: PartRowProps & { boss: Boss; access: BossAccess; hasPlacement: boolean }) {
+}: PartRowProps & {
+  boss: NonNullable<ActOutline['boss']>;
+  access: BossAccess;
+  hasPlacement: boolean;
+}) {
   return (
     <li>
       <span>
@@ -186,7 +186,11 @@ function BossRow({
   );
 }
 
-function FieldRow({ actNumber, actProgress, field }: PartRowProps & { field: FieldMission }) {
+function FieldRow({
+  actNumber,
+  actProgress,
+  field,
+}: PartRowProps & { field: NonNullable<ActOutline['fieldMission']> }) {
   return (
     <li>
       <span>
@@ -211,7 +215,7 @@ function FieldRow({ actNumber, actProgress, field }: PartRowProps & { field: Fie
 }
 
 /** An early-access Act's missions still being built, numbered after the ones that shipped. */
-function UpcomingRows({ act }: { act: Act }) {
+function UpcomingRows({ act }: { act: ActOutline }) {
   return act.upcoming.map((title, index) => {
     const number = act.missionIds.length + index + 1;
     return (
@@ -226,7 +230,7 @@ function UpcomingRows({ act }: { act: Act }) {
 }
 
 /** Says the Act is unfinished on purpose, and when the player has caught up with it. */
-function EarlyAccessNote({ act, save }: { act: Act; save: SaveData }) {
+function EarlyAccessNote({ act, save }: { act: ActOutline; save: SaveData }) {
   // Promise missions only while some are listed. With none left, what's coming is a part
   // not built yet, like the boss, so the line stays general.
   const coming = act.upcoming.length > 0 ? 'More missions are on the way.' : 'More is on the way.';
@@ -241,19 +245,20 @@ function EarlyAccessNote({ act, save }: { act: Act; save: SaveData }) {
 /**
  * An Act's menu: placement test, the missions, the boss, the Field Mission, and reviews.
  * An early-access Act shows only the parts built so far, then its upcoming missions. In
- * preview mode, an Act the game doesn't ship yet shows its roadmap entry instead.
+ * preview mode, an Act the game doesn't ship yet shows its roadmap entry instead. It reads
+ * only the Act's summary, so it draws at once, before the Act's content has downloaded.
  */
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   if (save === null) return null;
-  const content = findAct(number);
-  if (content === undefined) {
+  const summary = findActSummary(number);
+  if (summary === undefined) {
     // Only preview mode has tabs for these Acts. Without it there's nothing to show, and
     // nothing to crash on either.
     const planned = isUnlocked(save) ? roadmapAct(number) : undefined;
     return planned ? <PreviewActMenu entry={planned} /> : null;
   }
-  const { act, missions } = content;
+  const { act, parts, freePlay } = summary;
   const { placementTest, boss, fieldMission } = act;
   const actProgress = save.acts[String(act.act)];
   const reviews = reviewItemsToday();
@@ -279,12 +284,14 @@ export function ActMenu({ act: number }: { act: number }) {
           const number = `${String(act.act)}.${String(index + 1)}`;
           const saved = save.missions[id];
           const status = saved?.status ?? 'available';
-          const mission = missions.find((entry) => entry.id === id);
-          if (mission !== undefined) {
+          // An id with nothing built for it yet has no part, so it gets no row.
+          const part = parts.find((entry) => entry.id === id);
+          if (part === undefined) return null;
+          if (part.kind === 'mission') {
             return (
               <PlayRow
                 key={id}
-                label={`${number} ${mission.title}`}
+                label={`${number} ${part.title}`}
                 note={STATUS[status]}
                 status={status}
                 onPlay={() => {
@@ -293,14 +300,12 @@ export function ActMenu({ act: number }: { act: number }) {
               />
             );
           }
-          const lesson = content.lessons?.find((entry) => entry.id === id);
-          if (lesson === undefined) return null;
           return (
             <PlayRow
               key={id}
-              label={`${number} ${lesson.kind === 'final' ? 'Final: ' : ''}${lesson.title}`}
-              note={lessonNote(lesson, saved)}
-              status={lessonRowStatus(lesson, saved)}
+              label={`${number} ${part.kind === 'final' ? 'Final: ' : ''}${part.title}`}
+              note={lessonNote(part, saved)}
+              status={lessonRowStatus(part, saved)}
               onPlay={() => {
                 startLesson(id);
               }}
@@ -308,7 +313,7 @@ export function ActMenu({ act: number }: { act: number }) {
           );
         })}
         <UpcomingRows act={act} />
-        {content.freePlay ? <FreePlayRow actNumber={act.act} {...content.freePlay} /> : null}
+        {freePlay ? <FreePlayRow actNumber={act.act} {...freePlay} /> : null}
         {boss ? (
           <BossRow
             actNumber={act.act}

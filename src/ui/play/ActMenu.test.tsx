@@ -17,12 +17,15 @@ import {
 } from '../../game/missions/sample.test-lesson';
 import { fullSampleLessonAct } from '../../game/missions/sample.test-lessonAct';
 import { ActSchema } from '../../game/missions/schema';
-import { setCatalog, type ActContent } from '../../game/play/catalog';
+import { summarizeAct } from '../../game/play/actSummary';
+import { setCatalog, setLazyCatalog, type ActContent } from '../../game/play/catalog';
 import { startLesson } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import { play } from '../../game/play/playStore';
 import { withUnlock } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
+import { localDay } from '../../game/progression/days';
+import { createReviewItem } from '../../game/progression/reviewQueue';
 import {
   createActProgress,
   createDefaultSave,
@@ -44,6 +47,7 @@ vi.mock('../useStore', () => ({
 const act2: ActContent = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
 const early = earlySampleAct();
 const EARLY_MISSION = 'early-three-rooms';
+const firstDrillId = sampleMission.drills[0]?.id ?? '';
 /** A new save turned back to normal progression, so only shipped parts show. */
 const newSave = withUnlock(createDefaultSave(TEST_NOW), false);
 
@@ -357,6 +361,62 @@ describe('an Act made of lessons', () => {
     const current = play.get().activity;
     expect(current?.kind === 'lesson' ? current.lesson.id : null).toBe(sampleLesson.id);
     leavePlay();
+  });
+});
+
+describe('an Act menu with no Act content loaded', () => {
+  // The loader stands in for an Act's download. Menus read summaries only, so it must never run.
+  const load = vi.fn(() => {
+    throw new Error('A menu must never load an Act.');
+  });
+
+  /** The same menu as menuFor draws, but from a catalog where nothing has loaded. */
+  function summaryMenuFor(content: ActContent, save: SaveData = newSave): string {
+    const { freePlay } = content;
+    const summary = { ...summarizeAct(content), ...(freePlay === undefined ? {} : { freePlay }) };
+    setLazyCatalog([{ summary, load }]);
+    progress.update({ status: 'ready', save, problem: null });
+    return renderToStaticMarkup(<ActMenu act={content.act.act} />);
+  }
+
+  it('with setLazyCatalog and a loader that throws, every row renders', () => {
+    const answered = sampleLesson.cards
+      .slice(0, 3)
+      .map((card) => ({ cardId: card.id, firstTry: true }));
+    const lessonResume = { answered, open: null };
+    const started = { ...createMissionProgress(), status: 'in-progress' as const, lessonResume };
+    const resumed: SaveData = { ...newSave, missions: { [sampleLesson.id]: started } };
+    const reviewDue: SaveData = {
+      ...withUnlock(newSave, true),
+      reviewQueue: [createReviewItem(firstDrillId, localDay(new Date()))],
+    };
+    const laptop: ActContent = { ...early, freePlay: { steps: [], notice: 'A laptop.' } };
+    const cases: [ActContent, SaveData][] = [
+      [act2, reviewDue],
+      [sampleLessonAct(), resumed],
+      [fullSampleLessonAct(), newSave],
+      [laptop, newSave],
+    ];
+    for (const [content, save] of cases) {
+      expect(rows(summaryMenuFor(content, save))).toEqual(rows(menuFor(content, save)));
+    }
+    expect(rows(summaryMenuFor(act2, reviewDue))).toContain(
+      'Standup Board · 1 review due today [Review]',
+    );
+    expect(rows(summaryMenuFor(sampleLessonAct(), resumed))).toEqual([
+      `4.1 ${sampleLesson.title} · In progress · card 4 of 6 [Play]`,
+      `4.2 ${sampleSecondLesson.title} · 6 cards [Play]`,
+      `4.3 Final: ${sampleFinal.title} · Timed final challenge [Play]`,
+    ]);
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('draws a tab for each shipped Act from their summaries', () => {
+    setLazyCatalog([early, act2].map((content) => ({ summary: summarizeAct(content), load })));
+    progress.update({ status: 'ready', save: newSave, problem: null });
+    const markup = renderToStaticMarkup(<ActMenu act={2} />);
+    expect(markup.match(/role="tab"/g)).toHaveLength(2);
+    expect(load).not.toHaveBeenCalled();
   });
 });
 

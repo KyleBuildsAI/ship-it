@@ -1,6 +1,6 @@
 import { ROADMAP } from '../../content/roadmap';
 import { openActMenu } from '../../game/hud';
-import { getCatalog } from '../../game/play/catalog';
+import { actSummaries } from '../../game/play/catalog';
 import { isUnlocked } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { useStore } from '../useStore';
@@ -13,7 +13,7 @@ export function ActTabs({ current }: { current: number }) {
   const { save } = useStore(progress);
   const acts = isUnlocked(save)
     ? ROADMAP.map((entry) => entry.act)
-    : getCatalog().acts.map(({ act }) => act.act);
+    : actSummaries().map(({ act }) => act.act);
   if (acts.length < 2) return null;
   return (
     <div className="act-tabs" role="tablist" aria-label="Acts">
