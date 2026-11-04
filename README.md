@@ -136,7 +136,7 @@ It runs these in order and stops at the first failure:
 | `npm run format:check` | Prettier formatting check. `npm run format` fixes it. |
 | `npm run typecheck` | TypeScript strict compile, no output files. |
 | `npm run test:coverage` | Vitest unit tests with a coverage report in `coverage/`. `npm test` runs them without coverage. |
-| `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. Each Act's content becomes a file of its own (`act1-….js` to `act8-….js`), downloaded only when that Act is needed. The build fails, naming the import, if any Act's content would land in the first download. |
+| `npm run build` | Production build into `dist/`, using the `/ship-it/` base path for GitHub Pages. Each Act's content becomes a file of its own (`act1-….js` to `act8-….js`), downloaded only when that Act is needed. The build fails, naming the import, if any Act's content would download before the game asks for that Act (in the first download, or in a file that loads without that Act, like the 3D world). |
 | `npm run e2e` | Playwright end-to-end tests in your installed Chrome against the build in `dist/`: boot, terminal, editor, walking, playing a step, reload, and save export/import. Run `npm run build` first. |
 
 **Changed an Act's content?** Run this, then commit the file it rewrites, `src/content/actSummaries.generated.ts`:

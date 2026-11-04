@@ -50,6 +50,9 @@ function identifyCheckout(): Plugin {
 /** A file in any Act's content folder, src/content/act1/ to act8/. */
 const ACT_CONTENT = /\/src\/content\/act\d+\//;
 
+/** An Act's index.ts: what lazyActs.ts loads with import(), so it starts that Act's own file. */
+const ACT_INDEX = /\/src\/content\/act\d+\/index\.ts$/;
+
 /**
  * Act 1's free-play laptop, and shared.ts that builds it, open from the first screen (the
  * preview menu), so they may load up front. They're a few kB, not an Act's content.
@@ -60,13 +63,32 @@ const ACT_FILES_ALLOWED_UP_FRONT = ['/src/content/act1/laptop.ts', '/src/content
 interface BuiltChunk {
   readonly fileName: string;
   readonly isEntry: boolean;
+  /** The module this chunk was made for, when it's an entry or what an import() loads. */
+  readonly facadeModuleId: string | null;
   /** Chunks this one imports statically: the browser fetches them along with it. */
   readonly imports: readonly string[];
+  /** Chunks this one can fetch later with import(), like the 3D world or the code editor. */
+  readonly dynamicImports: readonly string[];
   readonly moduleIds: readonly string[];
 }
 
-/** The chunks a player downloads before anything else: the entry and all it imports statically. */
-function firstDownload(chunks: readonly BuiltChunk[]): BuiltChunk[] {
+/** Module ids use backslashes on Windows. The patterns above are written with "/". */
+function withSlashes(id: string): string {
+  return id.replaceAll('\\', '/');
+}
+
+/** Whether `chunk` is an Act's own file, the one lazyActs.ts's import() of that Act loads. */
+function isActFile(chunk: BuiltChunk): boolean {
+  return chunk.facadeModuleId !== null && ACT_INDEX.test(withSlashes(chunk.facadeModuleId));
+}
+
+/**
+ * Every chunk the game can download without asking for an Act: the entry, everything it
+ * imports, and everything those fetch later with import(). That takes in the 3D world, which
+ * main.tsx fetches as soon as the page loads, and the code editor. The one door it doesn't
+ * go through is an import() of an Act's own file, the way lazyActs.ts loads an Act.
+ */
+function downloadsWithoutAnAct(chunks: readonly BuiltChunk[]): BuiltChunk[] {
   const byFileName = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
   const found = new Map<string, BuiltChunk>();
   const toVisit = chunks.filter((chunk) => chunk.isEntry);
@@ -77,22 +99,27 @@ function firstDownload(chunks: readonly BuiltChunk[]): BuiltChunk[] {
       const imported = byFileName.get(fileName);
       if (imported !== undefined) toVisit.push(imported);
     }
+    for (const fileName of chunk.dynamicImports) {
+      const loaded = byFileName.get(fileName);
+      if (loaded !== undefined && !isActFile(loaded)) toVisit.push(loaded);
+    }
   }
   return [...found.values()];
 }
 
 /** A module id as a path from the repo, for messages: src/content/act2/index.ts. */
 function fromRepo(id: string): string {
-  const path = id.replaceAll('\\', '/');
+  const path = withSlashes(id);
   return path.slice(path.indexOf('/src/') + 1);
 }
 
 /**
- * Fails the build if any Act's content lands in the first download. The game reaches each
- * Act only through an import() in src/content/lazyActs.ts, which the build turns into a file
- * of its own. One static import of an Act's folder, even through a chain of other files,
- * would quietly pull that Act back in. A lint rule sees one file's imports at a time; this
- * reads the real build output, so it catches a chain too.
+ * Fails the build if any Act's content could download before the game asks for that Act.
+ * The game reaches each Act only through an import() in src/content/lazyActs.ts, which the
+ * build turns into a file of its own. One static import of an Act's folder, even through a
+ * chain of other files, would quietly pull that Act into the first download, or into the
+ * 3D world's file, which downloads at startup too. A lint rule sees one file's imports at a
+ * time; this reads the real build output, so it catches a chain too.
  */
 function keepActContentLazy(): Plugin {
   return {
@@ -100,9 +127,9 @@ function keepActContentLazy(): Plugin {
     apply: 'build',
     generateBundle(_options, bundle) {
       const chunks = Object.values(bundle).flatMap((file) => (file.type === 'chunk' ? [file] : []));
-      const upFront = new Set(firstDownload(chunks).flatMap((chunk) => chunk.moduleIds));
+      const upFront = new Set(downloadsWithoutAnAct(chunks).flatMap((chunk) => chunk.moduleIds));
       const leaked = [...upFront].filter((id) => {
-        const path = id.replaceAll('\\', '/');
+        const path = withSlashes(id);
         return (
           ACT_CONTENT.test(path) && !ACT_FILES_ALLOWED_UP_FRONT.some((ok) => path.endsWith(ok))
         );
@@ -119,7 +146,7 @@ function keepActContentLazy(): Plugin {
       });
       this.error(
         [
-          'Act content would download before any Act is played:',
+          'Act content would download before the game asks for its Act:',
           ...(doors.length > 0 ? doors : leaked.map((id) => `  ${fromRepo(id)}`)),
           'Reach an Act only through the import() calls in src/content/lazyActs.ts.',
         ].join('\n'),

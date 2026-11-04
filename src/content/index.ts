@@ -12,7 +12,7 @@ import { act8 } from './act8';
  * Every shipped Act, in play order, all loaded at once: for the content tests and for the
  * generator of the Act summaries (actSummaries.test.ts). The game never imports this file.
  * It downloads each Act on its own through lazyActs.ts, and the build fails if any Act's
- * content lands in the first download (vite.config.ts).
+ * content could download before the game asks for that Act (vite.config.ts).
  *
  * Content is plain data (DESIGN.md section 10). Act 1 is finished: a placement test, four
  * directed missions, then lessons 1.5 and 1.6 and its timed final, and its Field Mission.
