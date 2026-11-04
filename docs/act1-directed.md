@@ -1316,15 +1316,18 @@ export function frameScene(drillId, elapsedMs, pace): { index: number; done: boo
 // queue through recordDrill's addMiss. An answer for a drill that isn't on the clock, or one
 // that doesn't fit it (judgment.answerFits), is ignored: a button never throws at Kyle.
 // DrillResult gains an optional keyId (the right answer) for the reveal.
-// A22: ui/play/JudgmentDrillView.tsx draws the question (the prompt, Otto's line as code
-// for predict and approve, his claim, the options in shuffleFor order with the attempt
-// counted from drillHistory, or Allow and Deny), the clock with a bar, and no "I'm done".
-// Its buttons arm after ARM_MS. ScenePlaying holds the panel while the scene plays, and
-// JudgmentReveal shows Right, Missed or Out of time, the right answer after a miss, and
-// `explain`. MissionView and SeriesView use all three for judgment drills only. The last
-// drill's reveal shows above the Question Round (MissionView) or the summary (SeriesView),
-// since answering it moves the run on. A drill the clock ended names its key too
-// (judgment.unansweredKey). The live part of step 4 (the answer replayed on the live
+// A22: ui/play/JudgmentDrillView.tsx draws the question (the prompt, the scene's lines and
+// their output from sceneEvidence (§2.2), Otto's line as code for predict and approve, his
+// claim, the options in shuffleFor order with the attempt counted from drillHistory, or
+// Allow and Deny), the clock with a bar, and no "I'm done". Its buttons arm after ARM_MS.
+// ScenePlaying holds the panel while the scene plays, each line showing with its output as
+// it runs, and JudgmentReveal shows Right, Missed or Out of time, the right answer after a
+// miss, and `explain`. MissionView and SeriesView use all three for judgment drills only.
+// The last drill's reveal shows above the Question Round (MissionView) or the summary
+// (SeriesView), since answering it moves the run on. A drill the clock ended names its key
+// too (judgment.unansweredKey). A placement test is locked (§2.2 step 4): SeriesView shows
+// "Answer locked in." or "Out of time." in place of JudgmentReveal, and no reveal above its
+// summary. The live part of step 4 (the answer replayed on the live
 // sandbox so the world animates, a real allowed approve, a denied one's ghost) is deferred
 // to A26, which wires ghosts and the world; until then the reveal is text only.
 ```
