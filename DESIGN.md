@@ -66,7 +66,7 @@ A night-time floating island HQ. Contains:
 | Repository | **Vault**. `git commit` seals the dock's crates into a snapshot. |
 | Commit | A floating **platform** labeled with short hash and message. |
 | Parent links | **Bridges** between platforms. |
-| Branch | A colored **banner** planted on a platform. A pointer, not a path. Moving a branch moves the banner. |
+| Branch | A colored **banner** planted on a platform. A pointer, not a path. Moving a branch moves the banner. Its flag flies above the commit's label, so the hash under it stays readable. |
 | HEAD | The **player avatar**. Detached HEAD: avatar on a platform with no banner, ground visibly cracked. |
 | Merge | Two bridges joining into one platform. |
 | Conflict | Two crates fighting for the same slot, sparking. Resolved in the editor. |

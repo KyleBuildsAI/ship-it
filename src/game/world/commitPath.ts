@@ -9,6 +9,23 @@ const LANE_WIDTH = 3.4;
 const RISE = 0.45;
 const HOLOGRAM = 0x6fd3ff;
 
+/** A commit's label (its short hash and subject): how high its middle floats, how tall it is. */
+export const COMMIT_LABEL = { y: 2.15, height: 0.34 } as const;
+
+/**
+ * A branch banner, placed from its commit's platform. The pole's foot stands left of the
+ * platform's middle and a little behind it, and every height below is from that foot. The
+ * flag flies wholly above the commit's label, then comes the branch's name: with the flag
+ * at the label's height, its bright green covered the newest commit's hash (gitWorld.test.ts
+ * checks the gap on screen).
+ */
+export const BANNER = {
+  foot: { x: -0.8, y: 0.15, z: -0.5 },
+  pole: 2.74,
+  flag: { width: 0.9, height: 0.42, y: 2.5 },
+  name: { y: 2.91, height: 0.24 },
+} as const;
+
 interface PlatformView {
   readonly group: THREE.Group;
   readonly label: Label;
@@ -158,9 +175,9 @@ export class CommitPath {
       new THREE.CylinderGeometry(1.25, 1.25, 0.3, 6),
       spec.lane === 0 ? this.materials.road : this.materials.side,
     );
-    const label = new Label(spec.label, { height: 0.34 });
-    // Above the HEAD hologram's own label, below any branch banner's.
-    label.sprite.position.y = 2.15;
+    const label = new Label(spec.label, { height: COMMIT_LABEL.height });
+    // Above the HEAD hologram's own label, below any branch banner's flag.
+    label.sprite.position.y = COMMIT_LABEL.y;
     group.add(slab, label.sprite);
     // New commits rise into place from below the path.
     group.position.copy(home).add(new THREE.Vector3(0, -3, 0));
@@ -199,7 +216,8 @@ export class CommitPath {
     for (const { branch, commit } of history?.banners ?? []) {
       const platform = this.platforms.get(commit);
       if (!platform) continue;
-      const target = platform.home.clone().add(new THREE.Vector3(-0.8, 0.15, -0.5));
+      const { foot } = BANNER;
+      const target = platform.home.clone().add(new THREE.Vector3(foot.x, foot.y, foot.z));
       const existing = this.banners.get(branch);
       if (existing) {
         existing.target = target;
@@ -207,12 +225,12 @@ export class CommitPath {
       }
       const group = new THREE.Group();
       const pole = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.04, 0.04, 2.2, 8),
+        new THREE.CylinderGeometry(0.04, 0.04, BANNER.pole, 8),
         new THREE.MeshStandardMaterial({ color: 0xc9d4e8 }),
       );
-      pole.position.y = 1.1;
+      pole.position.y = BANNER.pole / 2;
       const flag = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.9, 0.5),
+        new THREE.PlaneGeometry(BANNER.flag.width, BANNER.flag.height),
         new THREE.MeshStandardMaterial({
           color: 0x7ee2a8,
           emissive: 0x7ee2a8,
@@ -220,9 +238,10 @@ export class CommitPath {
           side: THREE.DoubleSide,
         }),
       );
-      flag.position.set(0.47, 1.9, 0);
-      const label = new Label(branch, { height: 0.24, color: '#7ee2a8' });
-      label.sprite.position.y = 2.5;
+      // Its near edge just off the pole, flying out to the right.
+      flag.position.set(0.02 + BANNER.flag.width / 2, BANNER.flag.y, 0);
+      const label = new Label(branch, { height: BANNER.name.height, color: '#7ee2a8' });
+      label.sprite.position.y = BANNER.name.y;
       group.add(pole, flag, label.sprite);
       group.position.copy(target).add(new THREE.Vector3(0, 3, 0));
       this.root.add(group);
