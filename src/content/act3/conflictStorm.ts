@@ -27,15 +27,15 @@ export const conflictStorm = {
       options: [
         {
           id: 'merge-commit',
-          text: 'Make a merge commit with two parents.',
+          text: 'Make a merge commit with two parents, joining feat/templates into main.',
           correct: false,
           feedback: 'Only when both sides have new work. Main has none.',
         },
         {
           id: 'conflict',
-          text: 'Stop with a conflict.',
+          text: 'Stop with a conflict, because feat/templates changed files main also has.',
           correct: false,
-          feedback: 'A conflict needs edits on both sides. Only one side moved.',
+          feedback: 'A conflict needs edits to the same lines on both sides. Only one side moved.',
         },
         {
           id: 'ff',
@@ -269,13 +269,13 @@ export const conflictStorm = {
         },
         {
           id: 'stash-hotfix',
-          text: 'Stash your 2.6 work with a message. Branch hotfix/2.5.1 from the v2.5.0 tag, fix and test it, and open a PR. Then switch back to your 2.6 branch and pop the stash.',
+          text: 'Stash your 2.6 work with a message. Branch hotfix/2.5.1 from the v2.5.0 tag, fix and test it, and open a PR. Then switch back and pop the stash.',
           correct: true,
           feedback: 'The fix ships alone, and the feature work waits safely on the shelf.',
         },
         {
           id: 'wip-main',
-          text: 'Commit your half-done 2.6 work to your branch as WIP so it’s safe. Then switch to main, pull, fix the bug there, and push main for Dex.',
+          text: 'Commit your half-done 2.6 work to your branch as WIP so it’s safe. Then switch to main, pull, fix the bug there, run the tests, and push main for Dex.',
           correct: false,
           feedback:
             'The work is safe, but the fix skips its branch and PR, and main now holds 2.6-era changes too.',

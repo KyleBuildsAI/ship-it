@@ -40,7 +40,7 @@ export const readWhatItWrote = {
       options: [
         {
           id: 'safer',
-          text: 'It’s safer: no more crashes.',
+          text: 'It’s safer: a missing user or a database blip returns null now, not a crash.',
           correct: false,
           feedback: 'Crashes became wrong answers, which are much harder to find.',
         },
@@ -91,7 +91,7 @@ export const readWhatItWrote = {
         },
         {
           id: 'admins',
-          text: 'Only admins, since the comparison with the owner was taken out of the check.',
+          text: 'Only admins now: the comparison with the owner was taken out, so owners lost their edit rights too.',
           correct: false,
           feedback: 'Boolean(doc.ownerId) is true for almost every document.',
         },
@@ -162,7 +162,7 @@ export const readWhatItWrote = {
         },
         {
           id: 'sure',
-          text: 'Are you sure? Double-check everything once more and tell me again whether every test really passed.',
+          text: 'Are you sure? Double-check everything once more, rerun the whole test suite, and tell me again whether every test really passed.',
           correct: false,
           feedback: 'He’ll check and say yes again. Ask for output, not confidence.',
         },
@@ -197,13 +197,13 @@ export const readWhatItWrote = {
       options: [
         {
           id: 'outdated',
-          text: 'Our Stripe library is out of date. Upgrade it.',
+          text: 'Our Stripe library is out of date and doesn’t have exportCsv yet. Upgrade it to the latest version and rerun the check.',
           correct: false,
           feedback: 'Maybe, but check first. Upgrading on a hunch is how you get two problems.',
         },
         {
           id: 'types-wrong',
-          text: 'TypeScript is wrong. Add // @ts-ignore.',
+          text: 'TypeScript’s types are behind and the method exists at runtime. Add // @ts-ignore above the line and move on.',
           correct: false,
           feedback: 'That hides the error until it crashes in production.',
         },
@@ -248,7 +248,7 @@ export const readWhatItWrote = {
         },
         {
           id: 'pin',
-          text: 'Pin it to exactly 0.3.1 and merge.',
+          text: 'Pin it to exactly 0.3.1 so an update can’t surprise you, then merge.',
           correct: false,
           feedback: 'Pinning stops surprise updates. It doesn’t answer whether you need it at all.',
         },

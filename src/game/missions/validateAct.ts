@@ -301,10 +301,12 @@ function leansOnEarlierCard(card: Lesson['cards'][number]): boolean {
 }
 
 /**
- * A placement test shows no feedback, so the length of the options is the one clue a
- * player who never reads them has. If one length rule (always the longest, always the
- * second shortest, ...) picks the right option on more than half the pick cards, the
- * test leaks its answers, so the wrong options need rewriting to match.
+ * The length of the options is a clue a player can follow without reading them. If one
+ * length rule (always the longest, always the second shortest, ...) picks the right option
+ * on more than half the pick cards, the cards leak their answers, so the wrong options need
+ * rewriting to match. A placement test shows no feedback, so length is its one clue left.
+ * A lesson or final shows feedback, but its stars count only first tries, so a length
+ * habit would earn them unread.
  */
 function lengthTellProblem(cards: readonly LessonCard[]): string | null {
   const best = bestLengthStrategy(cards);
@@ -312,6 +314,27 @@ function lengthTellProblem(cards: readonly LessonCard[]): string | null {
   if (best === null || best.right <= Math.floor(pickCards / 2)) return null;
   const place = best.rank === 1 ? best.from : `number ${String(best.rank)} from the ${best.from}`;
   return `The right option is the ${place} on ${String(best.right)} of ${String(pickCards)} pick cards, so picking by length scores well. Rewrite some wrong options to match the right ones in length and detail.`;
+}
+
+/**
+ * The longest wrong instruction on a prompt card has at least this share of the right
+ * one's words. If every wrong brief were a one-liner, the brief that sounds thorough would
+ * give itself away even on a card the length rules above can't single out.
+ */
+const PROMPT_WRONG_SHARE = 0.75;
+
+/** The word count of the longest of these options, or 0 when there are none. */
+function mostWords(options: readonly { text: string }[]): number {
+  return Math.max(0, ...options.map((option) => countWords(option.text)));
+}
+
+/** Why a prompt card's right instruction stands out by length alone, or null when it doesn't. */
+function promptLengthProblem(card: LessonCard): string | null {
+  if (card.kind !== 'prompt') return null;
+  const rightWords = mostWords(card.options.filter((option) => option.correct));
+  const wrongWords = mostWords(card.options.filter((option) => !option.correct));
+  if (wrongWords >= rightWords * PROMPT_WRONG_SHARE) return null;
+  return `The right instruction has ${String(rightWords)} words, the longest wrong one ${String(wrongWords)}. Give one wrong instruction the right one's length and detail, and a flaw.`;
 }
 
 /**
@@ -374,8 +397,8 @@ function lessonPlacementIssues(
  * parsing is covered too, and every problem is listed at once with its location.
  *
  * An Act's lessons are listed in missionIds beside its missions, so the same links are
- * checked for them, plus where a final lesson sits. A lesson's words are held to their
- * budgets by LessonSchema.
+ * checked for them, plus where a final lesson sits, and that no lesson or final gives its
+ * answers away by their length. A lesson's words are held to their budgets by LessonSchema.
  *
  * Returns an empty list when the Act is ready to ship.
  */
@@ -458,6 +481,14 @@ export function validateAct(
   }
   if (placementTest !== undefined && isLessonPlacement(placementTest)) {
     issues.push(...lessonPlacementIssues(placementTest.cardIds, act, lessons));
+  }
+  for (const lesson of lessons) {
+    const lengthProblem = lengthTellProblem(lesson.cards);
+    if (lengthProblem !== null) report(`lesson ${lesson.id}`, lengthProblem);
+    for (const card of lesson.cards) {
+      const promptProblem = promptLengthProblem(card);
+      if (promptProblem !== null) report(`lesson ${lesson.id} > card ${card.id}`, promptProblem);
+    }
   }
 
   const reportLaptop = (where: string, problem: string | null) => {

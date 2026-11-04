@@ -129,7 +129,7 @@ export const dataSpeedAndScale = {
         },
         {
           id: 'cache-day',
-          text: 'Cache all search results for a day.',
+          text: 'Search is slow, so put a cache in front of it that keeps every search result for 24 hours. Try it on staging and show me the page load times from before and after.',
           correct: false,
           feedback: 'Writers would search and not find what they wrote an hour ago.',
         },
@@ -201,9 +201,10 @@ export const dataSpeedAndScale = {
         },
         {
           id: 'at-night',
-          text: 'Run it, but late at night when fewer people use the app.',
+          text: 'Run it late tonight, when fewer writers are online, and back up the users table first so we can restore anything that goes wrong.',
           correct: false,
-          feedback: 'Quieter, but just as wrong. Real writers still lose their accounts.',
+          feedback:
+            'Quieter, and a backup helps, but real writers still lose their accounts, and you only find out when they complain. Look at what it matches first.',
         },
         {
           id: 'select-first',
@@ -231,7 +232,7 @@ export const dataSpeedAndScale = {
         },
         {
           id: 'forever',
-          text: 'Cache plans forever.',
+          text: 'Cache each writer’s plan the first time it’s read and keep it forever, since plans change only about once a month.',
           correct: false,
           feedback: 'Someone upgrades and keeps the free plan’s limits.',
         },
@@ -244,7 +245,7 @@ export const dataSpeedAndScale = {
         },
         {
           id: 'local-storage',
-          text: 'Keep plans in the browser’s localStorage and trust what it says.',
+          text: 'Keep each writer’s plan in the browser’s localStorage after sign-in, and trust what it says on every page load.',
           correct: false,
           feedback: 'Users can edit localStorage. A writer could give themselves the top plan.',
         },
@@ -314,7 +315,7 @@ export const dataSpeedAndScale = {
       options: [
         {
           id: 'copies-laptop',
-          text: 'Docker copies your whole laptop to the server.',
+          text: 'Docker snapshots Dex’s entire laptop, with its files, settings and installed tools, and the server runs that exact snapshot, so nothing about the setup differs.',
           correct: false,
           feedback: 'An image holds just the app and what it needs, not your laptop.',
         },
@@ -357,10 +358,10 @@ export const dataSpeedAndScale = {
         },
         {
           id: 'same-container',
-          text: 'Put the database in the same container as the app, so there’s one thing to deploy.',
+          text: 'Run Postgres in the same container as the app, with a nightly backup to cloud storage, so there’s one thing to deploy and one bill to watch.',
           correct: false,
           feedback:
-            'Containers get replaced on every deploy, and the data would go with them. You also couldn’t add app servers without copying the database.',
+            'Containers get replaced on every deploy, and the data goes with them: a nightly backup still loses that day’s writes. You also couldn’t add app servers without copying the database.',
         },
         {
           id: 'biggest',

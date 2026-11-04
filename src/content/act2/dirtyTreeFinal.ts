@@ -50,7 +50,7 @@ export const dirtyTreeFinal = {
         },
         {
           id: 'on-disk',
-          text: 'Yes. The files are saved on disk, so they ship.',
+          text: 'Yes. Every file is saved on disk, and Dex deploys this project, so the search feature goes out with it.',
           correct: false,
           feedback:
             'Saved on the Workbench isn’t in the Vault. A clean checkout starts from the last commit.',
@@ -87,7 +87,7 @@ export const dirtyTreeFinal = {
         },
         {
           id: 'commit-am',
-          text: 'Use git commit -am instead. It’s safer.',
+          text: 'Use git commit -am “feat: add search” instead. It only commits files git already tracks, so .env, dist/ and the log stay out of it.',
           correct: false,
           feedback:
             '-am skips untracked files, so src/search/ is left out, and it still sweeps in every tracked edit.',
@@ -149,7 +149,7 @@ export const dirtyTreeFinal = {
         },
         {
           id: 'one-commit',
-          text: 'Make it one commit, “feat: add search and fix typo”.',
+          text: 'Keep it one commit, but type the message: “feat: add search and fix README typo”, so the log says exactly what changed.',
           correct: false,
           feedback: 'Two ideas in one commit. Undoing the search would undo the typo fix too.',
         },
@@ -248,14 +248,14 @@ export const dirtyTreeFinal = {
       options: [
         {
           id: 'newest',
-          text: 'e5f6a7b, the newest. The latest change is always the cause.',
+          text: 'e5f6a7b, the newest. The latest change is always the cause, so start there.',
           correct: false,
           feedback:
             'It only touched README.md. Newest isn’t guilty; read what each commit changed.',
         },
         {
           id: 'oldest',
-          text: '7c8d9e0, the scaffold. The bug must be old.',
+          text: '7c8d9e0, the scaffold. That’s where the login page was first built, so its bug starts there.',
           correct: false,
           feedback: 'Login worked before today’s deploy. Look at what changed since.',
         },
@@ -278,10 +278,10 @@ export const dirtyTreeFinal = {
       options: [
         {
           id: 'reset',
-          text: 'Do it. Removing the commit is the cleanest fix.',
+          text: 'Do it: reset --hard HEAD~2 and force push main, then tell the team to delete their copies and clone again.',
           correct: false,
           feedback:
-            'Rewriting shared history breaks everyone who pulled it, and HEAD~2 throws away the README fix too.',
+            'Rewriting shared history breaks everyone who pulled it, and deleting their copies loses their unpushed work. HEAD~2 throws away the README fix too.',
         },
         {
           id: 'restore',
@@ -337,14 +337,14 @@ export const dirtyTreeFinal = {
         },
         {
           id: 'fresh-clone',
-          text: 'They’re gone for good. Start over from a fresh clone of the repository.',
+          text: 'They’re gone for good after reset --hard. Start over from a fresh clone and redo both commits by hand.',
           correct: false,
           feedback:
             'A fresh clone has only what was pushed. Your local commits are still in the reflog.',
         },
         {
           id: 'revert-reset',
-          text: 'Undo the reset with git revert HEAD.',
+          text: 'Undo the reset with git revert HEAD. revert is git’s safe undo, so it brings back what the reset removed.',
           correct: false,
           feedback:
             'revert cancels a commit, and a reset isn’t one. It would undo 9f8e7d6 instead.',

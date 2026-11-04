@@ -232,15 +232,15 @@ export const runningIsntWorking = {
       options: [
         {
           id: 'yes',
-          text: 'Yes. It answered on port 3000.',
+          text: 'Yes. It answered on port 3000 with JSON, so the server is up and handling requests.',
           correct: false,
           feedback: 'It answered 503, and its own health check says the database is down.',
         },
         {
           id: 'not-running',
-          text: 'No. It isn’t running at all.',
+          text: 'No. 503 Service Unavailable means the API isn’t running. Start it again and wait for it to say listening.',
           correct: false,
-          feedback: 'Something answered on 3000, so it is running. Running is the easy half.',
+          feedback: 'A 503 is an answer: something on 3000 is running. Running is the easy half.',
         },
         {
           id: 'running-not-working',
@@ -273,7 +273,7 @@ export const runningIsntWorking = {
         },
         {
           id: 'get-process',
-          text: 'Start the API, then check it shows up in Get-Process.',
+          text: 'Start the API in its own terminal. From a second terminal, run Get-Process node and paste the line with its ID. Done means it’s still running after a minute.',
           correct: false,
           feedback: 'That proves it’s running. It could still be failing every request.',
         },
@@ -318,9 +318,9 @@ export const runningIsntWorking = {
         },
         {
           id: 'warm-up',
-          text: 'The API needs a minute to warm up.',
+          text: 'The API is still starting and connecting to its database. Wait a minute, then run the same curl again in this terminal.',
           correct: false,
-          feedback: 'It isn’t warming up. It isn’t there.',
+          feedback: 'It isn’t starting up. It isn’t there at all.',
         },
         {
           id: 'stopped',

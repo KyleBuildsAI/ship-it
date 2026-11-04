@@ -112,7 +112,7 @@ export const thinkOutLoud = {
       options: [
         {
           id: 'database',
-          text: 'The database is saving tags to the wrong invoice.',
+          text: 'The database saves tags to the wrong invoice, because every invoice row points at the same tags column.',
           correct: false,
           feedback: 'There’s no database here. The pile-up happens in this function.',
         },
@@ -174,19 +174,19 @@ export const thinkOutLoud = {
       options: [
         {
           id: 'python',
-          text: 'Python is slow. It needs rewriting in a faster language.',
+          text: 'Python is slow at loops over tens of thousands of items. Rewrite it in a faster language.',
           correct: false,
           feedback: 'The language isn’t the problem. The same idea would be slow in any language.',
         },
         {
           id: 'lower',
-          text: 'Calling lower() on every email.',
+          text: 'Calling lower() on every email, which builds a brand-new string for all 48,000 of them.',
           correct: false,
           feedback: 'That’s cheap and done once per email. Look at what the if does.',
         },
         {
           id: 'list-search',
-          text: '“not in seen” searches the whole list each time. Make seen a set and lookups become near-instant.',
+          text: '“not in seen” scans the whole list each time. Make seen a set instead.',
           correct: true,
           feedback: 'Yes. A list search grows with the list; a set lookup doesn’t.',
         },
@@ -256,7 +256,7 @@ export const thinkOutLoud = {
         },
         {
           id: 'busy',
-          text: 'Type code you know is wrong, so you look busy.',
+          text: 'Type code you know is wrong, so the screen isn’t empty while you think.',
           correct: false,
           feedback: 'It wastes time, and the interviewer can tell.',
         },
@@ -273,7 +273,7 @@ export const thinkOutLoud = {
       options: [
         {
           id: 'answers',
-          text: 'Solve ten common interview problems so I can memorise the answers.',
+          text: 'Give me ten common Python interview problems. For each one, write a clean model solution and walk me through it step by step, so I can memorise the patterns before the real loop.',
           correct: false,
           feedback: 'Memorised answers fall apart at the first follow-up question.',
         },

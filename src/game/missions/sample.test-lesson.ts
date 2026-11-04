@@ -78,7 +78,7 @@ export const sampleLessonInput = {
         },
         {
           id: 'everything',
-          text: 'Refactor the whole auth module so this can never happen again.',
+          text: 'Refactor the whole auth module so this can never happen again, then run every test and paste the output.',
           correct: false,
           feedback: 'A big rewrite hides the one-line fix inside a diff nobody can review.',
         },

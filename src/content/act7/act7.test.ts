@@ -120,6 +120,21 @@ describe('Act 7: AI-Native Engineering', () => {
     }
   });
 
+  it('gives the leaked-key response only one defensible order', () => {
+    // The key is live, so revoking it (and checking what it did) comes first. A new key
+    // put in while the debug line still prints would leak into the same logs, so the line
+    // comes out before the new key goes in. A separate "check the logs" step could sit
+    // anywhere after the revoke, which made two orders right.
+    const card = lessons.flatMap((lesson) => lesson.cards).find((each) => each.id === 'leaked-key');
+    if (card?.kind !== 'order') throw new Error('7.4 needs its leaked-key order card');
+    const place = (pattern: RegExp) => card.steps.findIndex((step) => pattern.test(step.text));
+    expect(card.steps[0]?.text).toMatch(/^Revoke the key .*check its logs/);
+    expect(place(/Remove the line/)).toBe(1);
+    expect(place(/new key/)).toBeGreaterThan(place(/Remove the line/));
+    // ...which holds only while the line keeps printing, so the card has to say it does.
+    expect(card.situation).toMatch(/every time/);
+  });
+
   it('shows real artifacts to read, not just questions', () => {
     const kinds = new Set(
       lessons.flatMap((lesson) => lesson.cards.flatMap((card) => card.artifact?.kind ?? [])),

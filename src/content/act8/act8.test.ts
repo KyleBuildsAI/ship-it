@@ -104,6 +104,15 @@ describe('Act 8: The Loop', () => {
     }
   });
 
+  it('gives the flaky clock test a symptom its cause can explain', () => {
+    // Its two clock reads are microseconds apart, so midnight falls between them very
+    // rarely. A failure every day after midnight would point at a time zone mix-up, not
+    // at the race the card teaches.
+    const card = cards.find((each) => each.id === 'flaky-clock');
+    expect(card?.situation).toMatch(/rarely/);
+    expect(card?.situation).not.toMatch(/once a day|every day|daily/);
+  });
+
   it('gives every order card distinct steps, so there is one right order', () => {
     for (const card of cards) {
       if (isPickCard(card)) continue;
@@ -165,5 +174,15 @@ describe('Act 8: The Loop', () => {
     // Every beat the hall has is used somewhere, or it's dead weight.
     const used = new Set(cards.map((card) => card.beat));
     for (const beat of known) expect(used).toContain(beat);
+  });
+
+  it('opens no briefing on a scene that acts out a card’s answer', () => {
+    // A briefing's scene plays before any question is open (DESIGN.md, Lesson scenes).
+    // These two build a design fix on the board, and a cache and a queue are each the
+    // answer to an 8.3 card, so a briefing that played one would answer it in advance.
+    const answerScenes = ['cache-the-reads', 'queue-slow-work'];
+    for (const lesson of lessons) {
+      expect(answerScenes, lesson.id).not.toContain(lesson.briefingBeat);
+    }
   });
 });

@@ -73,13 +73,13 @@ export const customersAndYourStory = {
       options: [
         {
           id: 'list-call',
-          text: 'Show them our list call, GET /v1/docs?updated_since=, so the job asks once for what changed, and send a working example.',
+          text: 'Show them our list call, GET /v1/docs?updated_since=, so the job asks once for what changed, and send an example.',
           correct: true,
           feedback: 'One call instead of 5,000. Their job takes seconds.',
         },
         {
           id: 'rate-limit',
-          text: 'Rate-limit them so they stop overloading us.',
+          text: 'Rate-limit their account to one call a second, so their 6am job stops slowing the API down for every other customer.',
           correct: false,
           feedback: 'Their job gets slower and they get angrier. It doesn’t solve their need.',
         },
@@ -121,9 +121,9 @@ export const customersAndYourStory = {
         },
         {
           id: 'promise',
-          text: 'Write a reply promising a much faster API by Friday.',
+          text: 'Write a warm reply that apologises for the slow mornings, promises a much faster API by Friday, and offers them a free month so they stay with us.',
           correct: false,
-          feedback: 'Otto will write a promise nobody on the team agreed to.',
+          feedback: 'Otto will write a promise and a discount nobody on the team agreed to.',
         },
       ],
       explanation:
@@ -155,7 +155,7 @@ export const customersAndYourStory = {
       options: [
         {
           id: 'stack',
-          text: 'Every technology it uses, from the database to the build tool.',
+          text: 'A tour of the stack: every library and service it uses, from the database to the build tool, and what each one does.',
           correct: false,
           feedback: 'A list shows what you used, not how you think.',
         },
@@ -227,7 +227,7 @@ export const customersAndYourStory = {
         },
         {
           id: 'all-ai',
-          text: 'The AI did basically everything.',
+          text: 'Honestly, the AI did basically everything; I just typed the prompts.',
           correct: false,
           feedback: 'It undersells you. Who decided what to build and checked it was right?',
         },
@@ -286,13 +286,13 @@ export const customersAndYourStory = {
         },
         {
           id: 'fake',
-          text: 'Pick a fake weakness, like working too hard.',
+          text: 'Pick a safe weakness, like working too hard or caring too much, and say how you’re working on it.',
           correct: false,
           feedback: 'Interviewers hear it every day. It sounds like you’re hiding something real.',
         },
         {
           id: 'blame',
-          text: 'Explain how it was mostly someone else’s fault.',
+          text: 'Explain how a teammate’s rushed review let it through, so it’s clear it wasn’t really your fault.',
           correct: false,
           feedback: 'Blame is the opposite of what this question is listening for.',
         },

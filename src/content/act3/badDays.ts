@@ -9,7 +9,9 @@ export const toolsForBadDays = {
   id: 'tools-for-bad-days',
   act: 3,
   title: 'Tools for Bad Days',
-  briefingBeat: 'cherry-pick',
+  // The trouble, not the cure: the fix lands on its branch. The cherry-pick scene copies it
+  // onto main, which is what the first card asks how to do.
+  briefingBeat: 'commit-on-branch',
   briefing: [
     'Today a fix is stuck on an unfinished branch, a release needs a name, and something got slow.',
     'Four tools help: cherry-pick, stash, tags and bisect. Otto can run them all. You decide when.',
@@ -191,9 +193,10 @@ export const toolsForBadDays = {
         },
         {
           id: 'commit',
-          text: 'An empty commit with the message “v2.4”.',
+          text: 'An empty commit on main with the message “v2.4”, so the release stands out in the log.',
           correct: false,
-          feedback: 'The next commit buries it. A tag stays attached to one commit.',
+          feedback:
+            'It stands out only until the next commits bury it. A tag stays attached to one commit.',
         },
         {
           id: 'tag',

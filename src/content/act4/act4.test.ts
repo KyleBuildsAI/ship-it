@@ -120,6 +120,41 @@ describe('Act 4: GitHub Team Flow', () => {
     expect(rightIsLongest / pickCards.length).toBeLessThanOrEqual(0.5);
   });
 
+  it('writes the game’s own text plainly, without Markdown backticks', () => {
+    // Lesson text renders as plain text, so `n` shows its backticks. Options may quote a
+    // GitHub comment, and artifacts show raw messages, so those keep Markdown.
+    for (const card of lessons.flatMap((lesson) => lesson.cards)) {
+      const own = [card.situation, card.question, card.explanation];
+      if (isPickCard(card)) own.push(...card.options.map((option) => option.feedback));
+      else own.push(...card.steps.map((step) => step.text));
+      for (const text of own) expect(text, card.id).not.toContain('`');
+    }
+  });
+
+  it('never has Kyle close by hand an issue the final’s PR already closed', () => {
+    // 4.2 teaches that "Closes #57" closes the issue when the PR merges into main. The
+    // final's brief has Otto open a PR closing #88, so a later step closing #88 by hand
+    // would teach that the keyword does nothing.
+    const closedByPr = new Set<string>();
+    for (const card of final?.cards ?? []) {
+      if (!isPickCard(card)) continue;
+      for (const option of card.options.filter((each) => each.correct)) {
+        for (const match of option.text.matchAll(/\bclos(?:es|ing) #(\d+)/gi)) {
+          closedByPr.add(match[1] ?? '');
+        }
+      }
+    }
+    expect(closedByPr).toContain('88');
+    for (const card of final?.cards ?? []) {
+      if (card.kind !== 'order') continue;
+      const text = [...card.steps.map((step) => step.text), card.explanation].join(' ');
+      expect(text, card.id).not.toMatch(/\bclose the issue\b/i);
+      for (const issue of closedByPr) {
+        expect(text, card.id).not.toMatch(new RegExp(`\\bclose (?:issue )?#${issue}\\b`, 'i'));
+      }
+    }
+  });
+
   it('shows an artifact to read on at least a third of its cards', () => {
     // Real situations come with something to read: a diff, a log, an agent's message.
     const cards = lessons.flatMap((lesson) => lesson.cards);

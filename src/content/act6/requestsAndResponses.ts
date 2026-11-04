@@ -42,7 +42,7 @@ export const requestsAndResponses = {
         },
         {
           id: 'update-doc',
-          text: 'Change document 381’s text to “Love this intro!”.',
+          text: 'Replace the text of document 381 with “Love this intro!”, as whoever owns that session cookie.',
           correct: false,
           feedback:
             'An update would usually be PATCH /api/docs/381. This path ends in /comments, a list to add to.',
@@ -55,7 +55,7 @@ export const requestsAndResponses = {
         },
         {
           id: 'delete',
-          text: 'Delete the comments on document 381.',
+          text: 'Delete all the comments on document 381, with the session cookie proving who is asking.',
           correct: false,
           feedback: 'Deleting uses the DELETE method, and it has no body to send.',
         },
@@ -180,7 +180,7 @@ export const requestsAndResponses = {
         },
         {
           id: 'always-ok',
-          text: 'Add DELETE /api/comments/:id, and make it return 200 no matter what, so the app never shows an error.',
+          text: 'Add DELETE /api/comments/:id for authors and admins, and return 200 whatever happens, even when the delete fails, so the app never shows an error.',
           correct: false,
           feedback:
             'Then a comment that didn’t delete looks deleted. Hiding failures hides the truth from users and from you.',
@@ -229,7 +229,7 @@ export const requestsAndResponses = {
         },
         {
           id: 'rewrite',
-          text: 'Rewrite the export feature with a different PDF library.',
+          text: 'Exports of document 412 fail with a 502. The PDF library is the likely culprit, so swap it for a better-maintained one, rewrite the export around it, and add a test that exports document 412.',
           correct: false,
           feedback: 'A big change with no diagnosis. The library may not even be the problem.',
         },

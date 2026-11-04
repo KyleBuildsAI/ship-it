@@ -134,8 +134,9 @@ describe('Act 6: How Systems Work', () => {
   it('acts out most cards on the island, naming only beats it knows', () => {
     const known = beatsForAct(6);
     const cards = lessons.flatMap((lesson) => lesson.cards);
-    for (const lesson of lessons) {
-      // Every lesson opens on a scene, so the island is moving before the first card.
+    for (const lesson of regular) {
+      // Every lesson opens on a scene, so the island is moving before the first card. The
+      // final opens on none: the island's only incident scene is the rollback it asks for.
       expect(known, lesson.id).toContain(lesson.briefingBeat);
     }
     for (const card of cards) {
@@ -148,6 +149,34 @@ describe('Act 6: How Systems Work', () => {
     // Every beat the island has is used somewhere, or it's dead weight.
     const used = new Set(cards.map((card) => card.beat));
     for (const beat of known) expect(used).toContain(beat);
+  });
+
+  it('never shows the rollback on The 3am Page before the card that asks for it', () => {
+    // The island's incident scene lifts the bad release off and puts the last good one
+    // back: the mitigate card's answer. Played in the briefing or after an earlier card,
+    // it showed a timed, starred final its answer before the question.
+    const cards = final?.cards ?? [];
+    const asked = cards.findIndex((card) => card.id === 'mitigate');
+    expect(asked).toBeGreaterThan(0);
+    expect(final?.briefingBeat).not.toBe('incident-rollback');
+    expect(cards.slice(0, asked).map((card) => card.beat)).not.toContain('incident-rollback');
+  });
+
+  it('gives The 3am Page wrong answers nearly as detailed as its right ones', () => {
+    // validateAct keeps "always the longest" to half the cards, but a timed final also
+    // tempts "pick the one that's clearly longer". Next to one-line wrong answers, that
+    // habit still beat 60% here, so at most one card's right answer may stand out so.
+    const standsOut = (final?.cards ?? []).filter((card) => {
+      if (!isPickCard(card)) return false;
+      const longest = (correct: boolean) =>
+        Math.max(
+          ...card.options
+            .filter((option) => option.correct === correct)
+            .map((option) => option.text.length),
+        );
+      return longest(true) >= 1.3 * longest(false);
+    });
+    expect(standsOut.length, standsOut.map((card) => card.id).join(', ')).toBeLessThanOrEqual(1);
   });
 });
 

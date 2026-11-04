@@ -74,7 +74,7 @@ export const twoWaysToMerge = {
       options: [
         {
           id: 'three-way',
-          text: 'Git combines both sides from their shared commit, 7d02b8f, and records a merge commit with two parents.',
+          text: 'Git combines both sides from their shared commit, 7d02b8f, in a merge commit with two parents.',
           correct: true,
           feedback: 'Right: the two tips plus their common ancestor make three.',
         },
@@ -86,9 +86,10 @@ export const twoWaysToMerge = {
         },
         {
           id: 'ff',
-          text: 'Main fast-forwards to b2f4d91.',
+          text: 'Main fast-forwards to b2f4d91, and Priya’s login fix stays in the history underneath the export commits.',
           correct: false,
-          feedback: 'It can’t: that would drop e8a1c44, which the branch doesn’t contain.',
+          feedback:
+            'It can’t: e8a1c44 isn’t in the branch, so sliding main to b2f4d91 would drop Priya’s fix.',
         },
         {
           id: 'refuse',
@@ -105,7 +106,7 @@ export const twoWaysToMerge = {
       beat: 'rebase-replay',
       kind: 'prompt',
       situation:
-        'Quillwork keeps main’s history a straight line: its PRs may only merge as a fast-forward. Otto’s PR is behind main.',
+        'Quillwork keeps main’s history a straight line: a PR must be up to date with main, then lands with GitHub’s Rebase and merge button. Otto’s PR is behind main.',
       question: 'Which instruction do you give Otto?',
       options: [
         {
@@ -117,14 +118,14 @@ export const twoWaysToMerge = {
         },
         {
           id: 'local-ff',
-          text: 'Fetch, rebase your branch onto origin/main, and run the tests. Then merge it into main yourself with git merge --ff-only and push main.',
+          text: 'Fetch, rebase your branch onto origin/main, and run the tests. Then merge it into main yourself with git merge --ff-only and push main, so it stays a straight line.',
           correct: false,
           feedback:
             'A straight line, but main changed outside the PR: no review, no checks. Let the PR do the merge.',
         },
         {
           id: 'rebase-for-pr',
-          text: 'Rebase your branch onto origin/main so the PR can merge as a fast-forward. Don’t merge it yourself. If the rebase conflicts, stop and tell me why.',
+          text: 'Rebase your branch onto origin/main so the PR is up to date. Don’t merge it yourself. If the rebase conflicts, stop and tell me why.',
           correct: true,
           feedback: 'Otto gets the branch ready, the PR does the merge, and there’s a stop rule.',
         },
@@ -136,7 +137,7 @@ export const twoWaysToMerge = {
         },
       ],
       explanation:
-        'A fast-forward needs the branch to sit on top of the latest main. Getting it there is Otto’s job; the merge happens on the PR, after review and checks. A stop rule keeps a surprise from becoming a mess.',
+        'Main only takes a PR that’s up to date, so the branch must sit on the latest main. Getting it there is Otto’s job; the merge happens on the PR, after review and checks. A stop rule keeps a surprise from becoming a mess.',
     },
     {
       id: 'rebase-new-ids',
@@ -198,9 +199,10 @@ export const twoWaysToMerge = {
         },
         {
           id: 'neither',
-          text: 'Neither. Rebase loses work.',
+          text: 'Neither. Rebase throws away the old commits, so the work on both branches would be lost.',
           correct: false,
-          feedback: 'Rebase keeps the changes. The danger is only in rewriting what others hold.',
+          feedback:
+            'Rebase makes new commits with the same changes, so no work is lost. The danger is only in rewriting what others hold.',
         },
         {
           id: 'private',

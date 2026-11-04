@@ -133,9 +133,10 @@ export const readingCi = {
         },
         {
           id: 'rerun',
-          text: 'CI is broken. Re-run it until it passes.',
+          text: 'CI’s runner must have a stale cache, since the same code passes on her laptop. Clear the Actions cache and re-run until it passes.',
           correct: false,
-          feedback: 'It will fail the same way every time. Nothing about it is random.',
+          feedback:
+            'No cache changes how a file is named. It will fail the same way every time: nothing about it is random.',
         },
         {
           id: 'skip',
@@ -187,7 +188,7 @@ export const readingCi = {
       options: [
         {
           id: 'retry-forever',
-          text: 'Set every test to retry three times, forever.',
+          text: 'Turn on automatic retries: every test gets three tries in CI, so a one-in-ten blip never blocks a PR again.',
           correct: false,
           feedback: 'That also hides real bugs that only fail sometimes.',
         },
@@ -228,7 +229,7 @@ export const readingCi = {
         },
         {
           id: 'change-workflow',
-          text: 'Make CI pass. Edit the workflow if you need to.',
+          text: 'CI is red on #57 at the typecheck step. Get it green whatever it takes, and edit the workflow or tsconfig.json if that’s quicker.',
           correct: false,
           feedback: 'The quickest edit is deleting the typecheck step. You just allowed it.',
         },

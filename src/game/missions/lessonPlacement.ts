@@ -80,8 +80,9 @@ function rightLengthRanks(options: readonly { text: string; correct: boolean }[]
  * The best a player could score on these cards by never reading them: always picking the
  * longest option, or the second longest, or the shortest, and so on. Writers make right
  * answers longer without meaning to, because the right answer needs the detail. A
- * placement test hides its feedback, so a length habit like that is the one clue left,
- * and validateAct keeps the best rule here to half the cards at most.
+ * placement test hides its feedback, so a length habit like that is the one clue left, and
+ * stars count only a lesson's first tries, so validateAct keeps the best rule here to half
+ * the pick cards at most, in the placement test and in every lesson and final.
  */
 export function bestLengthStrategy(cards: readonly LessonCard[]): LengthStrategy | null {
   const counts = new Map<string, LengthStrategy>();

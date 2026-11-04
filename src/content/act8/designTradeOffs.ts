@@ -9,7 +9,9 @@ export const designTradeOffs = {
   id: 'design-trade-offs',
   act: 8,
   title: 'Design Trade-offs',
-  briefingBeat: 'cache-the-reads',
+  // A neutral scene: the briefing plays before any question, and cache-the-reads would act
+  // out read-heavy's answer.
+  briefingBeat: 'think-aloud',
   briefing: [
     'The design round: Sage plays the interviewer, and the systems are Quillwork’s own.',
     'There’s no single right answer. Start from the requirements, keep it simple, and say what each choice costs.',
@@ -97,7 +99,7 @@ export const designTradeOffs = {
       options: [
         {
           id: 'timeout',
-          text: 'Raise the request timeout to two minutes.',
+          text: 'Raise the request timeout to two minutes, and show a progress spinner so users can see their big export is still running.',
           correct: false,
           feedback: 'It works until a doc takes 121 seconds, and each wait holds a server busy.',
         },
@@ -229,7 +231,7 @@ export const designTradeOffs = {
         },
         {
           id: 'twenty',
-          text: 'Split it further, so each service does exactly one thing.',
+          text: 'Split it further, so each service does exactly one thing, owns its own data and can be deployed on its own.',
           correct: false,
           feedback: 'Smaller pieces add more network calls and more to run, not less.',
         },
@@ -268,7 +270,7 @@ export const designTradeOffs = {
         },
         {
           id: 'workers',
-          text: 'Two PDF workers might not be enough.',
+          text: 'Two PDF workers might not keep up when everyone exports at once.',
           correct: false,
           feedback: 'The queue just waits longer. Slow exports aren’t lost data.',
         },

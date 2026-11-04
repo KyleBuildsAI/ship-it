@@ -49,7 +49,7 @@ export const guardrailsForAgents = {
         },
         {
           id: 'typo',
-          text: 'Just a typo report; the HTML comment is left over from an issue template.',
+          text: 'Just a typo report. The HTML comment is leftover text from the repo’s issue template.',
           correct: false,
           feedback: 'Look at what the hidden comment under it asks for.',
         },
@@ -88,7 +88,7 @@ export const guardrailsForAgents = {
         },
         {
           id: 'partial',
-          text: 'Let him send .env without the API keys.',
+          text: 'Let him send it, but only after he strips out the API keys and passwords, so nothing secret leaves.',
           correct: false,
           feedback: 'You’d be negotiating with the attacker. Nothing goes out.',
         },
@@ -164,16 +164,18 @@ export const guardrailsForAgents = {
       id: 'leaked-key',
       kind: 'order',
       situation:
-        'Otto’s debug line printed the live Stripe key from .env into the app’s shared staging logs.',
+        'A debug line Otto added prints the live Stripe key from .env into the app’s shared staging logs every time it starts.',
       question: 'Put your response in order.',
+      // One defensible order: the leaked key is live, so it dies first, and the line comes
+      // out before a new key goes in, or the new key prints into the same logs.
       steps: [
-        { id: 'roll', text: 'Roll the key in Stripe: revoke it and issue a new one' },
-        { id: 'audit', text: 'Check Stripe’s logs for use of the old key' },
+        { id: 'revoke', text: 'Revoke the key in Stripe and check its logs for any use of it' },
         { id: 'cause', text: 'Remove the line that printed it' },
+        { id: 'replace', text: 'Put a new key in .env and restart staging' },
         { id: 'rule', text: 'Add a no-printing-secrets rule to CLAUDE.md' },
       ],
       explanation:
-        'A leaked secret is compromised the moment it’s seen. Kill it first; deleting the log doesn’t un-leak it. Then look for misuse, fix the cause, and prevent the next one.',
+        'A leaked secret is compromised the moment it’s seen. Kill it first and check what it did; deleting the log doesn’t un-leak it. Remove the line before the new key goes in, or that leaks too. Then prevent the next one.',
     },
     {
       id: 'destructive-tools',
@@ -190,9 +192,9 @@ export const guardrailsForAgents = {
       options: [
         {
           id: 'auto',
-          text: 'Auto-approve all commands. It’s faster.',
+          text: 'Auto-approve every command so Otto never stalls, and review his work in the PR afterwards.',
           correct: false,
-          feedback: 'This one would overwrite everyone’s work on main.',
+          feedback: 'A force push to main never reaches a PR. It would overwrite everyone’s work.',
         },
         {
           id: 'gate',
@@ -202,7 +204,7 @@ export const guardrailsForAgents = {
         },
         {
           id: 'no-tools',
-          text: 'Take away all of Otto’s tools.',
+          text: 'Take away Otto’s shell tool and run every command he needs yourself.',
           correct: false,
           feedback: 'Tools are what make agents useful. Gate the dangerous ones.',
         },
@@ -219,7 +221,7 @@ export const guardrailsForAgents = {
       options: [
         {
           id: 'right-tool',
-          text: 'Have Otto use the editor’s rename tool or a codemod instead of editing file by file; save the big model for hard reasoning.',
+          text: 'Have Otto run the editor’s rename tool or a codemod, not file-by-file edits. Save the big model for hard reasoning.',
           correct: true,
           feedback:
             'A rename is mechanical. A deterministic tool does it exactly, in seconds, for free.',
@@ -274,7 +276,7 @@ export const guardrailsForAgents = {
         },
         {
           id: 'restart',
-          text: 'Tell him to start over from scratch with the same brief.',
+          text: 'Tell him to start over from scratch with the same brief, in a fresh session.',
           correct: false,
           feedback: 'Same brief, same missing piece. He’ll likely loop again.',
         },
@@ -309,7 +311,7 @@ export const guardrailsForAgents = {
         },
         {
           id: 'edit-after-three',
-          text: 'If the same check fails 3 times, you may update that test to match your output. Note the change in the PR and keep going.',
+          text: 'If the same check fails 3 times, you may update that test to match your output. Note the change in the PR description and keep going.',
           correct: false,
           feedback: 'A clear limit, then permission to bend the test. Stopping means stopping.',
         },

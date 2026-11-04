@@ -119,9 +119,9 @@ export const reviewingPullRequests = {
       options: [
         {
           id: 'harsh',
-          text: 'This is wrong and breaks billing for every customer. Did you even run it before asking for review? Please be more careful.',
+          text: 'This is wrong and breaks billing. Did you even run it before asking for review?',
           correct: false,
-          feedback: 'Right worry, but it attacks Dex and doesn’t say what’s wrong.',
+          feedback: 'Right worry, but it attacks Dex and never says which line is wrong or why.',
         },
         {
           id: 'lgtm',
@@ -149,7 +149,7 @@ export const reviewingPullRequests = {
       id: 'nit',
       kind: 'choose',
       situation:
-        'Priya’s PR works and is well tested. You’d have named one variable `draftCount` instead of `n`.',
+        'Priya’s PR works and is well tested. One variable is called n, and you’d have called it draftCount.',
       question: 'How do you say so?',
       options: [
         {
@@ -160,13 +160,13 @@ export const reviewingPullRequests = {
         },
         {
           id: 'block',
-          text: 'Request changes until it’s renamed.',
+          text: 'Request changes asking her to rename n to draftCount, and approve once it’s done.',
           correct: false,
           feedback: 'Blocking a working PR over a name costs a day for a small gain.',
         },
         {
           id: 'silent',
-          text: 'Say nothing. Names don’t matter.',
+          text: 'Say nothing and approve. It works, it’s well tested, and names are a matter of taste.',
           correct: false,
           feedback: 'Names do matter to the next reader. Just don’t block on them.',
         },

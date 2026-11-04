@@ -235,7 +235,7 @@ export const testsAreGuardrails = {
       options: [
         {
           id: 'try-again',
-          text: 'That’s not right. Try again.',
+          text: 'Your fix didn’t work, so try again. Take a different approach to wordCount this time, run the whole suite, and paste me the output once everything passes.',
           correct: false,
           feedback: 'He doesn’t know what was wrong, so he may weaken the test a different way.',
         },
@@ -293,7 +293,7 @@ export const testsAreGuardrails = {
         },
         {
           id: 'db-down',
-          text: 'The database is probably down. Try later.',
+          text: 'The test database is probably down or still starting up, so the query failed. Wait a few minutes and run the integration test again.',
           correct: false,
           feedback: 'A down database can’t answer with a column error. It answered, precisely.',
         },
