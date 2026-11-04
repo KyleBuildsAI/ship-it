@@ -21,6 +21,7 @@ import {
   pendingPlay,
   playWhenReady,
   samePlayRequest,
+  whileMenuOpen,
   type PlayRequest,
 } from './playWhenReady';
 
@@ -243,6 +244,25 @@ describe('playWhenReady with an Act still to download', () => {
     expect(play.get().activity).toBeNull();
     // The button stops saying "Loading…", though nothing started.
     expect(pendingPlay.get()).toEqual({ waiting: null, failed: null });
+  });
+});
+
+describe('whileMenuOpen', () => {
+  it("downloads a menu's Acts as it opens, and drops a press still waiting as it closes", async () => {
+    const actTwoDownload = slowDownload(actTwo);
+    const actThreeEntry = lazy(actThree);
+    setLazyCatalog([actTwoDownload.entry, actThreeEntry]);
+    const close = whileMenuOpen([2, 3]);
+    expect(actTwoDownload.entry.load).toHaveBeenCalledOnce();
+    expect(actThreeEntry.load).toHaveBeenCalledOnce();
+
+    const press = playWhenReady(missionInActTwo, NOW);
+    close();
+    actTwoDownload.arrive();
+    await expect(press).resolves.toBe('superseded');
+    expect(play.get().activity).toBeNull();
+    // The press waited on the download the menu had started, rather than starting another.
+    expect(actTwoDownload.entry.load).toHaveBeenCalledOnce();
   });
 });
 

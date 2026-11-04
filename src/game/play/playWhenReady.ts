@@ -1,7 +1,7 @@
 import { progress } from '../progress';
 import { createStore } from '../store';
 import { startBossFight } from './bossPlay';
-import { actOfDrill, actOfPart, isActLoaded, loadAct } from './catalog';
+import { actOfDrill, actOfPart, isActLoaded, loadAct, prefetchAct } from './catalog';
 import { startFieldMission } from './fieldPlay';
 import { startLesson } from './lessonPlay';
 import { startMission } from './missionPlay';
@@ -102,6 +102,17 @@ export function actsNeeded(request: PlayRequest, now: Date): readonly number[] {
 export function cancelPendingPlay(): void {
   latestTicket += 1;
   pendingPlay.update({ waiting: null, failed: null });
+}
+
+/**
+ * What a menu does while it's open. Opening it starts downloading the Acts its buttons
+ * need, so Play is nearly always instant. The function it returns is for when the menu
+ * closes or switches Act: it drops the press still waiting for a download. A menu's effect
+ * returns that function, so React runs it at the right moment.
+ */
+export function whileMenuOpen(acts: readonly number[]): () => void {
+  for (const act of acts) prefetchAct(act);
+  return cancelPendingPlay;
 }
 
 /**

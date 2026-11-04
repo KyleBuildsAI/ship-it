@@ -7,11 +7,11 @@ import type {
   FieldMissionOutline,
   PartSummary,
 } from '../../game/play/actSummary';
-import { findActSummary, hasWorkLeft, prefetchAct, type FreePlay } from '../../game/play/catalog';
+import { findActSummary, hasWorkLeft, type FreePlay } from '../../game/play/catalog';
 import { starsFor } from '../../game/missions/lessonRunner';
 import { startFreePlay } from '../../game/play/freePlay';
 import { partResumeFor, resumeCardNumber } from '../../game/play/lessonResume';
-import { cancelPendingPlay, type PlayRequest } from '../../game/play/playWhenReady';
+import { whileMenuOpen, type PlayRequest } from '../../game/play/playWhenReady';
 import { reviewItemsToday } from '../../game/play/seriesPlay';
 import { bossAccess, isUnlocked, type BossAccess } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
@@ -226,13 +226,7 @@ function EarlyAccessNote({ act, save }: { act: ActOutline; save: SaveData }) {
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
   // Above the early return: React needs the same hooks, in the same order, every render.
-  useEffect(() => {
-    // Opening the menu starts its Act's download, so Play is nearly always instant.
-    prefetchAct(number);
-    // Closing the menu, or switching Act, drops a press still waiting for its download, so
-    // play never starts behind the player's back.
-    return cancelPendingPlay;
-  }, [number]);
+  useEffect(() => whileMenuOpen([number]), [number]);
   if (save === null) return null;
   const summary = findActSummary(number);
   if (summary === undefined) {

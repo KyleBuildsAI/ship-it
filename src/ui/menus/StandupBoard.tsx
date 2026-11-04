@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { openMenu } from '../../game/hud';
-import { drillPrompt, prefetchAct } from '../../game/play/catalog';
-import { actsNeeded, cancelPendingPlay } from '../../game/play/playWhenReady';
+import { drillPrompt } from '../../game/play/catalog';
+import { actsNeeded, whileMenuOpen } from '../../game/play/playWhenReady';
 import { todaysItems } from '../../game/play/seriesPlay';
 import { progress } from '../../game/progress';
 import { compareDays, localDay } from '../../game/progression/days';
@@ -14,14 +14,9 @@ export function StandupBoard() {
   const { save } = useStore(progress);
   const saveLoaded = save !== null;
   // Above the early return: React needs the same hooks, in the same order, every render.
-  useEffect(() => {
-    // Opening the board starts downloading the Acts today's review draws from, so Start
-    // review is nearly always instant. It runs again once the save loads: the save holds
-    // the review queue, so until then there's nothing to fetch.
-    for (const act of actsNeeded({ kind: 'review' }, new Date())) prefetchAct(act);
-    // Closing the board drops a review still waiting for its download.
-    return cancelPendingPlay;
-  }, [saveLoaded]);
+  // It runs again once the save loads: the save holds the review queue, which says which
+  // Acts today's review draws from, so until then there's nothing to fetch.
+  useEffect(() => whileMenuOpen(actsNeeded({ kind: 'review' }, new Date())), [saveLoaded]);
   if (save === null) return null;
   const now = new Date();
   const today = localDay(now);
