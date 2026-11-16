@@ -12,8 +12,8 @@ const ENGLISH = new Intl.Collator('en', { sensitivity: 'base' });
  *
  * English rules call 'resume' and 'résumé' equal, so a plain character compare settles
  * the tie, unaccented first, as PowerShell prints them. Every listing of the sandbox
- * (dir, Env:, the grading queries and the terraces that follow them) sorts with this one
- * function, so they can never disagree.
+ * (VirtualFs.listDir, dir, Env:, the grading queries and the terraces that follow them)
+ * sorts with this one function, so they can never disagree.
  */
 export function compareNames(left: string, right: string): number {
   const english = ENGLISH.compare(left, right);
