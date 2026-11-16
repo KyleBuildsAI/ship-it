@@ -2,18 +2,21 @@ import { beginDrill, endDrill } from '../../mentor/drillGuard';
 import { closeTerminal } from '../hud';
 import {
   checkOrder,
+  checkReview,
   currentCard,
   finishLessonBriefing,
   firstTryPercent,
   moveStep,
   nextCard,
   pickOption,
+  setFlagIssue,
   startLessonRun,
   tickLesson,
+  toggleFlag,
   type LessonRun,
 } from '../missions/lessonRunner';
 import { lessonPlacementResult, placementLesson, shuffledCard } from '../missions/lessonPlacement';
-import type { Lesson } from '../missions/lessonSchema';
+import type { Lesson, ReviewIssue } from '../missions/lessonSchema';
 import { requireLessonPlacement } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
 import type { MissionStatus } from '../save/schema';
@@ -82,13 +85,15 @@ function finishLesson(current: LessonActivity, run: LessonRun, nowMs: number): L
 
 /**
  * Whether a change added to what the resume point keeps: an answer, or a wrong try. Moving
- * an order card's steps or on to the next card adds nothing, so it saves nothing.
+ * an order card's steps, flagging a row, or going on to the next card adds nothing, so it
+ * saves nothing.
  */
 function answersChanged(before: LessonRun, after: LessonRun): boolean {
   return (
     after.firstTry.length > before.firstTry.length ||
     after.card.picked.length > before.card.picked.length ||
-    after.card.wrongOrders > before.card.wrongOrders
+    after.card.wrongOrders > before.card.wrongOrders ||
+    (after.card.review?.wrongChecks ?? 0) > (before.card.review?.wrongChecks ?? 0)
   );
 }
 
@@ -215,6 +220,28 @@ export function moveLessonStep(
 export function checkLessonOrder(nowMs: number = Date.now()): void {
   const lesson = activity()?.lesson;
   if (lesson !== undefined) update((run) => checkOrder(run, lesson), nowMs);
+}
+
+/** Flags a row of a code review card's diff, or takes its flag off. */
+export function toggleLessonFlag(row: number, nowMs: number = Date.now()): void {
+  const lesson = activity()?.lesson;
+  if (lesson !== undefined) update((run) => toggleFlag(run, lesson, row), nowMs);
+}
+
+/** Names the problem on a flagged row of a code review card. */
+export function setLessonFlagIssue(
+  row: number,
+  issue: ReviewIssue,
+  nowMs: number = Date.now(),
+): void {
+  const lesson = activity()?.lesson;
+  if (lesson !== undefined) update((run) => setFlagIssue(run, lesson, row, issue), nowMs);
+}
+
+/** "Check review" on a code review card. A wrong check is saved at once, like a wrong pick. */
+export function checkLessonReview(nowMs: number = Date.now()): void {
+  const lesson = activity()?.lesson;
+  if (lesson !== undefined) update((run) => checkReview(run, lesson), nowMs);
 }
 
 /** Next card, or the Done screen (and the save) after the last one. */

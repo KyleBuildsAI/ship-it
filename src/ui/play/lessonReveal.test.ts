@@ -2,12 +2,17 @@ import { describe, expect, it } from 'vitest';
 import type { MotionEnvironment } from '../../game/agent/pace';
 import {
   checkOrder,
+  checkReview,
   finishLessonBriefing,
   moveStep,
   nextCard,
   pickOption,
+  setFlagIssue,
   startLessonRun,
+  toggleFlag,
+  type LessonRun,
 } from '../../game/missions/lessonRunner';
+import { onReviewCard, sampleReviewLesson } from '../../game/missions/sample.test-codeReview';
 import { sampleLesson } from '../../game/missions/sample.test-lesson';
 import { answersOn, revealBehavior } from './lessonReveal';
 
@@ -32,6 +37,22 @@ describe('when a lesson card has a new result to show', () => {
     const moved = run.card.order[1];
     if (moved === undefined) throw new Error('expected a second step');
     expect(answersOn(moveStep(checked, sampleLesson, moved, -1).card)).toBe(1);
+  });
+
+  it('counts each wrong Check review, and the one that opens the comments', () => {
+    const lesson = sampleReviewLesson;
+    const flag = (run: LessonRun, row: number) =>
+      setFlagIssue(
+        toggleFlag(run, lesson, row),
+        lesson,
+        row,
+        row === 3 ? 'security' : 'error-handling',
+      );
+    const fresh = onReviewCard();
+    expect(answersOn(flag(fresh, 3).card)).toBe(0);
+    const wrong = checkReview(flag(fresh, 3), lesson);
+    expect(answersOn(wrong.card)).toBe(1);
+    expect(answersOn(checkReview(flag(wrong, 9), lesson).card)).toBe(2);
   });
 
   it('is back to none on the next card, which the panel opens at the top', () => {
