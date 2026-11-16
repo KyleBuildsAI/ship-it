@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "content:summaries": "vitest run src/content/actSummaries.test.ts --update",
     "e2e": "playwright test",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run e2e"
   },

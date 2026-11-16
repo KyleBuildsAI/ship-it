@@ -2464,3 +2464,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/180
 2. The island's only incident scene ends by putting the last good release back. That is the answer to card 4, "What do you do now, at 3am?". Played in the briefing, or after card 1, it showed the answer before the question. Card 1 asks what changed around 02:40, and the log trail fits that without giving anything away.
 3. The debug line prints the key every time the app starts. If you put in the new key and restart staging first, the line prints the new key into the same shared logs, and that key leaks too. Removing the line first is the only order that doesn't leak twice.
 </details>
+
+---
+
+## #191 feat: generate a small summary of every act
+
+https://github.com/KyleBuildsAI/ship-it/pull/191
+
+1. You change a lesson's title in `src/content/act3`, commit it and push, but you forget `npm run content:summaries`. What happens in CI, and how do you fix it?
+2. Why does a summary part keep a lesson's `cardIds` rather than just the number of cards?
+3. The old type test assigned `sampleAct` (a `CompleteAct`) to an `ActOutline`. Why didn't that prove that a plain `Act` fits?
+
+<details><summary>Answers</summary>
+
+1. `actSummaries.test.ts` fails. Its file snapshot no longer matches what the content summarizes to, and CI never rewrites snapshots, so the check goes red with "Act content changed: run npm run content:summaries". Run that command locally, commit the regenerated `actSummaries.generated.ts`, and push.
+2. The Act menu also checks whether a saved resume point still fits the lesson. It compares each saved answer's card id with the lesson's card at that position (`lessonResume.ts`). A count could say "6 cards" while the cards themselves had changed. With the ids, the menu can do that check from the summary alone, and it still gets the count from `cardIds.length`.
+3. `CompleteAct` makes `boss` and `fieldMission` required, so it is a narrower type than `Act`. A narrower type can fit where a wider one wouldn't. If `ActOutline` ever required a boss, `CompleteAct` would still fit but a real `Act` (boss optional) would not. The menus will pass a plain `Act`, so the test now widens the value to `Act` first.
+
+</details>
