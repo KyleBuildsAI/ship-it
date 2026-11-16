@@ -131,11 +131,18 @@ export const lessonResumeSchema = z.object({
   /** The cards answered so far, in play order, with whether each was right first time. */
   answered: z.array(z.object({ cardId: idSchema, firstTry: z.boolean() })),
   /**
-   * The next card's wrong tries (options picked, or orders checked), so leaving after a
-   * miss can't turn it into a first try on the way back.
+   * The next card's wrong tries (options picked, orders checked, or a code review's flags
+   * checked), so leaving after a miss can't turn it into a first try on the way back.
    */
   open: z
-    .object({ cardId: idSchema, picked: z.array(idSchema), wrongOrders: countSchema })
+    .object({
+      cardId: idSchema,
+      picked: z.array(idSchema),
+      wrongOrders: countSchema,
+      // A code review card's wrong "Check review" presses. Optional, like lessonResume
+      // itself, so saves from before code review cards load, and other cards never write it.
+      wrongFlagChecks: countSchema.optional(),
+    })
     .nullable(),
 });
 

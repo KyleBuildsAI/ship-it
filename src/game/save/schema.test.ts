@@ -161,6 +161,22 @@ describe('saveDataSchema', () => {
       expect(isValid(sampleWith({ missions: { '4.1': broken } }))).toBe(false);
     });
 
+    it("keeps a code review card's wrong checks, which other cards never write", () => {
+      const open = { cardId: 'flag-the-pr', picked: [], wrongOrders: 0, wrongFlagChecks: 2 };
+      const kept = {
+        ...createMissionProgress(),
+        status: 'in-progress',
+        lessonResume: { answered: [], open },
+      };
+      const parsed = saveDataSchema.parse(sampleWith({ missions: { '7.2': kept } }));
+      expect(parsed.missions['7.2']?.lessonResume?.open).toEqual(open);
+      const negative = {
+        ...kept,
+        lessonResume: { answered: [], open: { ...open, wrongFlagChecks: -1 } },
+      };
+      expect(isValid(sampleWith({ missions: { '7.2': negative } }))).toBe(false);
+    });
+
     it('only accepts Acts "1" through "8" as keys', () => {
       expect(isValid(sampleWith({ acts: { '8': createActProgress() } }))).toBe(true);
       expect(isValid(sampleWith({ acts: { '9': createActProgress() } }))).toBe(false);
