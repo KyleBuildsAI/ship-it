@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LessonSchema, type LessonInput } from './lessonSchema';
+import { CodeReviewCardSchema, LessonSchema, type LessonInput } from './lessonSchema';
+import { sampleReviewCard, sampleReviewCardInput } from './sample.test-codeReview';
 import { sampleFinal, sampleLesson, sampleLessonInput } from './sample.test-lesson';
 
 /** The messages zod gives for `input`, or [] when it parses. */
@@ -201,5 +202,154 @@ describe('a lesson scene (beat)', () => {
 
   it('needs a beat to be a kebab-case id', () => {
     expect(problems(inAct3({ beat: 'Branch Splits' }))).not.toEqual([]);
+  });
+});
+
+describe('a code review card', () => {
+  /** The sample card with `changes` on top: each problem as "path: message", or [] when it parses. */
+  function reviewIssues(changes: object): { path: string; code: string; message: string }[] {
+    const result = CodeReviewCardSchema.safeParse({ ...sampleReviewCardInput, ...changes });
+    return result.success
+      ? []
+      : result.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          code: issue.code,
+          message: issue.message,
+        }));
+  }
+
+  const reviewProblems = (changes: object) =>
+    reviewIssues(changes).map(({ path, message }) => `${path}: ${message}`);
+
+  const { artifact, bugs, fine, options } = sampleReviewCardInput;
+  const lostCheck = item(bugs, 0);
+  const swallowed = item(bugs, 1);
+
+  /** The sample's diff with the row at `row` (counted from 1) replaced by `line`. */
+  function withRow(row: number, line: string) {
+    const rows = artifact.text.split('\n');
+    rows[row - 1] = line;
+    return { ...artifact, text: rows.join('\n') };
+  }
+
+  it('parses the sample', () => {
+    expect(reviewProblems({})).toEqual([]);
+    expect(sampleReviewCard.kind).toBe('code-review');
+    expect(sampleReviewCard.bugs.map((bug) => bug.issues)).toEqual([
+      ['security'],
+      ['error-handling'],
+    ]);
+  });
+
+  it('needs a diff to flag, short enough to judge line by line', () => {
+    expect(reviewIssues({ artifact: undefined }).map(({ path }) => path)).toEqual(['artifact']);
+    expect(reviewProblems({ artifact: { ...artifact, kind: 'code' } })).toEqual([
+      'artifact.kind: A code review card shows a diff to flag, so its artifact is a "diff".',
+    ]);
+    // Ten more context rows make 21, and add no changed row to judge.
+    const closers = Array.from({ length: 10 }, () => ' }');
+    const tooLong = { ...artifact, text: [artifact.text, ...closers].join('\n') };
+    expect(reviewProblems({ artifact: tooLong })).toEqual([
+      'artifact.text: The diff has 21 rows; keep a review diff to 20, since each changed row is judged.',
+    ]);
+  });
+
+  it('flags only added or removed rows inside the diff', () => {
+    const lostCheckAlso = (row: number) => [{ ...lostCheck, rows: [3, row] }, swallowed];
+    const notChanged = (row: number) =>
+      `bugs.0.rows.1: Row ${String(row)} is not an added or removed line, so it can't be flagged.`;
+    expect(reviewProblems({ bugs: lostCheckAlso(1) })).toEqual([notChanged(1)]);
+    expect(
+      reviewProblems({ bugs: lostCheckAlso(1), artifact: withRow(1, '@@ -1,4 +1,10 @@') }),
+    ).toEqual([notChanged(1)]);
+    expect(
+      reviewProblems({ bugs: lostCheckAlso(1), artifact: withRow(1, '+++ b/src/docs/rename.ts') }),
+    ).toEqual([notChanged(1)]);
+    expect(reviewProblems({ bugs: lostCheckAlso(12) })).toEqual([
+      'bugs.0.rows.1: Row 12 is not in the diff, which has 11 rows.',
+    ]);
+  });
+
+  it('gives each changed row exactly one verdict', () => {
+    const twice = (row: number) =>
+      `Row ${String(row)} already has a verdict. List each changed row once, in one bug or in fine.`;
+    // In two bugs, twice in one bug, in a bug and in fine, and twice in fine.
+    expect(
+      reviewProblems({ bugs: [lostCheck, { ...swallowed, rows: [...swallowed.rows, 3] }] }),
+    ).toEqual([`bugs.1.rows.4: ${twice(3)}`]);
+    expect(reviewProblems({ bugs: [{ ...lostCheck, rows: [3, 3] }, swallowed] })).toEqual([
+      `bugs.0.rows.1: ${twice(3)}`,
+    ]);
+    expect(reviewProblems({ fine: [...fine, { row: 3, note: 'Fine.' }] })).toEqual([
+      `fine.3.row: ${twice(3)}`,
+    ]);
+    expect(reviewProblems({ fine: [...fine, { row: 4, note: 'Fine.' }] })).toEqual([
+      `fine.3.row: ${twice(4)}`,
+    ]);
+    expect(reviewProblems({ fine: fine.slice(1) })).toEqual([
+      "fine: Row 4 is changed but has no verdict. Add it to a bug, or to fine with why it's fine.",
+    ]);
+  });
+
+  it('has 1 to 3 bugs with unique ids, and at least 2 fine rows', () => {
+    const tooSmall = (path: string, changes: object) =>
+      reviewIssues(changes).some((issue) => issue.path === path && issue.code === 'too_small');
+    const tooBig = (path: string, changes: object) =>
+      reviewIssues(changes).some((issue) => issue.path === path && issue.code === 'too_big');
+    expect(tooSmall('bugs', { bugs: [] })).toBe(true);
+    const four = [lostCheck, swallowed, { ...lostCheck, id: 'c' }, { ...lostCheck, id: 'd' }];
+    expect(tooBig('bugs', { bugs: four })).toBe(true);
+    expect(tooSmall('fine', { fine: fine.slice(0, 1) })).toBe(true);
+    expect(reviewProblems({ bugs: [lostCheck, { ...swallowed, id: lostCheck.id }] })).toEqual([
+      `bugs.1.id: Duplicate id "${lostCheck.id}".`,
+    ]);
+  });
+
+  it('needs 3 or 4 comments, at least one right and one wrong', () => {
+    const allWrong = options.map((option) => ({ ...option, correct: false }));
+    expect(reviewProblems({ options: allWrong })).toEqual([
+      'options: Mark at least one option correct.',
+    ]);
+    const allRight = options.map((option) => ({ ...option, correct: true }));
+    expect(reviewProblems({ options: allRight })).toEqual([
+      'options: At least one option must be wrong, or the card teaches nothing.',
+    ]);
+    const twoOptions = { options: options.slice(0, 2) };
+    expect(reviewIssues(twoOptions).map(({ path, code }) => `${path} ${code}`)).toEqual([
+      'options too_small',
+    ]);
+    const extra = (id: string) => ({ ...item(options, 0), id });
+    const fiveOptions = { options: [...options, extra('more'), extra('most')] };
+    expect(reviewIssues(fiveOptions).map(({ path, code }) => `${path} ${code}`)).toEqual([
+      'options too_big',
+    ]);
+  });
+
+  it('keeps notes, clues and the screen within their word budgets', () => {
+    expect(reviewProblems({ bugs: [{ ...lostCheck, note: many(21) }, swallowed] })).toEqual([
+      'bugs.0.note: Keep this to 20 words or fewer, so it reads at a glance.',
+    ]);
+    expect(reviewProblems({ bugs: [{ ...lostCheck, clue: many(16) }, swallowed] })).toEqual([
+      'bugs.0.clue: Keep this to 15 words or fewer, so it reads at a glance.',
+    ]);
+    expect(reviewProblems({ fine: [...fine.slice(0, 2), { row: 7, note: many(21) }] })).toEqual([
+      'fine.2.note: Keep this to 20 words or fewer, so it reads at a glance.',
+    ]);
+    expect(reviewProblems({ situation: many(40), question: many(21) })).toEqual([
+      'situation: The situation and question are 61 words together; the limit is 60.',
+    ]);
+  });
+
+  it('never calls an added line that turns a check off fine', () => {
+    const silenced = withRow(
+      5,
+      '+  // eslint-disable-next-line @typescript-eslint/no-floating-promises',
+    );
+    expect(reviewProblems({ artifact: silenced })).toEqual([
+      'fine.1.row: Row 5 turns a check off, so it can never be fine. Make it a bug.',
+    ]);
+    const asBug = [lostCheck, { ...swallowed, rows: [...swallowed.rows, 5] }];
+    const otherFine = fine.filter((entry) => entry.row !== 5);
+    expect(reviewProblems({ artifact: silenced, bugs: asBug, fine: otherFine })).toEqual([]);
   });
 });
