@@ -87,7 +87,7 @@ The text and tutorial also still point at Act 2: `TitleCard.tsx` HINTS, and `tut
 | D8 | Can Kyle undo? | **Fix** is the main path: Kyle directs Otto to clean up. **Rewind** is always offered as a secondary button, and first when a guard broke. It costs the Plan star. Its line: "A real laptop has no rewind." | Practises cleaning up after an agent, and stays honest. |
 | D9 | Types of drill | `Drill = SandboxDrill` (today's, no `kind`) `\| JudgmentDrill` (`kind`: predict, diagnose, fix, order, approve, spot). `submitAnsweredDrill` sits beside an unchanged `submitDrill`. | Act 2's content and runner behave the same as today. |
 | D10 | How does Act 1 ship before it's finished? | `ActSchema.earlyAccess`. The placement test, boss and Field Mission are optional until it flips. `recommendedAct` skips Acts with no work left. | Mission 1.1 ships alone. The Acts button doesn't keep landing on a finished early Act. |
-| D11 | Does starting a mission move Kyle? | Only missions whose setup is a laptop (Act 1) ask to travel to the machine island. **Act 2 never auto-travels.** | Act 2 stays as it is. |
+| D11 | Does starting a mission move Kyle? | Yes, to its Act's island, by the rule in DESIGN.md section 4 (`travelTo`, since #160). Starting a mission, a lesson, the Laptop sandbox or a drill placement test takes Kyle there: Act 1's to the machine island, **Act 2's to the Git World**. A lesson placement test, a Field Mission and a Standup Board review stay where he is. | He sees the world act out what he plays. With nothing to watch, there's no trip. |
 | D12 | What does the terminal do in Act 1? | It shows Otto's commands and output and is read-only during Act 1 missions and drills. Free play on the island can still be typed in. | Typing is never required. |
 | D13 | How big does the engine grow? | Only the forms authored lines use (checked by `agent.test.ts`): no winget, `[Environment]::`, pipes, member access or tab completion. | The content is the spec for the engine. |
 | D14 | What is the agent called? | **Otto**, shown in magenta (`#d69cff`, the terminal's magenta). "Patch" clashed with the Patch Panel and with git patches. "Quill" clashed with Quillwork. Game notices stay cyan. | Clear names. |
@@ -124,7 +124,7 @@ The story line, from Marco in the first briefing: *"The Quillwork API must run o
 **Voice.** 12 words or fewer per line.
 - Upbeat and literal. He reports "Done: …".
 - He reports what he *meant* to do without checking what happened. That is the real agent failure mode, not cartoon villainy.
-- When caught, he answers plainly with the evidence: "You're right. The Directory line says C:\Users\kyle."
+- When caught, he answers plainly with evidence Kyle can see (a look or the island, never output only the put-away terminal shows): "You're right. List home shows notes in C:\Users\kyle."
 - When denied on a harmful line: "Good stop. That was the whole project."
 - His first line says he is scripted: "I'm Otto. Scripted for this course, so my slips teach."
 
@@ -367,7 +367,7 @@ Start plans:
 
   Each option is reachable by some path.
 - Guards: `driveFolder HOME/notes exists:false` "No stray notes folder at home"; `driveFile API/package.json` "The API is intact".
-- Success: `driveFolder API/notes`. The evidence is the real `Directory: C:\Users\kyle` line above the mkdir table.
+- Success: `driveFolder API/notes`. The evidence Kyle reads is the List home look, which shows whether notes landed at home, and the island, which shows the API's folders (§5.9). The `Directory: C:\Users\kyle` line above Otto's mkdir table prints only in the terminal, which stays put away, so no feedback points at it.
 
 ---
 
@@ -1316,15 +1316,18 @@ export function frameScene(drillId, elapsedMs, pace): { index: number; done: boo
 // queue through recordDrill's addMiss. An answer for a drill that isn't on the clock, or one
 // that doesn't fit it (judgment.answerFits), is ignored: a button never throws at Kyle.
 // DrillResult gains an optional keyId (the right answer) for the reveal.
-// A22: ui/play/JudgmentDrillView.tsx draws the question (the prompt, Otto's line as code
-// for predict and approve, his claim, the options in shuffleFor order with the attempt
-// counted from drillHistory, or Allow and Deny), the clock with a bar, and no "I'm done".
-// Its buttons arm after ARM_MS. ScenePlaying holds the panel while the scene plays, and
-// JudgmentReveal shows Right, Missed or Out of time, the right answer after a miss, and
-// `explain`. MissionView and SeriesView use all three for judgment drills only. The last
-// drill's reveal shows above the Question Round (MissionView) or the summary (SeriesView),
-// since answering it moves the run on. A drill the clock ended names its key too
-// (judgment.unansweredKey). The live part of step 4 (the answer replayed on the live
+// A22: ui/play/JudgmentDrillView.tsx draws the question (the prompt, the scene's lines and
+// their output from sceneEvidence (§2.2), Otto's line as code for predict and approve, his
+// claim, the options in shuffleFor order with the attempt counted from drillHistory, or
+// Allow and Deny), the clock with a bar, and no "I'm done". Its buttons arm after ARM_MS.
+// ScenePlaying holds the panel while the scene plays, each line showing with its output as
+// it runs, and JudgmentReveal shows Right, Missed or Out of time, the right answer after a
+// miss, and `explain`. MissionView and SeriesView use all three for judgment drills only.
+// The last drill's reveal shows above the Question Round (MissionView) or the summary
+// (SeriesView), since answering it moves the run on. A drill the clock ended names its key
+// too (judgment.unansweredKey). A placement test is locked (§2.2 step 4): SeriesView shows
+// "Answer locked in." or "Out of time." in place of JudgmentReveal, and no reveal above its
+// summary. The live part of step 4 (the answer replayed on the live
 // sandbox so the world animates, a real allowed approve, a denied one's ghost) is deferred
 // to A26, which wires ghosts and the world; until then the reveal is text only.
 ```
@@ -1568,12 +1571,12 @@ This matters because `TerminalPanel.tsx` has no try/catch around `shell().run`.
 | `src/game/play/catalog.ts` | `recommendedAct`: the first Act with `!completedAt && hasWorkLeft(save, entry)` (a mission not done, or a boss or field present and not done), else the first Act. `ActContent.freePlay`. | Act 2 is one tab away |
 | `src/game/play/saveRules.ts` | `refreshAct` returns early for `earlyAccess`; `completeMission` requires `directingXp` (2 XP per star, paid on the first completion) | Act 2's missions have no stars, so they pass 0 |
 | `src/game/play/{bossPlay,fieldPlay,seriesPlay}.ts` | `require*` helpers; judgment drills in series | Same flow for Act 2 |
-| `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` asks to travel only when `initialRepoState[0].op === 'windows'` (A27) | Act 2 route identical, no travel |
+| `src/game/play/missionPlay.ts` | Directed steps go to `agentPlay.ts`; `missionSandboxChanged` returns early for directed sims and judgment drills; `startMission` travels to the mission's Act island (`travelTo(zoneForAct(mission.act))`, D11) | Act 2 route identical; its missions travel to the Git World (D11) |
 | `src/game/play/sandboxControl.ts` | The log (`currentLog`, `recordAction`, `applyChange`, all-or-nothing), `dryRunNow`, `currentQueries(): SandboxQueries` with the transcript, rewind swap (`rewindTo`); `loadSandbox` takes a deps factory | `gitQueries` still the base |
 | `src/game/play/freePlay.ts` (NEW) | Laptop free play on the island; the practice project on Git World arrival | Campus unchanged |
-| `src/game/worldState.ts` | `ZoneId = 'campus' \| 'machine' \| 'gitworld'`; `requestedZone: ZoneId \| null` | — |
+| `src/game/worldState.ts` | `ZoneId = 'campus' \| 'machine' \| 'gitworld'`; `destination: ZoneId \| null`, set by `travelTo` (D11) | — |
 | `src/game/world/zones.ts` | `CAMERA_RIGS.machine`; `ZONE_FOR_ACT = { 1: 'machine', 2: 'gitworld' }`; `openActs(catalogActs)` returns the Acts that are in the catalog **and** have an island | The Act 2 portal is unchanged; `zones.test.ts` updated |
-| `src/game/world/world.ts` | Machine entries in `portalsIn` and `zones`, `createMachineWorld`, travel on `requestedZone`, machine sync | Git World code paths untouched; `portalPoint(2)` still works |
+| `src/game/world/world.ts` | Machine entries in `portalsIn` and `zones`, `createMachineWorld`, travel on `destination`, machine sync | Git World code paths untouched; `portalPoint(2)` still works |
 | `src/game/world/campus.ts` | A "Start here" `Label` over the recommended open portal | Portal positions unchanged |
 | `src/game/world/testHooks.ts` | `portalPoint(1)` works as is | — |
 | `src/ui/TitleCard.tsx` | `HINTS` keyed by `ZoneId`. campus: "…step through the glowing Act 1 portal". machine: "Direct Otto from the panel. Watch the terraces." Names `{ campus: 'Campus', machine: 'The Machine', gitworld: 'Git World' }`. | `world.spec.ts` still sees "Git World" |
@@ -1775,7 +1778,7 @@ Sizes exclude content data, captures and lockfiles.
 | Authoring blows up | 2-3 start plans and 1-3 fixes per step. `before` normalises the start. `agent.test.ts` proves every path, so a wrong intent fails CI. |
 | Engine scope creep | D13 plus `agent.test.ts`: only authored lines must run. Cut order if short of time: order and spot drills, then lamps, then the npm `-g` shelf. |
 | Dry runs drift from live | Deterministic engine; replay parity tests with `testDeps`. The live log keeps a deps factory, so every dry run, rewind and `applyChange` trial replays on a fresh clock and never moves the live one. On the real clock those replays' commits get new times and ids; nothing grades by commit id. |
-| Act 2 regressions | Additive schemas (sandbox drills are unchanged, the Act 2 runner is untouched, `SandboxQueries` extends `GitQueries`). No auto-travel. Act 2 suites must pass unchanged in every PR. e2e changes are limited to `openAct2` and the tutorial. |
+| Act 2 regressions | Additive schemas (sandbox drills are unchanged, the Act 2 runner is untouched, `SandboxQueries` extends `GitQueries`). Travel follows one rule for every Act, so Act 2's missions go to the Git World like Act 1's go to the machine island (D11). Act 2 suites must pass unchanged in every PR. e2e changes are limited to `openAct2` and the tutorial. |
 | Early access keeps pointing the Acts button at Act 1 | `hasWorkLeft` moves the recommendation to Act 2 once 1.x is done. No placement test while in early access. |
 | Stacked-branch merge mistakes | One PR at a time, `--update-refs`, split only at commit boundaries, apply diffs (memory note). Push chain 2 only after rebasing; recheck its fidelity findings before B6. |
 | The stash drifts from main | A2 reapplies it as diffs onto post-A1 main; tests are written fresh. |

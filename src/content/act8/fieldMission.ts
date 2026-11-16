@@ -18,9 +18,11 @@ export const STORY_HEADINGS = [
 /*
  * The Act 8 Field Mission (DESIGN.md section 8): the project deep-dive every loop has,
  * done for real. Kyle writes his SandCastles story in STAR shape and lands it in the real
- * repo through a pull request, the workflow Act 3 taught. He's a vibe coder, so the steps
- * say what to ask his own AI agent for (with a brief he can copy) and how to check what it
- * made, not how to type it all himself.
+ * repo through a pull request. As Act 3 taught, the agent stops once the pull request is
+ * open and Kyle reviews and merges it himself, never the agent. He squash-merges, as in
+ * Acts 4 to 6, because no check here needs Act 3's merge commit. He's a vibe coder, so the
+ * steps say what to ask his own AI agent for (with a brief he can copy) and how to check
+ * what it made, not how to type it all himself.
  *
  * Checks read pasted PowerShell output on this computer, so no GitHub token or API key is
  * needed. Between them they read the story itself, not just that a commit happened:
@@ -58,9 +60,14 @@ export const tellTheSandCastlesStory = {
     },
     {
       id: 'commit-it',
-      text: 'Ask your agent to link the story from README.md and merge it through a pull request, as in Act 3. If git status shows other files, leave them alone. They aren’t part of this.',
+      text: 'Ask your agent to link the story from README.md, commit both on a branch and open a pull request, then stop. If git status shows other files, leave them alone. They aren’t part of this.',
       prompt:
-        'Make a branch called docs/story. Link docs/story.md from README.md. Commit only those two files, with a message like “docs: add the SandCastles project story”. Don’t delete, revert, stash or git clean any other file, or add everything at once. Open a pull request, squash-merge it, then switch to main and pull.',
+        'Make a branch called docs/story. Link docs/story.md from README.md. Commit only those two files, with a message like “docs: add the SandCastles project story”. Don’t delete, revert, stash or git clean any other file, or add everything at once. Push the branch and open a pull request. Don’t merge it: I’ll review and squash-merge it.',
+    },
+    {
+      // Kyle merges, not his agent: main only changes through a pull request he reviewed.
+      id: 'review-and-merge',
+      text: 'On github.com, open the pull request and read its Files changed tab: only the story and README should be there. When it looks right, click "Squash and merge" and check the title starts with docs:. Then ask your agent to switch to main and pull.',
     },
   ],
   verifications: [
