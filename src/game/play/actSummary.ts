@@ -39,6 +39,11 @@ export interface PartSummary {
    * cards") and checks that a saved resume point still matches the lesson's cards.
    */
   readonly cardIds: readonly string[];
+  /**
+   * A mission's drill ids in play order; empty for a lesson. The skill tree groups drill
+   * attempts by them, so it never downloads an Act.
+   */
+  readonly drillIds: readonly string[];
 }
 
 /** A drill as the Standup Board lists it. Reviews and placement tests name drills by id. */
@@ -85,11 +90,14 @@ function summarizePart(
   lessons: readonly Lesson[],
 ): PartSummary | undefined {
   const mission = missions.find((entry) => entry.id === id);
-  if (mission !== undefined) return { id, title: mission.title, kind: 'mission', cardIds: [] };
+  if (mission !== undefined) {
+    const drillIds = mission.drills.map((drill) => drill.id);
+    return { id, title: mission.title, kind: 'mission', cardIds: [], drillIds };
+  }
   const lesson = lessons.find((entry) => entry.id === id);
   if (lesson === undefined) return undefined;
   const cardIds = lesson.cards.map((card) => card.id);
-  return { id, title: lesson.title, kind: lesson.kind, cardIds };
+  return { id, title: lesson.title, kind: lesson.kind, cardIds, drillIds: [] };
 }
 
 /** The summary of one Act's content. Any free-play sandbox is left out (see ActSummary). */
