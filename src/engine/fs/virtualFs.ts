@@ -1,4 +1,5 @@
 import type { FileTree } from './fileTree';
+import { compareNames } from './nameOrder';
 import { isWithin, joinPath, parentDir } from './paths';
 
 /** Node's names for what went wrong. EINVAL is a folder moved inside itself. */
@@ -83,7 +84,11 @@ export class VirtualFs implements FileTree {
     this.dirs.delete(path);
   }
 
-  /** Direct children of a directory, directories first, each group alphabetical. */
+  /**
+   * Direct children of a directory, directories first, each group in PowerShell's English
+   * name order. A bare localeCompare would follow the computer's own language, so wildcard
+   * matches and Act 2's ls could come out in a different order on another machine.
+   */
   listDir(path: string): DirEntry[] {
     if (this.files.has(path)) throw new FsError('ENOTDIR', path);
     if (!this.dirs.has(path)) throw new FsError('ENOENT', path);
@@ -94,7 +99,7 @@ export class VirtualFs implements FileTree {
     const files = [...this.files.keys()]
       .filter(isChild)
       .map((file) => ({ name: nameIn(path, file), kind: 'file' as const }));
-    const byName = (a: DirEntry, b: DirEntry) => a.name.localeCompare(b.name);
+    const byName = (a: DirEntry, b: DirEntry) => compareNames(a.name, b.name);
     return [...dirs.sort(byName), ...files.sort(byName)];
   }
 

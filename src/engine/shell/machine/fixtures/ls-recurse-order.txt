@@ -1,0 +1,34 @@
+
+    Directory: C:\Users\kyle\order
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           9/27/2026 10:15 AM                _build
+d----           9/27/2026 10:15 AM                ~tmp
+d----           9/27/2026 10:15 AM                api
+d----           9/27/2026 10:15 AM                Beta
+
+    Directory: C:\Users\kyle\order\api
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM              9 notes.md
+
+    Directory: C:\Users\kyle\order\Beta
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM              9 notes.md
+
+    Directory: C:\Users\kyle\order\_build
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM              9 notes.md
+
+    Directory: C:\Users\kyle\order\~tmp
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           9/27/2026 10:15 AM              9 notes.md
+

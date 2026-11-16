@@ -129,6 +129,20 @@ try {
     Save-Output 'ls-env-temp' { Get-ChildItem Env:TEMP }
     Save-Output 'ls-wild-recurse' { Get-ChildItem quillwork\*.json -Recurse }
 
+    # -Recurse sorts each folder's rows by English rules, but the table view then opens the
+    # subfolders in the order the disk keeps them, while -Name opens them in the rows' order.
+    # These names tell the two orders apart. The folder only exists for these two captures,
+    # so the home listings above stay as they are.
+    $order = Join-Path $fakeHome 'order'
+    foreach ($folder in 'api', 'Beta', '_build', '~tmp') {
+        $null = New-Item -ItemType Directory -Path (Join-Path $order $folder)
+        Set-Content (Join-Path $order "$folder\notes.md") '# Notes'
+    }
+    Get-ChildItem $order -Recurse -Force | ForEach-Object { $_.LastWriteTime = $fixed }
+    Save-Output 'ls-recurse-order' { Get-ChildItem order -Recurse }
+    Save-Output 'ls-recurse-order-name' { Get-ChildItem order -Recurse -Name }
+    Remove-Item $order -Recurse -Force
+
     # ---- Creating items (dated after creation, so the listing is stable) ----
     Save-Output 'new-item-file' {
         $item = New-Item standup.md

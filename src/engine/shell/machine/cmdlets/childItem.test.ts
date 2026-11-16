@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../../fixtures';
 import { testDeps } from '../../../git/testDeps';
+import type { Machine } from '../../../machine/machine';
+import { machineQueries } from '../../../machine/queries';
 import { Shell, type ShellResult } from '../../shell';
 import dirS from '../fixtures/error-dir-s.txt?raw';
 import lsA from '../fixtures/error-ls-a.txt?raw';
@@ -10,6 +12,8 @@ import ls from '../fixtures/ls.txt?raw';
 import lsEnvTemp from '../fixtures/ls-env-temp.txt?raw';
 import lsForce from '../fixtures/ls-force.txt?raw';
 import lsName from '../fixtures/ls-name.txt?raw';
+import lsRecurseOrderName from '../fixtures/ls-recurse-order-name.txt?raw';
+import lsRecurseOrder from '../fixtures/ls-recurse-order.txt?raw';
 import lsRecurse from '../fixtures/ls-recurse.txt?raw';
 import lsWildRecurse from '../fixtures/ls-wild-recurse.txt?raw';
 
@@ -40,6 +44,12 @@ function laptop(): Shell {
 
 const printed = (result: ShellResult) => result.lines.map((line) => `${line.text}\n`).join('');
 const texts = (result: ShellResult) => result.lines.map((line) => line.text);
+
+function machineOf(shell: Shell): Machine {
+  const machine = shell.ws.machine;
+  if (machine === null) throw new Error('Not a laptop');
+  return machine;
+}
 
 describe('Get-ChildItem', () => {
   it('lists the folder exactly as PowerShell 7.6 does, under every alias', () => {
@@ -153,6 +163,59 @@ describe('Get-ChildItem', () => {
     ]);
   });
 
+  it('orders names by English rules, exactly as real pwsh 7.6.6 printed them', () => {
+    const shell = laptop();
+    const machine = machineOf(shell);
+    // The folder from issue #131. A character compare puts '[' before '_' and '~' after
+    // every letter; English rules put all three before the letters.
+    for (const file of ['api', '_notes', 'Zeta', '~$plan.docx', '[x]', 'b.txt'])
+      machine.drive.writeFile(`Users/kyle/mixed/${file}`, '');
+    for (const folder of ['zdir', '_adir']) machine.drive.makeDir(`Users/kyle/mixed/${folder}`);
+    const shown = texts(shell.run('dir mixed -Force -Name'));
+    // What real pwsh 7.6.6 printed for `(Get-ChildItem -Force).Name` in that folder.
+    expect(shown).toEqual([
+      '_adir',
+      'zdir',
+      '_notes',
+      '[x]',
+      '~$plan.docx',
+      'api',
+      'b.txt',
+      'Zeta',
+    ]);
+    // The Act 1 terraces lay a folder out in list()'s order, so the island has to match
+    // what the player reads in the terminal.
+    const listed = machineQueries(machine).list('Users/kyle/mixed');
+    expect(listed.map((item) => item.name)).toEqual(shown);
+  });
+
+  it('ranks accents before case, exactly as real pwsh 7.6.10 printed them', () => {
+    const shell = laptop();
+    const machine = machineOf(shell);
+    // Each pair differs by an accent, so all seven fit in one Windows folder. A character
+    // compare would put 'Résumé' before 'resume' ('R' before 'r') and 'ùa' before 'úa'.
+    for (const file of ['ùa', 'Résumé2', 'úa', 'resume', 'ua', 'resume2', 'Résumé'])
+      machine.drive.writeFile(`Users/kyle/cv/${file}`, '');
+    const inPwsh = ['resume', 'Résumé', 'resume2', 'Résumé2', 'ua', 'úa', 'ùa'];
+    expect(texts(shell.run('dir cv -Name'))).toEqual(inPwsh);
+    expect(
+      machineQueries(machine)
+        .list('Users/kyle/cv')
+        .map((item) => item.name),
+    ).toEqual(inPwsh);
+  });
+
+  it('opens subfolders in the order PowerShell 7.6.10 does when recursing', () => {
+    const shell = laptop();
+    for (const folder of ['api', 'Beta', '_build', '~tmp'])
+      machineOf(shell).drive.writeFile(`Users/kyle/order/${folder}/notes.md`, '# Notes\n');
+    // The table view opens subfolders in the order the disk keeps them (api, Beta, _build,
+    // ~tmp), even though it sorts each folder's own rows by English rules.
+    expect(printed(shell.run('Get-ChildItem order -Recurse'))).toBe(lsRecurseOrder);
+    // -Name opens them in the same English order as its rows (_build, ~tmp, api, Beta).
+    expect(printed(shell.run('Get-ChildItem order -Recurse -Name'))).toBe(lsRecurseOrderName);
+  });
+
   it('lists what it can when one of several paths is missing', () => {
     const result = laptop().run('ls nope, notes.txt -Name');
     expect(texts(result)).toEqual([
@@ -173,6 +236,13 @@ describe('Get-ChildItem Env:', () => {
     );
     expect(names).toContain('Path');
     expect(names).toContain('USERPROFILE');
+  });
+
+  it('sorts variables by the same English rules as files', () => {
+    const shell = laptop();
+    machineOf(shell).active().env.set('~BACKUP', 'on');
+    // A character compare would put '~' after every letter; English rules put it first.
+    expect(texts(shell.run('ls env: -Name'))[0]).toBe('~BACKUP');
   });
 
   it('matches names in any case, and wildcards', () => {

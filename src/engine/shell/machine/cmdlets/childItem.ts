@@ -1,3 +1,4 @@
+import { compareDiskNames, compareNames } from '../../../fs/nameOrder';
 import { baseName, joinPath, parentDir } from '../../../fs/paths';
 import { line, type OutputLine } from '../../../git/cli/output';
 import type { Machine, Session } from '../../../machine/machine';
@@ -177,11 +178,22 @@ function walk(
   sections.push({ folder: display(dir), rows });
   names.push(...rows.map((row) => (relative === '' ? row.name : `${relative}\\${row.name}`)));
   if (!options.recurse || level >= options.depth) return;
-  for (const child of children) {
-    if (child.kind !== 'dir') continue;
+  for (const child of subfoldersToOpen(children, options)) {
     const inside = relative === '' ? child.name : `${relative}\\${child.name}`;
     walk(machine, joinPath(dir, child.name), inside, level + 1, options, sections, names);
   }
+}
+
+/**
+ * The order -Recurse opens a folder's subfolders in. Real pwsh 7.6.10 sorts each folder's
+ * rows by English rules either way, but only -Name opens the subfolders in that order too.
+ * The table view opens them in the order the disk keeps them, so '~tmp' comes after 'api'
+ * there even though it's listed before it (checked against real captures).
+ */
+function subfoldersToOpen(children: readonly ItemRow[], options: Options): ItemRow[] {
+  const subfolders = children.filter((row) => row.kind === 'dir');
+  if (options.nameOnly) return subfolders;
+  return subfolders.sort((a, b) => compareDiskNames(a.name, b.name));
 }
 
 function keeps(row: ItemRow, options: Options): boolean {
@@ -191,23 +203,26 @@ function keeps(row: ItemRow, options: Options): boolean {
   return options.filters.every((filter) => filter.test(row.name));
 }
 
-/** Folders first, then files, each by name ignoring case, as the file system provider lists. */
+/**
+ * Folders first, then files, each in PowerShell's English name order, as the file system
+ * provider lists them. It is the order list() gives the grading queries and the terraces,
+ * so the island always matches what dir prints.
+ */
 function byKindThenName(a: ItemRow, b: ItemRow): number {
   if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
-  const left = a.name.toLowerCase();
-  const right = b.name.toLowerCase();
-  return left < right ? -1 : left > right ? 1 : 0;
+  return compareNames(a.name, b.name);
 }
 
-/** Env:, Env:NAME or Env:PATTERN*: the tab's variables, sorted by name. */
+/**
+ * Env:, Env:NAME or Env:PATTERN*: the tab's variables, in the English name order entries()
+ * already gives, the same order as a folder's names.
+ */
 function listVariables(
   session: Session,
   name: string,
   into: { name: string; value: string }[],
 ): OutputLine[] {
-  const all = session.env
-    .entries()
-    .sort((a, b) => (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1));
+  const all = session.env.entries();
   if (name === '') {
     into.push(...all);
     return [];
