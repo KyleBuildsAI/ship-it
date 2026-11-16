@@ -14,6 +14,7 @@ import {
   thirdMission,
 } from './sample.test-mission';
 import type { Predicate } from './predicates';
+import { sampleReviewCard, sampleReviewLesson } from './sample.test-codeReview';
 import {
   lessonActInput,
   sampleFinal,
@@ -21,6 +22,7 @@ import {
   sampleLessonAct,
   sampleSecondLesson,
 } from './sample.test-lesson';
+import { fullSampleLessonAct, fullSamplePlacement } from './sample.test-lessonAct';
 import { ActSchema, type Act, type CompleteAct, type Mission, type MissionStep } from './schema';
 import { validateAct, validateCatalog } from './validateAct';
 
@@ -613,6 +615,48 @@ describe('an Act made of lessons', () => {
         where: `lesson ${sampleLesson.id} > card brief-the-fix`,
         problem:
           "The right instruction has 25 words, the longest wrong one 11. Give one wrong instruction the right one's length and detail, and a flaw.",
+      },
+    ]);
+  });
+
+  it("holds a code review card's comments to the prompt card's length rule", () => {
+    // The comments are instructions to Otto, so a thorough-sounding right one can't stand
+    // beside one-liners either.
+    const reviewing: Lesson = {
+      ...sampleSecondLesson,
+      cards: sampleReviewLesson.cards.map((card) =>
+        card.kind === 'code-review'
+          ? {
+              ...card,
+              options: card.options.map((option) =>
+                option.correct ? option : { ...option, text: 'Looks good to me, merge it.' },
+              ),
+            }
+          : card,
+      ),
+    };
+    expect(validateAct(act, [], [sampleLesson, reviewing, sampleFinal])).toEqual([
+      {
+        where: `lesson ${sampleSecondLesson.id} > card ${sampleReviewCard.id}`,
+        problem:
+          "The right instruction has 22 words, the longest wrong one 6. Give one wrong instruction the right one's length and detail, and a flaw.",
+      },
+    ]);
+  });
+
+  it('refuses a code review card in a placement test, which shows no verdicts', () => {
+    const full = fullSampleLessonAct();
+    const [borrowed = ''] = fullSamplePlacement.cardIds;
+    const lessons = full.lessons.map((lesson) => ({
+      ...lesson,
+      cards: lesson.cards.map((card) =>
+        card.id === borrowed ? { ...sampleReviewCard, id: borrowed } : card,
+      ),
+    }));
+    expect(validateAct(full.act, [], lessons)).toEqual([
+      {
+        where: 'placement test',
+        problem: `Card "${borrowed}" is a code-review card. A placement test takes one locked answer per card and shows no verdicts; borrow a choose, prompt or order card instead.`,
       },
     ]);
   });

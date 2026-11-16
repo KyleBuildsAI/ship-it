@@ -328,9 +328,12 @@ function mostWords(options: readonly { text: string }[]): number {
   return Math.max(0, ...options.map((option) => countWords(option.text)));
 }
 
-/** Why a prompt card's right instruction stands out by length alone, or null when it doesn't. */
+/**
+ * Why a prompt card's right instruction stands out by length alone, or null when it doesn't.
+ * A code review card's comments are instructions to Otto too, so they're held to the same.
+ */
 function promptLengthProblem(card: LessonCard): string | null {
-  if (card.kind !== 'prompt') return null;
+  if (card.kind !== 'prompt' && card.kind !== 'code-review') return null;
   const rightWords = mostWords(card.options.filter((option) => option.correct));
   const wrongWords = mostWords(card.options.filter((option) => !option.correct));
   if (wrongWords >= rightWords * PROMPT_WRONG_SHARE) return null;
@@ -367,6 +370,11 @@ function lessonPlacementIssues(
     } else {
       borrowed.set(owner.id, (borrowed.get(owner.id) ?? 0) + 1);
       const card = owner.cards.find((entry) => entry.id === id);
+      if (card?.kind === 'code-review') {
+        report(
+          `Card "${id}" is a code-review card. A placement test takes one locked answer per card and shows no verdicts; borrow a choose, prompt or order card instead.`,
+        );
+      }
       if (card !== undefined && leansOnEarlierCard(card)) {
         report(
           `Card "${id}" points back at something ("That...") the placement test never shows. Make it self-contained or give it an artifact.`,
