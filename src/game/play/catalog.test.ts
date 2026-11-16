@@ -24,17 +24,16 @@ import {
   actOfPart,
   actSummaries,
   ActNotLoadedError,
-  allMissions,
   drillPrompt,
-  findAct,
   findActSummary,
-  findDrill,
-  findMission,
-  getAct,
   hasWorkLeft,
   isActLoaded,
   knownDrillIds,
   loadAct,
+  loadedAct,
+  loadedDrill,
+  loadedLesson,
+  loadedMission,
   prefetchAct,
   recommendedAct,
   setCatalog,
@@ -235,22 +234,40 @@ describe('summary lookups', () => {
   });
 });
 
-describe('the old getters on a lazy catalog', () => {
-  it('throw ActNotLoadedError until the Act loads, then find it', async () => {
+describe('loaded content on a lazy catalog', () => {
+  it('throws ActNotLoadedError until the Act loads, then finds it', async () => {
     setLazyCatalog([lazy(finished), lazy(other)]);
-    expect(() => getAct(2)).toThrow(ActNotLoadedError);
-    expect(() => allMissions()).toThrow(ActNotLoadedError);
-    expect(findAct(7)).toBeUndefined();
+    expect(() => loadedAct(2)).toThrow(ActNotLoadedError);
+    expect(() => loadedMission(sampleMission.id)).toThrow("Act 2 isn't loaded.");
+    expect(() => loadedDrill(firstDrill.id)).toThrow("Act 2 isn't loaded.");
     await loadAct(2);
-    expect(getAct(2)).toBe(finished);
-    // Every mission means every Act, and Act 3 is still waiting.
-    expect(() => findMission(sampleMission.id)).toThrow("Act 3 isn't loaded.");
-    await loadAct(3);
-    expect(findMission(`other-${sampleMission.id}`).act).toBe(3);
-    expect(findDrill(firstDrill.id).prompt).toBe(firstDrill.prompt);
+    expect(loadedAct(2)).toBe(finished);
+    expect(loadedMission(sampleMission.id)).toBe(sampleMission);
+    expect(loadedDrill(firstDrill.id)).toBe(firstDrill);
   });
 
-  it('point at the fix when an Act is missing', () => {
+  it('needs only the Act that holds the id, not every Act', async () => {
+    setLazyCatalog([lazy(finished), lazy(other)]);
+    await loadAct(3);
+    expect(loadedMission(`other-${sampleMission.id}`).act).toBe(3);
+    expect(loadedDrill(`other-${firstDrill.id}`).id).toBe(`other-${firstDrill.id}`);
+    // Act 2 still hasn't loaded, so its own ids say so.
+    expect(() => loadedMission(sampleMission.id)).toThrow("Act 2 isn't loaded.");
+  });
+
+  it('finds a lesson once its Act loads, and never a mission', async () => {
+    setLazyCatalog([lazy(finished), lazy(sampleLessonAct())]);
+    expect(() => loadedLesson(sampleLesson.id)).toThrow("Act 4 isn't loaded.");
+    await loadAct(4);
+    expect(loadedLesson(sampleLesson.id)).toBe(sampleLesson);
+    // A mission's id needs its Act loaded too, before it can come back undefined.
+    expect(() => loadedLesson(sampleMission.id)).toThrow("Act 2 isn't loaded.");
+    await loadAct(2);
+    expect(loadedLesson(sampleMission.id)).toBeUndefined();
+    expect(loadedLesson('nothing')).toBeUndefined();
+  });
+
+  it('points at the fix when an Act is missing', () => {
     const error = new ActNotLoadedError(5);
     expect(error.act).toBe(5);
     expect(error.name).toBe('ActNotLoadedError');
@@ -282,20 +299,20 @@ function withActProgress(save: SaveData, number: number, changes: Partial<ActPro
 
 describe('the catalog of Acts', () => {
   it('finds each Act by its number', () => {
-    expect(getAct(2).act.title).toBe(sampleAct.title);
-    expect(getAct(3).act.title).toBe('Other Sample');
+    expect(loadedAct(2).act.title).toBe(sampleAct.title);
+    expect(loadedAct(3).act.title).toBe('Other Sample');
   });
 
-  it('says clearly when an Act is missing', () => {
-    expect(() => getAct(7)).toThrow('The game has no Act 7.');
+  it('says clearly when an Act, mission or drill is missing', () => {
+    expect(() => loadedAct(7)).toThrow('The game has no Act 7.');
+    expect(() => loadedMission('nothing')).toThrow('No mission has the id "nothing".');
+    expect(() => loadedDrill('nothing')).toThrow('No drill has the id "nothing".');
   });
 
   it('finds missions and drills in any Act', () => {
-    expect(allMissions()).toHaveLength(6);
-    expect(findMission(sampleMission.id).act).toBe(2);
-    expect(findMission(`other-${sampleMission.id}`).act).toBe(3);
-    const drill = sampleMission.drills[0];
-    expect(drill && findDrill(`other-${drill.id}`).id).toBe(`other-${String(drill?.id)}`);
+    expect(loadedMission(sampleMission.id).act).toBe(2);
+    expect(loadedMission(`other-${sampleMission.id}`).act).toBe(3);
+    expect(loadedDrill(`other-${firstDrill.id}`).id).toBe(`other-${firstDrill.id}`);
   });
 });
 

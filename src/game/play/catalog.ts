@@ -193,61 +193,67 @@ export function prefetchAct(act: number): void {
   void loadAct(act);
 }
 
-/** Loaded content of Act `act`; the getters below need it here already. */
-function contentOf(act: number): ActContent {
+/*
+ * Content of loaded Acts only, for code inside an activity: an activity starts only once
+ * its Act has loaded, and a loaded Act is never dropped, so its content is always here.
+ * Each lookup needs just the one Act that holds the id; others may still be downloading.
+ */
+
+/** The Act numbered `act`, already loaded. */
+export function loadedAct(act: number): ActContent {
+  if (findActSummary(act) === undefined) throw new Error(`The game has no Act ${String(act)}.`);
   const content = currentState().loaded.get(act);
   if (content === undefined) throw new ActNotLoadedError(act);
   return content;
 }
 
-/** Every shipped Act's content. Throws ActNotLoadedError if any hasn't loaded. */
-export function getCatalog(): Catalog {
-  return { acts: actSummaries().map((summary) => contentOf(summary.act.act)) };
+/** The mission with this id, from whichever loaded Act holds it. */
+export function loadedMission(id: string): Mission {
+  const mission = findInLoadedActs(id, (content) => content.missions);
+  if (mission !== undefined) return mission;
+  requireOwnerLoaded(actOfPart(id));
+  throw new Error(`No mission has the id "${id}".`);
 }
 
 /**
- * The Act numbered `number`, or undefined when the game doesn't have it yet. Throws
- * ActNotLoadedError when the game has it but its content hasn't loaded.
+ * The lesson with this id, or undefined when the id names a mission or nothing this build
+ * has. Throws ActNotLoadedError while the id's Act hasn't loaded, a mission's id included,
+ * so a lesson whose Act is still downloading is never mistaken for a missing one.
  */
-export function findAct(number: number): ActContent | undefined {
-  return findActSummary(number) === undefined ? undefined : contentOf(number);
-}
-
-/** The Act numbered `number`. */
-export function getAct(number: number): ActContent {
-  const content = findAct(number);
-  if (content === undefined) throw new Error(`The game has no Act ${String(number)}.`);
-  return content;
-}
-
-/** Every mission of every Act. */
-export function allMissions(): readonly Mission[] {
-  return getCatalog().acts.flatMap((entry) => entry.missions);
-}
-
-export function findMission(id: string): Mission {
-  const mission = allMissions().find((entry) => entry.id === id);
-  if (mission === undefined) throw new Error(`No mission has the id "${id}".`);
-  return mission;
-}
-
-/** Every lesson of every Act. */
-export function allLessons(): readonly Lesson[] {
-  return getCatalog().acts.flatMap((entry) => entry.lessons ?? []);
-}
-
-/** The lesson with this id, or undefined when the id names a mission (or nothing). */
-export function findLesson(id: string): Lesson | undefined {
-  return allLessons().find((entry) => entry.id === id);
+export function loadedLesson(id: string): Lesson | undefined {
+  const lesson = findInLoadedActs(id, (content) => content.lessons ?? []);
+  if (lesson === undefined) requireOwnerLoaded(actOfPart(id));
+  return lesson;
 }
 
 /** Drills live inside missions; placement tests and reviews refer to them by id. */
-export function findDrill(id: string): Drill {
-  for (const mission of allMissions()) {
-    const drill = mission.drills.find((entry) => entry.id === id);
-    if (drill !== undefined) return drill;
-  }
+export function loadedDrill(id: string): Drill {
+  const drill = findInLoadedActs(id, (content) =>
+    content.missions.flatMap((mission) => mission.drills),
+  );
+  if (drill !== undefined) return drill;
+  requireOwnerLoaded(actOfDrill(id));
   throw new Error(`No drill has the id "${id}".`);
+}
+
+/** Looks through every loaded Act. Ids are unique across Acts, so the first match is it. */
+function findInLoadedActs<Item extends { readonly id: string }>(
+  id: string,
+  itemsOf: (content: ActContent) => readonly Item[],
+): Item | undefined {
+  for (const content of currentState().loaded.values()) {
+    const item = itemsOf(content).find((entry) => entry.id === id);
+    if (item !== undefined) return item;
+  }
+  return undefined;
+}
+
+/**
+ * For an id no loaded Act has: when the summaries say which Act owns it, that Act just
+ * hasn't loaded, which is a different bug from an id this build doesn't have at all.
+ */
+function requireOwnerLoaded(owner: number | undefined): void {
+  if (owner !== undefined && !isActLoaded(owner)) throw new ActNotLoadedError(owner);
 }
 
 /**

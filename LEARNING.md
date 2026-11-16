@@ -2554,3 +2554,20 @@ https://github.com/KyleBuildsAI/ship-it/pull/195
 3. An Act summary only keeps a Field Mission's `title` and `repoName`. This PR changed the mission's checklist, not those two fields, so the summary is the same as before. The summaries test would fail in CI if it weren't, and its message would name the command to run.
 
 </details>
+
+---
+
+## #197 refactor: activities read only acts that are loaded
+
+https://github.com/KyleBuildsAI/ship-it/pull/197
+
+1. Why does deleting `getAct` and the other old getters, instead of leaving them next to the new functions, make `npm run typecheck` the proof that this PR is complete?
+2. `loadedMission(id)` can throw two different errors. When does each happen, and why is it useful that they say different things?
+3. In `seriesPlay.ts`, why does `begin()` now look up its drills before it calls `endDrill()` and `endScene()`? What could go wrong with the old order?
+<details><summary>Answers</summary>
+
+1. Once a function is deleted, every file that still calls it fails to compile, and `tsc` names each one. So when typecheck passes, nothing calls the old getters any more. If they had stayed, old callers would keep compiling and keep quietly needing all eight Acts loaded, and that would only show up as a crash after PR 7.
+2. It throws `ActNotLoadedError` when the summaries say which Act owns the id but that Act's content isn't in memory yet. That means play was started without loading its Act first, and the fix is in how play starts. It throws "No mission has the id …" when no summary knows the id at all. That means a typo or content this build removed, and the fix is in the content or the save. Different messages send you to the right place straight away.
+3. Looking up a drill can throw (`ActNotLoadedError`) if the drill's Act hasn't loaded. In the old order, the No-AI guard and Otto's scene for whatever was running had already been ended by the time it threw. The game was left half-changed: a placement drill still on screen, but with Sage allowed to talk. Doing the lookup first means a failure changes nothing, the same way `startMission`, `startBossFight` and `startFieldMission` already work.
+
+</details>

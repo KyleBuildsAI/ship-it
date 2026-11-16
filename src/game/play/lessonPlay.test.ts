@@ -19,7 +19,7 @@ import {
 import { placementTestOutXp } from '../progression/xp';
 import { createDefaultSave, saveDataSchema } from '../save/schema';
 import { worldState } from '../worldState';
-import { findLesson, setCatalog } from './catalog';
+import { loadedLesson, setCatalog } from './catalog';
 import {
   answerLesson,
   checkLessonOrder,
@@ -104,8 +104,8 @@ afterEach(async () => {
 
 describe('playing a lesson', () => {
   it('finds lessons in the catalog by id, and only lessons', () => {
-    expect(findLesson(sampleLesson.id)).toBe(sampleLesson);
-    expect(findLesson(sampleMission.id)).toBeUndefined();
+    expect(loadedLesson(sampleLesson.id)).toBe(sampleLesson);
+    expect(loadedLesson(sampleMission.id)).toBeUndefined();
     expect(() => {
       startLesson('no-such-lesson');
     }).toThrow('No lesson has the id "no-such-lesson".');

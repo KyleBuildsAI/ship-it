@@ -18,7 +18,7 @@ import { progress, saveProgressNow } from '../progress';
 import { beatZoneForAct } from '../world/beats';
 import { zoneForAct } from '../world/zones';
 import { travelTo, worldState, type ActIslandZone } from '../worldState';
-import { findLesson, getAct } from './catalog';
+import { loadedAct, loadedLesson } from './catalog';
 import { lessonResumeFor, lessonResumeOf, lessonResumes, resumedLessonRun } from './lessonResume';
 import { play, type Activity, type LessonActivity } from './playStore';
 import {
@@ -54,7 +54,7 @@ function endPlacement(current: LessonActivity, run: LessonRun, nowMs: number): L
   const { placement, lesson } = current;
   if (placement === undefined) return { ...current, run };
   const result = lessonPlacementResult(run, lesson, placement.passPercent);
-  const { act, lessons = [] } = getAct(placement.act);
+  const { act, lessons = [] } = loadedAct(placement.act);
   endDrill();
   saveProgressNow((save) => recordPlacement(save, act, lessons, result, new Date(nowMs)));
   return { ...current, run, placement: { ...placement, result } };
@@ -69,7 +69,7 @@ function finishLesson(current: LessonActivity, run: LessonRun, nowMs: number): L
   const paid = saveProgressNow((save) =>
     completeLesson(
       save,
-      getAct(lesson.act).act,
+      loadedAct(lesson.act).act,
       lesson,
       firstTryPercent(run, lesson),
       new Date(nowMs),
@@ -120,7 +120,7 @@ function update(change: (run: LessonRun) => LessonRun, nowMs: number): void {
  * untimed lesson left partway, at its first unanswered card with its first tries kept.
  */
 export function startLesson(lessonId: string, nowMs: number = Date.now()): void {
-  const lesson = findLesson(lessonId);
+  const lesson = loadedLesson(lessonId);
   if (lesson === undefined) throw new Error(`No lesson has the id "${lessonId}".`);
   // A No-AI Drill in progress keeps Sage quiet; a lesson doesn't, so that ends here.
   endDrill();
@@ -141,7 +141,7 @@ export function startLesson(lessonId: string, nowMs: number = Date.now()): void 
  * it's a No-AI Drill: Sage stays quiet until it ends.
  */
 export function startLessonPlacement(act: number): void {
-  const content = getAct(act);
+  const content = loadedAct(act);
   const test = requireLessonPlacement(content.act);
   const { save } = progress.get();
   const lessons = content.lessons ?? [];
