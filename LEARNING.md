@@ -2482,3 +2482,21 @@ https://github.com/KyleBuildsAI/ship-it/pull/191
 3. `CompleteAct` makes `boss` and `fieldMission` required, so it is a narrower type than `Act`. A narrower type can fit where a wider one wouldn't. If `ActOutline` ever required a boss, `CompleteAct` would still fit but a real `Act` (boss optional) would not. The menus will pass a plain `Act`, so the test now widens the value to `Act` first.
 
 </details>
+
+---
+
+## #192 feat: let the catalog load acts on demand
+
+https://github.com/KyleBuildsAI/ship-it/pull/192
+
+1. Two parts of the game ask for Act 2 while it is still downloading. How many times does Act 2's loader run, and what in `loadAct` makes that true?
+2. Why is the logging `download.catch(...)` written as its own statement, and not chained onto `download` before `loadAct` returns it?
+3. The roadmap-tab test used to pass even when `prefetchAct`'s guard was deleted. What does it check now, and why does it wait for `setTimeout(resolve, 0)` before checking?
+
+<details><summary>Answers</summary>
+
+1. Once. The first call stores its download promise in `loading`. A second call finds it there and returns the same promise, so it never calls the loader again. Once the download finishes, the content sits in `loaded`, and later calls get it from there.
+2. `.catch` returns a new promise, and that promise succeeds once the handler has run. If `loadAct` returned the chained one, every caller would get `undefined` instead of the failure, and the menu could never tell the player. As a separate statement, the logging handler runs once while callers still get the original, rejecting promise. Because the handler is already attached, `prefetchAct` can also ignore the result without an unhandled rejection.
+3. It now spies on `console.error` and expects it never to be called. Without the guard, nothing goes wrong during the call itself: the download fails a few microtasks later and logs then. A `setTimeout` callback runs only after every pending microtask has finished, so by the time the test checks, any log would already have happened.
+
+</details>
