@@ -102,10 +102,13 @@ describe('VirtualFs directories', () => {
     ]);
   });
 
-  it("lists names in PowerShell's English order, the same on every computer", () => {
+  it("lists names in PowerShell's English order, with one fixed order for case twins", () => {
     const fs = new VirtualFs();
     // This tree is case-sensitive, so README.md and readme.md can both exist. English
-    // rules call them equal; a character compare settles them in one fixed order.
+    // rules call them equal; a character compare settles them in one fixed order. On an
+    // English computer the old bare localeCompare got the symbols right too, but it put
+    // readme.md first, so the twins are what this test catches. It can't prove the order
+    // is the same in every language, since the tests run in just one.
     const names = [
       'api',
       '_notes',

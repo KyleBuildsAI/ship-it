@@ -187,18 +187,20 @@ describe('Get-ChildItem', () => {
     expect(listed.map((item) => item.name)).toEqual(shown);
   });
 
-  it('puts an unaccented name before its accented twin, as PowerShell does', () => {
+  it('ranks accents before case, exactly as real pwsh 7.6.10 printed them', () => {
     const shell = laptop();
     const machine = machineOf(shell);
-    // English rules ignoring case call these two equal, so a tie break has to settle them.
-    machine.drive.writeFile('Users/kyle/cv/résumé', '');
-    machine.drive.writeFile('Users/kyle/cv/resume', '');
-    expect(texts(shell.run('dir cv -Name'))).toEqual(['resume', 'résumé']);
+    // Each pair differs by an accent, so all seven fit in one Windows folder. A character
+    // compare would put 'Résumé' before 'resume' ('R' before 'r') and 'ùa' before 'úa'.
+    for (const file of ['ùa', 'Résumé2', 'úa', 'resume', 'ua', 'resume2', 'Résumé'])
+      machine.drive.writeFile(`Users/kyle/cv/${file}`, '');
+    const inPwsh = ['resume', 'Résumé', 'resume2', 'Résumé2', 'ua', 'úa', 'ùa'];
+    expect(texts(shell.run('dir cv -Name'))).toEqual(inPwsh);
     expect(
       machineQueries(machine)
         .list('Users/kyle/cv')
         .map((item) => item.name),
-    ).toEqual(['resume', 'résumé']);
+    ).toEqual(inPwsh);
   });
 
   it('lists what it can when one of several paths is missing', () => {
