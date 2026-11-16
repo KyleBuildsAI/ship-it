@@ -46,25 +46,64 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
         "id": "where-things-live",
         "title": "Where Things Live",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "wtl-predict-typo-cd",
+          "wtl-predict-fresh-terminal",
+          "wtl-predict-dotdot",
+          "wtl-diagnose-no-package",
+          "wtl-diagnose-claim-todo",
+          "wtl-fix-web-notes",
+          "wtl-approve-stray",
+          "wtl-approve-real-notes"
+        ]
       },
       {
         "id": "deletes-are-forever",
         "title": "Deletes Are Forever",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "daf-approve-wildcard",
+          "daf-approve-dist",
+          "daf-predict-confirm",
+          "daf-predict-wildcard",
+          "daf-diagnose-moved",
+          "daf-fix-restore",
+          "daf-approve-diff",
+          "daf-approve-port-edit"
+        ]
       },
       {
         "id": "secrets-stay-home",
         "title": "Secrets Stay Home",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "ssh-approve-cat-env",
+          "ssh-approve-cat-example",
+          "ssh-approve-copy-key",
+          "ssh-predict-ignore-after-commit",
+          "ssh-diagnose-claim-readme",
+          "ssh-diagnose-env-shared",
+          "ssh-fix-key-in-template"
+        ]
       },
       {
         "id": "every-terminal",
         "title": "Every Terminal Is Its Own World",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "etw-predict-new-tab",
+          "etw-predict-old-tab",
+          "etw-diagnose-stale-tab",
+          "etw-diagnose-claim-tab",
+          "etw-diagnose-export",
+          "etw-approve-clear-path",
+          "etw-approve-append-env",
+          "etw-fix-stale-path"
+        ]
       },
       {
         "id": "dependencies-are-declared",
@@ -79,7 +118,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "read-the-listing",
           "project-not-global",
           "safe-install"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "running-isnt-working",
@@ -95,7 +135,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "ctrl-c",
           "reads-at-start",
           "free-start-check"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "works-on-my-machine",
@@ -110,7 +151,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "db-down",
           "after-restart",
           "the-method"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": [
@@ -283,31 +325,75 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
         "id": "three-rooms",
         "title": "Three Rooms",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "rooms-approve-add-all",
+          "rooms-approve-add-readme",
+          "rooms-stage-folder",
+          "rooms-commit-staged-only",
+          "rooms-diagnose-staged",
+          "rooms-diagnose-no-repo",
+          "rooms-fix-todo-staged"
+        ]
       },
       {
         "id": "reading-history",
         "title": "Reading History",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "history-old-port",
+          "history-deleted-doc",
+          "history-staged-surprise",
+          "history-debug-print",
+          "history-save-log",
+          "history-staged-vs-unstaged",
+          "history-reset-to-read"
+        ]
       },
       {
         "id": "good-commits",
         "title": "Good Commits",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "commits-type-fix",
+          "commits-scope",
+          "commits-split-two",
+          "commits-leave-debug",
+          "commits-am-tracked",
+          "commits-am-trap"
+        ]
       },
       {
         "id": "ignore-list",
         "title": "The Ignore List",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "ignore-approve-git-rm",
+          "ignore-approve-rm-cached",
+          "ignore-negate",
+          "ignore-diagnose-rule",
+          "ignore-diagnose-leak",
+          "ignore-tracked-dist"
+        ]
       },
       {
         "id": "undo-everything",
         "title": "Undo Everything",
         "kind": "mission",
-        "cardIds": []
+        "cardIds": [],
+        "drillIds": [
+          "undo-discard-edit",
+          "undo-restore-deleted",
+          "undo-unstage",
+          "undo-revert-shared",
+          "undo-soft-reset",
+          "undo-mixed-reset",
+          "undo-hard-reset",
+          "undo-reflog-rescue"
+        ]
       },
       {
         "id": "dirty-tree",
@@ -323,7 +409,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "undo-shared",
           "reflog-rescue",
           "deploy-routine"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": [
@@ -517,7 +604,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "switch-safely",
           "clean-up-branches",
           "committed-not-merged"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "two-ways-to-merge",
@@ -532,7 +620,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "push-after-rebase",
           "update-and-merge",
           "merge-or-rebase"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "conflicts-without-panic",
@@ -547,7 +636,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "conflict-steps",
           "wrong-branch",
           "fewer-conflicts"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "tools-for-bad-days",
@@ -562,7 +652,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "find-the-slowdown",
           "bisect-steps",
           "brief-the-bisect"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "conflict-storm",
@@ -577,7 +668,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "storm-bisect",
           "storm-ship",
           "storm-hotfix"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": []
@@ -634,7 +726,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "agent-wants-force",
           "fork-a-library",
           "morning-sync"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "issues-and-pull-requests",
@@ -650,7 +743,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-the-description",
           "too-big",
           "closes-keyword"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "reviewing-pull-requests",
@@ -665,7 +759,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "codeowners",
           "self-review",
           "review-routine"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "releases-and-versions",
@@ -680,7 +775,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-the-release",
           "never-move-a-tag",
           "release-steps"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "rejected-push",
@@ -695,7 +791,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-the-conflict",
           "hotfix-version",
           "ship-it"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": []
@@ -752,7 +849,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "send-back",
           "integration-catches",
           "bug-fix-loop"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "lint-and-types",
@@ -767,7 +865,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-lint-fix",
           "green-means",
           "local-gates"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "reading-ci",
@@ -782,7 +881,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-from-log",
           "claims-green",
           "push-to-check"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "secrets-and-updates",
@@ -797,7 +897,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "lockfile",
           "brief-upgrade",
           "new-dependency"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "red-ci",
@@ -813,7 +914,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "skipped-test",
           "brief-redo",
           "required-checks"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": []
@@ -870,7 +972,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "safe-retries",
           "cors",
           "request-journey"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "apis-and-auth",
@@ -885,7 +988,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "key-in-the-browser",
           "least-scope",
           "oauth-flow"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "data-speed-and-scale",
@@ -902,7 +1006,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "queue",
           "container",
           "managed-or-not"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "logs-and-stack-traces",
@@ -917,7 +1022,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-logging",
           "log-levels",
           "debug-steps"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "the-3am-page",
@@ -933,7 +1039,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "root-cause",
           "postmortem",
           "incident-steps"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": []
@@ -990,7 +1097,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "define-done",
           "right-context",
           "show-an-example"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "read-what-it-wrote",
@@ -1005,7 +1113,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "new-dependency",
           "review-order",
           "review-comment"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "tests-and-evals",
@@ -1020,7 +1129,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "why-evals",
           "build-an-eval",
           "noisy-scores"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "guardrails-for-agents",
@@ -1036,7 +1146,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "cost-latency",
           "when-to-stop",
           "stop-rule"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "the-agent-went-rogue",
@@ -1052,7 +1163,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "trust",
           "agent-rule",
           "respond"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": []
@@ -1109,7 +1221,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "prove-the-fix",
           "stuck",
           "practice-partner"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "debug-from-symptoms",
@@ -1124,7 +1237,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "case-sensitive",
           "bisect",
           "flaky-clock"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "design-trade-offs",
@@ -1139,7 +1253,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "brief-a-design",
           "right-size",
           "single-point"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "customers-and-your-story",
@@ -1155,7 +1270,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "who-built-it",
           "disagree",
           "mistake"
-        ]
+        ],
+        "drillIds": []
       },
       {
         "id": "the-mock-loop",
@@ -1170,7 +1286,8 @@ export const ACT_SUMMARIES: readonly ActSummary[] = [
           "loop-deep-dive",
           "loop-ai",
           "loop-values"
-        ]
+        ],
+        "drillIds": []
       }
     ],
     "drills": []
