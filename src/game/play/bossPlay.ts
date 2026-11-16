@@ -5,7 +5,7 @@ import { requireBoss } from '../missions/schema';
 import { applySteps } from '../missions/sandbox';
 import { brokenRules, checkBoss, secondsRemaining, startBoss, tick } from '../missions/runner';
 import { saveProgressNow } from '../progress';
-import { getAct } from './catalog';
+import { loadedAct } from './catalog';
 import { play, type BossActivity } from './playStore';
 import { currentQueries, currentWorkspace, loadSandbox } from './sandboxControl';
 import { completeBoss } from './saveRules';
@@ -21,7 +21,7 @@ function activity(): BossActivity | null {
 }
 
 function setActivity(next: BossActivity): void {
-  const { objectives } = requireBoss(getAct(next.act).act);
+  const { objectives } = requireBoss(loadedAct(next.act).act);
   const queries = currentQueries();
   play.update({
     activity: next,
@@ -30,7 +30,7 @@ function setActivity(next: BossActivity): void {
 }
 
 export function startBossFight(actNumber: number, nowMs: number = Date.now()): void {
-  const { act } = getAct(actNumber);
+  const { act } = loadedAct(actNumber);
   // Throws before anything changes when this Act's boss isn't built yet.
   const { setup, title, timeLimitSeconds } = requireBoss(act);
   endDrill();
@@ -55,7 +55,7 @@ export function formatClock(seconds: number): string {
 }
 
 function settle(current: BossActivity, nowMs: number): void {
-  const { act } = getAct(current.act);
+  const { act } = loadedAct(current.act);
   const queries = currentQueries();
   const outcome = checkBoss(current.boss, act, queries, nowMs);
   if (outcome === 'won' && current.outcome !== 'won') {
@@ -73,7 +73,7 @@ function settle(current: BossActivity, nowMs: number): void {
 export function bossTick(nowMs: number = Date.now()): void {
   const current = activity();
   if (current?.outcome !== 'running') return;
-  const { act } = getAct(current.act);
+  const { act } = loadedAct(current.act);
   const { boss, due } = tick(current.boss, act, nowMs);
   for (const twist of due) applySteps(currentWorkspace(), twist.apply);
   const messages = [...current.messages, ...due.map((twist) => twist.message)];
