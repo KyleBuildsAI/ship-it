@@ -163,21 +163,37 @@ test('only the newest tab saves, and the other one can take it back', async ({ c
   expect(secondProblems).toEqual([]);
 });
 
+/** A tab's Save row in the dev badge: 'none' while loading, then 'saved', 'error' or 'other tab'. */
+function saveRow(tab: Page) {
+  return tab
+    .getByLabel('Developer status')
+    .locator('.status-badge__row')
+    .filter({ has: tab.locator('dt', { hasText: /^Save$/ }) })
+    .locator('dd');
+}
+
 test('two tabs opened at the same moment end with exactly one saving', async ({ context }) => {
   test.slow();
   const tabs = [await context.newPage(), await context.newPage()];
+  const problems = tabs.map((tab) => collectConsoleProblems(tab));
   await Promise.all(tabs.map((tab) => tab.goto('./')));
   // Whichever asked last owns the save; the other says so. Never both, never neither.
+  // If not, the failure lists each tab in order, so it shows which tab was stuck, whether
+  // its load never finished ('none') or failed ('error'), and what its console said (#104).
   await expect
     .poll(async () => {
-      const states = await Promise.all(
-        tabs.map((tab) => tab.getByLabel('Developer status').innerText()),
+      const rows = await Promise.all(tabs.map((tab) => saveRow(tab).innerText()));
+      const notices = await Promise.all(
+        tabs.map((tab) => tab.getByRole('heading', { name: NOTICE }).count()),
       );
-      return states
-        .map((text) =>
-          text.includes('other tab') ? 'elsewhere' : text.includes('saved') ? 'saving' : 'loading',
-        )
-        .toSorted();
+      return {
+        saveRows: rows.toSorted(),
+        eachTab: rows.map((row, index) =>
+          (notices[index] ?? 0) > 0 ? `${row}, other-tab notice shown` : row,
+        ),
+        problems,
+      };
     }, CROSS_TAB)
-    .toEqual(['elsewhere', 'saving']);
+    .toMatchObject({ saveRows: ['other tab', 'saved'] });
+  expect(problems).toEqual([[], []]);
 });
