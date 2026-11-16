@@ -285,26 +285,33 @@ function seededRandom(seed: number): () => number {
 }
 
 /**
- * Plays one random opening of two tabs to the end. Returns what went wrong, or null when
- * exactly one tab saves (and holds the lock) and the other says the save is elsewhere.
+ * Plays one random opening of two or three tabs to the end. Returns what went wrong, or null
+ * when exactly one tab saves (and holds the lock) and every other says the save is elsewhere.
  */
-async function playRandomOpening(seed: number): Promise<string | null> {
+async function playRandomOpening(seed: number, tabCount: 2 | 3): Promise<string | null> {
   const random = seededRandom(seed);
   const between = (low: number, high: number) => low + Math.floor(random() * (high - low + 1));
   // Mostly quick messages, and now and then one held up for seconds, as on a starved machine.
   const browser: SimulatedBrowser = createSimulatedBrowser({
     latency: () => (random() < 0.03 ? between(100, 3000) : between(0, 5)),
   });
-  const tabs = [browser.openTab('a'), browser.openTab('b')] as const;
-  const games = [first, second] as const;
+  const games = [first, second, third].slice(0, tabCount);
+  const tabs = games.map((_, index) => browser.openTab(['a', 'b', 'c'][index] ?? 'extra'));
   for (const game of games) game.devStatus.update({ save: 'none' });
 
-  // Usually "the same moment", sometimes the second tab opens a few seconds later.
-  const gap = random() < 0.8 ? between(0, 20) : between(0, 4000);
-  start(first, tabs[0]);
-  setTimeout(() => {
-    start(second, tabs[1]);
-  }, gap);
+  // Usually "the same moment", sometimes a later tab opens a few seconds after the first.
+  const gaps = games.map((_, index) =>
+    index === 0 ? 0 : random() < 0.8 ? between(0, 20) : between(0, 4000),
+  );
+  for (const [index, game] of games.entries()) {
+    const tab = tabs[index];
+    if (tab === undefined) continue;
+    if (index === 0) start(game, tab);
+    else
+      setTimeout(() => {
+        start(game, tab);
+      }, gaps[index]);
+  }
   // Long tasks at random moments: parsing the bundle, starting the GPU, a starved frame.
   for (const tab of tabs) {
     for (let task = between(0, 3); task > 0; task--) {
@@ -323,19 +330,25 @@ async function playRandomOpening(seed: number): Promise<string | null> {
 
   // Each tab as "status/badge": the save's state, and what the dev badge shows.
   const states = games.map((game) => `${game.progress.progress.get().status}/${badge(game)}`);
+  const saving = states.filter((state) => state === 'ready/saving');
+  const elsewhere = states.filter((state) => state === 'elsewhere/elsewhere');
   const saver = tabs[states.indexOf('ready/saving')];
-  const oneSaving = states.toSorted().join(' ') === 'elsewhere/elsewhere ready/saving';
-  if (oneSaving && browser.lockHolder() === saver?.name) return null;
-  return `gap ${String(gap)} ms: tabs ${states.join(' and ')}, lock held by ${String(browser.lockHolder())}`;
+  if (saving.length === 1 && elsewhere.length === tabCount - 1) {
+    if (browser.lockHolder() === saver?.name) return null;
+  }
+  return `gaps ${gaps.join('/')} ms: tabs ${states.join(' and ')}, lock held by ${String(browser.lockHolder())}`;
 }
 
-describe('two tabs opened together, any timing', () => {
-  it('end with exactly one tab saving, holding the lock', async () => {
-    const failures: string[] = [];
-    for (let seed = 1; seed <= 400; seed++) {
-      const problem = await playRandomOpening(seed);
-      if (problem !== null) failures.push(`seed ${String(seed)}: ${problem}`);
-    }
-    expect(failures).toEqual([]);
-  });
+describe('tabs opened together, any timing', () => {
+  it.each([2, 3] as const)(
+    'end with exactly one of %i tabs saving, holding the lock',
+    async (tabCount) => {
+      const failures: string[] = [];
+      for (let seed = 1; seed <= 400; seed++) {
+        const problem = await playRandomOpening(seed, tabCount);
+        if (problem !== null) failures.push(`seed ${String(seed)}: ${problem}`);
+      }
+      expect(failures).toEqual([]);
+    },
+  );
 });
