@@ -2642,3 +2642,39 @@ https://github.com/KyleBuildsAI/ship-it/pull/203
 3. Every wait in the handover is limited except the database load, and it was never reproduced in Chrome: 0 failures in 60 runs, 30 of them at 100% CPU. The simulator shows that a tab blocked during the very first database open makes the other tab wait in exactly that state, so that's the likely cause, not a proven one. If it happens again, the test attaches each tab's Save row in order (`none` = still loading, `error` = load failed), whether the "other tab" notice is up, and each tab's console problems.
 
 </details>
+
+---
+
+## #205 feat: act menus start play through the loader
+
+https://github.com/KyleBuildsAI/ship-it/pull/205
+
+1. The Standup Board opens on top of the Act menu. Before the fixes, what happened if you closed the board while a Play in the Act menu was still loading? What does `from` change?
+2. Why does the gate use `Promise.allSettled` instead of `Promise.all` to download the Acts for one press? What does that cost the player when a download fails?
+3. The menu tests render to an HTML string. Why could you delete a menu's whole `useEffect` before without any test failing, and how do the new tests catch it now?
+
+<details><summary>Answers</summary>
+
+1. Both menus' close called the same global `cancelPendingPlay`, which bumps the ticket and clears `waiting`. So closing the board silently dropped the Act menu's press: its button went back to "Play" and nothing started, even though the player never left that menu. Now `playWhenReady` stores the menu in `pendingPlay.from`. The board's close calls `cancelPendingPlay('standup-board')`, which returns early when the press came from `'act-menu'`, so the Act menu's press carries on. The same field makes each menu show only its own "Loading…" and alert.
+2. `Promise.all` rejects the moment one download fails, while others may still be running. At that moment the code didn't know which Act had failed, so the alert guessed "the first Act not loaded yet", and that could be one still on its way. `Promise.allSettled` waits for every download and gives each one's result, so the gate records the exact Act that failed. The cost: when a download fails, "Loading…" lasts until the slowest of that press's downloads finishes, rather than ending at the first failure.
+3. `renderToStaticMarkup` is server rendering, and it never runs effects. The prefetch and the cancel-on-close never ran in any test, so removing them changed nothing the tests could see. The new tests use `vi.mock('react', ...)` to swap `useEffect` for a stand-in that keeps each effect. The test calls the component function (the menu "opens"), runs the kept effect (that should start the download), then runs the cleanup it returned (the menu "closes"). For Start review, the test finds the board's `PlayButton` in what the board returned and calls its click handler. I removed the effect, made the close cancel every press, and stopped the board closing, one at a time, and each time the matching test failed.
+
+</details>
+
+---
+
+## #206 docs: bring next ideas up to date with the game
+
+https://github.com/KyleBuildsAI/ship-it/pull/206
+
+1. Why does each bug in the list name its issue number instead of describing the bug in full?
+2. How can you tell that the skill tree isn't built, even though `masteredConcept` exists?
+3. Why is the Python Arena last, even though `DESIGN.md` names it as an M5 feature alongside the Experience Vault?
+
+<details><summary>Answers</summary>
+
+1. The issue holds the full story (what fails, how to reproduce it, what done looks like) and the discussion. If the plan copied it, the two copies would drift apart. One line plus a number keeps a single source of truth.
+2. Search for who calls it. Only `stats.ts` (where it's defined) and its test use `masteredConcept`, so no screen ever shows a concept as mastered. Code that exists but is never called isn't a feature yet.
+3. Kyle's direction for the game is less typing code and more directing AI and understanding systems. The Arena is about writing Python by hand, so it teaches the least of what the game is now for. The Vault and interview mode practise explaining your work, which fits.
+
+</details>
