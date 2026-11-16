@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import type { EvidenceEntry } from '../../../game/agent/evidence';
 import type { Typist } from '../../../game/agent/feed';
 import type { Tone } from '../../../engine/git/cli/output';
+import { applyEvidenceScroll, evidenceScroll } from './evidenceScroll';
 
 /**
  * Output colours by meaning, as the terminal's own (ui/terminal/tones.ts): what git calls
@@ -54,12 +55,15 @@ function EntryLines({ entry }: { entry: EvidenceEntry }) {
   );
 }
 
+const NO_ENTRIES: readonly EvidenceEntry[] = [];
+
 /**
  * Terminal lines in the play panel, read-only: each typed line after its prompt, then its
  * output, in the terminal's monospace. The terminal stays put away while Kyle checks Otto
  * or answers a drill, so this is where he reads the evidence. Long output scrolls inside
- * the box, and the newest line stays in view, as a terminal keeps it. `by` colours the
- * typed lines: Kyle's looks in the accent, Otto's lines in his magenta.
+ * the box. While lines arrive the newest comes into view, and a box whose output is all
+ * new starts at the top (evidenceScroll.ts). `by` colours the typed lines: Kyle's looks in
+ * the accent, Otto's lines in his magenta.
  */
 export function TerminalEvidence({
   entries,
@@ -71,9 +75,13 @@ export function TerminalEvidence({
   by: Typist;
 }) {
   const screen = useRef<HTMLPreElement>(null);
-  useEffect(() => {
-    const element = screen.current;
-    if (element !== null) element.scrollTop = element.scrollHeight;
+  // What the box showed before, to tell lines arriving from a whole new output.
+  const shown = useRef(NO_ENTRIES);
+  // Before paint, so the box never flashes at the wrong place first.
+  useLayoutEffect(() => {
+    const move = evidenceScroll(shown.current, entries);
+    shown.current = entries;
+    if (screen.current !== null) applyEvidenceScroll(screen.current, move);
   }, [entries]);
   if (entries.length === 0) return null;
   return (
@@ -81,7 +89,10 @@ export function TerminalEvidence({
       <figcaption>{caption}</figcaption>
       <pre ref={screen} tabIndex={0}>
         {entries.map((entry, index) => (
-          <EntryLines key={String(index)} entry={entry} />
+          // One span per entry, so applyEvidenceScroll can find where the newest starts.
+          <span key={String(index)}>
+            <EntryLines entry={entry} />
+          </span>
         ))}
       </pre>
     </figure>

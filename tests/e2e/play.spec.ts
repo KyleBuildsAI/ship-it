@@ -84,8 +84,16 @@ test("Act 2's placement test is answered by clicking, with the terminal closed",
     .click();
   await page.getByRole('button', { name: 'Start 1 of 12' }).click();
   // Every drill it borrows is a judgment drill: Kyle picks an answer, nothing is typed.
-  await expect(page.getByRole('group', { name: 'Judgment drill' })).toBeVisible();
+  const drill = page.getByRole('group', { name: 'Judgment drill' });
+  await expect(drill).toBeVisible();
   await expect(page.getByRole('list', { name: 'Your answer' })).toBeVisible();
+  // The first drill shows Otto's git status, taller than its box. The box opens at the
+  // top, so "Changes to be committed:" is in sight (evidenceScroll.ts). Scrolled to the
+  // newest line, as it used to be, that heading sat out of view above.
+  const evidence = drill.locator('figure.evidence pre');
+  await expect(evidence).toContainText('Changes to be committed:');
+  expect(await evidence.evaluate((box) => box.scrollHeight > box.clientHeight)).toBe(true);
+  await expect(evidence).toHaveJSProperty('scrollTop', 0);
   await expect(page.getByRole('button', { name: /Terminal/ })).toHaveAttribute(
     'aria-pressed',
     'false',
