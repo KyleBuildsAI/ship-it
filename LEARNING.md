@@ -2464,3 +2464,39 @@ https://github.com/KyleBuildsAI/ship-it/pull/180
 2. The island's only incident scene ends by putting the last good release back. That is the answer to card 4, "What do you do now, at 3am?". Played in the briefing, or after card 1, it showed the answer before the question. Card 1 asks what changed around 02:40, and the log trail fits that without giving anything away.
 3. The debug line prints the key every time the app starts. If you put in the new key and restart staging first, the line prints the new key into the same shared logs, and that key leaks too. Removing the line first is the only order that doesn't leak twice.
 </details>
+
+---
+
+## #191 feat: generate a small summary of every act
+
+https://github.com/KyleBuildsAI/ship-it/pull/191
+
+1. You change a lesson's title in `src/content/act3`, commit it and push, but you forget `npm run content:summaries`. What happens in CI, and how do you fix it?
+2. Why does a summary part keep a lesson's `cardIds` rather than just the number of cards?
+3. The old type test assigned `sampleAct` (a `CompleteAct`) to an `ActOutline`. Why didn't that prove that a plain `Act` fits?
+
+<details><summary>Answers</summary>
+
+1. `actSummaries.test.ts` fails. Its file snapshot no longer matches what the content summarizes to, and CI never rewrites snapshots, so the check goes red with "Act content changed: run npm run content:summaries". Run that command locally, commit the regenerated `actSummaries.generated.ts`, and push.
+2. The Act menu also checks whether a saved resume point still fits the lesson. It compares each saved answer's card id with the lesson's card at that position (`lessonResume.ts`). A count could say "6 cards" while the cards themselves had changed. With the ids, the menu can do that check from the summary alone, and it still gets the count from `cardIds.length`.
+3. `CompleteAct` makes `boss` and `fieldMission` required, so it is a narrower type than `Act`. A narrower type can fit where a wider one wouldn't. If `ActOutline` ever required a boss, `CompleteAct` would still fit but a real `Act` (boss optional) would not. The menus will pass a plain `Act`, so the test now widens the value to `Act` first.
+
+</details>
+
+---
+
+## #192 feat: let the catalog load acts on demand
+
+https://github.com/KyleBuildsAI/ship-it/pull/192
+
+1. Two parts of the game ask for Act 2 while it is still downloading. How many times does Act 2's loader run, and what in `loadAct` makes that true?
+2. Why is the logging `download.catch(...)` written as its own statement, and not chained onto `download` before `loadAct` returns it?
+3. The roadmap-tab test used to pass even when `prefetchAct`'s guard was deleted. What does it check now, and why does it wait for `setTimeout(resolve, 0)` before checking?
+
+<details><summary>Answers</summary>
+
+1. Once. The first call stores its download promise in `loading`. A second call finds it there and returns the same promise, so it never calls the loader again. Once the download finishes, the content sits in `loaded`, and later calls get it from there.
+2. `.catch` returns a new promise, and that promise succeeds once the handler has run. If `loadAct` returned the chained one, every caller would get `undefined` instead of the failure, and the menu could never tell the player. As a separate statement, the logging handler runs once while callers still get the original, rejecting promise. Because the handler is already attached, `prefetchAct` can also ignore the result without an unhandled rejection.
+3. It now spies on `console.error` and expects it never to be called. Without the guard, nothing goes wrong during the call itself: the download fails a few microtasks later and logs then. A `setTimeout` callback runs only after every pending microtask has finished, so by the time the test checks, any log would already have happened.
+
+</details>
