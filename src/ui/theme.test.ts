@@ -116,3 +116,11 @@ describe('a lesson artifact box', () => {
     expect(ruleBody('.lesson-artifact__line')).toContain('min-height: 1lh;');
   });
 });
+
+describe('a code review diff', () => {
+  it('wraps every row, so the end of a changed line never hides past the edge', () => {
+    const body = ruleBody('.review-diff__code');
+    expect(body).toContain('white-space: pre-wrap;');
+    expect(body).toContain('overflow-wrap: anywhere;');
+  });
+});
