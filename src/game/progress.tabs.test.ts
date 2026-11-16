@@ -33,10 +33,12 @@ async function loadGame(): Promise<Game> {
 
 let first: Game;
 let second: Game;
+let third: Game;
 
 beforeAll(async () => {
   first = await loadGame();
   second = await loadGame();
+  third = await loadGame();
 });
 
 beforeEach(() => {
@@ -50,7 +52,7 @@ beforeEach(() => {
     }, ms);
     return controller.signal;
   });
-  for (const game of [first, second]) game.devStatus.update({ save: 'none' });
+  for (const game of [first, second, third]) game.devStatus.update({ save: 'none' });
 });
 
 afterEach(() => {
@@ -224,6 +226,50 @@ describe('two tabs opened at the same moment', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(badges()).toEqual(['saving', 'elsewhere']);
     expect(browser.lockHolder()).toBe('a');
+  });
+});
+
+describe('a third tab', () => {
+  it('that asks while another tab steals the save never takes it by stealing in turn', async () => {
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) => {
+        if (route.tab !== 'b') return undefined;
+        // b's steal (after its first lock request) takes 50 ms to reach the lock, so c's ask
+        // reaches b in between. b's writes after its load take 20 ms to reach IndexedDB.
+        if (route.pipe === 'locks' && route.direction === 'up' && index > 0) return 50;
+        if (route.pipe === 'idb' && route.direction === 'up' && index >= 2) return 20;
+        return undefined;
+      }),
+    });
+    const players = [
+      { tab: browser.openTab('f'), game: first },
+      { tab: browser.openTab('b'), game: second },
+      { tab: browser.openTab('c'), game: third },
+    ] as const;
+    const [f, b, c] = players;
+    // f has the save, then freezes for a minute. b opens and, after its 1.5 s wait, steals.
+    start(f.game, f.tab);
+    await vi.advanceTimersByTimeAsync(100);
+    f.tab.busyFor(60_000);
+    start(b.game, b.tab);
+    // c opens just after b's wait runs out, while b's steal is on its way.
+    await vi.advanceTimersByTimeAsync(1505);
+    start(c.game, c.tab);
+    // The player finishes a step in whichever tab saves by now, just before c's wait ends.
+    await vi.advanceTimersByTimeAsync(1400);
+    for (const { tab, game } of players) {
+      tab.run(() => {
+        game.progress.updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 77 } }));
+      });
+    }
+    await vi.advanceTimersByTimeAsync(70_000);
+
+    // Exactly one tab saves, holding the lock, and its copy is the one in IndexedDB: no tab
+    // wrote after losing the save, so nothing it stored can be overwritten or go missing.
+    const saving = players.filter(({ game }) => badge(game) === 'saving');
+    expect(saving.map(({ tab }) => tab.name)).toEqual([browser.lockHolder()]);
+    expect(saving[0]?.game.progress.progress.get().save).toEqual(browser.stored());
+    expect(players.filter(({ game }) => badge(game) === 'elsewhere')).toHaveLength(2);
   });
 });
 
