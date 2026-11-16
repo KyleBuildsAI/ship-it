@@ -134,6 +134,35 @@ describe('the play panel with the terminal open', () => {
   });
 });
 
+/** How far above the window's bottom a rule's `bottom: calc(Nvh + Npx)` puts its box. */
+function lift(selector: string): { vh: number; px: number } {
+  const start = themeCss.indexOf(`${selector} {`);
+  const block = themeCss.slice(start, themeCss.indexOf('}', start));
+  const match = /bottom: calc\((\d+)vh \+ (\d+)px\)/.exec(block);
+  if (start < 0 || match?.[1] === undefined || match[2] === undefined) {
+    throw new Error(`No calc() bottom in ${selector}`);
+  }
+  return { vh: Number(match[1]), px: Number(match[2]) };
+}
+
+describe('the command chip with the terminal open', () => {
+  it('floats above the HUD buttons that ride on the terminal, at every text size', () => {
+    // The chip spans the middle of the window, so it must clear the row by height alone. At
+    // Extra large the menu's buttons grow while the chip stays put, and its Run button sat
+    // over Music and caught its clicks.
+    const chip = lift('.command-chip');
+    const menu = lift('.hud-menu--above-terminal');
+    const toggle = lift('.terminal-toggle');
+    expect(chip.vh).toBe(menu.vh);
+    expect(chip.vh).toBe(toggle.vh);
+    const buttonsTop = Math.max(
+      menu.px + buttonHeight('.hud-menu__button', LARGEST_ZOOM),
+      toggle.px + buttonHeight('.hud-button'),
+    );
+    expect(chip.px).toBeGreaterThanOrEqual(buttonsTop + 8);
+  });
+});
+
 describe('the play panel at larger text sizes', () => {
   it('zooms the text inside the panel and the HUD buttons, never the boxes placed on screen', () => {
     expect(TEXT_SIZES.map(({ size }) => size)).toEqual(['large', 'x-large']);

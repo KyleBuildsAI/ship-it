@@ -42,7 +42,7 @@ export function CommandChip() {
   const needsInput = cursorFromEnd > 0;
 
   // Larger text sizes zoom the inner box, never the chip: zoom would scale its
-  // bottom: calc(38vh + 32px) too, and lift it a quarter higher at Extra large (theme.css).
+  // bottom: calc(38vh + 75px) too, and lift it a quarter higher at Extra large (theme.css).
   return (
     <aside className="glass command-chip" aria-label="Suggested command" aria-live="polite">
       <div className="command-chip__content">
