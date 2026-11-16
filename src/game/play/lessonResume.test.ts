@@ -7,12 +7,15 @@ import {
   startLessonRun,
   type LessonRun,
 } from '../missions/lessonRunner';
-import { sampleFinal, sampleLesson } from '../missions/sample.test-lesson';
+import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
+import { sampleAct, sampleMission } from '../missions/sample.test-mission';
 import { createMissionProgress, type MissionProgress } from '../save/schema';
+import { summarizeAct } from './actSummary';
 import {
   lessonResumeFor,
   lessonResumeOf,
   lessonResumes,
+  partResumeFor,
   resumeCardNumber,
   resumedLessonRun,
 } from './lessonResume';
@@ -71,7 +74,7 @@ describe('whether Play picks a lesson up', () => {
   it('picks up an untimed lesson in progress, at its first unanswered card', () => {
     expect(lessonResumes(sampleLesson)).toBe(true);
     expect(lessonResumeFor(sampleLesson, inProgress(kept))).toEqual(kept);
-    expect(resumeCardNumber(sampleLesson, kept)).toBe(3);
+    expect(resumeCardNumber(sampleLesson.cards.length, kept)).toBe(3);
   });
 
   it('starts over at the briefing for a timed final, whose clock cannot wait', () => {
@@ -98,6 +101,28 @@ describe('whether Play picks a lesson up', () => {
       open: null,
     };
     expect(lessonResumeFor(sampleLesson, inProgress(tooMany))).toBeNull();
+  });
+
+  it("gives the Act menu the same answer from a row's summary, with no lesson content", () => {
+    const [lessonRow, , finalRow] = summarizeAct(sampleLessonAct()).parts;
+    if (lessonRow === undefined || finalRow === undefined) throw new Error('Rows are missing.');
+    const renamed = { ...kept, answered: [{ cardId: 'gone', firstTry: true }] };
+    const saves = [undefined, inProgress(kept), inProgress(renamed), inProgress(undefined)];
+    // Asked of Play's own rule each time, so the two can't drift apart unnoticed.
+    for (const saved of saves) {
+      expect(partResumeFor(lessonRow, saved)).toEqual(lessonResumeFor(sampleLesson, saved));
+      expect(partResumeFor(finalRow, saved)).toEqual(lessonResumeFor(sampleFinal, saved));
+    }
+    // One fixed answer too, so the loop isn't only ever comparing two nulls.
+    expect(partResumeFor(lessonRow, inProgress(kept))).toEqual(kept);
+  });
+
+  it('never resumes a mission row, whatever lesson progress the save holds', () => {
+    const [missionRow] = summarizeAct({ act: sampleAct, missions: [sampleMission] }).parts;
+    if (missionRow === undefined) throw new Error('The mission row is missing.');
+    // Nothing answered but an open card: the one shape that passes every other check.
+    const openOnly = { answered: [], open: { cardId: 'any', picked: [], wrongOrders: 1 } };
+    expect(partResumeFor(missionRow, inProgress(openOnly))).toBeNull();
   });
 });
 
@@ -129,7 +154,7 @@ describe('a picked-up run', () => {
     const run = resumedLessonRun(sampleLesson, { answered, open: null }, T0);
     const last = sampleLesson.cards.length - 1;
     expect(run).toMatchObject({ cardIndex: last, card: { solved: true } });
-    expect(resumeCardNumber(sampleLesson, { answered, open: null })).toBe(last + 1);
+    expect(resumeCardNumber(sampleLesson.cards.length, { answered, open: null })).toBe(last + 1);
     expect(nextCard(run, sampleLesson)).toMatchObject({ phase: 'done', outcome: 'finished' });
   });
 });

@@ -8,6 +8,7 @@ import {
 } from '../missions/lessonRunner';
 import { isPickCard, type Lesson, type LessonCard } from '../missions/lessonSchema';
 import type { LessonResume, MissionProgress } from '../save/schema';
+import type { PartSummary } from './actSummary';
 
 /*
  * Where an untimed lesson left partway picks up (DESIGN.md section 5, Lessons), as pure
@@ -52,20 +53,42 @@ export function lessonResumeFor(
   lesson: Lesson,
   saved: MissionProgress | undefined,
 ): LessonResume | null {
+  const cardIds = lesson.cards.map((card) => card.id);
+  return keptResume(lessonResumes(lesson), cardIds, saved);
+}
+
+/**
+ * The same answer for an Act menu row, from the lesson's summary alone, so the menu can
+ * say "In progress" before the lesson's content has downloaded. The summary has no time
+ * limit to check, but it doesn't need one: lessonSchema gives a clock to finals only, so
+ * a plain lesson is the one kind that resumes. A mission row never does: Play has no
+ * lesson to pick up there, whatever the save holds.
+ */
+export function partResumeFor(
+  part: PartSummary,
+  saved: MissionProgress | undefined,
+): LessonResume | null {
+  return keptResume(part.kind === 'lesson', part.cardIds, saved);
+}
+
+/** The rule both of the above share, so the menu and Play can never disagree. */
+function keptResume(
+  resumes: boolean,
+  cardIds: readonly string[],
+  saved: MissionProgress | undefined,
+): LessonResume | null {
   const resume = saved?.lessonResume;
-  if (resume === undefined || saved?.status !== 'in-progress' || !lessonResumes(lesson)) {
-    return null;
-  }
+  if (resume === undefined || saved?.status !== 'in-progress' || !resumes) return null;
   const { answered, open } = resume;
   if (answered.length === 0 && open === null) return null;
-  if (answered.length > lesson.cards.length) return null;
-  const fits = answered.every((entry, index) => lesson.cards[index]?.id === entry.cardId);
+  if (answered.length > cardIds.length) return null;
+  const fits = answered.every((entry, index) => cardIds[index] === entry.cardId);
   return fits ? resume : null;
 }
 
 /** The card a resumed lesson opens on, counted from 1: the first one not answered. */
-export function resumeCardNumber(lesson: Lesson, resume: LessonResume): number {
-  return Math.min(resume.answered.length, lesson.cards.length - 1) + 1;
+export function resumeCardNumber(cardCount: number, resume: LessonResume): number {
+  return Math.min(resume.answered.length, cardCount - 1) + 1;
 }
 
 /** An unanswered card as it was left, its wrong tries kept so they still count. */

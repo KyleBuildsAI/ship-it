@@ -2500,3 +2500,57 @@ https://github.com/KyleBuildsAI/ship-it/pull/192
 3. It now spies on `console.error` and expects it never to be called. Without the guard, nothing goes wrong during the call itself: the download fails a few microtasks later and logs then. A `setTimeout` callback runs only after every pending microtask has finished, so by the time the test checks, any log would already have happened.
 
 </details>
+
+---
+
+## #193 refactor: act menus read summaries, never act content
+
+https://github.com/KyleBuildsAI/ship-it/pull/193
+
+1. If the player sees no difference, what is the point of this PR?
+2. Why does `PartSummary` keep each lesson's card ids, when the menu only prints a count?
+3. Before the review fix, `partResumeFor` used `part.kind !== 'final'`. What could go wrong with that, and why is `part.kind === 'lesson'` safer?
+
+<details><summary>Answers</summary>
+
+1. It removes every place where a menu reaches into full Act content. In PR 7 the game stops loading all Acts at startup. If any menu still read content then, opening it would either crash or force a download. Doing the readers first, while everything is still loaded, means each PR is small and can't break the game, and the "nothing loads" tests guard the rule from now on.
+2. Because "In progress · card 3 of 8" is only true if the save's answered cards still match the lesson's cards, in order. A content update could rename or reorder cards. With the ids, `keptResume` can spot that and show a fresh start instead, exactly as Play would. A plain count can't tell the difference.
+3. `!== 'final'` also lets `'mission'` through. A mission row has no card ids. If the save ever held lesson progress for a mission id with an open card but nothing answered, every other check would pass, and the menu would say "In progress" for something Play never resumes. Asking for the one kind that can resume (`=== 'lesson'`) means any other kind, including one added later, is safely "no".
+
+</details>
+
+---
+
+## #194 fix: polish layout spots the audit-fix checks turned up
+
+https://github.com/KyleBuildsAI/ship-it/pull/194
+
+1. Why does the Extra large rule zoom `.play-panel__content` rather than `.play-panel`? What went wrong when it zoomed the panel?
+2. The evidence box follows the newest line while Otto types, but opens at the top on the question card. How does the code tell these two cases apart?
+3. How do we know the new e2e check really guards item 2, and doesn't just pass by luck?
+
+<details><summary>Answers</summary>
+
+1. `zoom` scales every length on the element it is set on. On `.play-panel`, that turned `top: 140px` into 175px and `width: 400px` into 500px, and it scaled `max-height: calc(100vh - 204px)` too. So the panel covered more of the Workbench and ran past the bottom of the window, over the HUD. Zooming the inner box makes only the words bigger. The panel keeps its place and size, and its own scroll takes the extra text.
+2. `evidenceScroll` compares the list it showed last time with the new one. If every earlier entry is still the very same object and there are more entries, lines are arriving, so it returns "newest". If nothing changed, it returns "stay", which leaves Kyle's own scrolling alone. Anything else, such as a box that just appeared or a list that was replaced, counts as new output, so it returns "top".
+3. Two reasons. First, the test checks that the box is taller than its view before it checks `scrollTop` is 0, because a box that can't scroll would always read 0. Second, I put the old `scrollTop = scrollHeight` line back, rebuilt, and ran the test: it failed with `scrollTop` 120. Then I restored the fix.
+
+</details>
+
+---
+
+## #195 docs: bring the design docs back in line with the game
+
+https://github.com/KyleBuildsAI/ship-it/pull/195
+
+1. Why does the Act 8 brief now tell Kyle's agent "Don't merge it", when the old version let the agent merge?
+2. Act 3 asks for a merge commit, but Act 8 uses "Squash and merge". Why is that fine for Act 8?
+3. Main gained a generated summaries file (`actSummaries.generated.ts`) while this branch was open, and this PR changes Act 8's content. Why don't we need to run `npm run content:summaries` here?
+
+<details><summary>Answers</summary>
+
+1. Act 3 teaches that main only changes through a pull request a person has reviewed. If the agent merges its own PR, nobody reviewed it, so the mission would be teaching the opposite. Now the agent stops at an open PR, and Kyle reads the Files changed tab and merges it himself.
+2. Act 3 needs a merge commit because its check reads `git log --oneline --graph -5` and passes only if the newest commit is a merge, drawn with the branch's own commit beside it. A squash leaves one plain commit, so it can't pass there. None of Act 8's four checks looks at how the commit was merged: they read the story's commit line, its headings, the tracked files and their status. A squash keeps the PR's Conventional title, which is all the first check needs, so the simpler merge works.
+3. An Act summary only keeps a Field Mission's `title` and `repoName`. This PR changed the mission's checklist, not those two fields, so the summary is the same as before. The summaries test would fail in CI if it weren't, and its message would name the command to run.
+
+</details>

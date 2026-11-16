@@ -1,7 +1,7 @@
 import type { Lesson } from '../missions/lessonSchema';
 import { ContentError, type Act, type Drill, type Mission } from '../missions/schema';
 import type { SaveData } from '../save/schema';
-import { summarizeAct, type ActSummary, type FreePlay } from './actSummary';
+import { summarizeAct, type ActOutline, type ActSummary, type FreePlay } from './actSummary';
 import { missionDone } from './saveRules';
 
 export type { FreePlay } from './actSummary';
@@ -253,9 +253,10 @@ export function findDrill(id: string): Drill {
 /**
  * Whether an Act still has something built for the player to do: a mission not done, or a
  * boss or Field Mission that exists and isn't finished. Parts an early-access Act hasn't
- * built yet don't count, so finishing its missions leaves nothing to do for now.
+ * built yet don't count, so finishing its missions leaves nothing to do for now. It only
+ * asks whether a boss or Field Mission exists, so an Act's summary is enough.
  */
-export function hasWorkLeft(save: SaveData, act: Act): boolean {
+export function hasWorkLeft(save: SaveData, act: ActOutline): boolean {
   const progress = save.acts[String(act.act)];
   const missionLeft = act.missionIds.some((id) => !missionDone(save, id));
   const bossLeft = act.boss !== undefined && !progress?.bossCompletedAt;
@@ -265,10 +266,11 @@ export function hasWorkLeft(save: SaveData, act: Act): boolean {
 
 /**
  * The Act to offer first: the earliest one not complete that still has work left, or the
- * first Act once there's none anywhere. The HUD's Acts menu opens on it.
+ * first Act once there's none anywhere. The HUD's Acts menu opens on it. It reads summaries
+ * only, so opening the HUD never waits for an Act to download.
  */
 export function recommendedAct(save: SaveData | null): number {
-  const { acts } = getCatalog();
+  const acts = actSummaries();
   const first = acts[0];
   if (first === undefined) throw new Error('The catalog has no Acts.');
   if (save === null) return first.act.act;

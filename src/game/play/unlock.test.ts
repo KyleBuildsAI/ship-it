@@ -1,6 +1,6 @@
 // Must be the first import: it installs an in-memory IndexedDB before Dexie looks for one.
 import 'fake-indexeddb/auto';
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { hud } from '../hud';
 import { sampleAct, sampleMission } from '../missions/sample.test-mission';
 import {
@@ -14,7 +14,8 @@ import { clearSave, closeSaveDatabase, loadSave, writeSave } from '../save/db';
 import { validateSave } from '../save/migrations';
 import { createDefaultSave, createMissionProgress, type SaveData } from '../save/schema';
 import { TEST_NOW } from '../save/testFixtures';
-import { setCatalog } from './catalog';
+import { summarizeAct } from './actSummary';
+import { setCatalog, setLazyCatalog } from './catalog';
 import {
   asksToUnlock,
   bossAccess,
@@ -221,5 +222,19 @@ describe('turning preview off in Settings', () => {
     updateSave((save) => withUnlock(save, true));
     setUnlockAll(true);
     expect(hud.get().actMenu).toBe(sampleAct.act);
+  });
+
+  it("leaves a shipped Act's menu open before its content has downloaded", async () => {
+    await unlockedGame();
+    // The loader stands in for an Act's download. Settings reads summaries only.
+    const load = vi.fn(() => {
+      throw new Error('Settings must never load an Act.');
+    });
+    const summary = summarizeAct({ act: sampleAct, missions: [sampleMission] });
+    setLazyCatalog([{ summary, load }]);
+    hud.update({ actMenu: sampleAct.act });
+    setUnlockAll(false);
+    expect(hud.get().actMenu).toBe(sampleAct.act);
+    expect(load).not.toHaveBeenCalled();
   });
 });
