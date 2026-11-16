@@ -32,7 +32,7 @@ import { DISPLAY_ROOT, sandbox } from '../sandbox';
 import { zoneForAct } from '../world/zones';
 import { travelTo } from '../worldState';
 import { beginDirectedStep, directedChecklist } from './agentPlay';
-import { findMission, getAct } from './catalog';
+import { loadedAct, loadedMission } from './catalog';
 import { play, type DrillResult, type MissionActivity } from './playStore';
 import { saveResume } from './resumePoint';
 import {
@@ -140,7 +140,7 @@ function resumeMission(mission: Mission, saved: MissionResume): boolean {
 
 /** Plays a mission: picks up an unfinished attempt, or starts at the briefing. */
 export function startMission(missionId: string): void {
-  const mission = findMission(missionId);
+  const mission = loadedMission(missionId);
   endDrill();
   endScene();
   saveProgressNow((save) => startMissionProgress(save, mission.id));
@@ -429,7 +429,7 @@ export function submitQuestionRound(
   const paid = saveProgressNow((save) =>
     completeMission(
       save,
-      getAct(current.mission.act).act,
+      loadedAct(current.mission.act).act,
       current.mission,
       { drillPercent, questionXp: xpFromQuestions, directingXp },
       new Date(nowMs),

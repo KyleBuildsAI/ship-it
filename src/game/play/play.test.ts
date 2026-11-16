@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { activeDrillSession } from '../../mentor/drillGuard';
 import { INSTANT_PACE, NORMAL_PACE, type Reveal } from '../agent/pace';
 import { onTerminalFeed } from '../agent/terminalFeed';
 import { evaluate, type Predicate } from '../missions/predicates';
@@ -22,8 +23,9 @@ import { sandbox } from '../sandbox';
 import { closeTerminal, hud } from '../hud';
 import { createDefaultSave } from '../save/schema';
 import { worldState } from '../worldState';
+import { summarizeAct } from './actSummary';
 import { bossTick, bossSandboxChanged, startBossFight } from './bossPlay';
-import { setCatalog } from './catalog';
+import { ActNotLoadedError, setCatalog, setLazyCatalog } from './catalog';
 import { startFieldMission } from './fieldPlay';
 import { startFreePlay } from './freePlay';
 import {
@@ -444,6 +446,28 @@ describe('the Standup Board', () => {
     await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
 
     expect(reviewItemsToday(NOW)).toBe(0);
+  });
+
+  it("leaves the running drill alone when a review drill's Act hasn't loaded", async () => {
+    const save = {
+      ...createDefaultSave(NOW),
+      reviewQueue: [createReviewItem('sample-init', '2026-09-20')],
+    };
+    await startProgress({ load: () => Promise.resolve(save), write: () => Promise.resolve() }, NOW);
+    startPlacement(sampleAct.act);
+    startNextSeriesDrill(T0);
+    const running = activeDrillSession();
+    expect(running).not.toBeNull();
+
+    // The same Act as a summary only, as the game will ship it before its content arrives.
+    const content = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
+    setLazyCatalog([{ summary: summarizeAct(content), load: () => Promise.resolve(content) }]);
+    expect(() => {
+      startReview(NOW);
+    }).toThrow(ActNotLoadedError);
+    // The No-AI guard still holds and the placement test is still the activity.
+    expect(activeDrillSession()).toBe(running);
+    expect(series().kind).toBe('placement');
   });
 });
 

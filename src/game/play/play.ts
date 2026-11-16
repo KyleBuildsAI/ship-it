@@ -3,7 +3,7 @@ import type { Pace } from '../agent/pace';
 import { frameAgent } from './agentPlay';
 import { bossSandboxChanged, bossTick } from './bossPlay';
 import { isLessonPlacement, requirePlacement } from '../missions/schema';
-import { getAct } from './catalog';
+import { loadedAct } from './catalog';
 import { lessonTick, startLessonPlacement, watchLessonBeats } from './lessonPlay';
 import { frameMissionScene, missionSandboxChanged, missionTick } from './missionPlay';
 import { play } from './playStore';
@@ -50,7 +50,7 @@ export function framePlay(elapsedMs: number, pace: Pace, nowMs: number = Date.no
  * played in the sandbox; a lesson Act has cards, answered by clicking in the lesson view.
  */
 export function startActPlacement(act: number): void {
-  if (isLessonPlacement(requirePlacement(getAct(act).act))) startLessonPlacement(act);
+  if (isLessonPlacement(requirePlacement(loadedAct(act).act))) startLessonPlacement(act);
   else startPlacement(act);
 }
 

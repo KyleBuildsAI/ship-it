@@ -1,7 +1,7 @@
 import type { CheckRow } from '../../game/missions/predicates';
 import { requireBoss } from '../../game/missions/schema';
 import { formatClock, startBossFight } from '../../game/play/bossPlay';
-import { getAct } from '../../game/play/catalog';
+import { loadedAct } from '../../game/play/catalog';
 import { leavePlay } from '../../game/play/play';
 import type { BossActivity } from '../../game/play/playStore';
 import { Checklist } from './Checklist';
@@ -22,7 +22,7 @@ export function BossView({
 }) {
   const running = activity.outcome === 'running';
   useClock(running);
-  const boss = requireBoss(getAct(activity.act).act);
+  const boss = requireBoss(loadedAct(activity.act).act);
   const latest = activity.messages.at(-1);
   // A loss by rule names the rule that broke, not just an example of one.
   const ending =
