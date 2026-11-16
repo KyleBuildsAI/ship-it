@@ -287,6 +287,11 @@ describe('two tabs', () => {
     void tab.grant(1);
     await starting;
     expect(progress.get().status).toBe('ready');
+    // Taking it is asking again, out loud: a third tab still waiting hears a newer ask than
+    // its own, so it steps aside instead of stealing the save in turn.
+    const [firstAsk, secondAsk] = tab.posted as { at: number }[];
+    expect(tab.posted).toHaveLength(2);
+    expect(secondAsk?.at).toBeGreaterThan(firstAsk?.at ?? Number.POSITIVE_INFINITY);
   });
 
   it('does not steal the save from a newer tab when its own wait runs out', async () => {

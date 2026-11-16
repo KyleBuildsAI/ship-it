@@ -163,21 +163,49 @@ test('only the newest tab saves, and the other one can take it back', async ({ c
   expect(secondProblems).toEqual([]);
 });
 
+/** A tab's Save row in the dev badge: 'none' while loading, then 'saved', 'error' or 'other tab'. */
+function saveRow(tab: Page) {
+  return tab
+    .getByLabel('Developer status')
+    .locator('.status-badge__row')
+    .filter({ has: tab.locator('dt', { hasText: /^Save$/ }) })
+    .locator('dd');
+}
+
 test('two tabs opened at the same moment end with exactly one saving', async ({ context }) => {
   test.slow();
   const tabs = [await context.newPage(), await context.newPage()];
+  const problems = tabs.map((tab) => collectConsoleProblems(tab));
   await Promise.all(tabs.map((tab) => tab.goto('./')));
-  // Whichever asked last owns the save; the other says so. Never both, never neither.
-  await expect
-    .poll(async () => {
-      const states = await Promise.all(
-        tabs.map((tab) => tab.getByLabel('Developer status').innerText()),
-      );
-      return states
-        .map((text) =>
-          text.includes('other tab') ? 'elsewhere' : text.includes('saved') ? 'saving' : 'loading',
-        )
-        .toSorted();
-    }, CROSS_TAB)
-    .toEqual(['elsewhere', 'saving']);
+  // Each tab's last reading, in tab order, for the report if the check below fails.
+  let eachTab: string[] = [];
+  try {
+    // Whichever asked last owns the save; the other says so. Never both, never neither.
+    await expect
+      .poll(async () => {
+        const rows = await Promise.all(tabs.map((tab) => saveRow(tab).innerText()));
+        const notices = await Promise.all(
+          tabs.map((tab) => tab.getByRole('heading', { name: NOTICE }).count()),
+        );
+        eachTab = rows.map((row, index) => {
+          const notice = (notices[index] ?? 0) > 0 ? ', other-tab notice shown' : '';
+          return `tab ${String(index + 1)}: Save ${row}${notice}`;
+        });
+        return rows.toSorted();
+      }, CROSS_TAB)
+      .toEqual(['other tab', 'saved']);
+  } catch (error) {
+    // The sorted rows alone don't say which tab was stuck, or what its console said: the
+    // two things #104's report was missing. The test still fails with the same error.
+    const consoles = problems.map((found, index) => {
+      const said = found.length > 0 ? found.join(' | ') : 'clean';
+      return `tab ${String(index + 1)} console: ${said}`;
+    });
+    await test.info().attach('each tab', {
+      body: [...eachTab, ...consoles].join('\n'),
+      contentType: 'text/plain',
+    });
+    throw error;
+  }
+  expect(problems).toEqual([[], []]);
 });

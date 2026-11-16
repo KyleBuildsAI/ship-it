@@ -128,7 +128,11 @@ let claims = 0;
  *
  * A tab that can't answer (frozen in the background, or kept in the back/forward cache)
  * never lets go, so after HANDOVER_WAIT_MS the new tab takes the lock anyway. A frozen tab
- * can't write while frozen, and when it wakes up it learns it lost the save.
+ * can't write while frozen, and when it wakes up it learns it lost the save. Taking the
+ * lock counts as asking again at that moment, so an ask from before it that arrives late
+ * (as on an overloaded machine) can't make this tab hand the save straight back. The new
+ * ask goes out on the channel too, so a third tab still waiting steps aside instead of
+ * stealing the save in turn from a tab that would have answered it.
  */
 
 function isAbortError(error: unknown): boolean {
@@ -183,6 +187,18 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
         releaseSave = release;
       });
     };
+    // Taking the lock is asking for the save again, now. Every ask heard so far, and any
+    // still on its way, was made before this moment. It may come from the tab the steal
+    // just pushed out, which has stepped aside, so handing over to it would leave no tab
+    // saving. Ignoring those asks is only safe if no other tab still waiting for the lock
+    // takes it by stealing in turn, so this tab says it asked again: a waiting tab hears a
+    // newer ask than its own and steps aside when its wait runs out.
+    const holdStolen = () => {
+      ownAsk = { ask: HANDOVER, at: askTime(), nonce: Math.random() };
+      handoverRequested = false;
+      channel?.postMessage(ownAsk);
+      return hold();
+    };
     const lost = (error: unknown) => {
       // A newer claim from this same page (a second startProgress) isn't another tab.
       if (claim !== claims) return;
@@ -203,7 +219,7 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
           return;
         }
         // Nobody handed over in time: a frozen or cached tab holds it. Take it anyway.
-        locks.request(SAVE_LOCK, { steal: true }, hold).catch((stealError: unknown) => {
+        locks.request(SAVE_LOCK, { steal: true }, holdStolen).catch((stealError: unknown) => {
           if (holding) {
             lost(stealError);
             return;
