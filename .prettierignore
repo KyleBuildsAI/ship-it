@@ -4,6 +4,10 @@ playwright-report
 test-results
 package-lock.json
 
+# Written by a test (src/content/actSummaries.test.ts) as plain JSON and compared byte for
+# byte, so Prettier must not reformat it. `npm run content:summaries` regenerates it.
+src/content/*.generated.ts
+
 # Docs are hand-written. Keep Prettier from re-aligning their tables and
 # rewriting list and emphasis markers.
 *.md
