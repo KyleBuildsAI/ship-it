@@ -27,17 +27,21 @@ export function TitleCard() {
   const showHint = step === null && !finished;
   // The big title greets the player, then steps aside once they start exploring.
   const showTitle = zone === 'campus' && !hasMoved;
+  // Larger text sizes zoom the inner box, never the header: zoom would scale its
+  // top: 6vh too, and push the title further down at Extra large (theme.css).
   return (
     <header className={showTitle ? 'title-card' : 'title-card title-card--compact'}>
-      {showTitle ? (
-        <>
-          <p className="title-card__eyebrow">Quillwork AI</p>
-          <h1 className="title-card__title">SHIP IT</h1>
-        </>
-      ) : (
-        <h1 className="title-card__zone">{ZONE_NAMES[zone]}</h1>
-      )}
-      {showHint ? <p className="title-card__tagline">{HINTS[zone]}</p> : null}
+      <div className="title-card__content">
+        {showTitle ? (
+          <>
+            <p className="title-card__eyebrow">Quillwork AI</p>
+            <h1 className="title-card__title">SHIP IT</h1>
+          </>
+        ) : (
+          <h1 className="title-card__zone">{ZONE_NAMES[zone]}</h1>
+        )}
+        {showHint ? <p className="title-card__tagline">{HINTS[zone]}</p> : null}
+      </div>
     </header>
   );
 }

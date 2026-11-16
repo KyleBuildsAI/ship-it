@@ -24,6 +24,8 @@ export function ElsewhereNotice() {
   }, [elsewhere]);
 
   if (!elsewhere) return null;
+  // Larger text sizes zoom the inner box, never the dialog: it keeps its place and size,
+  // like every menu (Overlay.tsx, theme.css).
   return (
     <dialog
       ref={dialog}
@@ -36,38 +38,40 @@ export function ElsewhereNotice() {
         event.preventDefault();
       }}
     >
-      <h2 id="elsewhere-title">SHIP IT is open in another tab</h2>
-      <p id="elsewhere-detail" className="play-panel__instruction">
-        {problem === null
-          ? "Your progress is saved there. This tab stopped saving, so the two can't overwrite each other."
-          : `${problem} Export it now to keep a copy, then play in the other tab.`}
-      </p>
-      <div className="play-panel__actions">
-        <button
-          type="button"
-          className="play-button play-button--primary"
-          onClick={() => {
-            window.location.reload();
-          }}
-        >
-          Play here instead
-        </button>
-        {problem !== null && save !== null ? (
+      <div className="overlay__content">
+        <h2 id="elsewhere-title">SHIP IT is open in another tab</h2>
+        <p id="elsewhere-detail" className="play-panel__instruction">
+          {problem === null
+            ? "Your progress is saved there. This tab stopped saving, so the two can't overwrite each other."
+            : `${problem} Export it now to keep a copy, then play in the other tab.`}
+        </p>
+        <div className="play-panel__actions">
           <button
             type="button"
-            className="play-button"
+            className="play-button play-button--primary"
             onClick={() => {
-              const now = new Date();
-              try {
-                download(saveFileName(now), exportSave(save, now));
-              } catch (error) {
-                console.error('[ship-it] exporting the save from this tab failed', error);
-              }
+              window.location.reload();
             }}
           >
-            Export save
+            Play here instead
           </button>
-        ) : null}
+          {problem !== null && save !== null ? (
+            <button
+              type="button"
+              className="play-button"
+              onClick={() => {
+                const now = new Date();
+                try {
+                  download(saveFileName(now), exportSave(save, now));
+                } catch (error) {
+                  console.error('[ship-it] exporting the save from this tab failed', error);
+                }
+              }}
+            >
+              Export save
+            </button>
+          ) : null}
+        </div>
       </div>
     </dialog>
   );

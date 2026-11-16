@@ -367,11 +367,16 @@ body {
   transition: opacity 0.35s ease;
 }
 
-/* The command a click in the world maps to, floating above the terminal. */
+/*
+ * The command a click in the world maps to, floating above the terminal. It clears the
+ * Terminal button and the HUD menu that ride on the open terminal (28px up, 39px tall with
+ * Extra large text) with 8px of air: 28 + 39 + 8 = 75. Lower, its Run button sat over the
+ * Music button and caught its clicks (panelLayout.test.ts checks the gap).
+ */
 .command-chip {
   position: absolute;
   left: 50%;
-  bottom: calc(38vh + 32px);
+  bottom: calc(38vh + 75px);
   transform: translateX(-50%);
   max-width: min(640px, 90vw);
   padding: 12px 16px;
@@ -1453,19 +1458,33 @@ body {
 }
 
 /*
- * Larger text zooms what is inside the play panel, and each HUD menu button, never the
- * boxes placed on the screen. Zoom scales every length on the element it is set on, its
- * top, width and 100vh included, so a zoomed panel ran past the bottom of the window, over
- * the HUD, and a quarter wider over the Git World. The panel keeps its place and size, and
- * its own scroll takes the bigger text (panelLayout.test.ts checks the gaps).
+ * Larger text zooms the content box inside each box placed on the screen (the play panel,
+ * the menus, the command chip and the title card), and each HUD menu button, never the
+ * placed box itself. Zoom scales every length on the element it is set on, its top, bottom,
+ * width, vh and vw included: a zoomed play panel ran past the bottom of the window, a
+ * zoomed Settings menu filled the window over the HUD buttons, and a zoomed command chip
+ * floated a quarter higher than at Normal. Each box keeps its place and size, and its own
+ * scroll or wrapping takes the bigger text (theme.test.ts and panelLayout.test.ts check it).
  */
 html[data-text-size='large']
-  :is(.play-panel__content, .overlay, .command-chip, .title-card, .hud-menu__button) {
+  :is(
+    .play-panel__content,
+    .overlay__content,
+    .command-chip__content,
+    .title-card__content,
+    .hud-menu__button
+  ) {
   zoom: 1.12;
 }
 
 html[data-text-size='x-large']
-  :is(.play-panel__content, .overlay, .command-chip, .title-card, .hud-menu__button) {
+  :is(
+    .play-panel__content,
+    .overlay__content,
+    .command-chip__content,
+    .title-card__content,
+    .hud-menu__button
+  ) {
   zoom: 1.25;
 }
 

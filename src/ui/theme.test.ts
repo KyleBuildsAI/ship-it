@@ -37,6 +37,70 @@ describe('a word kept whole in a Field Mission prompt or command', () => {
   });
 });
 
+/** Every rule in theme.css, comments left out: its selector text and its declarations. */
+const RULES = [...themeCss.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
+  ([, selector = '', body = '']) => ({ selector: selector.trim(), body }),
+);
+
+/** What each text size zooms: the selectors inside html[data-text-size='…'] :is(…). */
+const TEXT_SIZE_ZOOMS = RULES.filter(
+  ({ selector, body }) => selector.startsWith('html[data-text-size=') && body.includes('zoom:'),
+).map(({ selector }) =>
+  (/:is\(([^)]*)\)/.exec(selector)?.[1] ?? '').split(',').map((one) => one.trim()),
+);
+
+/**
+ * A declaration that places a box on the screen or sizes it. Zoom scales each of these on
+ * the element it is set on, vh and vw included, so a zoomed box moves and grows as a whole.
+ */
+const PLACES_OR_SIZES =
+  /(?:^|[\s;])(?:position:\s*(?:absolute|fixed|sticky)|(?:top|right|bottom|left|inset|(?:min-|max-)?(?:width|height)|transform)\s*:)/;
+
+/** Whether one selector in a list styles the element with `className` itself, not a child. */
+function stylesItself(selector: string, className: string): boolean {
+  // The last compound part names the element styled: `.overlay__content h2` is the h2.
+  const parts = selector.trim().split(/[\s>+~]+/);
+  const last = parts[parts.length - 1] ?? '';
+  // `.overlay` must not match `.overlay__content`, so no name character may follow it.
+  return new RegExp(`${className.replace(/[.-]/g, '\\$&')}(?![\\w-])`).test(last);
+}
+
+describe('larger text sizes', () => {
+  it('have a zoom rule each, Large and Extra large', () => {
+    expect(TEXT_SIZE_ZOOMS).toHaveLength(2);
+  });
+
+  it('zoom a content box inside each box placed on the screen, never the placed box', () => {
+    for (const zoomed of TEXT_SIZE_ZOOMS) {
+      for (const box of ['.play-panel', '.overlay', '.command-chip', '.title-card']) {
+        expect(zoomed).toContain(`${box}__content`);
+        expect(zoomed).not.toContain(box);
+      }
+    }
+  });
+
+  it('zoom nothing that theme.css places or sizes on the screen', () => {
+    // At Extra large a zoomed Settings menu filled the window over the HUD buttons, and a
+    // zoomed command chip floated a quarter higher. A box that is zoomed may only hold text.
+    const placedAndZoomed = TEXT_SIZE_ZOOMS.flat().flatMap((className) =>
+      RULES.filter(
+        ({ selector, body }) =>
+          selector.split(',').some((one) => stylesItself(one, className)) &&
+          PLACES_OR_SIZES.test(body),
+      ).map(({ selector }) => `${className} in ${selector}`),
+    );
+    expect(placedAndZoomed).toEqual([]);
+  });
+});
+
+describe('the check for placed boxes', () => {
+  it('sees .overlay as placed, so zooming it again would fail the test above', () => {
+    // Without this, a typo in PLACES_OR_SIZES could make that test pass on anything.
+    const overlay = RULES.filter(({ selector }) => stylesItself(selector, '.overlay'));
+    expect(overlay.some(({ body }) => PLACES_OR_SIZES.test(body))).toBe(true);
+  });
+});
+
 describe('a lesson artifact box', () => {
   it('shows 13 whole lines before it scrolls, and half a 14th to say there is more', () => {
     const lines = /max-height: ([\d.]+)lh;/.exec(ruleBody('.lesson-artifact pre'))?.[1];
