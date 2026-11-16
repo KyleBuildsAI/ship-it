@@ -2571,3 +2571,74 @@ https://github.com/KyleBuildsAI/ship-it/pull/197
 3. Looking up a drill can throw (`ActNotLoadedError`) if the drill's Act hasn't loaded. In the old order, the No-AI guard and Otto's scene for whatever was running had already been ended by the time it threw. The game was left half-changed: a placement drill still on screen, but with Sage allowed to talk. Doing the lookup first means a failure changes nothing, the same way `startMission`, `startBossFight` and `startFieldMission` already work.
 
 </details>
+
+---
+
+## #200 feat: start play only once its act has loaded
+
+https://github.com/KyleBuildsAI/ship-it/pull/200
+
+1. When every Act a request needs is already loaded, `playWhenReady` starts the activity before the click handler even returns, although it's an `async` function. Why? And why does that matter for PR 6?
+2. You click Play on a mission in Act 2, then quickly click Play on Act 3's Field Mission. Act 2 finishes downloading first. What does the first `playWhenReady` call do when its download finishes, and why must it leave `pendingPlay` alone?
+3. `start()` returns nothing, and every `case` ends with `return`. What does the `default` branch with `const unhandled: never = request` protect against, and why didn't TypeScript already catch that without it?
+<details><summary>Answers</summary>
+
+1. An `async` function runs synchronously, like any other function, until it reaches its first `await`. With nothing missing, `playWhenReady` skips the download loop's `await` and goes straight to `startIfSaveReady`, which calls the starter. The promise it returns is already settled by then. That matters for PR 6 because the buttons will call `playWhenReady` instead of the starter, and in the usual case (the menu already prefetched its Act) the player sees no difference at all: no extra frame, no flash of "Loading…".
+2. After its `await` ends, the first call compares its ticket with `latestTicket`. The second click took a newer ticket, so they differ, and it returns `'superseded'` without starting the mission. It must not clear `pendingPlay.waiting`, because that now says the *second* click is downloading. Clearing it would make the Field Mission button stop saying "Loading…" and become clickable again while Act 3 is still on its way. The new arrival-order test checks exactly this.
+3. It protects against someone adding a new kind to `PlayRequest` (say `'tutorial'`) and forgetting to add a case for it. Without the check, the `switch` would just fall out of the bottom, `start()` would return, and the gate would report `'started'` while nothing played. TypeScript didn't catch it before because a function that returns `void` is allowed to reach its end; only functions that must return a value (like `requestKey`) get the "not all paths return" error. With the check, the leftover kind isn't `never`, so the assignment fails to compile.
+
+</details>
+
+---
+
+## #201 fix: zoom only the text in overlays, chips and title cards
+
+https://github.com/KyleBuildsAI/ship-it/pull/201
+
+1. Why did Settings fill the whole window at Extra large text, even though its CSS says `max-height: 80vh`?
+2. Un-zooming the command chip made it overlap the HUD buttons. Why did the chip look fine before this PR?
+3. The new test in `panelLayout.test.ts` checks the chip against the Extra large button height, not the Normal one. Why the largest?
+
+<details><summary>Answers</summary>
+
+1. The zoom was set on `.overlay` itself, and `zoom` scales every length on that element, including `max-height`. 80vh × 1.25 = 100vh, which is the full window. The box's width and padding grew by the same factor. Moving the zoom to `.overlay__content` means only the words inside get bigger, and the `.overlay` box stays at 80vh and scrolls.
+2. The old whole-box zoom also scaled the chip's `bottom: calc(38vh + 32px)`, so at Extra large the chip floated about a quarter higher, clear of the growing HUD buttons. Once the chip stopped being zoomed, it went back to its Normal height, only 4px above the bottom of the HUD row. Meanwhile the HUD buttons still grow at Extra large, so the chip's Run button ended up on top of Music.
+3. The chip doesn't move when the text size changes, but the HUD buttons get taller. If the chip clears the tallest the buttons can get (39px at Extra large), it clears every smaller size too. Checking only Normal would miss exactly the bug the review found.
+
+</details>
+
+---
+
+## #202 fix: sort dir output in PowerShell's English order
+
+https://github.com/KyleBuildsAI/ship-it/pull/202
+
+1. `nameOrder.ts` builds its collator with `new Intl.Collator('en', ...)`. Why name the language instead of calling `a.localeCompare(b)` with no arguments?
+2. After the English collator, `compareNames` still falls back to a plain character compare. When can that fallback matter, and what would go wrong without it?
+3. In `dir -Recurse`, the rows inside each folder use English order, but the table view opens the subfolders in NTFS order. How did we find out real PowerShell does this, and how do the tests make sure the sandbox keeps doing it?
+
+<details><summary>Answers</summary>
+
+1. With no language, the collator uses the computer's own language settings. A player whose computer is set to a different language, or a CI machine, could then see the same folder in a different order, and the tests could pass on one machine and fail on another. Naming `'en'` pins one order everywhere, and real PowerShell on an English Windows uses that order.
+2. With `sensitivity: 'accent'`, the collator ignores case, so it calls `README.md` and `readme.md` equal. A real Windows folder can't hold both, but the sandbox's own file tree (`VirtualFs`) can. Without the fallback, the sort would return 0 for them, and their order would depend on the order they were created in. The character compare settles the tie the same way every time (`README.md` first, because `R` is 0x52 and `r` is 0x72).
+3. We ran real PowerShell 7.6.10 on a folder holding `api`, `Beta`, `_build` and `~tmp`. Its table view opened them as `api, Beta, _build, ~tmp`, the same order `cmd /c dir /b` shows (the disk's order). With `-Name` it went `_build, ~tmp, api, Beta`. `capture-shell.ps1` now builds that folder and saves both outputs as fixtures (`ls-recurse-order.txt` and `ls-recurse-order-name.txt`). A test in `childItem.test.ts` runs the same two commands in the sandbox and requires byte-for-byte equal output. `captures.test.ts` checks both fixture files exist.
+
+</details>
+
+---
+
+## #203 fix: a tab that steals the save never hands it to an older ask
+
+https://github.com/KyleBuildsAI/ship-it/pull/203
+
+1. A tab's wait runs out and it steals the save lock. Then the other tab's ask arrives late. What went wrong before this PR, and what does the stealing tab do with that ask now?
+2. Why isn't it enough for the stealing tab to just update its own `ownAsk`? What happens with three tabs if it doesn't post the new ask?
+3. #104's failure read "one tab on other tab, the other loading". Why can't this PR prove what caused it, and what will the test print if it happens again?
+
+<details><summary>Answers</summary>
+
+1. Before, the late ask looked newer than the stealing tab's own ask (made 1.5 s earlier), so the stealing tab handed the save over. But the asking tab was the one the steal had just pushed out, and it had already stepped aside. So neither tab saved until a reload. Now the steal counts as a new ask made at that moment, so the late ask is older and is ignored.
+2. A third tab still waiting for the lock compares asks too. If it never hears the new one, it still thinks it is the newest. When its own wait runs out, it steals the save from a tab that would have answered it. That tab then writes its last change after losing the save, while the third tab loads an older copy, and the change gets overwritten. Posting the new ask makes the waiting tab step aside instead.
+3. Every wait in the handover is limited except the database load, and it was never reproduced in Chrome: 0 failures in 60 runs, 30 of them at 100% CPU. The simulator shows that a tab blocked during the very first database open makes the other tab wait in exactly that state, so that's the likely cause, not a proven one. If it happens again, the test attaches each tab's Save row in order (`none` = still loading, `error` = load failed), whether the "other tab" notice is up, and each tab's console problems.
+
+</details>
