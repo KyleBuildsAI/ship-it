@@ -1,4 +1,12 @@
-import { isPickCard, type Lesson, type LessonCard, type OrderCard } from './lessonSchema';
+import { checkFlags, flaggableRows, type FlagCheck, type ReviewFlag } from './codeReview';
+import {
+  isPickCard,
+  type CodeReviewCard,
+  type Lesson,
+  type LessonCard,
+  type OrderCard,
+  type ReviewIssue,
+} from './lessonSchema';
 
 /*
  * The rules of playing a lesson, as pure functions: each takes a run and returns a new
@@ -15,6 +23,18 @@ export type LessonPhase = 'briefing' | 'cards' | 'done';
 /** How a run ended: every card answered, or a final's clock ran out first. */
 export type LessonOutcome = 'running' | 'finished' | 'timed-out';
 
+/** A code review card's flags, before its comments can be picked. */
+export interface ReviewState {
+  /** The rows flagged, in row order, each with its problem once one is picked. */
+  readonly flags: readonly ReviewFlag[];
+  /** The last "Check review", without the verdicts of rows edited since. */
+  readonly check: FlagCheck | null;
+  /** How many times "Check review" was pressed with the flags wrong. */
+  readonly wrongChecks: number;
+  /** True once a check was right: the flags lock, and the comments open. */
+  readonly passed: boolean;
+}
+
 /** The card on screen now, and what has been tried on it. */
 export interface CardState {
   /** Options picked so far on a pick card, wrong ones included, oldest first. */
@@ -23,6 +43,8 @@ export interface CardState {
   readonly order: readonly string[];
   /** How many times "Check order" was pressed with the steps out of order. */
   readonly wrongOrders: number;
+  /** A code review card's flags and checks; null on every other kind of card. */
+  readonly review: ReviewState | null;
   /**
    * True once the card is over and Next appears: the right answer is in, or, on a locked
    * run, any answer is.
@@ -88,6 +110,10 @@ function freshCard(card: LessonCard | undefined): CardState {
     picked: [],
     order: card?.kind === 'order' ? scrambledOrder(card) : [],
     wrongOrders: 0,
+    review:
+      card?.kind === 'code-review'
+        ? { flags: [], check: null, wrongChecks: 0, passed: false }
+        : null,
     solved: false,
   };
 }
@@ -122,14 +148,16 @@ function playable(run: LessonRun): boolean {
 }
 
 /**
- * Picks an option on a choose or prompt card. A right pick solves the card; a wrong one
- * is remembered (its feedback shows, and it can't be picked again) and the card stays
- * open. The first pick decides the card's first-try result. On a locked run the first pick
- * ends the card, right or wrong.
+ * Picks an option on a choose or prompt card, or a code review card's comment once its
+ * flags pass. A right pick solves the card; a wrong one is remembered (its feedback shows,
+ * and it can't be picked again) and the card stays open. The card is right first time only
+ * when the first pick is, and, on a code review card, the first check was too. On a locked
+ * run the first pick ends the card, right or wrong.
  */
 export function pickOption(run: LessonRun, lesson: Lesson, optionId: string): LessonRun {
   const card = currentCard(run, lesson);
   if (card === undefined || !isPickCard(card) || !playable(run)) return run;
+  if (card.kind === 'code-review' && run.card.review?.passed !== true) return run;
   const option = card.options.find((entry) => entry.id === optionId);
   if (option === undefined || run.card.picked.includes(optionId)) return run;
   const picked = [...run.card.picked, optionId];
@@ -142,11 +170,104 @@ export function pickOption(run: LessonRun, lesson: Lesson, optionId: string): Le
     };
   }
   if (!option.correct) return { ...run, card: { ...run.card, picked } };
+  const checkedRight = (run.card.review?.wrongChecks ?? 0) === 0;
   return {
     ...run,
     card: { ...run.card, picked, solved: true },
-    firstTry: [...run.firstTry, picked.length === 1],
+    firstTry: [...run.firstTry, picked.length === 1 && checkedRight],
   };
+}
+
+/** The code review card on screen and its flags, while they can still change. */
+function openReview(
+  run: LessonRun,
+  lesson: Lesson,
+): { card: CodeReviewCard; review: ReviewState } | null {
+  const card = currentCard(run, lesson);
+  const { review } = run.card;
+  if (card?.kind !== 'code-review' || review === null || review.passed || !playable(run)) {
+    return null;
+  }
+  return { card, review };
+}
+
+/** Whether the last check found a bug on this row. A found row locks. */
+function foundAt(review: ReviewState, row: number): boolean {
+  const verdicts = review.check?.verdicts ?? [];
+  return verdicts.some((entry) => entry.row === row && entry.verdict === 'found');
+}
+
+/** The review with its flags changed on one row, whose old verdict no longer applies. */
+function editRow(
+  run: LessonRun,
+  review: ReviewState,
+  flags: readonly ReviewFlag[],
+  row: number,
+): LessonRun {
+  const { check } = review;
+  const verdicts = check?.verdicts.filter((entry) => entry.row !== row) ?? [];
+  const edited: ReviewState = {
+    ...review,
+    flags: [...flags].sort((a, b) => a.row - b.row),
+    check: check === null ? null : { ...check, verdicts },
+  };
+  return { ...run, card: { ...run.card, review: edited } };
+}
+
+/**
+ * Flags a changed row of a code review card, or takes its flag off. A row the last check
+ * found is locked, and so is every row once the review passes.
+ */
+export function toggleFlag(run: LessonRun, lesson: Lesson, row: number): LessonRun {
+  const open = openReview(run, lesson);
+  if (open === null || !flaggableRows(open.card).includes(row)) return run;
+  const { review } = open;
+  if (foundAt(review, row)) return run;
+  const flagged = review.flags.some((flag) => flag.row === row);
+  const flags = flagged
+    ? review.flags.filter((flag) => flag.row !== row)
+    : [...review.flags, { row, issue: null }];
+  return editRow(run, review, flags, row);
+}
+
+/** Names the problem on a flagged row. Changing it clears the row's old verdict. */
+export function setFlagIssue(
+  run: LessonRun,
+  lesson: Lesson,
+  row: number,
+  issue: ReviewIssue,
+): LessonRun {
+  const open = openReview(run, lesson);
+  if (open === null || foundAt(open.review, row)) return run;
+  const { review } = open;
+  const flag = review.flags.find((entry) => entry.row === row);
+  if (flag === undefined || flag.issue === issue) return run;
+  const flags = review.flags.map((entry) => (entry.row === row ? { row, issue } : entry));
+  return editRow(run, review, flags, row);
+}
+
+/**
+ * "Check review": grades the flags (codeReview.ts). Right opens the comments; wrong counts
+ * a miss and shows each flag's verdict. Nothing happens while a flag has no problem. On a
+ * locked run the first check ends the card, right or wrong.
+ */
+export function checkReview(run: LessonRun, lesson: Lesson): LessonRun {
+  const open = openReview(run, lesson);
+  if (open === null) return run;
+  const { card, review } = open;
+  const check = checkFlags(card, review.flags);
+  if (check === null) return run;
+  if (run.locked) {
+    return {
+      ...run,
+      card: { ...run.card, review: { ...review, check }, solved: true },
+      firstTry: [...run.firstTry, check.right],
+    };
+  }
+  const next = check.right
+    ? { ...review, check, passed: true }
+    : { ...review, check, wrongChecks: review.wrongChecks + 1 };
+  return { ...run, card: { ...run.card, review: next } };
 }
 
 /** Moves one step of an order card up (-1) or down (+1). Off either end does nothing. */
