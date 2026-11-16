@@ -12,7 +12,7 @@ import { sampleAct, sampleMission } from '../../game/missions/sample.test-missio
 import { summarizeAct } from '../../game/play/actSummary';
 import { setCatalog, setLazyCatalog } from '../../game/play/catalog';
 import { leavePlay } from '../../game/play/play';
-import { play } from '../../game/play/playStore';
+import { play, type SeriesActivity } from '../../game/play/playStore';
 import { cancelPendingPlay, pendingPlay, type PlayRequest } from '../../game/play/playWhenReady';
 import { reviewItemsToday } from '../../game/play/seriesPlay';
 import { flushProgress, startProgress } from '../../game/progress';
@@ -113,6 +113,27 @@ describe('the Standup Board', () => {
     expect(reviewItemsToday(new Date())).toBe(1);
     expect(text).toContain('1 due today · 1 in today’s set');
     expect(text).not.toContain('removed-drill');
+  });
+
+  it('shows only a note while a placement test is running, so a new review gives no answer away', () => {
+    const placement: SeriesActivity = {
+      kind: 'placement',
+      act: sampleAct.act,
+      drills: sampleMission.drills,
+      active: { index: 0, startedAtMs: 0 },
+      results: [],
+      placement: null,
+      scene: null,
+    };
+    play.update({ activity: placement });
+    try {
+      const markup = renderToStaticMarkup(<StandupBoard />);
+      expect(markup).toContain('A placement test is running. This shows again when it ends.');
+      expect(markup).not.toContain('standup-list');
+      expect(markup).not.toContain('due today');
+    } finally {
+      play.update({ activity: null });
+    }
   });
 });
 
