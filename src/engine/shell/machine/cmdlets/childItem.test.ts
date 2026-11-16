@@ -12,6 +12,8 @@ import ls from '../fixtures/ls.txt?raw';
 import lsEnvTemp from '../fixtures/ls-env-temp.txt?raw';
 import lsForce from '../fixtures/ls-force.txt?raw';
 import lsName from '../fixtures/ls-name.txt?raw';
+import lsRecurseOrderName from '../fixtures/ls-recurse-order-name.txt?raw';
+import lsRecurseOrder from '../fixtures/ls-recurse-order.txt?raw';
 import lsRecurse from '../fixtures/ls-recurse.txt?raw';
 import lsWildRecurse from '../fixtures/ls-wild-recurse.txt?raw';
 
@@ -201,6 +203,17 @@ describe('Get-ChildItem', () => {
         .list('Users/kyle/cv')
         .map((item) => item.name),
     ).toEqual(inPwsh);
+  });
+
+  it('opens subfolders in the order PowerShell 7.6.10 does when recursing', () => {
+    const shell = laptop();
+    for (const folder of ['api', 'Beta', '_build', '~tmp'])
+      machineOf(shell).drive.writeFile(`Users/kyle/order/${folder}/notes.md`, '# Notes\n');
+    // The table view opens subfolders in the order the disk keeps them (api, Beta, _build,
+    // ~tmp), even though it sorts each folder's own rows by English rules.
+    expect(printed(shell.run('Get-ChildItem order -Recurse'))).toBe(lsRecurseOrder);
+    // -Name opens them in the same English order as its rows (_build, ~tmp, api, Beta).
+    expect(printed(shell.run('Get-ChildItem order -Recurse -Name'))).toBe(lsRecurseOrderName);
   });
 
   it('lists what it can when one of several paths is missing', () => {

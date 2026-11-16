@@ -53,6 +53,8 @@ const EXPECTED = [
   'error-get-process-missing',
   'error-tcp-missing',
   'ls-wild-recurse',
+  'ls-recurse-order',
+  'ls-recurse-order-name',
   'error-cd-wild-missing',
   'error-cd-wild-many',
   'error-cd-back-missing',

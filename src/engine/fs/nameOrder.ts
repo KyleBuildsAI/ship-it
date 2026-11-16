@@ -23,6 +23,30 @@ export function compareNames(left: string, right: string): number {
   return byCharacterCode(left, right);
 }
 
+/**
+ * The order NTFS keeps a folder's names in on disk: each name in capitals, compared by
+ * character code. So '_build' and '~tmp' come after 'Zeta'. PowerShell sorts what it
+ * prints, but `Get-ChildItem -Recurse` still opens subfolders in this order in its table
+ * view, so the sandbox needs it too.
+ */
+export function compareDiskNames(left: string, right: string): number {
+  return byCharacterCode(diskCapitals(left), diskCapitals(right));
+}
+
+/**
+ * Capitals the way NTFS makes them: one character at a time, from a table that never
+ * turns one letter into two. JavaScript's toUpperCase turns 'ß' into 'SS', which would
+ * move 'ßa' ahead of 'Sz', so a letter like that stays as it is.
+ */
+function diskCapitals(name: string): string {
+  let capitals = '';
+  for (const character of name.split('')) {
+    const capital = character.toUpperCase();
+    capitals += capital.length === 1 ? capital : character;
+  }
+  return capitals;
+}
+
 function byCharacterCode(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }

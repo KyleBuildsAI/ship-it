@@ -1,4 +1,4 @@
-import { compareNames } from '../../../fs/nameOrder';
+import { compareDiskNames, compareNames } from '../../../fs/nameOrder';
 import { baseName, joinPath, parentDir } from '../../../fs/paths';
 import { line, type OutputLine } from '../../../git/cli/output';
 import type { Machine, Session } from '../../../machine/machine';
@@ -178,11 +178,22 @@ function walk(
   sections.push({ folder: display(dir), rows });
   names.push(...rows.map((row) => (relative === '' ? row.name : `${relative}\\${row.name}`)));
   if (!options.recurse || level >= options.depth) return;
-  for (const child of children) {
-    if (child.kind !== 'dir') continue;
+  for (const child of subfoldersToOpen(children, options)) {
     const inside = relative === '' ? child.name : `${relative}\\${child.name}`;
     walk(machine, joinPath(dir, child.name), inside, level + 1, options, sections, names);
   }
+}
+
+/**
+ * The order -Recurse opens a folder's subfolders in. Real pwsh 7.6.10 sorts each folder's
+ * rows by English rules either way, but only -Name opens the subfolders in that order too.
+ * The table view opens them in the order the disk keeps them, so '~tmp' comes after 'api'
+ * there even though it's listed before it (checked against real captures).
+ */
+function subfoldersToOpen(children: readonly ItemRow[], options: Options): ItemRow[] {
+  const subfolders = children.filter((row) => row.kind === 'dir');
+  if (options.nameOnly) return subfolders;
+  return subfolders.sort((a, b) => compareDiskNames(a.name, b.name));
 }
 
 function keeps(row: ItemRow, options: Options): boolean {

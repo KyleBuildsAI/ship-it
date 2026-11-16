@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareNames } from './nameOrder';
+import { compareDiskNames, compareNames } from './nameOrder';
 
 describe('compareNames', () => {
   it('puts names in the order real pwsh 7.6.6 printed them, not by character code', () => {
@@ -47,5 +47,29 @@ describe('compareNames', () => {
     expect(compareNames('README.md', 'readme.md')).toBeLessThan(0);
     expect(compareNames('readme.md', 'README.md')).toBeGreaterThan(0);
     expect(compareNames('résumé', 'résumé')).toBe(0);
+  });
+});
+
+describe('compareDiskNames', () => {
+  it("puts names in the order NTFS keeps them, as real cmd's dir /b printed them", () => {
+    // NTFS compares capital letters by character code, so '_' and '~' come after 'Z'.
+    expect(['~tmp', 'Beta', '_build', 'api'].sort(compareDiskNames)).toEqual([
+      'api',
+      'Beta',
+      '_build',
+      '~tmp',
+    ]);
+  });
+
+  it("keeps a letter whose capital is two letters, as NTFS does with 'ß'", () => {
+    // JavaScript capitalises 'ß' as 'SS', which would put 'ßa' before 'Sz'. NTFS keeps 'ß'.
+    expect(['ßa', 'ét', '~t', 'Sz', 'ez'].sort(compareDiskNames)).toEqual([
+      'ez',
+      'Sz',
+      '~t',
+      'ét',
+      'ßa',
+    ]);
+    expect(compareDiskNames('Beta', 'BETA')).toBe(0);
   });
 });
