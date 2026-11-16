@@ -3,7 +3,7 @@ import { endDrill } from '../../mentor/drillGuard';
 import { closeTerminal } from '../hud';
 import { requireFieldMission } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
-import { getAct } from './catalog';
+import { loadedAct } from './catalog';
 import { verifyPaste, type FieldVerdict } from './fieldCheck';
 import { browserGet, checkMergedPullRequest, type GitHubGet } from './githubCheck';
 import { play } from './playStore';
@@ -17,7 +17,7 @@ import { recordFieldMission, recordGitHubCheck, tickFieldTask } from './saveRule
  */
 export function startFieldMission(act: number): void {
   // Throws before anything changes when this Act's Field Mission isn't built yet.
-  requireFieldMission(getAct(act).act);
+  requireFieldMission(loadedAct(act).act);
   endDrill();
   closeTerminal();
   play.update({ activity: { kind: 'field', act }, checklist: [] });
@@ -47,7 +47,7 @@ export function submitFieldPaste(
   if (current?.kind !== 'field') {
     return { passed: false, message: 'No Field Mission is open.' };
   }
-  const { act } = getAct(current.act);
+  const { act } = loadedAct(current.act);
   const field = requireFieldMission(act);
   const verification = field.verifications.find((entry) => entry.id === verificationId);
   if (verification === undefined) {
@@ -76,7 +76,7 @@ export async function checkFieldOnGitHub(
   if (current?.kind !== 'field') {
     return { passed: false, message: 'No Field Mission is open.' };
   }
-  const { act } = getAct(current.act);
+  const { act } = loadedAct(current.act);
   const github = requireFieldMission(act).github;
   if (github === undefined) {
     return { passed: false, message: 'This Field Mission has no GitHub check.' };
@@ -98,6 +98,6 @@ export async function checkFieldOnGitHub(
 export function setFieldTaskDone(taskId: string, done: boolean): void {
   const current = play.get().activity;
   if (current?.kind !== 'field') return;
-  const { act } = getAct(current.act);
+  const { act } = loadedAct(current.act);
   saveProgressNow((save) => tickFieldTask(save, act, taskId, done));
 }
