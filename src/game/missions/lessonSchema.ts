@@ -325,17 +325,25 @@ export const CodeReviewCardSchema = z
 
 // A plain union, not a discriminated one: each card schema has a refinement attached, and
 // zod only discriminates on plain objects. `kind` still tells them apart, so it's exact.
-export const CardSchema = z.union([ChooseCardSchema, PromptCardSchema, OrderCardSchema]);
+export const CardSchema = z.union([
+  ChooseCardSchema,
+  PromptCardSchema,
+  OrderCardSchema,
+  CodeReviewCardSchema,
+]);
 
 export type ChooseCard = z.output<typeof ChooseCardSchema>;
 export type PromptCard = z.output<typeof PromptCardSchema>;
 export type OrderCard = z.output<typeof OrderCardSchema>;
 export type CodeReviewCard = z.output<typeof CodeReviewCardSchema>;
 export type LessonCard = z.output<typeof CardSchema>;
-export type PickCard = ChooseCard | PromptCard;
+export type PickCard = ChooseCard | PromptCard | CodeReviewCard;
 export type CardOption = PickCard['options'][number];
 
-/** Whether a card is answered by picking an option, rather than by ordering steps. */
+/**
+ * Whether a card is answered by picking one of its options, rather than by ordering steps.
+ * A code review card is one: its options are the review comments, picked once its flags pass.
+ */
 export function isPickCard(card: LessonCard): card is PickCard {
   return card.kind !== 'order';
 }

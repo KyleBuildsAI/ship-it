@@ -1,5 +1,13 @@
 import type { z } from 'zod';
-import { CodeReviewCardSchema, type CodeReviewCard } from './lessonSchema';
+import { finishLessonBriefing, nextCard, startLessonRun, type LessonRun } from './lessonRunner';
+import {
+  CodeReviewCardSchema,
+  LessonSchema,
+  type CodeReviewCard,
+  type Lesson,
+  type LessonInput,
+} from './lessonSchema';
+import { sampleLessonInput } from './sample.test-lesson';
 
 /*
  * A sample code review card for tests: Otto's PR drops a permission check and swallows a
@@ -78,3 +86,22 @@ export const sampleReviewCardInput = {
 } satisfies z.input<typeof CodeReviewCardSchema>;
 
 export const sampleReviewCard: CodeReviewCard = CodeReviewCardSchema.parse(sampleReviewCardInput);
+
+/** A lesson that ends in the review card: the sample lesson's first five cards, then it. */
+export const sampleReviewLessonInput = {
+  ...sampleLessonInput,
+  id: 'sample-code-review',
+  title: 'Review Otto’s PR (sample)',
+  cards: [...sampleLessonInput.cards.slice(0, 5), sampleReviewCardInput],
+} satisfies LessonInput;
+
+export const sampleReviewLesson: Lesson = LessonSchema.parse(sampleReviewLessonInput);
+
+/** A run of the review lesson on its review card, the five cards before it skipped through. */
+export function onReviewCard(): LessonRun {
+  let run = finishLessonBriefing(startLessonRun(sampleReviewLesson), 0);
+  while (run.cardIndex < 5) {
+    run = nextCard({ ...run, card: { ...run.card, solved: true } }, sampleReviewLesson);
+  }
+  return run;
+}
