@@ -9,9 +9,9 @@ import {
 } from './simulatedBrowser';
 
 /*
- * Two whole tabs of the game sharing one simulated browser (simulatedBrowser.ts), for #104:
+ * Whole tabs of the game sharing one simulated browser (simulatedBrowser.ts), for #104:
  * "two tabs opened at the same moment" sometimes left one tab loading. progress.test.ts
- * plays the other tab by hand; here both tabs run the real progress.ts, so every ordering
+ * plays the other tab by hand; here every tab runs the real progress.ts, so any ordering
  * of locks, asks and IndexedDB work between them can be replayed exactly.
  */
 
@@ -132,8 +132,10 @@ describe('two tabs opened at the same moment', () => {
       a.busyFor(8000);
     }, 10);
 
-    // b has the lock, but its open waits behind a's, which can't finish while a is
-    // blocked. This is exactly what the e2e test saw: one tab elsewhere, one loading.
+    // b has the lock, but its open waits behind a's, which can't finish while a is blocked.
+    // That is the reading #104 reported (one tab elsewhere, one loading), so it's one way
+    // the e2e test could have failed on a starved machine. It's a likely cause, not a proven
+    // one: here the reading clears by itself, and the e2e test waited 20 s.
     await vi.advanceTimersByTimeAsync(5000);
     expect(browser.lockHolder()).toBe('b');
     expect(badges()).toEqual(['elsewhere', 'loading']);

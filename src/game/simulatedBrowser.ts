@@ -14,6 +14,10 @@ import { createDefaultSave, type SaveData } from './save/schema';
  * - BroadcastChannel: a message reaches the channels connected when it gets to the browser.
  * - IndexedDB: one operation at a time, and each only finishes once the tab that made it
  *   has handled the result. So a busy tab holds up every other tab's reads and writes.
+ *   That is stricter than Chrome on purpose. Chrome holds other tabs up like this only for
+ *   the first open, which creates the database, and for transactions that write the same
+ *   table; reads run side by side. Here a busy tab holds the others up more often, so a
+ *   test finds out whether the handover still ends with one tab saving when it does.
  */
 
 export type Pipe = 'locks' | 'channel' | 'idb';
