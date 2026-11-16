@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { windows } from '../../../fixtures';
 import { testDeps } from '../../../git/testDeps';
+import type { Machine } from '../../../machine/machine';
+import { machineQueries } from '../../../machine/queries';
 import { Shell, type ShellResult } from '../../shell';
 import dirS from '../fixtures/error-dir-s.txt?raw';
 import lsA from '../fixtures/error-ls-a.txt?raw';
@@ -40,6 +42,12 @@ function laptop(): Shell {
 
 const printed = (result: ShellResult) => result.lines.map((line) => `${line.text}\n`).join('');
 const texts = (result: ShellResult) => result.lines.map((line) => line.text);
+
+function machineOf(shell: Shell): Machine {
+  const machine = shell.ws.machine;
+  if (machine === null) throw new Error('Not a laptop');
+  return machine;
+}
 
 describe('Get-ChildItem', () => {
   it('lists the folder exactly as PowerShell 7.6 does, under every alias', () => {
@@ -153,6 +161,45 @@ describe('Get-ChildItem', () => {
     ]);
   });
 
+  it('orders names by English rules, exactly as real pwsh 7.6.6 printed them', () => {
+    const shell = laptop();
+    const machine = machineOf(shell);
+    // The folder from issue #131. A character compare puts '[' before '_' and '~' after
+    // every letter; English rules put all three before the letters.
+    for (const file of ['api', '_notes', 'Zeta', '~$plan.docx', '[x]', 'b.txt'])
+      machine.drive.writeFile(`Users/kyle/mixed/${file}`, '');
+    for (const folder of ['zdir', '_adir']) machine.drive.makeDir(`Users/kyle/mixed/${folder}`);
+    const shown = texts(shell.run('dir mixed -Force -Name'));
+    // What real pwsh 7.6.6 printed for `(Get-ChildItem -Force).Name` in that folder.
+    expect(shown).toEqual([
+      '_adir',
+      'zdir',
+      '_notes',
+      '[x]',
+      '~$plan.docx',
+      'api',
+      'b.txt',
+      'Zeta',
+    ]);
+    // The Act 1 terraces lay a folder out in list()'s order, so the island has to match
+    // what the player reads in the terminal.
+    const listed = machineQueries(machine).list('Users/kyle/mixed');
+    expect(listed.map((item) => item.name)).toEqual(shown);
+  });
+
+  it('puts an unaccented name before its accented twin, as PowerShell does', () => {
+    const shell = laptop();
+    const machine = machineOf(shell);
+    // English rules ignoring case call these two equal, so a tie break has to settle them.
+    machine.drive.writeFile('Users/kyle/cv/résumé', '');
+    machine.drive.writeFile('Users/kyle/cv/resume', '');
+    expect(texts(shell.run('dir cv -Name'))).toEqual(['resume', 'résumé']);
+    expect(machineQueries(machine).list('Users/kyle/cv').map((item) => item.name)).toEqual([
+      'resume',
+      'résumé',
+    ]);
+  });
+
   it('lists what it can when one of several paths is missing', () => {
     const result = laptop().run('ls nope, notes.txt -Name');
     expect(texts(result)).toEqual([
@@ -173,6 +220,13 @@ describe('Get-ChildItem Env:', () => {
     );
     expect(names).toContain('Path');
     expect(names).toContain('USERPROFILE');
+  });
+
+  it('sorts variables by the same English rules as files', () => {
+    const shell = laptop();
+    machineOf(shell).active().env.set('~BACKUP', 'on');
+    // A character compare would put '~' after every letter; English rules put it first.
+    expect(texts(shell.run('ls env: -Name'))[0]).toBe('~BACKUP');
   });
 
   it('matches names in any case, and wildcards', () => {

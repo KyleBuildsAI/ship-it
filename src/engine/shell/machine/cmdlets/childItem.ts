@@ -1,3 +1,4 @@
+import { compareNames } from '../../../fs/nameOrder';
 import { baseName, joinPath, parentDir } from '../../../fs/paths';
 import { line, type OutputLine } from '../../../git/cli/output';
 import type { Machine, Session } from '../../../machine/machine';
@@ -191,23 +192,26 @@ function keeps(row: ItemRow, options: Options): boolean {
   return options.filters.every((filter) => filter.test(row.name));
 }
 
-/** Folders first, then files, each by name ignoring case, as the file system provider lists. */
+/**
+ * Folders first, then files, each in PowerShell's English name order, as the file system
+ * provider lists them. It is the order list() gives the grading queries and the terraces,
+ * so the island always matches what dir prints.
+ */
 function byKindThenName(a: ItemRow, b: ItemRow): number {
   if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
-  const left = a.name.toLowerCase();
-  const right = b.name.toLowerCase();
-  return left < right ? -1 : left > right ? 1 : 0;
+  return compareNames(a.name, b.name);
 }
 
-/** Env:, Env:NAME or Env:PATTERN*: the tab's variables, sorted by name. */
+/**
+ * Env:, Env:NAME or Env:PATTERN*: the tab's variables, in the English name order entries()
+ * already gives, the same order as a folder's names.
+ */
 function listVariables(
   session: Session,
   name: string,
   into: { name: string; value: string }[],
 ): OutputLine[] {
-  const all = session.env
-    .entries()
-    .sort((a, b) => (a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1));
+  const all = session.env.entries();
   if (name === '') {
     into.push(...all);
     return [];
