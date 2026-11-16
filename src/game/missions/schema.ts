@@ -77,7 +77,10 @@ const SandboxDrillSchema = z.strictObject({
   setup: FixtureSchema,
   success: PredicateSchema,
   timeLimitSeconds: z.int().positive().default(DEFAULT_DRILL_SECONDS),
-  /** The idea this drill tests, e.g. "staging". The review queue and skill tree group by it. */
+  /**
+   * The idea this drill tests, e.g. "staging": a note for authors. Nothing groups by it; the
+   * skill tree groups drills by their mission (src/game/play/skillTree.ts).
+   */
   concept: NameSchema,
 });
 
