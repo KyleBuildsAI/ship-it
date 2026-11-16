@@ -8,6 +8,7 @@ import {
 } from '../progression/stats';
 import type { MissionProgress, MissionStatus, SaveData } from '../save/schema';
 import type { ActSummary, PartSummary } from './actSummary';
+import { partResumeFor } from './lessonResume';
 
 /*
  * The skill tree (DESIGN.md section 6), worked out from Act summaries and the save alone,
@@ -17,7 +18,7 @@ import type { ActSummary, PartSummary } from './actSummary';
  * ★★★, the same 90% bar over one whole run of its cards.
  */
 
-/** new: never played. started: begun, not done. done: finished, not mastered. lit: mastered. */
+/** new: not under way. started: under way. done: finished, not mastered. lit: mastered. */
 export type NodeState = 'new' | 'started' | 'done' | 'lit';
 
 interface NodeBase {
@@ -70,11 +71,11 @@ export function lessonMastered(progress: MissionProgress | undefined): boolean {
   );
 }
 
-/** The rule every node shares, once it's known whether its part is mastered. */
-function stateOf(mastered: boolean, status: MissionStatus, begun: boolean): NodeState {
+/** The rule every node shares, once it's known whether its part is mastered or under way. */
+function stateOf(mastered: boolean, status: MissionStatus, underWay: boolean): NodeState {
   if (mastered) return 'lit';
   if (status === 'completed' || status === 'tested-out') return 'done';
-  return status === 'in-progress' || begun ? 'started' : 'new';
+  return underWay ? 'started' : 'new';
 }
 
 function nodeFor(
@@ -88,10 +89,15 @@ function nodeFor(
   if (part.kind === 'mission') {
     // Mastery is judged on recent drills alone, so new misses can dim a lit mission again.
     const recent = recentResults(save.drillHistory, part.drillIds);
-    const state = stateOf(isMastered(recent), status, recent.length > 0);
+    const underWay = status === 'in-progress' || recent.length > 0;
+    const state = stateOf(isMastered(recent), status, underWay);
     return { ...base, kind: 'mission', state, recent };
   }
-  const state = stateOf(lessonMastered(progress), status, false);
+  // Under way only while Play would pick it up partway, when its Act menu row says "In
+  // progress" (DESIGN.md section 5). A timed final, or a lesson left before its first
+  // answer, starts again at the briefing, so its node looks as fresh as its Play button.
+  const underWay = partResumeFor(part, progress) !== null;
+  const state = stateOf(lessonMastered(progress), status, underWay);
   const stars = status === 'completed' ? starsFor(progress?.bestDrillScore ?? 0) : 0;
   return { ...base, kind: part.kind, state, stars };
 }
@@ -141,7 +147,9 @@ function lessonNote({ stars, state, status }: LessonNode): string {
   if (state === 'lit') return `${starText(3)} · Mastered`;
   if (status === 'completed') return `${starText(stars)} · replay for ${starText(3)}`;
   if (status === 'tested-out') return `Tested out · play for ${starText(3)}`;
-  if (status === 'in-progress') return 'Started · not finished';
+  if (state === 'started') return 'Started · not finished';
+  // Begun with nothing kept to pick up: a timed final that ran out, or a lesson left early.
+  if (status === 'in-progress') return 'Not finished yet';
   return 'Not played yet';
 }
 

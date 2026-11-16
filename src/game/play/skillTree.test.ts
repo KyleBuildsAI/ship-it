@@ -38,6 +38,15 @@ function progressAt(status: MissionStatus, bestDrillScore: number | null = null)
   return { ...createMissionProgress(), status, bestDrillScore };
 }
 
+/** A lesson left after its first card, so Play would pick it up at the second. */
+const LEFT_PARTWAY: MissionProgress = {
+  ...progressAt('in-progress'),
+  lessonResume: {
+    answered: [{ cardId: sampleLesson.cards[0]?.id ?? '', firstTry: true }],
+    open: null,
+  },
+};
+
 /** Attempts from a pattern like "xx.x" (x right, . a miss), taking `drillIds` in turn. */
 function attempts(pattern: string, drillIds: readonly string[] = FIRST_DRILLS): DrillAttempt[] {
   return Array.from(pattern, (mark, index) => ({
@@ -125,17 +134,23 @@ describe('a lesson or final node', () => {
     expect(lessonOf(progressAt('completed', 89))).toMatchObject({ state: 'done', stars: 2 });
   });
 
-  it('is done when tested out, never lit; started in progress; new with no entry', () => {
+  it('is done when tested out, never lit; started when left partway; new with no entry', () => {
     expect(lessonOf(progressAt('tested-out'))).toMatchObject({ state: 'done', stars: 0 });
     expect(lessonMastered(progressAt('tested-out', 100))).toBe(false);
-    expect(lessonOf(progressAt('in-progress'))).toMatchObject({ state: 'started', stars: 0 });
+    expect(lessonOf(LEFT_PARTWAY)).toMatchObject({ state: 'started', stars: 0 });
     expect(lessonOf()).toMatchObject({ state: 'new', stars: 0 });
+  });
+
+  it('looks new, as its Act menu row does, when Play would start it over', () => {
+    // Left at its briefing: in progress, with no answer kept to pick up.
+    expect(lessonOf(progressAt('in-progress')).state).toBe('new');
+    // A timed final never resumes, so one that ran out starts over too.
+    expect(lessonOf(progressAt('in-progress'), sampleFinal.id).state).toBe('new');
   });
 
   it('follows the same rules for a final', () => {
     expect(lessonOf(progressAt('completed', 100), sampleFinal.id).state).toBe('lit');
     expect(lessonOf(progressAt('completed', 80), sampleFinal.id).state).toBe('done');
-    expect(lessonOf(progressAt('in-progress'), sampleFinal.id).state).toBe('started');
   });
 });
 
@@ -177,7 +192,8 @@ describe('nodeNote', () => {
     [progressAt('completed', 75), '★★☆ · replay for ★★★'],
     [progressAt('completed', 40), '★☆☆ · replay for ★★★'],
     [progressAt('tested-out'), 'Tested out · play for ★★★'],
-    [progressAt('in-progress'), 'Started · not finished'],
+    [LEFT_PARTWAY, 'Started · not finished'],
+    [progressAt('in-progress'), 'Not finished yet'],
     [undefined, 'Not played yet'],
   ])('reads %o as "%s" for a lesson', (progress, note) => {
     expect(nodeNote(lessonOf(progress))).toBe(note);
