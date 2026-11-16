@@ -1,3 +1,5 @@
+import { compareNames } from '../fs/nameOrder';
+
 /** One environment variable: its name as first written, and its value. */
 export interface EnvEntry {
   readonly name: string;
@@ -63,11 +65,12 @@ export class EnvTable {
     return this.byKey.delete(name.toUpperCase());
   }
 
-  /** Every variable, sorted by name the way `Get-ChildItem Env:` lists them. */
+  /**
+   * Every variable, sorted by name the way `Get-ChildItem Env:` lists them: in the same
+   * English order as a folder's names.
+   */
   entries(): EnvEntry[] {
-    return [...this.byKey.values()].sort((a, b) =>
-      a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
-    );
+    return [...this.byKey.values()].sort((a, b) => compareNames(a.name, b.name));
   }
 
   clone(): EnvTable {

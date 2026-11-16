@@ -1,3 +1,4 @@
+import { compareNames } from '../fs/nameOrder';
 import { joinPath } from '../fs/paths';
 import type { EnvScope } from './events';
 import type { Machine } from './machine';
@@ -108,21 +109,11 @@ export function machineQueries(machine: Machine): MachineQueries {
 }
 
 /**
- * Get-ChildItem sorts names by English language rules, not by character code: '_notes'
- * and '~$plan.docx' come before 'api', where a character compare would put '~' last.
- * Naming the language pins the order, so it is the same on every computer whatever its
- * own language is. Env: sorts the same way (envTable.ts).
- */
-const NAME_ORDER = new Intl.Collator('en', { sensitivity: 'base' });
-
-/**
- * Folders first, then files, each by name ignoring case, as Get-ChildItem lists them.
- * Names that only differ by an accent ('resume', 'résumé') are equal to the collator, so
- * a character compare settles them, unaccented first as PowerShell prints them. Two names
- * in one folder never match ignoring case (the drive is like NTFS), so that settles every
- * tie.
+ * Folders first, then files, each in PowerShell's name order, as Get-ChildItem lists
+ * them. It shares compareNames with the in-game dir, so the terraces built from list()
+ * always match what the player reads in the terminal.
  */
 function foldersFirstByName(a: ListedItem, b: ListedItem): number {
   if (a.kind !== b.kind) return a.kind === 'folder' ? -1 : 1;
-  return NAME_ORDER.compare(a.name, b.name) || (a.name < b.name ? -1 : 1);
+  return compareNames(a.name, b.name);
 }
