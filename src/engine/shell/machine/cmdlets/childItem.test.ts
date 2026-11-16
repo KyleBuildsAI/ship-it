@@ -194,10 +194,11 @@ describe('Get-ChildItem', () => {
     machine.drive.writeFile('Users/kyle/cv/résumé', '');
     machine.drive.writeFile('Users/kyle/cv/resume', '');
     expect(texts(shell.run('dir cv -Name'))).toEqual(['resume', 'résumé']);
-    expect(machineQueries(machine).list('Users/kyle/cv').map((item) => item.name)).toEqual([
-      'resume',
-      'résumé',
-    ]);
+    expect(
+      machineQueries(machine)
+        .list('Users/kyle/cv')
+        .map((item) => item.name),
+    ).toEqual(['resume', 'résumé']);
   });
 
   it('lists what it can when one of several paths is missing', () => {

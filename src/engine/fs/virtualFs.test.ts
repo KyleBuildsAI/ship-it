@@ -106,7 +106,16 @@ describe('VirtualFs directories', () => {
     const fs = new VirtualFs();
     // This tree is case-sensitive, so README.md and readme.md can both exist. English
     // rules call them equal; a character compare settles them in one fixed order.
-    const names = ['api', '_notes', 'Zeta', '~$plan.docx', '[x]', 'b.txt', 'readme.md', 'README.md'];
+    const names = [
+      'api',
+      '_notes',
+      'Zeta',
+      '~$plan.docx',
+      '[x]',
+      'b.txt',
+      'readme.md',
+      'README.md',
+    ];
     for (const name of names) fs.writeFile(name, '');
     expect(fs.listDir('').map((entry) => entry.name)).toEqual([
       '_notes',
