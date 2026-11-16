@@ -41,39 +41,43 @@ export function CommandChip() {
   // A command with an empty message (git commit -m "") needs the player's words first.
   const needsInput = cursorFromEnd > 0;
 
+  // Larger text sizes zoom the inner box, never the chip: zoom would scale its
+  // bottom: calc(38vh + 32px) too, and lift it a quarter higher at Extra large (theme.css).
   return (
     <aside className="glass command-chip" aria-label="Suggested command" aria-live="polite">
-      <code className="command-chip__command">{command}</code>
-      <p className="command-chip__note">{note}</p>
-      <div className="command-chip__actions">
-        <button
-          type="button"
-          className="command-chip__primary"
-          onClick={() => {
-            sendToTerminal(command, !needsInput, cursorFromEnd);
-          }}
-        >
-          {needsInput ? 'Type it' : 'Run'}
-        </button>
-        {needsInput ? null : (
+      <div className="command-chip__content">
+        <code className="command-chip__command">{command}</code>
+        <p className="command-chip__note">{note}</p>
+        <div className="command-chip__actions">
           <button
             type="button"
+            className="command-chip__primary"
             onClick={() => {
-              sendToTerminal(command, false, cursorFromEnd);
+              sendToTerminal(command, !needsInput, cursorFromEnd);
             }}
           >
-            Edit first
+            {needsInput ? 'Type it' : 'Run'}
           </button>
-        )}
-        <button
-          type="button"
-          aria-label="Dismiss suggestion"
-          onClick={() => {
-            suggest(null);
-          }}
-        >
-          ×
-        </button>
+          {needsInput ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                sendToTerminal(command, false, cursorFromEnd);
+              }}
+            >
+              Edit first
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Dismiss suggestion"
+            onClick={() => {
+              suggest(null);
+            }}
+          >
+            ×
+          </button>
+        </div>
       </div>
     </aside>
   );

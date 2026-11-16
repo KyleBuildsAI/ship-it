@@ -16,6 +16,8 @@ export function Overlay({ title, children }: { title: string; children: ReactNod
     };
   }, []);
 
+  // Larger text sizes zoom the inner box, never the section: zoom would scale the section's
+  // place and size too, so at Extra large it filled the window and hid the HUD (theme.css).
   return (
     <section
       ref={panel}
@@ -25,20 +27,22 @@ export function Overlay({ title, children }: { title: string; children: ReactNod
       tabIndex={-1}
       data-typing-surface
     >
-      <header className="play-panel__header">
-        <h2>{title}</h2>
-        <button
-          type="button"
-          className="play-panel__close"
-          aria-label={`Close ${title}`}
-          onClick={() => {
-            openMenu(null);
-          }}
-        >
-          ×
-        </button>
-      </header>
-      {children}
+      <div className="overlay__content">
+        <header className="play-panel__header">
+          <h2>{title}</h2>
+          <button
+            type="button"
+            className="play-panel__close"
+            aria-label={`Close ${title}`}
+            onClick={() => {
+              openMenu(null);
+            }}
+          >
+            ×
+          </button>
+        </header>
+        {children}
+      </div>
     </section>
   );
 }
