@@ -4,6 +4,7 @@ import { sampleLessonAct } from '../../game/missions/sample.test-lesson';
 import { sampleAct, sampleMission, secondMission } from '../../game/missions/sample.test-mission';
 import { summarizeAct } from '../../game/play/actSummary';
 import { setLazyCatalog } from '../../game/play/catalog';
+import { play, type SeriesActivity } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { createDefaultSave, createMissionProgress } from '../../game/save/schema';
 import { TEST_NOW } from '../../game/save/testFixtures';
@@ -37,5 +38,27 @@ describe('the Trophy Wall', () => {
       `○ ${secondMission.title}`,
     ]);
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it('shows only a note while a placement test is running, so XP gives no answer away', () => {
+    progress.update({ status: 'ready', save: createDefaultSave(TEST_NOW), problem: null });
+    const placement: SeriesActivity = {
+      kind: 'placement',
+      act: sampleAct.act,
+      drills: sampleMission.drills,
+      active: { index: 0, startedAtMs: 0 },
+      results: [],
+      placement: null,
+      scene: null,
+    };
+    play.update({ activity: placement });
+    try {
+      const markup = renderToStaticMarkup(<TrophyWall />);
+      expect(markup).toContain('A placement test is running. This shows again when it ends.');
+      expect(markup).not.toContain('XP');
+      expect(markup).not.toContain('trophy-stats');
+    } finally {
+      play.update({ activity: null });
+    }
   });
 });

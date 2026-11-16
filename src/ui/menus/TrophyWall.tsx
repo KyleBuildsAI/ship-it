@@ -1,8 +1,10 @@
 import { actSummaries } from '../../game/play/catalog';
+import { lockedRunActive, play } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { averageSeconds, drillAccuracy, practiceDayCount } from '../../game/progression/stats';
 import { completedActNumbers, nextRank, rankFor } from '../../game/progression/xp';
 import { useStore } from '../useStore';
+import { LockedRunNote } from './LockedRunNote';
 import { Overlay } from './Overlay';
 
 function percent(value: number | null): string {
@@ -12,7 +14,15 @@ function percent(value: number | null): string {
 /** Rank, XP, and stats (DESIGN.md section 6). Days are counted, never streaks. */
 export function TrophyWall() {
   const { save } = useStore(progress);
+  const { activity } = useStore(play);
   if (save === null) return null;
+  if (lockedRunActive(activity)) {
+    return (
+      <Overlay title="Trophy Wall">
+        <LockedRunNote />
+      </Overlay>
+    );
+  }
   const acts = completedActNumbers(save.acts);
   const next = nextRank(acts);
   const average = averageSeconds(save.drillHistory);
