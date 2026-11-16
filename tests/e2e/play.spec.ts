@@ -177,23 +177,35 @@ test('two tabs opened at the same moment end with exactly one saving', async ({ 
   const tabs = [await context.newPage(), await context.newPage()];
   const problems = tabs.map((tab) => collectConsoleProblems(tab));
   await Promise.all(tabs.map((tab) => tab.goto('./')));
-  // Whichever asked last owns the save; the other says so. Never both, never neither.
-  // If not, the failure lists each tab in order, so it shows which tab was stuck, whether
-  // its load never finished ('none') or failed ('error'), and what its console said (#104).
-  await expect
-    .poll(async () => {
-      const rows = await Promise.all(tabs.map((tab) => saveRow(tab).innerText()));
-      const notices = await Promise.all(
-        tabs.map((tab) => tab.getByRole('heading', { name: NOTICE }).count()),
-      );
-      return {
-        saveRows: rows.toSorted(),
-        eachTab: rows.map((row, index) =>
-          (notices[index] ?? 0) > 0 ? `${row}, other-tab notice shown` : row,
-        ),
-        problems,
-      };
-    }, CROSS_TAB)
-    .toMatchObject({ saveRows: ['other tab', 'saved'] });
+  // Each tab's last reading, in tab order, for the report if the check below fails.
+  let eachTab: string[] = [];
+  try {
+    // Whichever asked last owns the save; the other says so. Never both, never neither.
+    await expect
+      .poll(async () => {
+        const rows = await Promise.all(tabs.map((tab) => saveRow(tab).innerText()));
+        const notices = await Promise.all(
+          tabs.map((tab) => tab.getByRole('heading', { name: NOTICE }).count()),
+        );
+        eachTab = rows.map((row, index) => {
+          const notice = (notices[index] ?? 0) > 0 ? ', other-tab notice shown' : '';
+          return `tab ${String(index + 1)}: Save ${row}${notice}`;
+        });
+        return rows.toSorted();
+      }, CROSS_TAB)
+      .toEqual(['other tab', 'saved']);
+  } catch (error) {
+    // The sorted rows alone don't say which tab was stuck, or what its console said: the
+    // two things #104's report was missing. The test still fails with the same error.
+    const consoles = problems.map((found, index) => {
+      const said = found.length > 0 ? found.join(' | ') : 'clean';
+      return `tab ${String(index + 1)} console: ${said}`;
+    });
+    await test.info().attach('each tab', {
+      body: [...eachTab, ...consoles].join('\n'),
+      contentType: 'text/plain',
+    });
+    throw error;
+  }
   expect(problems).toEqual([[], []]);
 });
