@@ -89,12 +89,28 @@ interface Ask {
   readonly ask: typeof HANDOVER;
   readonly at: number;
   readonly nonce: number;
+  /**
+   * When the asking tab stops waiting and takes the save anyway (Date.now() time). A tab that
+   * only hears the ask after this has lost the save already, though the news may not have
+   * reached it yet.
+   */
+  readonly takesAt: number;
 }
 
 function isAsk(data: unknown): data is Ask {
   if (typeof data !== 'object' || data === null) return false;
-  const { ask, at, nonce } = data as Record<string, unknown>;
-  return ask === HANDOVER && typeof at === 'number' && typeof nonce === 'number';
+  const { ask, at, nonce, takesAt } = data as Record<string, unknown>;
+  return (
+    ask === HANDOVER &&
+    typeof at === 'number' &&
+    typeof nonce === 'number' &&
+    typeof takesAt === 'number'
+  );
+}
+
+/** This tab's ask, made now. `waitMs` is how long it waits before taking the save anyway. */
+function askNow(waitMs: number): Ask {
+  return { ask: HANDOVER, at: askTime(), nonce: Math.random(), takesAt: Date.now() + waitMs };
 }
 
 /** This tab's own ask. Null before it has asked. */
@@ -119,6 +135,11 @@ let steppedAside = false;
  * Cleared the moment this tab learns the lock is gone, and checked as each write starts.
  */
 let holdsSave = false;
+/**
+ * When the tab this one is handing over to takes the save anyway (its ask's `takesAt`). From
+ * then on no write may start here, even before the news that the lock is gone arrives.
+ */
+let newOwnerTakesAt = Number.POSITIVE_INFINITY;
 /** A newer tab asked for the save while this one was still waiting for it. */
 let handoverRequested = false;
 /** Ends this tab's hold on the save lock. Null when it doesn't hold it. */
@@ -145,8 +166,12 @@ let claims = 0;
  *
  * Only a tab holding the lock writes (#198). Once a tab knows it lost the lock, nothing in
  * it starts a write again: the new owner may already have loaded the save, so a late write
- * would put this tab's older copy over newer progress. A tab knows it when the lock is
- * taken from it.
+ * would put this tab's older copy over newer progress. A tab knows it two ways: the lock is
+ * taken from it, or the `takesAt` of an ask it heard has passed, when the asker takes the
+ * save even if that news hasn't arrived. A tab can't know sooner than that, so two writes
+ * can still land late: one already on its way when the lock goes, and one started before
+ * the tab could hear either (say, a click handled straight after a long freeze). Only a
+ * check inside IndexedDB itself could stop those (#224).
  */
 
 /**
@@ -190,8 +215,8 @@ async function handOver(release: boolean, lockFault = false): Promise<void> {
   let problem: string | null = null;
   try {
     // While this tab holds the lock, the new tab loads only after this write, so it gets the
-    // change. Once this tab has heard that the lock is gone, the write is refused and the
-    // change dropped, on purpose. Handing it to the new owner instead isn't safe:
+    // change. Once the lock is gone, or the new tab's wait has run out, the write is refused
+    // and the change dropped, on purpose. Handing it to the new owner instead isn't safe:
     // it's a whole save built on this tab's copy, which may be older than the one the new
     // owner loaded and has changed since, and two saves can't be merged without guessing. So
     // the player is told, and plays on in the tab that has the save. Only what hadn't reached
@@ -229,8 +254,15 @@ function onTabMessage(event: { data: unknown }): void {
   // would leave both tabs handed over, each to the other, and neither saving.
   if (steppedAside || !isAsk(event.data) || !isNewer(event.data)) return;
   // Still waiting for the lock ourselves: hand over as soon as it arrives.
-  if (releaseSave === null) handoverRequested = true;
-  else void handOver(true);
+  if (releaseSave === null) {
+    handoverRequested = true;
+    return;
+  }
+  // Once the asker's wait runs out, it takes the lock and may load the save, whether or not
+  // this tab has let go. So no write may start here after that: not one heard too late (this
+  // tab was frozen, say), nor one still queued behind a slow write when the moment passes.
+  newOwnerTakesAt = event.data.takesAt;
+  void handOver(true);
 }
 
 /** Resolves once this tab holds the save lock (or has to go without: no Web Locks). */
@@ -258,7 +290,8 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
     // takes it by stealing in turn, so this tab says it asked again: a waiting tab hears a
     // newer ask than its own and steps aside when its wait runs out.
     const holdStolen = () => {
-      ownAsk = { ask: HANDOVER, at: askTime(), nonce: Math.random() };
+      // It has the lock already, so its deadline for taking it is now.
+      ownAsk = askNow(0);
       handoverRequested = false;
       channel?.postMessage(ownAsk);
       return hold();
@@ -319,6 +352,7 @@ export async function startProgress(
   channel = null;
   steppedAside = false;
   holdsSave = false;
+  newOwnerTakesAt = Number.POSITIVE_INFINITY;
   handoverRequested = false;
   progress.update({ status: 'loading', save: null, problem: null });
 
@@ -326,7 +360,7 @@ export async function startProgress(
   autosave = createAutosave(
     async (save) => {
       // Checked as each write starts, so one queued behind another can't start late.
-      if (!holdsSave) throw new SaveElsewhereError();
+      if (!holdsSave || Date.now() >= newOwnerTakesAt) throw new SaveElsewhereError();
       await storage.write(save);
       devStatus.update({ save: 'saved' });
     },
@@ -340,7 +374,7 @@ export async function startProgress(
     },
   );
 
-  ownAsk = { ask: HANDOVER, at: askTime(), nonce: Math.random() };
+  ownAsk = askNow(HANDOVER_WAIT_MS);
   if (coordination.openChannel) {
     channel = coordination.openChannel();
     channel.addEventListener('message', onTabMessage);

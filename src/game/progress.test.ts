@@ -177,10 +177,11 @@ function otherTab() {
     },
     /**
      * The other tab asks for the save. By default it asked after this tab (a newer tab);
-     * pass an earlier time for a tab that asked first, as when two open together.
+     * pass an earlier time for a tab that asked first, as when two open together. `takesAt`
+     * is when it stops waiting and takes the save: by default, never.
      */
-    asks: (at = Number.POSITIVE_INFINITY) => {
-      const ask = { ask: 'ship-it-handover', at, nonce: 0 };
+    asks: (at = Number.POSITIVE_INFINITY, takesAt = Number.POSITIVE_INFINITY) => {
+      const ask = { ask: 'ship-it-handover', at, nonce: 0, takesAt };
       for (const listener of [...listeners]) listener({ data: ask });
     },
     /** The other tab's fallback takes the lock without asking. */
@@ -418,6 +419,22 @@ describe('two tabs', () => {
     // export (ElsewhereNotice.tsx), as a change whose write failed is.
     expect(progress.get().problem).toBe('Your latest change in this tab could not be saved.');
     expect(warnings).not.toHaveBeenCalled();
+  });
+
+  it('stores nothing more once it hears an ask after the asking tab took the save', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    const held = tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    // Its wait ran out a moment ago (this tab was frozen, say), so it has taken the lock.
+    tab.asks(Number.POSITIVE_INFINITY, Date.now() - 1);
+    await held;
+    expect(writes.map((save) => save.profile.xp)).not.toContain(5);
+    expect(progress.get().problem).toBe(CHANGE_DROPPED);
   });
 
   it('stores nothing from a load that finishes after handing over', async () => {

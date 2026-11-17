@@ -338,6 +338,92 @@ describe('a tab that loses the save (#198)', () => {
     expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
   });
 
+  it('that hears an ask only after the asker took the save stores nothing more', async () => {
+    const warnings = quietWarnings();
+    // b's ask takes 2 s to reach a, so b's wait runs out first and it takes the lock. The
+    // news that a lost the lock is slower still: a hears the late ask first.
+    const browser = createSimulatedBrowser({
+      latency: latency((route) => {
+        if (route.tab !== 'a' || route.direction !== 'down') return undefined;
+        if (route.pipe === 'channel') return 2000;
+        return route.pipe === 'locks' ? 1000 : undefined;
+      }),
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(first, a);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(badges()).toEqual(['saving', 'loading']);
+    start(second, b);
+
+    // b takes the save at 3.5 s, and the player finishes a step there.
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(browser.lockHolder()).toBe('b');
+    b.run(() => {
+      second.progress.saveProgressNow(setXp(40));
+    });
+    // Just before b's ask reaches a, the player changes a setting in a. It's still waiting
+    // out the autosave delay when the ask arrives.
+    await vi.advanceTimersByTimeAsync(300);
+    a.run(() => {
+      first.progress.updateSave(setXp(5));
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(40);
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
+  });
+
+  it('that heard the ask in time starts no write after the asker took the save', async () => {
+    const warnings = quietWarnings();
+    // b asks at 1 s and takes the save at 2.5 s if a hasn't let go. Its ask reaches a at
+    // 2.4 s, in time, but the news that b took the lock (the 2nd message down, after the
+    // grant) takes 3 s to reach a. On a's IndexedDB pipe, the result of a's finished step
+    // (the 4th result, after opening, reading and storing the new game) comes back slowly,
+    // and the write after it (the 9th message up) is slow to arrive.
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) => {
+        if (route.tab !== 'a' || (route.pipe !== 'idb' && route.direction === 'up')) {
+          return undefined;
+        }
+        if (route.pipe === 'channel') return 1400;
+        if (route.pipe === 'locks') return index === 1 ? 3000 : undefined;
+        if (route.direction === 'down') return index === 3 ? 300 : undefined;
+        return index === 8 ? 500 : undefined;
+      }),
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(first, a);
+    await vi.advanceTimersByTimeAsync(1000);
+    start(second, b);
+
+    // The player finishes a step in a, then changes a setting. a hears b's ask at 2.4 s and
+    // hands over, but its write of the setting waits behind the step's until 2.6 s.
+    await vi.advanceTimersByTimeAsync(1300);
+    a.run(() => {
+      first.progress.saveProgressNow(setXp(5));
+    });
+    await vi.advanceTimersByTimeAsync(50);
+    a.run(() => {
+      first.progress.updateSave(setXp(6));
+    });
+    await vi.advanceTimersByTimeAsync(400);
+    expect(second.progress.progress.get().status).toBe('ready');
+    b.run(() => {
+      second.progress.saveProgressNow(setXp(40));
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(40);
+    expect(browser.lateWrites()).toEqual([]);
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
+  });
+
   it.each([
     [
       'a finished step',
