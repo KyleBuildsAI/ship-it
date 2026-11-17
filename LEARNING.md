@@ -2910,3 +2910,75 @@ https://github.com/KyleBuildsAI/ship-it/pull/228
 3. It opens on the comment step, with the right flags shown found, and the wrong comment still marked. `pickOption` refuses a comment until the review passes, so a saved comment proves the flags were right. `reviewOf` shows the answer flags in their place. The miss is kept, because the wrong comment is saved in `picked`.
 
 </details>
+
+---
+
+## #229 fix: store a load's new game only while holding the save
+
+https://github.com/KyleBuildsAI/ship-it/pull/229
+
+1. Why does `storeLoadedSave` skip the write once the tab has stepped aside, instead of storing the new game anyway?
+2. Why route the load's write through the autosave queue, rather than adding an "is this tab still the owner?" check inside `db.ts`?
+3. A newer tab asks while this tab's new game is already on its way to IndexedDB. Why does this tab wait for that write before letting go of the lock, instead of dropping it?
+
+<details><summary>Answers</summary>
+
+1. The tab that gets the save loads it itself. On a first launch it finds no save and stores its own new game. With an old save, it upgrades and stores it. So nothing is lost by skipping, while storing late could land on top of the progress the new tab has made since.
+2. `db.ts` is the storage layer and knows nothing about tabs or locks, which keeps it simple to test. The queue already has the right check, made as each write starts, so a write can't pass the check and then start after the lock has gone. And `handOver` already waits for the queue, so a write already started is finished before the lock is released.
+3. That write started while this tab still held the lock, so it's allowed, and the new tab waits for the lock before loading. Waiting means the new tab loads after the write and sees it, and no write lands after the lock moves. The test "lets go only once a new game it was already storing is stored" checks exactly that.
+
+</details>
+
+---
+
+## #230 feat: show the skill tree on the trophy wall
+
+https://github.com/KyleBuildsAI/ship-it/pull/230
+
+1. What does `<details>`/`<summary>` give you for free, compared with building the open/close yourself in React?
+2. In `SkillTree.test.tsx`, why does the test's Act loader throw an error?
+3. Why does the e2e test start recording requests only after the save says "saved", and why does it match only the Act files instead of every script?
+
+<details><summary>Answers</summary>
+
+1. Opening and closing on click; keyboard support (the summary can be focused with Tab and toggled with Enter or Space); and screen readers announcing it as a group that's expanded or collapsed. All without a `useState`, an `onClick` or any ARIA attributes written by hand. The `open` attribute just says which row starts open. The game also already ignores WASD inside an overlay and only jumps on Space when the 3D world itself has focus, so Space on a focused row toggles it instead of jumping.
+2. It stands in for an Act's download. If the tree ever asked for an Act's real content, instead of reading its summary, the loader would throw and the test would fail. The test also checks the loader was never called. That proves the rule that keeps the wall instant: the Trophy Wall reads summaries only, and never makes Kyle wait for a download.
+3. Before "saved", the page is still booting, and those requests belong to the game's start, not to the wall. Recording from that point means anything caught was caused by opening Trophies. It matches only the Act files because other scripts (the 3D world, the code editor) are also split into their own files and may load for other reasons. They aren't Act content, so counting them would make the test fail for the wrong reason.
+
+</details>
+
+---
+
+## #231 feat: draw a code review diff you can flag line by line
+
+https://github.com/KyleBuildsAI/ship-it/pull/231
+
+1. Why are the changed rows `<button>`s but the context rows plain `<div>`s?
+2. Why are the problem chips a `role="group"` of toggle buttons, and not a `radiogroup`?
+3. Why did the context rows stick out of the box when the changed rows didn't, and how does `box-sizing: border-box` fix it?
+
+<details><summary>Answers</summary>
+
+1. Only added and removed lines can be flagged, so only they should be clickable, reachable with Tab and announced as buttons. A context line didn't change, so it is just text. Making it a button would add Tab stops that do nothing.
+2. A radio group promises that the arrow keys move between its options. In this game the arrow keys walk the avatar, so that promise would be broken. A plain group of `aria-pressed` buttons is reached with Tab, which is how every other lesson button works.
+3. Every row is `width: 100%` plus padding and a 3px left bar. Chrome draws buttons with `border-box`, so a button fits its padding and bar inside that width. A `<div>` uses `content-box`, so its padding and bar were added on top, 15px wider than the box. `border-box` on the shared rule makes both kinds of row the same width.
+
+</details>
+
+---
+
+## #232 feat: wire code review checks into lesson play
+
+https://github.com/KyleBuildsAI/ship-it/pull/232
+
+1. Why does a wrong "Check review" save at once, while flagging a row saves nothing?
+2. Why does `validateAct` refuse a code review card in a placement test?
+3. Why does `DESIGN.md` say a code review check is graded "against the card's own key", and not "by state"?
+
+<details><summary>Answers</summary>
+
+1. A wrong check is a miss, and stars count first tries. Saved at once, it survives a reload, so leaving can't buy a second first try. A flag isn't an answer yet, just like moving an order card's step, so saving it would write the save often for nothing.
+2. A placement test is locked: it takes one answer per card and shows no verdicts until the end. In a locked run, a code review card would end on its first check, so the player would never see which flags were right and would never reach the comment step. That isn't a fair test of the card, so the validator asks for a choose, prompt or order card instead.
+3. Pillar 3 means the engine checks that a claim is true by looking at real state. Nothing runs Otto's diff here: the flags are compared with the bugs and fine rows the author wrote. That is the same exception every lesson card is, like a choose card's `correct` flags. Saying "by state" would promise more than the code does.
+
+</details>

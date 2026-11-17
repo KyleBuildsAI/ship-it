@@ -10,6 +10,7 @@ import {
   secondMission,
   thirdMission,
 } from '../missions/sample.test-mission';
+import { sampleReviewLesson } from '../missions/sample.test-codeReview';
 import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
 import {
   flushProgress,
@@ -19,18 +20,22 @@ import {
   type ProgressStorage,
 } from '../progress';
 import { placementTestOutXp } from '../progression/xp';
+import type { ReviewIssue } from '../missions/lessonSchema';
 import { createDefaultSave, saveDataSchema } from '../save/schema';
 import { worldState } from '../worldState';
 import { loadedLesson, setCatalog } from './catalog';
 import {
   answerLesson,
   checkLessonOrder,
+  checkLessonReview,
   endLessonBriefing,
   lessonTick,
   moveLessonStep,
   nextLessonCard,
+  setLessonFlagIssue,
   startLesson,
   startLessonPlacement,
+  toggleLessonFlag,
   watchLessonBeats,
 } from './lessonPlay';
 import { startMission } from './missionPlay';
@@ -354,6 +359,44 @@ describe('the option order when a lesson is played again', () => {
     startLesson(sampleFinal.id, MOVED);
     expect(lesson().run.phase).toBe('briefing');
     expect(optionOrder(lesson().lesson)).toEqual(seededOrder(MOVED));
+  });
+});
+
+describe('a code review card', () => {
+  beforeEach(() => {
+    const content = sampleLessonAct();
+    setCatalog({ acts: [{ ...content, lessons: [...content.lessons, sampleReviewLesson] }] });
+  });
+
+  /** Flags a row and names its problem, as a player clicks them. */
+  function flag(row: number, issue: ReviewIssue): void {
+    toggleLessonFlag(row, T0);
+    setLessonFlagIssue(row, issue, T0);
+  }
+
+  it('saves a wrong check at once, so leaving after it keeps the miss', () => {
+    startLesson(sampleReviewLesson.id);
+    endLessonBriefing(T0);
+    for (let index = 0; index < 5; index++) answer();
+    flag(4, 'logic');
+    checkLessonReview(T0);
+    expect(saved(sampleReviewLesson.id).mission?.lessonResume?.open).toEqual({
+      cardId: 'flag-the-pr',
+      picked: [],
+      wrongOrders: 0,
+      wrongFlagChecks: 1,
+    });
+    // Unflag the fine row, find both bugs, then send the right comment.
+    toggleLessonFlag(4, T0);
+    flag(3, 'security');
+    flag(9, 'error-handling');
+    checkLessonReview(T0);
+    answerLesson('specific', T0);
+    nextLessonCard(T0);
+    expect(lesson().run).toMatchObject({
+      outcome: 'finished',
+      firstTry: [true, true, true, true, true, false],
+    });
   });
 });
 
