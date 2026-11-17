@@ -369,12 +369,12 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
     return {
       // Like loadSave: read the save, or store a new game when there isn't one. A save from
       // an older version is stored again once upgraded (here the upgrade changes nothing).
-      load: async (now) => {
+      load: async (now, store) => {
         await open();
         const found = await idb(tab, () => ({ save: stored, upgrade: storedFromOlderVersion }));
         if (found.save !== undefined && !found.upgrade) return found.save;
         const save = found.save ?? createDefaultSave(now);
-        await write(save);
+        await store(save);
         return save;
       },
       write,
