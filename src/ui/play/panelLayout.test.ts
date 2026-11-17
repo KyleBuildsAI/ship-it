@@ -253,6 +253,17 @@ describe('the code editor beside the HUD menu', () => {
     expect(dock.vh).toBe(menu.vh);
     expect(dock.px).toBeGreaterThanOrEqual(menu.px + rowHeight + 8);
   });
+
+  it('comes after the wide rules in theme.css, so a narrow window really uses it', () => {
+    // A media query adds no specificity: `.editor-dock` inside it ties with the wide
+    // `.editor-dock`, and a tie goes to the rule later in the file. Placed above the wide
+    // rules, the narrow ones lose and the editor covers the row again.
+    const { start, end } = narrowWindow();
+    for (const selector of ['.editor-dock {', '.editor-dock--above-terminal {']) {
+      expect(themeCss.indexOf(selector)).toBeLessThan(start);
+      expect(themeCss.indexOf(selector, end)).toBe(-1);
+    }
+  });
 });
 
 describe('the play panel at larger text sizes', () => {
