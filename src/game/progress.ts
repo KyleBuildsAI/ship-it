@@ -396,10 +396,12 @@ export function saveProgressNow(change: (save: SaveData) => SaveData): number {
 
 /**
  * Replaces the whole save, as an import does, and stores it straight away. Resolves false,
- * changing nothing, when another tab has the save.
+ * changing nothing, while the save is still loading or when another tab has the save.
  */
 export async function replaceSave(save: SaveData): Promise<boolean> {
-  if (steppedAside) return false;
+  // Not while loading: the load would then show the save it read, not this one, and the
+  // next change made on that would be written over this one.
+  if (steppedAside || progress.get().status === 'loading') return false;
   progress.update({ status: 'ready', save, problem: null });
   autosave?.schedule(save);
   await flushProgress();

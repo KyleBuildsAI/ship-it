@@ -94,6 +94,39 @@ describe('progress', () => {
     expect(progress.get().save?.profile.xp).toBe(999);
     expect(writes.at(-1)?.profile.xp).toBe(999);
   });
+
+  it('refuses an import until the save has loaded, and never stores it later', async () => {
+    let finishLoad: (save: SaveData) => void = () => undefined;
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(
+      {
+        load: () =>
+          new Promise((resolve) => {
+            finishLoad = resolve;
+          }),
+        write: storage.write,
+      },
+      NOW,
+      tab.coordination,
+    );
+    await settle();
+    const imported = {
+      ...createDefaultSave(NOW),
+      profile: { ...createDefaultSave(NOW).profile, xp: 999 },
+    };
+    // Waiting for the lock, then reading the save: the load would then show the save it
+    // read, while IndexedDB held the import, and the next change would write over it.
+    expect(await replaceSave(imported)).toBe(false);
+    void tab.grant();
+    await settle();
+    expect(await replaceSave(imported)).toBe(false);
+    finishLoad(createDefaultSave(NOW));
+    await starting;
+    await flushProgress();
+    expect(progress.get().save?.profile.xp).toBe(0);
+    expect(writes).toHaveLength(0);
+  });
 });
 
 interface LockRequest {
