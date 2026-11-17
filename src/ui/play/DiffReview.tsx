@@ -233,8 +233,10 @@ export function DiffReview(props: DiffReviewProps) {
 }
 
 /**
- * How the last check went: the problems it missed, with their clues but never their rows
- * (that would hand the answer over), or that every one was found. Nothing before a check.
+ * How the last check went: the problems no flag was on, with their clues but never their
+ * rows (that would hand the answer over), or that every one was found. A problem flagged
+ * with the wrong chip isn't counted: its row already says "Right line, different problem."
+ * Nothing before a check.
  */
 export function ReviewCheckNote({
   card,
@@ -254,7 +256,7 @@ export function ReviewCheckNote({
   }
   if (check === null || check.right) return null;
   const clues = card.bugs
-    .filter((bug) => check.missedBugIds.includes(bug.id))
+    .filter((bug) => check.unflaggedBugIds.includes(bug.id))
     .map((bug) => ` ${bug.clue}`);
   return (
     <p className="drill-result" aria-live="polite">

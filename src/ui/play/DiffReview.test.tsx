@@ -151,6 +151,23 @@ describe('the note under a checked review', () => {
     );
   });
 
+  it('leaves a bug flagged with another problem to its row, and never calls it unflagged', () => {
+    const misnamed: ReviewFlag[] = [
+      { row: 3, issue: 'logic' },
+      { row: 9, issue: 'error-handling' },
+    ];
+    const check = checkFlags(card, misnamed);
+    expect(text(review(misnamed, check))).toContain('Right line, different problem.');
+    expect(note(check)).toBe('Every problem is flagged. Fix or remove the wrong flags above.');
+    // The run drops a row's verdict once its flag changes; the note still tells the check.
+    const edited = check && { ...check, verdicts: check.verdicts.filter(({ row }) => row !== 3) };
+    expect(note(edited)).toBe('Every problem is flagged. Fix or remove the wrong flags above.');
+    // Only the bug with no flag on its rows is counted, and only its clue is given.
+    expect(note(checkFlags(card, [{ row: 3, issue: 'logic' }]))).toBe(
+      '1 problem still unflagged. What happens now when the database is down?',
+    );
+  });
+
   it('says every problem was found once the review passes', () => {
     expect(note(checkFlags(card, []), true)).toBe('Both problems found.');
   });
