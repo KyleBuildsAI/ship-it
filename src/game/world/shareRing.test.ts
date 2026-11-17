@@ -87,6 +87,18 @@ describe("a portal's share ring", () => {
     expect(ring.shown()).toEqual({ lit: 0, parts: 0 });
   });
 
+  it('reports what its segments show, not the pips it was handed', () => {
+    const ring = createShareRing(3);
+    ring.show([true, false, false]);
+    // Change two segments behind the ring's back: hide the second, give the third the lit
+    // look. The test hooks must see this, so a ring that skipped a repaint can't hide it.
+    const [, second, third] = segmentsOf(ring);
+    if (!second || !third) throw new Error('missing segments');
+    second.visible = false;
+    third.material.emissive.setHex(SEGMENT_LOOK.lit.emissive);
+    expect(ring.shown()).toEqual({ lit: 2, parts: 2 });
+  });
+
   it('shows no more pips than it has segments for', () => {
     const ring = createShareRing(2);
     ring.show([true, true, true]);

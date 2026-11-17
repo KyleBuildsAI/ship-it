@@ -24,7 +24,10 @@ export interface ShareRing {
   readonly group: THREE.Group;
   /** Recolours the segments to a share's pips, in order. Segments past the last pip hide. */
   show: (pips: readonly boolean[]) => void;
-  /** What the ring shows now, for the test hooks: lit segments, and segments in view. */
+  /**
+   * What the ring shows now, for the test hooks: segments in view, and how many of them wear
+   * the lit look. Read from the meshes, so a segment that missed its repaint shows up here.
+   */
   shown: () => { lit: number; parts: number };
 }
 
@@ -35,6 +38,11 @@ function paint(material: THREE.MeshStandardMaterial, lit: boolean): void {
   material.color.setHex(look.color);
   material.emissive.setHex(look.emissive);
   material.emissiveIntensity = look.intensity;
+}
+
+/** Whether a segment glows the lit gold. The glow is what the player sees as "lit". */
+function looksLit(segment: Segment): boolean {
+  return segment.material.emissive.getHex() === SEGMENT_LOOK.lit.emissive;
 }
 
 /** `parts` hidden segments, part 1 just right of the top, then clockwise. */
@@ -71,17 +79,18 @@ export function createShareRing(parts: number): ShareRing {
   const segments = buildSegments(parts);
   if (segments.length > 0) group.add(...segments);
 
-  let current: readonly boolean[] = [];
   return {
     group,
     show: (pips) => {
-      current = pips.slice(0, segments.length);
       segments.forEach((segment, index) => {
-        const pip = current[index];
+        const pip = pips[index];
         segment.visible = pip !== undefined;
         if (pip !== undefined) paint(segment.material, pip);
       });
     },
-    shown: () => ({ lit: current.filter(Boolean).length, parts: current.length }),
+    shown: () => {
+      const inView = segments.filter((segment) => segment.visible);
+      return { lit: inView.filter(looksLit).length, parts: inView.length };
+    },
   };
 }
