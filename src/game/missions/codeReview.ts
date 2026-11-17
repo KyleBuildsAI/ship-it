@@ -30,6 +30,11 @@ export interface FlagCheck {
   readonly verdicts: readonly RowVerdict[];
   /** The bugs no flag found, in the card's order. */
   readonly missedBugIds: readonly string[];
+  /**
+   * The missed bugs with no flag on any of their rows, in the card's order. A bug flagged
+   * with another problem is missed but not unflagged: its row's verdict already says so.
+   */
+  readonly unflaggedBugIds: readonly string[];
   /** Every bug found, and nothing else flagged. */
   readonly right: boolean;
 }
@@ -71,9 +76,12 @@ export function checkFlags(card: CodeReviewCard, flags: readonly ReviewFlag[]): 
       .filter((entry) => entry.verdict === 'found')
       .map((entry) => bugAtRow(card, entry.row)?.id),
   );
-  const missedBugIds = card.bugs.filter((bug) => !found.has(bug.id)).map((bug) => bug.id);
+  const flagged = new Set(verdicts.map((entry) => bugAtRow(card, entry.row)?.id));
+  const missed = card.bugs.filter((bug) => !found.has(bug.id));
+  const missedBugIds = missed.map((bug) => bug.id);
+  const unflaggedBugIds = missed.filter((bug) => !flagged.has(bug.id)).map((bug) => bug.id);
   const right = missedBugIds.length === 0 && verdicts.every((entry) => entry.verdict === 'found');
-  return { verdicts, missedBugIds, right };
+  return { verdicts, missedBugIds, unflaggedBugIds, right };
 }
 
 /** The flags a perfect review would set: each bug's first row with its first problem. */

@@ -32,6 +32,7 @@ describe('checking a review', () => {
         { row: 9, verdict: 'found' },
       ],
       missedBugIds: [],
+      unflaggedBugIds: [],
       right: true,
     });
   });
@@ -39,7 +40,18 @@ describe('checking a review', () => {
   it('names a bug left unflagged', () => {
     const check = checkFlags(card, [{ row: 3, issue: 'security' }]);
     expect(check?.missedBugIds).toEqual(['quiet-failure']);
+    expect(check?.unflaggedBugIds).toEqual(['quiet-failure']);
     expect(check?.right).toBe(false);
+  });
+
+  it('tells a bug flagged with another problem apart from one with no flag at all', () => {
+    // Row 8 is the swallowed error's, named wrong; row 4 is fine, so it flags no bug.
+    const check = checkFlags(card, [
+      { row: 4, issue: 'security' },
+      { row: 8, issue: 'logic' },
+    ]);
+    expect(check?.missedBugIds).toEqual(['dropped-check', 'quiet-failure']);
+    expect(check?.unflaggedBugIds).toEqual(['dropped-check']);
   });
 
   it('calls a flag on a fine row a false flag, and the right row with another problem wrong', () => {
@@ -53,8 +65,9 @@ describe('checking a review', () => {
       { row: 5, verdict: 'fine' },
       { row: 9, verdict: 'found' },
     ]);
-    // A bug flagged with the wrong problem isn't found yet.
+    // A bug flagged with the wrong problem isn't found yet, but it isn't unflagged either.
     expect(check?.missedBugIds).toEqual(['dropped-check']);
+    expect(check?.unflaggedBugIds).toEqual([]);
     expect(check?.right).toBe(false);
   });
 
@@ -93,6 +106,7 @@ describe('checking a review', () => {
     expect(checkFlags(card, [])).toEqual({
       verdicts: [],
       missedBugIds: ['dropped-check', 'quiet-failure'],
+      unflaggedBugIds: ['dropped-check', 'quiet-failure'],
       right: false,
     });
   });
