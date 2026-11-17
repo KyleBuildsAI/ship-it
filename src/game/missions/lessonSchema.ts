@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { beatsForAct } from '../world/beats';
+import { diffRows, isChangedRow, silencesACheck } from './diffRows';
 import { ACT_COUNT } from './roadmapSchema';
 import { checkUniqueIds, countWords, IdSchema, NameSchema } from './schemaParts';
 
@@ -28,6 +29,10 @@ export const LESSON_WORDS = {
   feedback: 30,
   explanation: 45,
   step: 15,
+  /** A code review card's note on a row: why it's a bug, or why it's fine. */
+  reviewNote: 20,
+  /** What a code review card says about a bug a check missed, without giving the row away. */
+  reviewClue: 15,
   /** The situation and the question, read together before the options. */
   cardScreen: 60,
 } as const;
@@ -182,6 +187,142 @@ export const OrderCardSchema = z
     checkScreen(card, ctx);
   });
 
+/**
+ * The problems a code review card's chips name. Append-only: content names these, and a
+ * later review history may store them, so renaming one would break both.
+ */
+export const REVIEW_ISSUES = [
+  'logic',
+  'security',
+  'error-handling',
+  'tests',
+  'scope',
+  'made-up',
+] as const;
+export type ReviewIssue = (typeof REVIEW_ISSUES)[number];
+
+/** A review diff is clicked line by line, so it stays short enough to read in the panel. */
+export const REVIEW_MAX_ROWS = 20;
+
+/** One problem in a review diff. */
+const ReviewBugSchema = z.strictObject({
+  id: IdSchema,
+  /** The diff rows it's on, counted from 1 as the line numbers show them. Any one finds it. */
+  rows: z.array(z.int().min(1)).min(1).max(6),
+  /** The chips that count as naming it right. Most bugs have one. */
+  issues: z.array(z.enum(REVIEW_ISSUES)).min(1).max(2),
+  /** Shown on its row once it's found. */
+  note: words(LESSON_WORDS.reviewNote),
+  /** Shown under the diff when a check misses it. It never names the row. */
+  clue: words(LESSON_WORDS.reviewClue),
+});
+
+/** A tempting changed row that is actually fine, with why. Shown when it's flagged. */
+const FineRowSchema = z.strictObject({
+  row: z.int().min(1),
+  note: words(LESSON_WORDS.reviewNote),
+});
+
+/**
+ * Every row a player can flag has a verdict written for it: each changed row of the diff
+ * is in exactly one bug or one fine entry, so a check never meets a row nobody judged.
+ * And an added row that turns a check off is always a bug, never fine.
+ */
+function checkReviewRows(
+  card: {
+    artifact: Artifact;
+    bugs: readonly { id: string; rows: readonly number[] }[];
+    fine: readonly { row: number }[];
+  },
+  ctx: z.RefinementCtx,
+): void {
+  const { artifact } = card;
+  const report = (path: (string | number)[], message: string) => {
+    ctx.addIssue({ code: 'custom', path, message });
+  };
+  if (artifact.kind !== 'diff') {
+    report(
+      ['artifact', 'kind'],
+      'A code review card shows a diff to flag, so its artifact is a "diff".',
+    );
+    return;
+  }
+  const rows = diffRows(artifact.text);
+  if (rows.length > REVIEW_MAX_ROWS) {
+    report(
+      ['artifact', 'text'],
+      `The diff has ${String(rows.length)} rows; keep a review diff to ${String(REVIEW_MAX_ROWS)}, since each changed row is judged.`,
+    );
+  }
+  const judged = new Set<number>();
+  /** Claims a row for one verdict. Returns its line, or null when the claim is a mistake. */
+  const judge = (row: number, path: (string | number)[]): string | null => {
+    const line = rows[row - 1];
+    const name = `Row ${String(row)}`;
+    if (line === undefined) {
+      report(path, `${name} is not in the diff, which has ${String(rows.length)} rows.`);
+    } else if (!isChangedRow(line)) {
+      report(path, `${name} is not an added or removed line, so it can't be flagged.`);
+    } else if (judged.has(row)) {
+      report(
+        path,
+        `${name} already has a verdict. List each changed row once, in one bug or in fine.`,
+      );
+    } else {
+      judged.add(row);
+      return line;
+    }
+    return null;
+  };
+  card.bugs.forEach((bug, bugIndex) => {
+    bug.rows.forEach((row, rowIndex) => judge(row, ['bugs', bugIndex, 'rows', rowIndex]));
+  });
+  card.fine.forEach((entry, index) => {
+    const line = judge(entry.row, ['fine', index, 'row']);
+    if (line !== null && silencesACheck(line)) {
+      report(
+        ['fine', index, 'row'],
+        `Row ${String(entry.row)} turns a check off, so it can never be fine. Make it a bug.`,
+      );
+    }
+  });
+  rows.forEach((line, index) => {
+    if (isChangedRow(line) && !judged.has(index + 1)) {
+      report(
+        ['fine'],
+        `Row ${String(index + 1)} is changed but has no verdict. Add it to a bug, or to fine with why it's fine.`,
+      );
+    }
+  });
+  checkUniqueIds(card.bugs, 'bugs', ctx);
+}
+
+/**
+ * "Review Otto's diff": flag the rows that would hurt in production, name each problem
+ * with a chip, then pick the review comment that sends him back to fix them.
+ */
+export const CodeReviewCardSchema = z
+  .strictObject({
+    ...cardBase,
+    kind: z.literal('code-review'),
+    /** The diff under review. Required here, and always a diff. */
+    artifact: ArtifactSchema,
+    bugs: z.array(ReviewBugSchema).min(1).max(3),
+    /** The tempting changed rows that are actually fine, each saying why. */
+    fine: z.array(FineRowSchema).min(2),
+    /**
+     * The review comments to send Otto once the flags are right. They're called options,
+     * as on a prompt card, so every rule for pick cards (length tells, right and wrong)
+     * covers them too.
+     */
+    options: z.array(optionSchema(LESSON_WORDS.promptOption)).min(3).max(4),
+  })
+  .superRefine((card, ctx) => {
+    checkOptions(card, ctx);
+    checkScreen(card, ctx);
+    checkReviewRows(card, ctx);
+  });
+
 // A plain union, not a discriminated one: each card schema has a refinement attached, and
 // zod only discriminates on plain objects. `kind` still tells them apart, so it's exact.
 export const CardSchema = z.union([ChooseCardSchema, PromptCardSchema, OrderCardSchema]);
@@ -189,6 +330,7 @@ export const CardSchema = z.union([ChooseCardSchema, PromptCardSchema, OrderCard
 export type ChooseCard = z.output<typeof ChooseCardSchema>;
 export type PromptCard = z.output<typeof PromptCardSchema>;
 export type OrderCard = z.output<typeof OrderCardSchema>;
+export type CodeReviewCard = z.output<typeof CodeReviewCardSchema>;
 export type LessonCard = z.output<typeof CardSchema>;
 export type PickCard = ChooseCard | PromptCard;
 export type CardOption = PickCard['options'][number];
