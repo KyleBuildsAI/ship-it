@@ -1093,7 +1093,8 @@ body {
   margin: 8px 0;
 }
 
-.lesson-artifact figcaption {
+.lesson-artifact figcaption,
+.review-diff figcaption {
   display: flex;
   gap: 8px;
   margin-bottom: 4px;
@@ -1204,6 +1205,160 @@ body {
 
 .lesson-order__moves .play-button {
   padding: 3px 9px;
+}
+
+/*
+ * A code review card's diff (DiffReview.tsx): numbered rows on the artifact box's dark
+ * ground, the changed ones tinted green or red and clickable to flag. Unlike an artifact
+ * it has no max-height: a flag opens its chips under the row, which a scrolling box could
+ * hide, so the panel scrolls instead. Every state also shows a mark and words, so none
+ * relies on colour alone, and nothing animates.
+ */
+.review-diff {
+  margin: 8px 0;
+}
+
+.review-diff__rows {
+  margin: 0;
+  padding: 6px 0;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  list-style: none;
+}
+
+/* A row: a button when it's changed, so its color is set (buttons don't inherit one). */
+.review-diff__line {
+  display: flex;
+  width: 100%;
+  margin: 0;
+  padding: 0 8px 0 4px;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font: 12.5px/1.45 var(--font-mono);
+  font-variant-ligatures: none;
+  text-align: left;
+}
+
+.review-diff__line--context {
+  color: var(--text-muted);
+}
+
+.review-diff__line--added {
+  background: rgba(126, 226, 168, 0.1);
+  cursor: pointer;
+}
+
+.review-diff__line--removed {
+  background: rgba(255, 123, 123, 0.1);
+  cursor: pointer;
+}
+
+.review-diff__line:disabled {
+  cursor: default;
+}
+
+/*
+ * :enabled, because a context row is a plain block and never a target. A lighter layer
+ * over the tint, so a verdict's ring stays visible under the pointer.
+ */
+.review-diff__line:enabled:hover {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06));
+}
+
+.review-diff__line:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Amber is the Git World's "modified": flagged, waiting for a check. */
+.review-diff__line--flagged {
+  border-left-color: var(--amber);
+}
+
+.review-diff__line--found {
+  border-left-color: var(--ok);
+  box-shadow: inset 0 0 0 1px var(--ok);
+}
+
+.review-diff__line--wrong-issue {
+  border-left-color: var(--warn);
+  box-shadow: inset 0 0 0 1px var(--warn);
+}
+
+.review-diff__line--fine {
+  border-left-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+.review-diff__number {
+  flex: none;
+  width: 3ch;
+  margin-right: 1ch;
+  color: var(--text-muted);
+  text-align: right;
+  user-select: none;
+}
+
+.review-diff__mark {
+  flex: none;
+  width: 2ch;
+  color: var(--amber);
+}
+
+.review-diff__line--found .review-diff__mark {
+  color: var(--ok);
+}
+
+.review-diff__line--fine .review-diff__mark {
+  color: var(--danger);
+}
+
+/* LessonView's artifact lines hang the same way: a wrapped rest indents past the + or -. */
+.review-diff__code {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.review-diff__note {
+  margin: 2px 8px 4px 6ch;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.review-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 8px 6px 5ch;
+}
+
+.review-chip {
+  padding: 2px 9px;
+  border: 1px solid var(--glass-stroke);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font: 12px/1.4 var(--font-ui);
+  cursor: pointer;
+}
+
+.review-chip:hover {
+  border-color: var(--accent);
+}
+
+.review-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.review-chip[aria-pressed='true'] {
+  border-color: var(--amber);
+  background: rgba(255, 179, 71, 0.16);
 }
 
 .lesson-stars {
