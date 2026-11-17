@@ -13,9 +13,10 @@ export interface WorldTestHooks {
   /** Where an Act's Campus portal appears on screen, in page pixels, or null when it's out of view. */
   portalPoint: (act: number) => { x: number; y: number } | null;
   /**
-   * What an Act's Campus portal shows of its skill tree: lit segments, and segments in view
-   * (none on a locked portal). Read from the ring itself, not worked out again. Null for an
-   * Act with no portal.
+   * What an Act's Campus portal shows of its skill tree: segments in view (none on a locked
+   * portal), and how many of them glow the lit gold. Counted from the ring's meshes, not
+   * worked out again from the save, so a segment that missed its repaint shows up here.
+   * Null for an Act with no portal.
    */
   portalShare: (act: number) => { lit: number; parts: number } | null;
 }
