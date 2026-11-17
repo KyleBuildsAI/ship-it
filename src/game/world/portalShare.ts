@@ -1,3 +1,4 @@
+import type { ActSummary } from '../play/actSummary';
 import type { SkillBranch } from '../play/skillTree';
 
 /*
@@ -16,6 +17,15 @@ export interface PortalShare {
 }
 
 const NO_PIPS: PortalShare = { pips: [] };
+
+/**
+ * How many segments each Act's portal ring needs, keyed by Act number: one per part, the
+ * same parts its skill tree branch has a node for. Read from summaries, so building the
+ * Campus downloads no Act.
+ */
+export function partsPerAct(summaries: readonly ActSummary[]): ReadonlyMap<number, number> {
+  return new Map(summaries.map(({ act, parts }) => [act.act, parts.length]));
+}
 
 /**
  * One Act's share. A locked Act shows no pips at all, so its portal never looks like it has

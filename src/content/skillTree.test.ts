@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { skillTree } from '../game/play/skillTree';
 import { createDefaultSave } from '../game/save/schema';
 import { TEST_NOW } from '../game/save/testFixtures';
+import { partsPerAct } from '../game/world/portalShare';
 import { ACT_SUMMARIES } from './actSummaries.generated';
 
 /*
@@ -15,6 +16,15 @@ describe('the skill tree over the shipped Acts', () => {
   it('has a node for every part of every Act', () => {
     expect(fresh.map((branch) => branch.act)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     expect(fresh.map((branch) => branch.nodes.length)).toEqual([7, 6, 5, 5, 5, 5, 5, 5]);
+  });
+
+  it("gives each Act's Campus portal a ring segment for every node", () => {
+    // The world builds each portal's ring from these counts; a short ring would drop pips.
+    const segments = partsPerAct(ACT_SUMMARIES);
+    expect([...segments.keys()]).toEqual(fresh.map((branch) => branch.act));
+    expect(fresh.map((branch) => segments.get(branch.act))).toEqual(
+      fresh.map((branch) => branch.nodes.length),
+    );
   });
 
   it('gives every mission at least 5 drills to count', () => {

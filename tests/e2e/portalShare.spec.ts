@@ -63,7 +63,8 @@ test("each portal shows its Act's lit share, and a node lighting shows at once",
   await expect(badge).toContainText('saved', { timeout: 15_000 });
   await expect(badge).toContainText(/WebGPU|WebGL2 fallback/, { timeout: 15_000 });
 
-  // A new save: every portal is open and has a segment for each part of its Act, none lit.
+  // A new save: every portal is open and shows segments, none lit. That each ring has one
+  // segment per part of its Act is checked on the shipped Acts in src/content/skillTree.test.ts.
   await expect.poll(() => shares(page)).not.toContain(null);
   const fresh = await shares(page);
   for (const share of fresh) {

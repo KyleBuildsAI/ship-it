@@ -15,7 +15,7 @@ import {
 import { TEST_NOW } from '../save/testFixtures';
 import { summarizeAct } from '../play/actSummary';
 import { skillTree } from '../play/skillTree';
-import { portalShare, portalShares } from './portalShare';
+import { partsPerAct, portalShare, portalShares } from './portalShare';
 
 // A mission Act (Act 2: three missions) and a lesson Act (Act 4: two lessons and a final).
 const SUMMARIES = [
@@ -106,5 +106,16 @@ describe('portalShare', () => {
 
   it('shows nothing for an Act the game does not ship', () => {
     expect(portalShare(undefined, false)).toEqual({ pips: [] });
+  });
+});
+
+describe('partsPerAct', () => {
+  it('gives each Act a segment per part, from its summary alone', () => {
+    expect(partsPerAct(SUMMARIES)).toEqual(
+      new Map([
+        [2, 3],
+        [4, 3],
+      ]),
+    );
   });
 });

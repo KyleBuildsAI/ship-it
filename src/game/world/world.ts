@@ -23,7 +23,7 @@ import { createMachineIsland, MACHINE_CENTER } from './machineIsland';
 import { describeHistory } from './historyLayout';
 import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
-import { portalShares } from './portalShare';
+import { partsPerAct, portalShares } from './portalShare';
 import { installTestHooks } from './testHooks';
 import {
   CAMERA_RIGS,
@@ -95,10 +95,7 @@ export function createWorld(
   // Summaries, not content: the Campus counts each Act's parts without downloading an Act.
   const summaries = actSummaries();
   const open = openActs();
-  const campus = createCampus(
-    open,
-    new Map(summaries.map(({ act, parts }) => [act.act, parts.length])),
-  );
+  const campus = createCampus(open, partsPerAct(summaries));
   const gitWorld = createGitWorld();
   const machine = createMachineIsland();
   const actIslands = perActIsland((data) => createActIsland(data, reducedMotion));
