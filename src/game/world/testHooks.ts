@@ -12,6 +12,12 @@ export interface WorldTestHooks {
   beat: () => string | null;
   /** Where an Act's Campus portal appears on screen, in page pixels, or null when it's out of view. */
   portalPoint: (act: number) => { x: number; y: number } | null;
+  /**
+   * What an Act's Campus portal shows of its skill tree: lit segments, and segments in view
+   * (none on a locked portal). Read from the ring itself, not worked out again. Null for an
+   * Act with no portal.
+   */
+  portalShare: (act: number) => { lit: number; parts: number } | null;
 }
 
 declare global {

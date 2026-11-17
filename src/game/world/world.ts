@@ -4,7 +4,11 @@ import type { Workspace } from '../../engine/workspace';
 import { shortId } from '../../engine/git/hash';
 import { isTypingTarget, isWorldTarget } from '../../ui/focus';
 import { closeActMenu, closeTerminal, suggest } from '../hud';
+import { actSummaries } from '../play/catalog';
+import { skillTree } from '../play/skillTree';
+import { progress } from '../progress';
 import { sandbox } from '../sandbox';
+import type { SaveData } from '../save/schema';
 import { worldState, type ActIslandZone, type ZoneId } from '../worldState';
 import { createActIsland } from './actIsland';
 import { createAvatar } from './avatar';
@@ -19,6 +23,7 @@ import { createMachineIsland, MACHINE_CENTER } from './machineIsland';
 import { describeHistory } from './historyLayout';
 import { suggestFor, type WorldTarget } from './suggestions';
 import { createStars } from './island';
+import { portalShares } from './portalShare';
 import { installTestHooks } from './testHooks';
 import {
   CAMERA_RIGS,
@@ -68,6 +73,8 @@ const CLICK_MAX_PIXELS = 6;
 const CLICK_MAX_MS = 400;
 /** How long the view takes to fade back in after a trip: theme.css's #scene transition. */
 const FADE_IN_SECONDS = 0.35;
+/** What the skill tree reads before a save has loaded (or when it couldn't): no progress. */
+const NO_PROGRESS: Pick<SaveData, 'missions' | 'drillHistory'> = { missions: {}, drillHistory: [] };
 
 /**
  * Builds the explorable world: Campus, the Git World, the machine island and the themed
@@ -85,7 +92,13 @@ export function createWorld(
   scene.background = new THREE.Color(0x05060b);
   scene.fog = new THREE.FogExp2(0x070a14, 0.022);
 
-  const campus = createCampus(openActs());
+  // Summaries, not content: the Campus counts each Act's parts without downloading an Act.
+  const summaries = actSummaries();
+  const open = openActs();
+  const campus = createCampus(
+    open,
+    new Map(summaries.map(({ act, parts }) => [act.act, parts.length])),
+  );
   const gitWorld = createGitWorld();
   const machine = createMachineIsland();
   const actIslands = perActIsland((data) => createActIsland(data, reducedMotion));
@@ -259,6 +272,19 @@ export function createWorld(
   playBeats();
   const stopBeats = worldState.subscribe(playBeats);
 
+  // Each portal's share ring follows the save: a node that lights (or dims) recolours its
+  // segment. The progress store also changes for status alone, so only a new save is worked
+  // out again. `undefined` means nothing is shown yet, so the first call always draws.
+  let sharedSave: SaveData | null | undefined;
+  const showShares = () => {
+    const { save } = progress.get();
+    if (save === sharedSave) return;
+    sharedSave = save;
+    campus.showShares(portalShares(skillTree(summaries, save ?? NO_PROGRESS), open));
+  };
+  showShares();
+  const stopShares = progress.subscribe(showShares);
+
   // The Git World mirrors the sandbox: any engine event marks the crates and the commit
   // path for a redraw, done at most once per frame however many events a command produced.
   const yard = new CrateYard(gitWorld, scene);
@@ -424,6 +450,8 @@ export function createWorld(
         y: bounds.top + ((1 - point.y) / 2) * bounds.height,
       };
     },
+    portalShare: (act) =>
+      campus.portals.find((candidate) => candidate.act === act)?.share.shown() ?? null,
   });
 
   const follow = new THREE.Vector3();
@@ -495,6 +523,7 @@ export function createWorld(
     },
     dispose: () => {
       removeTestHooks();
+      stopShares();
       stopInset();
       stopWatching();
       stopSandbox();
