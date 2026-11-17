@@ -397,7 +397,7 @@ describe('two tabs', () => {
 
   it('stops writing, and logs it, when the browser drops the lock for another reason', async () => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { storage, writes } = memoryStorage();
     const tab = otherTab();
     const starting = startProgress(storage, NOW, tab.coordination);
@@ -414,6 +414,10 @@ describe('two tabs', () => {
     await flushProgress();
     expect(writes.map((save) => save.profile.xp)).not.toContain(5);
     expect(errors).toHaveBeenCalledWith('[ship-it] this tab lost the save lock', fault);
+    // No other tab took the save, so the change wasn't dropped for one: it's offered as an
+    // export (ElsewhereNotice.tsx), as a change whose write failed is.
+    expect(progress.get().problem).toBe('Your latest change in this tab could not be saved.');
+    expect(warnings).not.toHaveBeenCalled();
   });
 
   it('ignores losing an older claim from this same page', async () => {

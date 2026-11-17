@@ -153,6 +153,13 @@ let claims = 0;
 export const CHANGE_DROPPED =
   "Your last change in this tab wasn't saved, because the other tab took over the save first. Keep playing there.";
 
+/**
+ * What the notice says when a change couldn't be stored for any other reason: the write
+ * failed, or the browser dropped the lock without another tab taking it. The notice offers
+ * the change as an export then, so the player can keep it.
+ */
+const CHANGE_NOT_SAVED = 'Your latest change in this tab could not be saved.';
+
 /** A write refused because this tab no longer holds the save lock. */
 class SaveElsewhereError extends Error {
   override name = 'SaveElsewhereError';
@@ -169,9 +176,10 @@ function isAbortError(error: unknown): boolean {
 
 /**
  * Stops this tab writing, stores what's pending if it still holds the lock, and tells the
- * player. Final until reload.
+ * player. `lockFault`: the browser dropped the lock without another tab taking it. Final
+ * until reload.
  */
-async function handOver(release: boolean): Promise<void> {
+async function handOver(release: boolean, lockFault = false): Promise<void> {
   if (steppedAside) return;
   steppedAside = true;
   progress.update({ status: 'elsewhere' });
@@ -187,14 +195,18 @@ async function handOver(release: boolean): Promise<void> {
     // (saveProgressNow), so it's usually a settings change still in the autosave delay.
     await autosave?.flush();
   } catch (error) {
-    if (error instanceof SaveElsewhereError) {
+    if (!(error instanceof SaveElsewhereError)) {
+      problem = CHANGE_NOT_SAVED;
+      console.error('[ship-it] saving before handing over to the other tab failed', error);
+    } else if (lockFault) {
+      // Refused, but not for another tab's sake (lost() has logged the fault), so there may
+      // be no other tab to play on in. The player can keep the change as an export.
+      problem = CHANGE_NOT_SAVED;
+    } else {
       problem = CHANGE_DROPPED;
       console.warn(
         '[ship-it] another tab took the save first, so this tab dropped its last change',
       );
-    } else {
-      problem = 'Your latest change in this tab could not be saved.';
-      console.error('[ship-it] saving before handing over to the other tab failed', error);
     }
   }
   // Nothing in this tab may write again, not even a retry of a failed write.
@@ -254,8 +266,9 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
       holdsSave = false;
       // Another tab's steal is the one expected way to lose it. Any other is a browser fault,
       // and still means this tab doesn't hold the lock, so it stops writing all the same.
-      if (!isAbortError(error)) console.error('[ship-it] this tab lost the save lock', error);
-      void handOver(false);
+      const stolen = isAbortError(error);
+      if (!stolen) console.error('[ship-it] this tab lost the save lock', error);
+      void handOver(false, !stolen);
     };
     locks
       .request(SAVE_LOCK, { signal: AbortSignal.timeout(HANDOVER_WAIT_MS) }, hold)
