@@ -123,4 +123,13 @@ describe('a code review diff', () => {
     expect(body).toContain('white-space: pre-wrap;');
     expect(body).toContain('overflow-wrap: anywhere;');
   });
+
+  it('keeps every row inside the box, padding and flag bar included', () => {
+    // A row is 100% wide. A context row is a plain block, which counts its padding and
+    // left border on top of that width (only buttons count them inside), so it would
+    // stick out past the box's right edge and draw its wrapped code over the border.
+    const body = ruleBody('.review-diff__line');
+    expect(body).toContain('width: 100%;');
+    expect(body).toContain('box-sizing: border-box;');
+  });
 });
