@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { sampleLessonAct } from '../../game/missions/sample.test-lesson';
+import { sampleFinal, sampleLesson, sampleLessonAct } from '../../game/missions/sample.test-lesson';
 import { sampleAct, sampleMission, secondMission } from '../../game/missions/sample.test-mission';
 import { summarizeAct } from '../../game/play/actSummary';
 import { setLazyCatalog } from '../../game/play/catalog';
@@ -18,7 +18,7 @@ vi.mock('../useStore', () => ({
 }));
 
 describe('the Trophy Wall', () => {
-  it('ticks off finished missions from the summaries, and lists no lessons', () => {
+  it('shows the skill tree from summaries, lessons included', () => {
     // The loader stands in for an Act's download. The wall reads summaries only.
     const load = vi.fn(() => {
       throw new Error('The Trophy Wall must never load an Act.');
@@ -32,11 +32,13 @@ describe('the Trophy Wall', () => {
       save: { ...save, missions: { [sampleMission.id]: done } },
       problem: null,
     });
-    const items = [...renderToStaticMarkup(<TrophyWall />).matchAll(/<li[^>]*>(.*?)<\/li>/g)];
-    expect(items.map((match) => match[1])).toEqual([
-      `✓ ${sampleMission.title}`,
-      `○ ${secondMission.title}`,
-    ]);
+    const markup = renderToStaticMarkup(<TrophyWall />);
+    expect(markup).toContain('aria-label="Skill tree"');
+    const rows = [...markup.matchAll(/<li class="skill-node skill-node--(\w+)">/g)];
+    expect(rows.map(([, state]) => state)).toEqual(['done', 'new', 'new', 'new', 'new']);
+    expect(markup).toContain(`2.1 ${sampleMission.title}`);
+    expect(markup).toContain(`4.1 ${sampleLesson.title}`);
+    expect(markup).toContain(`4.3 Final: ${sampleFinal.title}`);
     expect(load).not.toHaveBeenCalled();
   });
 
