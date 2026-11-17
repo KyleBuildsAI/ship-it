@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
 import {
   finishLessonBriefing,
   nextCard,
@@ -10,8 +12,16 @@ import { startRun } from '../../game/missions/runner';
 import { sampleLesson } from '../../game/missions/sample.test-lesson';
 import { sampleMission } from '../../game/missions/sample.test-mission';
 import type { LessonActivity, MissionActivity } from '../../game/play/playStore';
+import type { Store } from '../../game/store';
+import { HudMenu } from '../menus/HudMenu';
 import themeCss from '../theme.css?raw';
 import { panelClassName, panelScrollKey } from './panelLayout';
+
+// The HUD menu is rendered to an HTML string, as in ActMenu.test.tsx: the real hook has no
+// server snapshot, so here it just reads the store.
+vi.mock('../useStore', () => ({
+  useStore: <T extends object>(store: Store<T>) => store.get(),
+}));
 
 function missionAt(phase: MissionActivity['run']['phase']): MissionActivity {
   return {
@@ -164,31 +174,49 @@ describe('the command chip with the terminal open', () => {
 });
 
 /**
- * theme.css's rules for a narrow window, `@media (width < Npx)`: the width they stop at and
- * the CSS inside. With no such block every window gets the wide layout, so `below` is 0.
+ * theme.css's rules for a narrow window, `@media (width < Npx)`: the width they stop at, the
+ * CSS inside, and where the block starts and ends in the file. With no such block every
+ * window gets the wide layout, so `below` is 0.
  */
-function narrowWindow(): { below: number; css: string } {
+function narrowWindow(): { below: number; css: string; start: number; end: number } {
   const match = /@media \(width < (\d+)px\) \{([\s\S]*?)\n\}/.exec(themeCss);
-  return { below: Number(match?.[1] ?? 0), css: match?.[2] ?? '' };
+  const start = match?.index ?? -1;
+  return {
+    below: Number(match?.[1] ?? 0),
+    css: match?.[2] ?? '',
+    start,
+    end: start + (match?.[0].length ?? 0),
+  };
+}
+
+/** The HUD menu's button labels as the game renders them: Acts, Standup, … ♪ Music. */
+function menuLabels(): string[] {
+  const html = renderToStaticMarkup(createElement(HudMenu));
+  const buttons = html.matchAll(/<button[^>]*class="glass hud-menu__button"[^>]*>(.*?)<\/button>/g);
+  // The ♪ sits in its own span (hidden from screen readers), but it still takes up room.
+  const labels = [...buttons].map(([, inside = '']) => inside.replace(/<[^>]*>/g, ''));
+  if (labels.length === 0) throw new Error('No HUD menu buttons rendered');
+  return labels;
 }
 
 /**
- * The HUD menu's labels (Acts, Standup, Trophies, Settings, ♪ Music) laid end to end at 13px.
- * Segoe UI, the font Windows draws them in, measures 210px. Verdana and Linux's DejaVu Sans,
- * the widest common fallbacks, measure about 240px. The checks use the wider, so they hold
- * in any browser.
+ * 13px label text at its widest is about 7px a character. In Chrome, Verdana, the widest
+ * common fallback font, measures 238px for today's five labels (34 characters) and Segoe
+ * UI, the font Windows draws them in, 210px. Counting the characters the game really
+ * renders means a new or longer button moves the row's end, and these checks with it.
  */
-const MENU_LABELS_WIDTH = 240;
-const MENU_BUTTONS = 5;
+const LABEL_PX_PER_CHARACTER = 7;
 
 /** How far from the window's left edge the HUD menu row ends, at `zoom`. */
 function menuRowEnd(zoom: number): number {
+  const labels = menuLabels();
   const left = pixels(themeCss, '.hud-menu', /left: (\d+)px/);
   const gap = pixels(themeCss, '.hud-menu', /gap: (\d+)px/);
   const sidePadding = pixels(themeCss, '.hud-menu__button', /padding: \d+px (\d+)px/);
+  const text = labels.join('').length * LABEL_PX_PER_CHARACTER;
   // Zoom grows each whole button (its text, padding and 1px borders), not the gaps between.
-  const buttons = zoom * (MENU_LABELS_WIDTH + MENU_BUTTONS * (2 * sidePadding + 2));
-  return left + buttons + (MENU_BUTTONS - 1) * gap;
+  const buttons = zoom * (text + labels.length * (2 * sidePadding + 2));
+  return left + buttons + (labels.length - 1) * gap;
 }
 
 /** How far from the window's left edge the editor dock starts, in a window `width` px wide. */
