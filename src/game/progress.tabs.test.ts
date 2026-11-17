@@ -654,3 +654,135 @@ describe('tabs opened together, any timing', () => {
     SEEDED_LOOP_TIMEOUT_MS,
   );
 });
+
+/** What IndexedDB holds when a random session starts: a first launch, an old save or a current one. */
+function randomStartingSave(
+  random: () => number,
+): { save: SaveData; fromOlderVersion: boolean } | undefined {
+  const pick = random();
+  if (pick < 1 / 3) return undefined;
+  return { save: setXp(1)(createDefaultSave(NOW)), fromOlderVersion: pick < 2 / 3 };
+}
+
+/**
+ * How a random session ended:
+ * - 'stored': IndexedDB holds exactly the copy of the one tab that saves.
+ * - 'unseen race': it doesn't, because what it holds came from a write that landed late,
+ *   sent before its tab could know the lock had gone (LateWrite in simulatedBrowser.ts).
+ *   progress.ts explains why no tab can stop that one (#224).
+ * - 'no saving tab': no single tab ended up saving, so there's no copy to compare.
+ * - Anything else says what went wrong.
+ */
+type SessionEnd = 'stored' | 'unseen race' | 'no saving tab' | { readonly problem: string };
+
+/**
+ * Plays one random session of two or three tabs: openings, long tasks, and the player changing
+ * the save in any tab at random moments, so changes land before, during and after handovers.
+ * Settings changes wait out the autosave delay; finished steps are stored at once.
+ */
+async function playRandomSession(seed: number, tabCount: 2 | 3): Promise<SessionEnd> {
+  const random = seededRandom(seed);
+  const between = (low: number, high: number) => low + Math.floor(random() * (high - low + 1));
+  const browser: SimulatedBrowser = createSimulatedBrowser({
+    latency: () => (random() < 0.03 ? between(100, 3000) : between(0, 5)),
+    stored: randomStartingSave(random),
+  });
+  const games = [first, second, third].slice(0, tabCount);
+  const tabs = games.map((_, index) => browser.openTab(['a', 'b', 'c'][index] ?? 'extra'));
+  for (const game of games) game.devStatus.update({ save: 'none' });
+
+  // Later tabs open together with the first, or while the player is already playing in it.
+  for (const [index, game] of games.entries()) {
+    const tab = tabs[index];
+    if (tab === undefined) continue;
+    const opensAt = index === 0 ? 0 : between(0, 8000);
+    setTimeout(() => {
+      start(game, tab);
+    }, opensAt);
+    for (let task = between(0, 3); task > 0; task--) {
+      const length = between(50, 5000);
+      setTimeout(
+        () => {
+          tab.busyFor(length);
+        },
+        between(0, 10_000),
+      );
+    }
+    // Every change sets a different XP, so the save shows whose change was stored last. A
+    // tab's changes come after it opens: before that, its module still holds the last session.
+    for (let change = between(2, 6); change > 0; change--) {
+      const xp = 100 * (index + 1) + change;
+      const finishedStep = random() < 0.5;
+      setTimeout(
+        () => {
+          tab.run(() => {
+            if (finishedStep) game.progress.saveProgressNow(setXp(xp));
+            else game.progress.updateSave(setXp(xp));
+          });
+        },
+        opensAt + between(0, 12_000),
+      );
+    }
+  }
+
+  await vi.advanceTimersByTimeAsync(60_000);
+  vi.clearAllTimers();
+
+  // Never allowed: a write sent once its tab had let go of the lock, or knew it was going.
+  const late = browser.lateWrites();
+  const knowing = late.find((write) => write.knew);
+  if (knowing !== undefined) return { problem: `${knowing.tab} wrote after it lost the save` };
+
+  const states = games.map((game) => `${game.progress.progress.get().status}/${badge(game)}`);
+  const ownerIndex = states.indexOf('ready/saving');
+  const ownerName = tabs[ownerIndex]?.name;
+  const oneOwner =
+    states.filter((state) => state === 'ready/saving').length === 1 &&
+    states.filter((state) => state === 'elsewhere/elsewhere').length === tabCount - 1 &&
+    browser.lockHolder() === ownerName;
+  if (!oneOwner) return 'no saving tab';
+
+  // Compared whole: the owner's copy must be exactly what IndexedDB holds.
+  const owner = games[ownerIndex]?.progress.progress.get().save;
+  if (JSON.stringify(owner) === JSON.stringify(browser.stored())) return 'stored';
+  // Only the late write itself excuses this, not one earlier that the owner wrote over.
+  if (late.some((write) => write.save === browser.stored())) return 'unseen race';
+  const ownerXp = String(owner?.profile.xp);
+  const storedXp = String(browser.stored()?.profile.xp);
+  return { problem: `${ownerName} has XP ${ownerXp}, but IndexedDB holds XP ${storedXp}` };
+}
+
+const SESSIONS = 1000;
+
+/**
+ * The sessions that end with no single tab saving: every tab handed over and the lock free.
+ * That's an older bug in the #104 handover, not this one (main ends these seeds the same
+ * way), to be fixed on its own in #223. Listed by seed so that any new one fails this test.
+ */
+const NO_SAVING_TAB_SEEDS: Record<2 | 3, readonly number[]> = { 2: [], 3: [19, 37, 438, 558] };
+
+describe('the player changing the save while tabs hand it over, any timing (#198)', () => {
+  it.each([2, 3] as const)(
+    'ends with IndexedDB holding exactly the copy of the one of %i tabs that saves',
+    async (tabCount) => {
+      // Dozens of sessions drop a change on purpose, each with a warning that would flood the
+      // test output.
+      quietWarnings();
+      const problems: string[] = [];
+      const noSavingTab: number[] = [];
+      let unseenRaces = 0;
+      for (let seed = 1; seed <= SESSIONS; seed++) {
+        const end = await playRandomSession(seed, tabCount);
+        if (end === 'unseen race') unseenRaces += 1;
+        else if (end === 'no saving tab') noSavingTab.push(seed);
+        else if (typeof end === 'object') problems.push(`seed ${String(seed)}: ${end.problem}`);
+      }
+      expect(problems).toEqual([]);
+      expect(noSavingTab).toEqual(NO_SAVING_TAB_SEEDS[tabCount]);
+      // Rare: about 1 session in 1,000 here, all on a starved machine. Far more would mean
+      // a tab writes when it could know better, and these sessions are hiding it.
+      expect(unseenRaces).toBeLessThanOrEqual(SESSIONS / 100);
+    },
+    SEEDED_LOOP_TIMEOUT_MS,
+  );
+});
