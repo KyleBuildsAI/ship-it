@@ -53,8 +53,9 @@ function begin(
   const drills = drillIds.map(loadedDrill);
   endDrill();
   endScene();
-  // Act 2's drills are typed, so the terminal opens for them; a judgment drill is answered
-  // in the panel, so a set of only those keeps it put away (DESIGN.md, First-run tutorial).
+  // A typed drill needs the terminal, so it opens for one; a judgment drill is answered in
+  // the panel, so a set of only those keeps it put away (DESIGN.md, First-run tutorial).
+  // Every shipped drill is a judgment drill today.
   if (drills.some((drill) => !isJudgmentDrill(drill))) openTerminal();
   else closeTerminal();
   setActivity({

@@ -2785,3 +2785,56 @@ https://github.com/KyleBuildsAI/ship-it/pull/216
 3. Grading never looks at positions. When you click an option, the game records that option's `id`, and the option itself carries `correct: true` or not. Shuffling moves whole options, with their ids and flags, so the same click on the same option gives the same result wherever it sits. The browser check showed this: the right answers moved, and the replay still scored 8 of 8.
 
 </details>
+
+---
+
+## #220 feat: work out skill tree nodes from summaries and the save
+
+https://github.com/KyleBuildsAI/ship-it/pull/220
+
+1. Why is a node a mission or lesson, and not a `drill.concept` tag?
+2. Why is ★★★ the same bar as 9 of 10, and why does it mean a perfect run for an 8-card lesson?
+3. Why can a mission node go dark when a lesson node can't?
+
+<details><summary>Answers</summary>
+
+1. There are 28 concept tags, and 12 of them have only one drill. Mastery needs 10 attempts, so a node for one of those tags would mean answering the same question ten times. Acts 3 to 8 have no drills and their cards carry no tags, so they would have no nodes at all. Mission and lesson titles already name the ideas the course teaches, and the save already tracks each part. So a node per part works for every Act, with no new data.
+2. Both are 90%. 9 of 10 drills is 90%, and ★★★ needs 90% or more of a run's cards right on the first try (`LESSON_MASTERY_PERCENT` is `Math.round(MASTERY_ACCURACY * 100)`, which is 90). The percent is rounded: 7 of 8 is 87.5%, which rounds to 88, below 90. So with 8 cards only 8 of 8 is enough. The same goes for a 9-card lesson (8 of 9 is 89). Only the one 10-card lesson allows a single miss.
+3. A mission node looks at its **last 10** drill attempts. Each new attempt pushes the oldest one out, so a few new misses can drop it below 9 right. A lesson node looks at the **best** first-try percent the save keeps (`completeLesson` keeps the higher of the old and new score), and a best score never goes down.
+
+</details>
+
+---
+
+## #221 feat: grade a code review card's flags
+
+https://github.com/KyleBuildsAI/ship-it/pull/221
+
+1. A player flags the right line of a bug but picks the wrong problem for it. Is that bug in `missedBugIds`, in `unflaggedBugIds`, or both? Why keep two lists?
+2. Why does `checkFlags` return `null`, and not a wrong result, while a flag has no problem picked?
+3. Why does `checkFlags` sort `[...flags]` and not `flags` itself?
+
+<details><summary>Answers</summary>
+
+1. Only in `missedBugIds`. The bug isn't found yet, so the review isn't right. But a line of it is flagged, and that line already says "Right line, different problem." The note under the diff counts `unflaggedBugIds`, so it only gives clues for bugs with no flag at all and never contradicts the line.
+2. There is nothing fair to grade yet. If an unpicked flag counted as wrong, pressing Check too early would cost a first try. Returning `null` lets the game wait: the Check review button stays off until every flag has a problem.
+3. `sort` changes the array it is called on. The flags come from the lesson run, which must never be changed in place. Copying first keeps the function pure: the same input always gives the same result, and the caller's list stays in the order the player made it.
+
+</details>
+
+---
+
+## #222 fix: keep the editor dock clear of the HUD buttons at Extra large text
+
+https://github.com/KyleBuildsAI/ship-it/pull/222
+
+1. Why did the editor cover the ♪ Music button at 1024px wide but not at 1280px, and why did it happen even with the terminal closed?
+2. The narrow-window rules have the same specificity as the main editor rules. What decides which rule wins, and what would happen if someone moved the `@media` block above `.editor-dock--above-terminal`?
+3. Why does the test render `HudMenu` and count label characters instead of keeping the numbers "5 buttons, 240px"?
+<details><summary>Answers</summary>
+
+1. The editor sits against the right edge and is `min(44vw, 640px)` wide, so its left edge is at about `width - 16 - 0.44 × width`. At 1024px that's x 557.5, and the Extra large row ends at x 629.6, so the editor's corner reaches past the row's end and covers Music. At 1280px the editor starts at x 700.8, 71px to the right of the row's end, so they can't touch. Closing the terminal moves both the row and the editor's bottom down to 16px from the window's bottom, so they still overlap at the same height. That's why the fix also lifts the editor with the terminal closed.
+2. With equal specificity, the rule that comes later in the file wins. The media query only switches its rules on and off. It doesn't make them stronger. If the block moved above `.editor-dock--above-terminal`, the main `bottom: calc(38vh + 32px)` would come later and win, and with the terminal open the editor would cover Music again. The new order test fails if that happens.
+3. Stored numbers don't change when the code changes. If someone added a sixth button, the real row would get longer, but a test that still assumed 5 buttons and 240px would keep passing while the editor covered the new button. Rendering `HudMenu` uses the labels the player actually sees, so a new or longer button moves the computed row end. With a sixth "Skill tree" button the test asks for the narrow rule to reach 1464px, and fails at 1280.
+
+</details>

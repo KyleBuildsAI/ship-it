@@ -85,7 +85,11 @@ export function isMastered(results: readonly boolean[]): boolean {
   return correct / MASTERY_ATTEMPTS >= MASTERY_ACCURACY;
 }
 
-/** Whether the concept practiced by `drillIds` is mastered: the rule over its recent results. */
+/**
+ * Whether the concept practiced by `drillIds` is mastered. Here a "concept" is one
+ * mission's drills: the skill tree has a node per mission, not per `drill.concept` tag
+ * (src/game/play/skillTree.ts).
+ */
 export function masteredConcept(
   history: readonly DrillAttempt[],
   drillIds: readonly string[],
