@@ -2838,3 +2838,75 @@ https://github.com/KyleBuildsAI/ship-it/pull/222
 3. Stored numbers don't change when the code changes. If someone added a sixth button, the real row would get longer, but a test that still assumed 5 buttons and 240px would keep passing while the editor covered the new button. Rendering `HudMenu` uses the labels the player actually sees, so a new or longer button moves the computed row end. With a sixth "Skill tree" button the test asks for the narrow rule to reach 1464px, and fails at 1280.
 
 </details>
+
+---
+
+## #225 fix: stop a tab writing the save once its lock is taken
+
+https://github.com/KyleBuildsAI/ship-it/pull/225
+
+1. When a newer tab asks, `handOver(true)` clears `holdsSave` only after storing the last change. Why does `lost()` clear it right away instead, before `handOver(false)` runs?
+2. Why does a change dropped because another tab took the save get no Export button, while a change lost to a failed write or a browser fault does?
+3. The seeded "tabs opened together" loop takes about 150 ms. Why give it a 60-second timeout?
+
+<details><summary>Answers</summary>
+
+1. When asked, the tab still holds the lock, and the new tab loads only after it lets go, so storing the last change first is safe and keeps it. When the lock was taken, the new tab may already have loaded the save. `handOver(false)` still calls `autosave.flush()`, and that write (or one already queued behind a slow write) checks `holdsSave` as it starts. Clearing the flag in `lost()`, the moment the news arrives, makes those writes refuse instead of putting this tab's older copy over the new tab's progress.
+2. When another tab took the save, that tab may already have loaded the save and moved on. This tab's copy can be older, so exporting it and importing it there would undo the newer progress. After a failed write or a browser fault, no other tab took over first, so this tab's copy plus the change is the newest the player has. Offering it as a file lets them keep it.
+3. A timeout doesn't stop the loop. Vitest marks the test failed and moves on, but the loop keeps running on the same three tab modules the next test uses, and makes that test fail too, with errors that look like a real bug (two tabs saving). On a busy machine the loop ran past the 5 s default. 60 s is room enough that it finishes, so it never leaks.
+
+</details>
+
+---
+
+## #226 test: check skill tree nodes against the real acts
+
+https://github.com/KyleBuildsAI/ship-it/pull/226
+
+1. Why test the skill tree against the real Acts, when `skillTree.test.ts` already tests it with sample Acts?
+2. What would go wrong in the game if one drill id appeared under two missions' `drillIds`?
+3. Why does the test sort both lists before comparing them?
+
+<details><summary>Answers</summary>
+
+1. The sample tests prove the rules work. They can't prove the real content fits those rules: that every mission has enough drills, that every drill belongs to a mission, and that the Acts have the parts the tree expects. Only a test over the shipped summaries can check that.
+2. Every attempt at that drill would count for both mission nodes. One drill could then help light two nodes at once, so a node could look mastered without its own drills being practised. And if a drill id appeared under no mission, attempts at it would be lost and never count.
+3. The test asks "do the missions own exactly the Act's drills, each once?" The order doesn't matter for that. Sorting puts both lists in the same order, so `toEqual` compares only which ids are there and how many times.
+
+</details>
+
+---
+
+## #227 feat: add the words and styles for a code review card
+
+https://github.com/KyleBuildsAI/ship-it/pull/227
+
+1. Why did `ARTIFACT_LABELS` move out of `LessonView.tsx`?
+2. This PR adds about 150 lines of CSS that nothing uses yet. Why can't it change any screen today?
+3. Why is the hover rule `.review-diff__line:enabled:hover`, and why does it set `background-image` instead of `background`?
+
+<details><summary>Answers</summary>
+
+1. PR 4's diff view needs the "Diff" label. Importing it from `LessonView.tsx` would tie one screen to another for one word, and a component file should export only components so React's fast refresh works. `lessonText.ts` already holds the lesson's words, so both screens read the label from there.
+2. A CSS rule only styles elements that have its class. No element on any screen has a `review-diff` or `review-chip` class until PR 4 draws one. The one rule shared with an existing screen, the caption rule, only gains a second selector; its `.lesson-artifact figcaption` part is unchanged.
+3. `:enabled` only matches a control that can be used, like a button that isn't disabled. Changed rows are buttons, but context rows are plain `div`s, so they never react to the pointer, and neither does a locked row. `background-image` lays a light layer on top of the row's green or red tint (its background colour), so the tint still shows instead of being replaced.
+
+</details>
+
+---
+
+## #228 feat: let lessons hold and play code review cards
+
+https://github.com/KyleBuildsAI/ship-it/pull/228
+
+1. Why is `wrongFlagChecks` optional in the save, and written only when it is above 0?
+2. Your first "Check review" is wrong. You fix the flags, check again, and pick the right comment first time. Does the card count as right first time? Why?
+3. You pick a wrong comment, then reload. The flags were never saved. How does the card come back, and why is that enough?
+
+<details><summary>Answers</summary>
+
+1. Saves made before this PR have no such field. Optional means they still load, with no save version bump and no migration. Writing it only when it's above 0 means no other card ever gets it, so every existing resume point (and the tests that check them exactly) stays the same shape.
+2. No. The card counts as right first time only when the first check and the first comment are both right. A wrong check is a miss, just like a wrong pick or a wrong "Check order", and stars measure first tries.
+3. It opens on the comment step, with the right flags shown found, and the wrong comment still marked. `pickOption` refuses a comment until the review passes, so a saved comment proves the flags were right. `reviewOf` shows the answer flags in their place. The miss is kept, because the wrong comment is saved in `picked`.
+
+</details>
