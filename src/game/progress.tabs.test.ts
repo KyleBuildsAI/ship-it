@@ -424,6 +424,54 @@ describe('a tab that loses the save (#198)', () => {
     expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
   });
 
+  it('that hears the stealing tab ask again before the news of the steal stores nothing more', async () => {
+    const warnings = quietWarnings();
+    // b asks first, but its lock request takes 1 s to arrive, so a, opened 10 ms later, gets
+    // the free lock. a wasn't listening yet when b asked, and a's ask takes 3 s to reach b,
+    // so b takes the lock when its wait runs out, and asks again. That ask is the first a
+    // hears from b, and the news that b took the lock takes 1 s more to reach a. a's writes
+    // after loading (from the 5th message up its IndexedDB pipe) take 500 ms to arrive.
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) => {
+        const { tab, pipe, direction } = route;
+        if (tab === 'b' && pipe === 'locks' && direction === 'up') return index === 0 ? 1000 : 1;
+        if (tab === 'b' && pipe === 'channel' && direction === 'down') return 3000;
+        if (tab === 'a' && pipe === 'locks' && direction === 'down') return index > 0 ? 1000 : 1;
+        if (tab === 'a' && pipe === 'idb' && direction === 'up') return index >= 4 ? 500 : 1;
+        return undefined;
+      }),
+      stored: { save: createDefaultSave(NOW), fromOlderVersion: false },
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(second, b);
+    setTimeout(() => {
+      start(first, a);
+    }, 10);
+
+    // The player changes a setting in a just before b takes the lock at 1.5 s.
+    await vi.advanceTimersByTimeAsync(1400);
+    expect(badges()).toEqual(['saving', 'loading']);
+    a.run(() => {
+      first.progress.updateSave(setXp(5));
+    });
+    // b already holds the lock when it asks again, so that ask's deadline is now: a must
+    // write nothing more, though it hasn't heard of the steal. The player plays on in b.
+    await vi.advanceTimersByTimeAsync(200);
+    expect(browser.lockHolder()).toBe('b');
+    expect(second.progress.progress.get().status).toBe('ready');
+    b.run(() => {
+      second.progress.saveProgressNow(setXp(40));
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(40);
+    expect(browser.lateWrites()).toEqual([]);
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
+  });
+
   it.each([
     [
       'a finished step',

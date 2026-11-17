@@ -290,7 +290,8 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
     // takes it by stealing in turn, so this tab says it asked again: a waiting tab hears a
     // newer ask than its own and steps aside when its wait runs out.
     const holdStolen = () => {
-      // It has the lock already, so its deadline for taking it is now.
+      // It has the lock already, so its deadline for taking it is now: the tab it took the
+      // lock from may hear this ask before the news of the steal, and must write nothing more.
       ownAsk = askNow(0);
       handoverRequested = false;
       channel?.postMessage(ownAsk);
