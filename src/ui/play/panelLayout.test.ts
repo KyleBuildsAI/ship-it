@@ -135,9 +135,9 @@ describe('the play panel with the terminal open', () => {
 });
 
 /** How far above the window's bottom a rule's `bottom: calc(Nvh + Npx)` puts its box. */
-function lift(selector: string): { vh: number; px: number } {
-  const start = themeCss.indexOf(`${selector} {`);
-  const block = themeCss.slice(start, themeCss.indexOf('}', start));
+function lift(selector: string, css = themeCss): { vh: number; px: number } {
+  const start = css.indexOf(`${selector} {`);
+  const block = css.slice(start, css.indexOf('}', start));
   const match = /bottom: calc\((\d+)vh \+ (\d+)px\)/.exec(block);
   if (start < 0 || match?.[1] === undefined || match[2] === undefined) {
     throw new Error(`No calc() bottom in ${selector}`);
@@ -160,6 +160,70 @@ describe('the command chip with the terminal open', () => {
       toggle.px + buttonHeight('.hud-button'),
     );
     expect(chip.px).toBeGreaterThanOrEqual(buttonsTop + 8);
+  });
+});
+
+/**
+ * theme.css's rules for a narrow window, `@media (width < Npx)`: the width they stop at and
+ * the CSS inside. With no such block every window gets the wide layout, so `below` is 0.
+ */
+function narrowWindow(): { below: number; css: string } {
+  const match = /@media \(width < (\d+)px\) \{([\s\S]*?)\n\}/.exec(themeCss);
+  return { below: Number(match?.[1] ?? 0), css: match?.[2] ?? '' };
+}
+
+/**
+ * The HUD menu's labels (Acts, Standup, Trophies, Settings, ♪ Music) laid end to end at 13px.
+ * Segoe UI, the font Windows draws them in, measures 210px. Verdana and Linux's DejaVu Sans,
+ * the widest common fallbacks, measure about 240px. The checks use the wider, so they hold
+ * in any browser.
+ */
+const MENU_LABELS_WIDTH = 240;
+const MENU_BUTTONS = 5;
+
+/** How far from the window's left edge the HUD menu row ends, at `zoom`. */
+function menuRowEnd(zoom: number): number {
+  const left = pixels(themeCss, '.hud-menu', /left: (\d+)px/);
+  const gap = pixels(themeCss, '.hud-menu', /gap: (\d+)px/);
+  const sidePadding = pixels(themeCss, '.hud-menu__button', /padding: \d+px (\d+)px/);
+  // Zoom grows each whole button (its text, padding and 1px borders), not the gaps between.
+  const buttons = zoom * (MENU_LABELS_WIDTH + MENU_BUTTONS * (2 * sidePadding + 2));
+  return left + buttons + (MENU_BUTTONS - 1) * gap;
+}
+
+/** How far from the window's left edge the editor dock starts, in a window `width` px wide. */
+function dockStart(width: number): number {
+  const right = pixels(themeCss, '.editor-dock', /right: (\d+)px/);
+  const share = pixels(themeCss, '.editor-dock', /width: min\((\d+)vw/);
+  const cap = pixels(themeCss, '.editor-dock', /width: min\(\d+vw, (\d+)px\)/);
+  return width - right - Math.min((share / 100) * width, cap);
+}
+
+describe('the code editor beside the HUD menu', () => {
+  it('stops above the row in every window narrow enough for its corner to reach it', () => {
+    // At Extra large the row ends near x 632 (Segoe UI), and in a 1024px window the editor
+    // started at x 557: its bottom-left corner sat on Music and caught its clicks. Its left
+    // edge only moves right as the window widens, so once it clears the row (with 8px of
+    // air) it clears it in every wider window too, and from there it keeps its full height.
+    const rowEnd = menuRowEnd(LARGEST_ZOOM);
+    const clears = Array.from({ length: 4000 }, (_, width) => width).find(
+      (width) => dockStart(width) >= rowEnd + 8,
+    );
+    expect(narrowWindow().below).toBeGreaterThanOrEqual(clears ?? Infinity);
+  });
+
+  it('clears the row’s Extra large height in a narrow window, terminal open or closed', () => {
+    const { css } = narrowWindow();
+    const rowHeight = buttonHeight('.hud-menu__button', LARGEST_ZOOM);
+    // Closed, the editor and the row both stand on the window's bottom edge.
+    const menuBottom = pixels(themeCss, '.hud-menu', /bottom: (\d+)px/);
+    const dockBottom = pixels(css, '.editor-dock', /bottom: (\d+)px/);
+    expect(dockBottom).toBeGreaterThanOrEqual(menuBottom + rowHeight + 8);
+    // Open, both ride on the terminal, the same share of the window up.
+    const dock = lift('.editor-dock--above-terminal', css);
+    const menu = lift('.hud-menu--above-terminal');
+    expect(dock.vh).toBe(menu.vh);
+    expect(dock.px).toBeGreaterThanOrEqual(menu.px + rowHeight + 8);
   });
 });
 
