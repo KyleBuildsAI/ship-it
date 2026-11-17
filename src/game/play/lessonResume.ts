@@ -1,3 +1,4 @@
+import { answerFlags, checkFlags } from '../missions/codeReview';
 import {
   currentCard,
   finishLessonBriefing,
@@ -5,8 +6,14 @@ import {
   startLessonRun,
   type CardState,
   type LessonRun,
+  type ReviewState,
 } from '../missions/lessonRunner';
-import { isPickCard, type Lesson, type LessonCard } from '../missions/lessonSchema';
+import {
+  isPickCard,
+  type CodeReviewCard,
+  type Lesson,
+  type LessonCard,
+} from '../missions/lessonSchema';
 import type { LessonResume, MissionProgress } from '../save/schema';
 import type { PartSummary } from './actSummary';
 
@@ -27,7 +34,8 @@ export function lessonResumes(lesson: Lesson): boolean {
 
 /**
  * What the save keeps of a run: each answered card's first try, and the next card's wrong
- * tries, so a miss stays a miss after a reload.
+ * tries, so a miss stays a miss after a reload. A code review card's wrong checks are
+ * written only when there are some, so no other card's resume point changes shape.
  */
 export function lessonResumeOf(run: LessonRun, lesson: Lesson): LessonResume {
   const answered = run.firstTry.flatMap((firstTry, index) => {
@@ -36,11 +44,17 @@ export function lessonResumeOf(run: LessonRun, lesson: Lesson): LessonResume {
   });
   const card = currentCard(run, lesson);
   const { picked, wrongOrders, solved } = run.card;
-  const missed = picked.length > 0 || wrongOrders > 0;
+  const wrongChecks = run.card.review?.wrongChecks ?? 0;
+  const missed = picked.length > 0 || wrongOrders > 0 || wrongChecks > 0;
   const open =
     card === undefined || solved || !missed
       ? null
-      : { cardId: card.id, picked: [...picked], wrongOrders };
+      : {
+          cardId: card.id,
+          picked: [...picked],
+          wrongOrders,
+          ...(wrongChecks > 0 ? { wrongFlagChecks: wrongChecks } : {}),
+        };
   return { answered, open };
 }
 
@@ -91,6 +105,21 @@ export function resumeCardNumber(cardCount: number, resume: LessonResume): numbe
   return Math.min(resume.answered.length, cardCount - 1) + 1;
 }
 
+/**
+ * A code review card's flags as they were left. They aren't saved, any more than an order
+ * card's moves: a picked comment means they had passed, so they come back as the answer,
+ * found; otherwise the card opens unflagged, its wrong checks kept.
+ */
+function reviewOf(
+  card: CodeReviewCard,
+  picked: readonly string[],
+  wrongChecks: number,
+): ReviewState {
+  if (picked.length === 0) return { flags: [], check: null, wrongChecks, passed: false };
+  const flags = answerFlags(card);
+  return { flags, check: checkFlags(card, flags), wrongChecks, passed: true };
+}
+
 /** An unanswered card as it was left, its wrong tries kept so they still count. */
 function openCard(card: LessonCard, open: LessonResume['open']): CardState {
   const kept = open?.cardId === card.id ? open : null;
@@ -99,6 +128,7 @@ function openCard(card: LessonCard, open: LessonResume['open']): CardState {
       picked: [],
       order: scrambledOrder(card),
       wrongOrders: kept?.wrongOrders ?? 0,
+      review: null,
       solved: false,
     };
   }
@@ -106,16 +136,26 @@ function openCard(card: LessonCard, open: LessonResume['open']): CardState {
     card.options.filter((option) => !option.correct).map((option) => option.id),
   );
   const picked = (kept?.picked ?? []).filter((id) => wrong.has(id));
-  return { picked, order: [], wrongOrders: 0, solved: false };
+  const review =
+    card.kind === 'code-review' ? reviewOf(card, picked, kept?.wrongFlagChecks ?? 0) : null;
+  return { picked, order: [], wrongOrders: 0, review, solved: false };
 }
 
 /** The last card answered, waiting for Finish: shown right, with its explanation. */
 function solvedCard(card: LessonCard): CardState {
   if (!isPickCard(card)) {
-    return { picked: [], order: card.steps.map((step) => step.id), wrongOrders: 0, solved: true };
+    return {
+      picked: [],
+      order: card.steps.map((step) => step.id),
+      wrongOrders: 0,
+      review: null,
+      solved: true,
+    };
   }
   const right = card.options.find((option) => option.correct);
-  return { picked: right === undefined ? [] : [right.id], order: [], wrongOrders: 0, solved: true };
+  const picked = right === undefined ? [] : [right.id];
+  const review = card.kind === 'code-review' ? reviewOf(card, picked, 0) : null;
+  return { picked, order: [], wrongOrders: 0, review, solved: true };
 }
 
 /**

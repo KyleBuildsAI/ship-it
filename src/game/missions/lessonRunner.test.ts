@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   allCardsSolved,
   checkOrder,
+  checkReview,
   currentCard,
   finishLessonBriefing,
   firstTryPercent,
@@ -10,13 +11,17 @@ import {
   nextCard,
   pickOption,
   scrambledOrder,
+  setFlagIssue,
   startLessonRun,
   starsFor,
   stepsInPlace,
   tickLesson,
+  toggleFlag,
   type LessonRun,
 } from './lessonRunner';
+import type { ReviewFlag } from './codeReview';
 import type { Lesson, OrderCard } from './lessonSchema';
+import { onReviewCard, sampleReviewLesson } from './sample.test-codeReview';
 import { sampleFinal, sampleLesson } from './sample.test-lesson';
 
 const T0 = 1_000_000;
@@ -268,5 +273,128 @@ describe("a final's shared clock", () => {
       wrongOption(cards(sampleFinal), sampleFinal),
     );
     expect(run.card.solved).toBe(false);
+  });
+});
+
+describe('a code review card', () => {
+  /*
+   * The sample review card: row 3 is the dropped check (security), rows 6 and 8-10 the
+   * swallowed error (error-handling), rows 4, 5 and 7 are fine. Its right comment is
+   * "specific", and "vague" is wrong.
+   */
+  const lesson = sampleReviewLesson;
+  const RIGHT: ReviewFlag[] = [
+    { row: 3, issue: 'security' },
+    { row: 9, issue: 'error-handling' },
+  ];
+
+  /** Flags each row and picks its problem, as a player clicks them. */
+  function flag(run: LessonRun, flags: readonly ReviewFlag[]): LessonRun {
+    return flags.reduce((next, { row, issue }) => {
+      const flagged = toggleFlag(next, lesson, row);
+      return issue === null ? flagged : setFlagIssue(flagged, lesson, row, issue);
+    }, run);
+  }
+
+  const passed = () => checkReview(flag(onReviewCard(), RIGHT), lesson);
+
+  it('starts with nothing flagged, and every other kind of card has no review', () => {
+    expect(cards(lesson).card.review).toBeNull();
+    expect(onReviewCard().card.review).toEqual({
+      flags: [],
+      check: null,
+      wrongChecks: 0,
+      passed: false,
+    });
+  });
+
+  it('flags and unflags changed rows only, kept in row order', () => {
+    const run = onReviewCard();
+    const flagged = toggleFlag(toggleFlag(run, lesson, 9), lesson, 3);
+    expect(flagged.card.review?.flags).toEqual([
+      { row: 3, issue: null },
+      { row: 9, issue: null },
+    ]);
+    expect(toggleFlag(flagged, lesson, 9).card.review?.flags).toEqual([{ row: 3, issue: null }]);
+    // A context row, a row off the diff, and a problem for a row not flagged do nothing.
+    expect(toggleFlag(run, lesson, 1)).toBe(run);
+    expect(toggleFlag(run, lesson, 12)).toBe(run);
+    expect(setFlagIssue(run, lesson, 3, 'security')).toBe(run);
+  });
+
+  it('checks nothing while a flag has no problem picked', () => {
+    const run = toggleFlag(onReviewCard(), lesson, 3);
+    expect(checkReview(run, lesson)).toBe(run);
+  });
+
+  it('counts a wrong check, keeps its verdicts, and locks the row it found', () => {
+    const run = checkReview(
+      flag(onReviewCard(), [
+        { row: 3, issue: 'security' },
+        { row: 5, issue: 'scope' },
+      ]),
+      lesson,
+    );
+    expect(run.card.review).toMatchObject({
+      wrongChecks: 1,
+      passed: false,
+      check: {
+        verdicts: [
+          { row: 3, verdict: 'found' },
+          { row: 5, verdict: 'fine' },
+        ],
+        missedBugIds: ['quiet-failure'],
+      },
+    });
+    expect(run.card.solved).toBe(false);
+    expect(toggleFlag(run, lesson, 3)).toBe(run);
+    expect(setFlagIssue(run, lesson, 3, 'logic')).toBe(run);
+  });
+
+  it("clears a row's verdict when its flag changes", () => {
+    const run = checkReview(
+      flag(onReviewCard(), [
+        { row: 3, issue: 'logic' },
+        { row: 5, issue: 'scope' },
+      ]),
+      lesson,
+    );
+    const rechipped = setFlagIssue(run, lesson, 3, 'security');
+    expect(rechipped.card.review?.check?.verdicts).toEqual([{ row: 5, verdict: 'fine' }]);
+    const removed = toggleFlag(rechipped, lesson, 5);
+    expect(removed.card.review?.check?.verdicts).toEqual([]);
+    expect(removed.card.review?.flags).toEqual([{ row: 3, issue: 'security' }]);
+  });
+
+  it('opens the comments only once a check is right, and then the flags lock', () => {
+    const flagged = flag(onReviewCard(), RIGHT);
+    expect(pickOption(flagged, lesson, 'specific')).toBe(flagged);
+    const run = passed();
+    expect(run.card.review).toMatchObject({ passed: true, wrongChecks: 0 });
+    expect(run.card.solved).toBe(false);
+    expect(toggleFlag(run, lesson, 4)).toBe(run);
+    expect(setFlagIssue(run, lesson, 9, 'logic')).toBe(run);
+    expect(checkReview(run, lesson)).toBe(run);
+  });
+
+  it('is right first time only with a right first check and a right first comment', () => {
+    const perfect = pickOption(passed(), lesson, 'specific');
+    expect(perfect.card.solved).toBe(true);
+    expect(perfect.firstTry).toEqual([true]);
+    const wrongComment = pickOption(pickOption(passed(), lesson, 'vague'), lesson, 'specific');
+    expect(wrongComment.card.solved).toBe(true);
+    expect(wrongComment.firstTry).toEqual([false]);
+    const missed = checkReview(flag(onReviewCard(), RIGHT.slice(0, 1)), lesson);
+    const fixed = checkReview(flag(missed, RIGHT.slice(1)), lesson);
+    expect(fixed.card.review).toMatchObject({ passed: true, wrongChecks: 1 });
+    expect(pickOption(fixed, lesson, 'specific').firstTry).toEqual([false]);
+  });
+
+  it('ends on its first check in a locked run, right or wrong', () => {
+    const locked = { ...onReviewCard(), locked: true };
+    const wrong = checkReview(flag(locked, RIGHT.slice(0, 1)), lesson);
+    expect(wrong.card.solved).toBe(true);
+    expect(wrong.firstTry).toEqual([false]);
+    expect(checkReview(flag(locked, RIGHT), lesson).firstTry).toEqual([true]);
   });
 });

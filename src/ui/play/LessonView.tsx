@@ -44,6 +44,7 @@ const CARD_EYEBROWS = {
   choose: 'What would you do?',
   prompt: 'Brief the agent',
   order: 'Put it in order',
+  'code-review': 'Review the diff',
 } as const;
 
 /** What the briefing's eyebrow calls this run. */

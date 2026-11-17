@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { answerFlags, type ReviewFlag } from '../missions/codeReview';
 import {
   checkOrder,
+  checkReview,
   finishLessonBriefing,
   nextCard,
   pickOption,
+  setFlagIssue,
   startLessonRun,
+  toggleFlag,
   type LessonRun,
 } from '../missions/lessonRunner';
+import { sampleReviewLesson } from '../missions/sample.test-codeReview';
 import { sampleFinal, sampleLesson, sampleLessonAct } from '../missions/sample.test-lesson';
 import { sampleAct, sampleMission } from '../missions/sample.test-mission';
 import { createMissionProgress, type MissionProgress } from '../save/schema';
@@ -156,5 +161,69 @@ describe('a picked-up run', () => {
     expect(run).toMatchObject({ cardIndex: last, card: { solved: true } });
     expect(resumeCardNumber(sampleLesson.cards.length, { answered, open: null })).toBe(last + 1);
     expect(nextCard(run, sampleLesson)).toMatchObject({ phase: 'done', outcome: 'finished' });
+  });
+});
+
+describe('a code review card left partway', () => {
+  const lesson = sampleReviewLesson;
+  const [reviewCard] = lesson.cards.filter((card) => card.kind === 'code-review');
+  if (reviewCard?.kind !== 'code-review') throw new Error('The sample has no review card.');
+
+  /** Back on the review card, the five cards before it answered right first time. */
+  const atReview = () => {
+    const answered = lesson.cards.slice(0, 5).map((card) => ({ cardId: card.id, firstTry: true }));
+    return resumedLessonRun(lesson, { answered, open: null }, T0);
+  };
+
+  /** Flags each row with its problem, as a player clicks them. */
+  function flag(run: LessonRun, flags: readonly ReviewFlag[]): LessonRun {
+    return flags.reduce((next, { row, issue }) => {
+      const flagged = toggleFlag(next, lesson, row);
+      return issue === null ? flagged : setFlagIssue(flagged, lesson, row, issue);
+    }, run);
+  }
+
+  it("keeps a wrong check, so the review can't become a first try", () => {
+    const missed = checkReview(flag(atReview(), [{ row: 3, issue: 'security' }]), lesson);
+    const kept = lessonResumeOf(missed, lesson);
+    expect(kept.open).toEqual({
+      cardId: reviewCard.id,
+      picked: [],
+      wrongOrders: 0,
+      wrongFlagChecks: 1,
+    });
+    const run = resumedLessonRun(lesson, kept, T0);
+    expect(run.card.review).toEqual({ flags: [], check: null, wrongChecks: 1, passed: false });
+    const passed = checkReview(flag(run, answerFlags(reviewCard)), lesson);
+    expect(pickOption(passed, lesson, 'specific').firstTry.at(-1)).toBe(false);
+  });
+
+  it('picks a wrong comment back up on the comment step, its flags shown found', () => {
+    const passed = checkReview(flag(atReview(), answerFlags(reviewCard)), lesson);
+    const kept = lessonResumeOf(pickOption(passed, lesson, 'vague'), lesson);
+    // Nothing new is written for a review with no wrong check.
+    expect(kept.open).toEqual({ cardId: reviewCard.id, picked: ['vague'], wrongOrders: 0 });
+    const run = resumedLessonRun(lesson, kept, T0);
+    expect(run.card.picked).toEqual(['vague']);
+    expect(run.card.review).toMatchObject({
+      flags: answerFlags(reviewCard),
+      check: { right: true },
+      wrongChecks: 0,
+      passed: true,
+    });
+    expect(pickOption(run, lesson, 'specific')).toMatchObject({
+      card: { solved: true },
+      firstTry: [true, true, true, true, true, false],
+    });
+  });
+
+  it('opens on the review solved, its comment picked, when only Finish was left', () => {
+    const answered = lesson.cards.map((card) => ({ cardId: card.id, firstTry: true }));
+    const run = resumedLessonRun(lesson, { answered, open: null }, T0);
+    expect(run.card).toMatchObject({
+      solved: true,
+      picked: ['specific'],
+      review: { flags: answerFlags(reviewCard), passed: true },
+    });
   });
 });

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CodeReviewCardSchema, LessonSchema, type LessonInput } from './lessonSchema';
-import { sampleReviewCard, sampleReviewCardInput } from './sample.test-codeReview';
+import { CodeReviewCardSchema, isPickCard, LessonSchema, type LessonInput } from './lessonSchema';
+import {
+  sampleReviewCard,
+  sampleReviewCardInput,
+  sampleReviewLesson,
+} from './sample.test-codeReview';
 import { sampleFinal, sampleLesson, sampleLessonInput } from './sample.test-lesson';
 
 /** The messages zod gives for `input`, or [] when it parses. */
@@ -232,9 +236,19 @@ describe('a code review card', () => {
     return { ...artifact, text: rows.join('\n') };
   }
 
-  it('parses the sample', () => {
+  it('parses the sample, on its own and as the last card of a lesson', () => {
     expect(reviewProblems({})).toEqual([]);
     expect(sampleReviewCard.kind).toBe('code-review');
+    expect(sampleReviewLesson.cards.map((card) => card.kind)).toEqual([
+      'choose',
+      'prompt',
+      'order',
+      'choose',
+      'choose',
+      'code-review',
+    ]);
+    // Its review comments are options, so every rule for pick cards covers them too.
+    expect(sampleReviewLesson.cards.filter(isPickCard)).toHaveLength(5);
     expect(sampleReviewCard.bugs.map((bug) => bug.issues)).toEqual([
       ['security'],
       ['error-handling'],

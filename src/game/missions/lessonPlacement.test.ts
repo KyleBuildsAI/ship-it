@@ -125,7 +125,9 @@ describe("a lesson placement's cards", () => {
   it('can’t point back at an earlier card’s code without showing it', () => {
     // In a lesson, "That query" follows the card that showed it; a placement test may not.
     const [card] = full.lessons[0]?.cards ?? [];
-    if (card === undefined) throw new Error('the sample lesson has no cards');
+    // A code review card always shows its diff, so only another kind can lose its artifact.
+    if (card === undefined || card.kind === 'code-review')
+      throw new Error('expected a choose card');
     const leaning = { ...card, situation: 'That query is slow.', artifact: undefined };
     const lessons = full.lessons.map((lesson, index) =>
       index === 0 ? { ...lesson, cards: [leaning, ...lesson.cards.slice(1)] } : lesson,
