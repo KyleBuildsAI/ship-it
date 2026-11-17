@@ -100,6 +100,15 @@ function setXp(xp: number): (save: SaveData) => SaveData {
   return (save) => ({ ...save, profile: { ...save.profile, xp } });
 }
 
+/** What a tab logs when it drops a change on purpose (handOver in progress.ts). */
+const DROPPED_WARNING =
+  '[ship-it] another tab took the save first, so this tab dropped its last change';
+
+/** Keeps the dropped-change warning out of the test output, and lets a test check for it. */
+function quietWarnings() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+}
+
 describe('two tabs opened at the same moment', () => {
   it.each(['a', 'b'])(
     'that hear each other ask end with the newer one saving (%s reaches the lock first)',
@@ -283,6 +292,7 @@ describe('a third tab', () => {
 
 describe('a tab that loses the save (#198)', () => {
   it('never writes a change it had not stored yet over the new owner’s progress', async () => {
+    const warnings = quietWarnings();
     // b's ask takes 3 s to reach a, so a never answers and b takes the lock when its 1.5 s
     // wait runs out. The news that a lost the lock then takes 200 ms to reach a.
     const browser = createSimulatedBrowser({
@@ -318,6 +328,7 @@ describe('a tab that loses the save (#198)', () => {
     expect(browser.stored()?.profile.xp).toBe(40);
     // a's change was dropped, and a says so.
     expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
   });
 
   it.each([
@@ -335,6 +346,7 @@ describe('a tab that loses the save (#198)', () => {
     ],
   ])('reports %s it drops as a dropped change, not as an error', async (_case, change) => {
     const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnings = quietWarnings();
     // b's ask never reaches a in time, so b takes the save at 2.5 s. The result of a's
     // finished step (a's 4th IndexedDB result) takes 1 s to come back, so the next write
     // waits behind it until after a hears it lost the lock.
@@ -364,8 +376,10 @@ describe('a tab that loses the save (#198)', () => {
     expect(badges()).toEqual(['elsewhere', 'saving']);
     expect(browser.stored()?.profile.xp).toBe(5);
     expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
-    // The notice tells the player. A console error would say something broke.
+    // The notice tells the player, and a developer sees a warning. A console error would say
+    // something broke.
     expect(errors).not.toHaveBeenCalled();
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
   });
 });
 
