@@ -11,11 +11,12 @@ import {
   placementLesson,
   placementLessonId,
   shuffledBy,
+  shuffledCard,
   testedOutText,
   testOutLeaves,
   type TestOutLeft,
 } from './lessonPlacement';
-import { sampleLessonAct } from './sample.test-lesson';
+import { sampleLesson, sampleLessonAct } from './sample.test-lesson';
 import { fullSampleLessonAct, fullSamplePlacement } from './sample.test-lessonAct';
 import { sampleAct } from './sample.test-mission';
 import {
@@ -217,6 +218,29 @@ describe('the placement run', () => {
     const seeds = ['seed:2', 'seed:3', 'seed:4', 'seed:5'];
     expect(seeds.some((seed) => shuffledBy(items, seed).join() !== once.join())).toBe(true);
     expect(shuffledBy([], 'x')).toEqual([]);
+  });
+
+  it("shuffles a pick card's options by seed, keeping each one whole, and no order card", () => {
+    const pick = sampleLesson.cards.find(isPickCard);
+    const order = sampleLesson.cards.find((card) => !isPickCard(card));
+    if (pick === undefined || order === undefined) throw new Error('The sample needs both.');
+    const ids = (card: LessonCard) => (isPickCard(card) ? card.options.map(({ id }) => id) : []);
+    const once = shuffledCard(pick, 'seed:1');
+    // Every option is kept with its text, answer and feedback, and the card is otherwise the same.
+    expect(isPickCard(once) && [...once.options].sort((a, b) => a.id.localeCompare(b.id))).toEqual(
+      [...pick.options].sort((a, b) => a.id.localeCompare(b.id)),
+    );
+    expect({ ...once, options: pick.options }).toEqual(pick);
+    expect(ids(shuffledCard(pick, 'seed:1'))).toEqual(ids(once));
+    const seeds = ['seed:2', 'seed:3', 'seed:4', 'seed:5'];
+    expect(seeds.some((seed) => ids(shuffledCard(pick, seed)).join() !== ids(once).join())).toBe(
+      true,
+    );
+    expect(shuffledCard(order, 'seed:1')).toBe(order);
+    // A placement attempt's order: the seed is the attempt number, as it always was.
+    expect(ids(shuffledCard(pick, '3'))).toEqual(
+      shuffledBy(pick.options, `${pick.id}:3`).map(({ id }) => id),
+    );
   });
 
   it('throws a ContentError for a card the lessons don’t have', () => {
