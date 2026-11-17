@@ -95,16 +95,16 @@ describe('portalShares', () => {
 });
 
 describe('portalShare', () => {
-  it('counts the lit pips', () => {
+  it("gives a branch's pips in play order, and none while its Act is locked", () => {
     const [, lessons] = skillTree(SUMMARIES, {
       missions: { [sampleLesson.id]: completed(100), [sampleFinal.id]: completed(95) },
       drillHistory: [],
     });
-    expect(portalShare(lessons, false)).toEqual({ pips: [true, false, true], lit: 2 });
-    expect(portalShare(lessons, true)).toEqual({ pips: [], lit: 0 });
+    expect(portalShare(lessons, false)).toEqual({ pips: [true, false, true] });
+    expect(portalShare(lessons, true)).toEqual({ pips: [] });
   });
 
   it('shows nothing for an Act the game does not ship', () => {
-    expect(portalShare(undefined, false)).toEqual({ pips: [], lit: 0 });
+    expect(portalShare(undefined, false)).toEqual({ pips: [] });
   });
 });

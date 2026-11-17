@@ -6,14 +6,16 @@ import type { SkillBranch } from '../play/skillTree';
  * the save, so the Campus never downloads an Act, and the three.js side only recolours.
  */
 
-/** What one portal shows: a pip per part of its Act, in play order, and how many are lit. */
+/**
+ * What one portal shows: a pip per part of its Act, in play order. How many are lit is
+ * counted from the ring itself (shareRing.ts), so there's no second count here to disagree.
+ */
 export interface PortalShare {
   /** True where that part's skill tree node is lit. Empty when the portal shows no pips. */
   readonly pips: readonly boolean[];
-  readonly lit: number;
 }
 
-const NO_PIPS: PortalShare = { pips: [], lit: 0 };
+const NO_PIPS: PortalShare = { pips: [] };
 
 /**
  * One Act's share. A locked Act shows no pips at all, so its portal never looks like it has
@@ -21,7 +23,7 @@ const NO_PIPS: PortalShare = { pips: [], lit: 0 };
  */
 export function portalShare(branch: SkillBranch | undefined, locked: boolean): PortalShare {
   if (branch === undefined || locked) return NO_PIPS;
-  return { pips: branch.nodes.map((node) => node.state === 'lit'), lit: branch.lit };
+  return { pips: branch.nodes.map((node) => node.state === 'lit') };
 }
 
 /** Every shipped Act's share, keyed by Act number. `openActs` says which portals are open. */
