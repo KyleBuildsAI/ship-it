@@ -45,6 +45,7 @@ describe('summarizeAct', () => {
       title: sampleMission.title,
       kind: 'mission',
       cardIds: [],
+      drillIds: sampleMission.drills.map((drill) => drill.id),
     });
   });
 
@@ -59,8 +60,20 @@ describe('summarizeAct', () => {
         title: lesson.title,
         kind: lesson.kind,
         cardIds: lesson.cards.map((card) => card.id),
+        drillIds: [],
       })),
     );
+  });
+
+  it('lists a mission’s drill ids in play order, and none for a lesson', () => {
+    // The skill tree groups drill attempts by mission through these, so it never needs an
+    // Act's content: each mission's ids, in the order its drills are played.
+    const missions = summarizeAct(missionAct).parts;
+    expect(missions.map((part) => part.drillIds)).toEqual(
+      missionAct.missions.map((mission) => mission.drills.map((drill) => drill.id)),
+    );
+    const lessons = summarizeAct(sampleLessonAct()).parts;
+    expect(lessons.map((part) => part.drillIds)).toEqual([[], [], []]);
   });
 
   it('lists every drill of every mission with its prompt', () => {
