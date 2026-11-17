@@ -307,6 +307,8 @@ export async function startProgress(
     },
     {
       onError: (error) => {
+        // Refused because another tab has the save: expected, and handOver tells the player.
+        if (error instanceof SaveElsewhereError) return;
         devStatus.update({ save: 'error' });
         console.error('[ship-it] autosave failed; recent progress is not stored yet', error);
       },
@@ -404,13 +406,26 @@ export async function replaceSave(save: SaveData): Promise<boolean> {
   if (steppedAside || progress.get().status === 'loading') return false;
   progress.update({ status: 'ready', save, problem: null });
   autosave?.schedule(save);
-  await flushProgress();
-  return true;
+  return storePending();
 }
 
 /** Writes any pending change now, e.g. when the tab is hidden or before an export. */
 export async function flushProgress(): Promise<void> {
-  await autosave?.flush();
+  await storePending();
+}
+
+/**
+ * Writes any pending change now. False when it was refused because another tab took the
+ * save first: that's expected, and handOver tells the player, so callers needn't report it.
+ */
+async function storePending(): Promise<boolean> {
+  try {
+    await autosave?.flush();
+    return true;
+  } catch (error) {
+    if (error instanceof SaveElsewhereError) return false;
+    throw error;
+  }
 }
 
 /**

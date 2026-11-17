@@ -319,6 +319,54 @@ describe('a tab that loses the save (#198)', () => {
     // a's change was dropped, and a says so.
     expect(first.progress.progress.get().problem).toContain('could not be saved');
   });
+
+  it.each([
+    [
+      'a finished step',
+      (xp: number) => {
+        first.progress.saveProgressNow(setXp(xp));
+      },
+    ],
+    [
+      'a settings change',
+      (xp: number) => {
+        first.progress.updateSave(setXp(xp));
+      },
+    ],
+  ])('reports %s it drops as a dropped change, not as an error', async (_case, change) => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // b's ask never reaches a in time, so b takes the save at 2.5 s. The result of a's
+    // finished step (a's 4th IndexedDB result) takes 1 s to come back, so the next write
+    // waits behind it until after a hears it lost the lock.
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) => {
+        if (route.tab !== 'a' || route.direction !== 'down') return undefined;
+        if (route.pipe === 'channel') return 5000;
+        return route.pipe === 'idb' && index === 3 ? 1000 : undefined;
+      }),
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(first, a);
+    await vi.advanceTimersByTimeAsync(1000);
+    start(second, b);
+    await vi.advanceTimersByTimeAsync(900);
+    a.run(() => {
+      first.progress.saveProgressNow(setXp(5));
+    });
+    // A settings change waits out the autosave delay, so its write starts at 2.45 s.
+    await vi.advanceTimersByTimeAsync(50);
+    a.run(() => {
+      change(6);
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(5);
+    expect(first.progress.progress.get().problem).toContain('could not be saved');
+    // The notice tells the player. A console error would say something broke.
+    expect(errors).not.toHaveBeenCalled();
+  });
 });
 
 /** Mulberry32, as in judgment.ts: the same seed always gives the same numbers. */
