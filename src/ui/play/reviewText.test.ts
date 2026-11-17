@@ -43,8 +43,9 @@ describe('the words on a code review card', () => {
   it('counts the problems still unflagged, and the ones found', () => {
     expect(unflaggedText(1)).toBe('1 problem still unflagged.');
     expect(unflaggedText(2)).toBe('2 problems still unflagged.');
-    // Every bug found, but another flag is wrong: the rows say which.
-    expect(unflaggedText(0)).toBe('Every problem is found. Fix or remove the other flags.');
+    // Every bug has a flag, but some flag is wrong (a false flag, or the wrong problem on a
+    // bug's row): the rows say which.
+    expect(unflaggedText(0)).toBe('Every problem is flagged. Fix or remove the wrong flags above.');
     expect(foundAllText(1)).toBe('Found it.');
     expect(foundAllText(2)).toBe('Both problems found.');
     expect(foundAllText(3)).toBe('All 3 problems found.');

@@ -1227,9 +1227,13 @@ body {
   list-style: none;
 }
 
-/* A row: a button when it's changed, so its color is set (buttons don't inherit one). */
+/*
+ * A row: a button when it's changed, so its color is set (buttons don't inherit one). A
+ * context row is a plain block, so border-box keeps its padding and bar inside its width.
+ */
 .review-diff__line {
   display: flex;
+  box-sizing: border-box;
   width: 100%;
   margin: 0;
   padding: 0 8px 0 4px;

@@ -37,10 +37,13 @@ export const VERDICT_TEXT: Record<FlagVerdict, string> = {
   fine: 'Nothing wrong here.',
 };
 
-/** What a wrong check says under the diff. It counts misses and never points at their rows. */
-export function unflaggedText(missed: number): string {
-  if (missed === 0) return 'Every problem is found. Fix or remove the other flags.';
-  return `${String(missed)} ${missed === 1 ? 'problem' : 'problems'} still unflagged.`;
+/**
+ * What a wrong check says under the diff. It counts the problems with no flag at all and
+ * never points at their rows. With none, every flag that's wrong already says so on its row.
+ */
+export function unflaggedText(unflagged: number): string {
+  if (unflagged === 0) return 'Every problem is flagged. Fix or remove the wrong flags above.';
+  return `${String(unflagged)} ${unflagged === 1 ? 'problem' : 'problems'} still unflagged.`;
 }
 
 /** What a passing check says under the diff. */
