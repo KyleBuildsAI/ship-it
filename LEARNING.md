@@ -2678,3 +2678,20 @@ https://github.com/KyleBuildsAI/ship-it/pull/206
 3. Kyle's direction for the game is less typing code and more directing AI and understanding systems. The Arena is about writing Python by hand, so it teaches the least of what the game is now for. The Vault and interview mode practise explaining your work, which fits.
 
 </details>
+
+---
+
+## #211 feat: download each act's content only when it's needed
+
+https://github.com/KyleBuildsAI/ship-it/pull/211
+
+1. `lazyActs.ts` loads Act 2 with `import('./act2')`, not `import { act2 } from './act2'`. What difference does that make to the files the build makes? What would happen if someone added `import { ACTS } from './content'` back into `main.tsx`?
+2. The build guard used to look only at the first download and its normal imports. Why wasn't that enough? Why does it now follow every `import()` except the ones that load an Act's own file?
+3. Replay on a lesson's Done screen doesn't need a download, because its Act is already loaded. So why does it now go through `playAgain` instead of calling `startLesson` directly?
+<details><summary>Answers</summary>
+
+1. A normal `import` has to be loaded before the file that uses it can run, so the bundler puts Act 2 into the same download as the code that imports it. `import()` returns a promise the code waits on later, so the bundler gives Act 2 a file of its own (`act2-….js`) that the browser fetches the first time the loader runs. `ACTS` imports all eight Acts the normal way, so adding it to `main.tsx` would put every Act back into the first download, about 546 kB more. The build would also stop with the guard's error, listing `src/content/act1/index.ts` to `act8/index.ts` as imported by `src/content/index.ts`.
+2. `main.tsx` fetches the 3D world with `import()` as soon as the page loads. So the world's file downloads on the first screen too, but the old guard never looked inside it. Act content that slipped into the world's file would download at startup and still pass the build. Following every `import()` covers the world, the code editor, and anything added later. The one kind of `import()` it doesn't follow is loading an Act's own file, because that's the allowed way to reach Act content. If the guard followed those too, every Act would count as a leak.
+3. A press from the Standup Board might still be waiting for its Act to download. The gate starts a waiting press only if its ticket is still the newest. Replay doesn't go through the gate, so on its own it wouldn't change the ticket. The old review would still count as the newest choice, and when its download arrived it would replace the lesson the player had just replayed. `playAgain` calls `cancelPendingPlay()` first, which moves the ticket on and clears "Loading…", so the late download starts nothing.
+
+</details>
