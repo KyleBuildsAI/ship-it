@@ -2695,3 +2695,93 @@ https://github.com/KyleBuildsAI/ship-it/pull/211
 3. A press from the Standup Board might still be waiting for its Act to download. The gate starts a waiting press only if its ticket is still the newest. Replay doesn't go through the gate, so on its own it wouldn't change the ticket. The old review would still count as the newest choice, and when its download arrived it would replace the lesson the player had just replayed. `playAgain` calls `cancelPendingPlay()` first, which moves the ticket on and clears "Loading…", so the late download starts nothing.
 
 </details>
+
+---
+
+## #212 fix: keep placement answers hidden until the test ends
+
+https://github.com/KyleBuildsAI/ship-it/pull/212
+
+1. Why must the Trophy Wall hide XP during a locked test, when the play panel already hides whether each answer was right?
+2. Why is the rule one function in `playStore.ts`, instead of a check written inside each menu?
+3. Why does the Standup Board's `useEffect` stay above the new early return?
+
+<details><summary>Answers</summary>
+
+1. A drill pays its XP the first time it is passed, wherever that happens. So if the XP went up right after an answer, that answer was right. The "Last 10 drills" percent gives it away the same way, and on the Standup Board a new review item means a miss. The panel hid the answer, but the menus showed its effects.
+2. Both menus must agree on exactly when a test is "running". With one function, they always do, and the rule is tested once, in `playStore.test.ts`, for every kind of activity. If the rule ever changes (say, a new kind of locked test), it changes in one place.
+3. React keeps track of hooks by the order they are called. If the `useEffect` sat below `if (lockedRunActive(activity)) return …`, a render during the test would call one hook fewer than a render after it. React would then mix up the hooks' state or throw an error. So every hook goes first, and the early returns come after.
+
+</details>
+
+---
+
+## #213 feat: carry each mission's drill ids in act summaries
+
+https://github.com/KyleBuildsAI/ship-it/pull/213
+
+1. Why add drill ids to the summary instead of loading the Acts when the Trophy Wall opens?
+2. Why is `drillIds` an empty list for a lesson, rather than missing?
+3. What fails in CI if someone changes an Act and forgets `npm run content:summaries`?
+
+<details><summary>Answers</summary>
+
+1. Each Act's content is its own download, fetched only when that Act is played. The Trophy Wall covers all 8 Acts, so loading content there would download all of them every time it opens, and the wall would wait for it. `DESIGN.md` section 10 says menus read summaries only, so they draw at once. The drill ids are tiny (about 3,300 characters for all 65 drills), so putting them in the summary costs almost nothing.
+2. With one shape for every part, code can always read `part.drillIds` and loop over it. A missing field would need an "is it there?" check in every reader, and TypeScript would make each one handle it. It also matches `cardIds`, which is empty for a mission. And an empty list is written into the JSON file as `[]` and reads back exactly the same.
+3. `src/content/actSummaries.test.ts` fails. It works out every Act's summary from the real content and compares it with the committed file. If they differ, it fails with "Act content changed: run npm run content:summaries". It fails the same way in CI, so the PR can't merge until the file is regenerated and committed.
+
+</details>
+
+---
+
+## #214 refactor: split mastery into recent results and a rule
+
+https://github.com/KyleBuildsAI/ship-it/pull/214
+
+1. What makes this a refactor, and how can you tell it changed no behaviour?
+2. Why split `masteredConcept` into `recentResults` and `isMastered`, instead of leaving it as one function?
+3. Why does `isMastered` say no to 9 right answers out of 9?
+
+<details><summary>Answers</summary>
+
+1. The code is rearranged, but every caller gets the same answers as before. The existing `masteredConcept` tests were not touched, and they still pass. If the behaviour had changed, one of them would fail.
+2. The skill tree needs the recent results themselves, not just yes or no: it draws them as a 10-cell strip and counts them in its notes. With the list and the rule apart, the tree can use both, and the 9-of-10 rule still lives in one place.
+3. The rule needs at least 10 attempts. With fewer, a short lucky streak could light a node. 9 of 9 is 100% right, but there are not yet enough attempts to call it mastered.
+
+</details>
+
+---
+
+## #215 feat: add the code review card schema
+
+https://github.com/KyleBuildsAI/ship-it/pull/215
+
+1. Why are a code review card's comments stored in a field called `options`, and not `comments`?
+2. Why does the schema reject a card where some changed line is in neither a bug nor `fine`?
+3. Why does `silencesACheck` count only added lines, and never removed ones?
+
+<details><summary>Answers</summary>
+
+1. Every rule for "pick one option" cards then covers the comments too: at least one right and one wrong, the rule that the right answer can't be guessed by its length, and the code in about 15 places that reads `card.options`. A new name would have needed a copy of each of those rules, and missing one would let a bad card through.
+2. Any changed line can be clicked. If a line had no verdict, a check would have nothing to say about it: is it a bug or not? The rule makes the answer key complete, so every click gets written feedback. It also catches an author forgetting a line.
+3. Adding `it.skip(` or `@ts-ignore` turns a check off. That is how an agent makes red checks go green, so such a line can never be fine. Removing one turns the check back on, which is good. The row must also be a changed row, so a file header like `+++ b/...` never counts.
+
+</details>
+
+---
+
+## #216 feat: shuffle a replayed lesson's options
+
+https://github.com/KyleBuildsAI/ship-it/pull/216
+
+1. Why does only a replay (or a final tried again) get a new order, and not a first play or a lesson picked up partway?
+2. Why is a seed from the start time safe here, when the placement test seeds with the attempt count?
+3. Why can't moving the options change anyone's grade?
+
+<details><summary>Answers</summary>
+
+1. A first play shows the order the content authors chose. They place the right answer deliberately, and `validateAct` checks rules about it, so a first play shouldn't change that. A lesson picked up partway must show its open card as it was left, wrong picks included. Its resume point stores card ids, not option order, so a new order would make the card look different after a reload. A replay of a completed lesson, or a final tried again, is exactly when Kyle may remember where the right answer sat, so that's when the order moves.
+2. The order has to be the same whenever the game rebuilds a run. A placement test's order comes from `placement.attempts`, which lives in the save, so the game can always rebuild it. The start time isn't saved, so a run seeded with it can never be rebuilt. That's fine only because those runs never resume: a completed lesson keeps no resume point, and a final never resumes. The rule `reordersOptions` makes sure a reordered run can't keep a resume point.
+3. Grading never looks at positions. When you click an option, the game records that option's `id`, and the option itself carries `correct: true` or not. Shuffling moves whole options, with their ids and flags, so the same click on the same option gives the same result wherever it sits. The browser check showed this: the right answers moved, and the replay still scored 8 of 8.
+
+</details>
