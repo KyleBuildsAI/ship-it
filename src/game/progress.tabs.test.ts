@@ -35,11 +35,13 @@ async function loadGame(): Promise<Game> {
 let first: Game;
 let second: Game;
 let third: Game;
+let fourth: Game;
 
 beforeAll(async () => {
   first = await loadGame();
   second = await loadGame();
   third = await loadGame();
+  fourth = await loadGame();
 });
 
 beforeEach(() => {
@@ -53,7 +55,7 @@ beforeEach(() => {
     }, ms);
     return controller.signal;
   });
-  for (const game of [first, second, third]) game.devStatus.update({ save: 'none' });
+  for (const game of [first, second, third, fourth]) game.devStatus.update({ save: 'none' });
 });
 
 afterEach(() => {
@@ -343,6 +345,44 @@ describe('a third tab', () => {
     expect(badge(a.game)).toBe('elsewhere');
     expect(badge(b.game)).toBe('elsewhere');
     expect(browser.stored()?.profile.xp).toBe(40);
+  });
+});
+
+describe('a fourth tab', () => {
+  it('still waiting when a steal turns out to be old news saves once it gets the lock (#223)', async () => {
+    // As above: b's steal goes through at 1.6 s, b hears so only at 4.6 s, and c takes the lock
+    // from that unseen grant at 3.2 s. d's first lock request takes 50 ms to reach the browser.
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) => {
+        if (route.pipe !== 'locks' || index !== 0) return undefined;
+        if (route.tab === 'b' && route.direction === 'down') return 3000;
+        return route.tab === 'd' && route.direction === 'up' ? 50 : undefined;
+      }),
+    });
+    const players = [
+      { tab: browser.openTab('a'), game: first, opensAt: 0 },
+      { tab: browser.openTab('b'), game: second, opensAt: 100 },
+      { tab: browser.openTab('c'), game: third, opensAt: 1700 },
+      { tab: browser.openTab('d'), game: fourth, opensAt: 4580 },
+    ] as const;
+    for (const { tab, game, opensAt } of players) {
+      setTimeout(() => {
+        start(game, tab);
+      }, opensAt);
+    }
+    setTimeout(() => {
+      players[0].tab.busyFor(60_000);
+    }, 50);
+    // d asks at 4.58 s and c hands over, freeing the lock. Before d's request reaches it, b
+    // sees its old grant and says it took the save, after d asked. Then d gets the free lock.
+    await vi.advanceTimersByTimeAsync(70_000);
+    expect(browser.lockHolder()).toBe('d');
+    expect(players.map(({ game }) => badge(game))).toEqual([
+      'elsewhere',
+      'elsewhere',
+      'elsewhere',
+      'saving',
+    ]);
   });
 });
 

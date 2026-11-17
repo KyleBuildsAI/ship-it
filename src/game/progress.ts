@@ -164,6 +164,12 @@ let holdsSave = false;
 let newOwnerTakesAt = Number.POSITIVE_INFINITY;
 /** A newer tab asked for the save while this one was still waiting for it. */
 let handoverRequested = false;
+/**
+ * While this tab waited for the lock, a newer tab said it had stolen it: the earliest such
+ * ask's `takesAt`, or null. That can be old news (#223), so a tab then granted the lock asks
+ * the browser before stepping aside for it.
+ */
+let stealHeardAt: number | null = null;
 /** Ends this tab's hold on the save lock. Null when it doesn't hold it. */
 let releaseSave: (() => void) | null = null;
 let channel: TabChannel | null = null;
@@ -200,6 +206,14 @@ let lockCheck: Promise<void> | null = null;
  * that old news from a real steal, but the browser knows who holds the lock. So a tab that
  * holds it asks the browser before giving the save up to a tab that says it stole it,
  * starting no write until the answer comes, and keeps the save if the lock is still its own.
+ * A tab still waiting when it hears that ask does the same once the lock is granted to it,
+ * and loads only after the answer: c may have handed the save over to it meanwhile.
+ *
+ * One case is still open. A waiting tab whose wait runs out after hearing only such an ask
+ * steps aside without asking: it holds no lock to ask about, and the browser's answer can't
+ * say whether the holder is the tab that said it stole. If that tab's news was old and the
+ * real holder answers this tab's ask only later, it hands the save over to nobody. That takes
+ * four page loads (a reload counts) and a holder slow to answer; a reload ends it.
  *
  * Only a tab holding the lock writes (#198). Once a tab knows it lost the lock, nothing in
  * it starts a write again: the new owner may already have loaded the save, so a late write
@@ -293,7 +307,13 @@ function onTabMessage(event: { data: unknown }): void {
   if (steppedAside || !isAsk(event.data) || !isNewer(event.data)) return;
   // Still waiting for the lock ourselves: hand over as soon as it arrives.
   if (releaseSave === null) {
-    handoverRequested = true;
+    // A tab that says it stole the lock may have lost it since, and the lock may then be
+    // granted to this tab. Only the browser can tell, once it has (acquireSave).
+    if (event.data.stole && saveLocks !== null) {
+      stealHeardAt = Math.min(stealHeardAt ?? Number.POSITIVE_INFINITY, event.data.takesAt);
+    } else {
+      handoverRequested = true;
+    }
     return;
   }
   // A tab that says it stole the lock may have lost it to this one since (#223).
@@ -335,6 +355,11 @@ function checkStillHolding(locks: SaveLocks, stolenAt: number): void {
   lockCheck = check;
 }
 
+/** Resolves once the browser has answered every question of whether this tab holds the lock. */
+async function lockChecked(): Promise<void> {
+  while (lockCheck !== null) await lockCheck;
+}
+
 /** Resolves once this tab holds the save lock (or has to go without: no Web Locks). */
 function acquireSave(locks: SaveLocks | null): Promise<void> {
   if (locks === null) {
@@ -353,6 +378,16 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
         releaseSave = release;
       });
     };
+    // Granted after waiting. If no plain ask came meanwhile but a tab said it stole the lock,
+    // that steal went through before this grant or after it: the browser says which. Writes
+    // wait for its answer, and this tab steps aside only if the lock isn't its own after all.
+    const holdGranted = () => {
+      if (!handoverRequested && stealHeardAt !== null) {
+        checkStillHolding(locks, stealHeardAt);
+        stealHeardAt = null;
+      }
+      return hold();
+    };
     // Taking the lock is asking for the save again, now. Every ask heard so far, and any
     // still on its way, was made before this moment. It may come from the tab the steal
     // just pushed out, which has stepped aside, so handing over to it would leave no tab
@@ -364,6 +399,7 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
       // lock from may hear this ask before the news of the steal, and must write nothing more.
       ownAsk = askNow(0, true);
       handoverRequested = false;
+      stealHeardAt = null;
       channel?.postMessage(ownAsk);
       return hold();
     };
@@ -379,7 +415,7 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
       void handOver(false, !stolen);
     };
     locks
-      .request(SAVE_LOCK, { signal: AbortSignal.timeout(HANDOVER_WAIT_MS) }, hold)
+      .request(SAVE_LOCK, { signal: AbortSignal.timeout(HANDOVER_WAIT_MS) }, holdGranted)
       .catch((error: unknown) => {
         if (holding) {
           lost(error);
@@ -425,6 +461,7 @@ export async function startProgress(
   holdsSave = false;
   newOwnerTakesAt = Number.POSITIVE_INFINITY;
   handoverRequested = false;
+  stealHeardAt = null;
   saveLocks = coordination.locks;
   lockCheck = null;
   progress.update({ status: 'loading', save: null, problem: null });
@@ -433,7 +470,7 @@ export async function startProgress(
   autosave = createAutosave(
     async (save) => {
       // Another tab says it stole the lock: whether this one may write is the browser's answer.
-      while (lockCheck !== null) await lockCheck;
+      await lockChecked();
       // Checked as each write starts, so one queued behind another can't start late.
       if (!holdsSave || Date.now() >= newOwnerTakesAt) throw new SaveElsewhereError();
       await storage.write(save);
@@ -461,6 +498,10 @@ export async function startProgress(
     await handOver(true);
     return;
   }
+  // Granted after a tab said it stole the lock: load once the browser says it's this tab's,
+  // so the two tabs never both show the game as saving.
+  await lockChecked();
+  if (!isSavingHere()) return;
 
   try {
     const save = await storage.load(now, storeLoadedSave);
@@ -503,8 +544,12 @@ function describeLoadProblem(error: unknown): string {
   return 'Your save could not be read. Import a backup from Settings, or start over there.';
 }
 
+/**
+ * A newer tab asked for the save while this one waited: a plain ask, or a steal that the
+ * browser hasn't been asked about (holdGranted asks once the lock comes).
+ */
 function handoverPending(): boolean {
-  return handoverRequested;
+  return handoverRequested || stealHeardAt !== null;
 }
 
 /** False once another tab has the save: then nothing here can change it. */

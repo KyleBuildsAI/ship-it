@@ -520,6 +520,33 @@ describe('two tabs', () => {
     expect(progress.get().problem).toBe(CHANGE_DROPPED);
   });
 
+  it.each([
+    ['keeps the save when the lock is its own', true, 'ready'],
+    ['steps aside without loading when it is not', false, 'elsewhere'],
+  ])(
+    'granted the lock after hearing a tab say it stole it, asks the browser first: %s',
+    async (_case, holding, status) => {
+      const { storage, writes } = memoryStorage();
+      const load = vi.fn(storage.load);
+      const tab = otherTab();
+      const starting = startProgress({ load, write: storage.write }, NOW, tab.coordination);
+      await settle();
+      tab.saysItStole();
+      void tab.grant();
+      await settle();
+      // Nothing is loaded, so nothing is written or shown, until the browser answers.
+      expect(tab.checks).toHaveLength(1);
+      expect(load).not.toHaveBeenCalled();
+      tab.checks[0]?.answer(holding);
+      await starting;
+      expect(load).toHaveBeenCalledTimes(holding ? 1 : 0);
+      expect(progress.get().status).toBe(status);
+      updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+      await flushProgress();
+      expect(writes.map((save) => save.profile.xp)).toEqual(holding ? [5] : []);
+    },
+  );
+
   it('stores nothing from a load that finishes after handing over', async () => {
     let readDone: () => void = () => undefined;
     const { storage, writes } = memoryStorage();
