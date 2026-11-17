@@ -296,6 +296,25 @@ body {
   bottom: calc(38vh + 32px);
 }
 
+/*
+ * In a narrow window the editor's left edge reaches the HUD menu row: at Extra large text
+ * the row ends near x 630, and in a 1024px window the editor starts at x 557, so its
+ * bottom-left corner sat on Music and caught its clicks. Below 1280px it stops above the
+ * row's Extra large height (39px) with 8px of air, as the play panel and the command chip
+ * do: 16 + 39 + 8 = 63, so 64px with the terminal closed, and 28 + 39 + 8 = 75 on top of
+ * it. Wider windows keep the full height (panelLayout.test.ts checks both). Keep this block
+ * below the two rules above: a media query adds no specificity, so the later rule wins.
+ */
+@media (width < 1280px) {
+  .editor-dock {
+    bottom: 64px;
+  }
+
+  .editor-dock--above-terminal {
+    bottom: calc(38vh + 75px);
+  }
+}
+
 .editor-panel {
   box-sizing: border-box;
   display: flex;
