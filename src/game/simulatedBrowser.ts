@@ -60,8 +60,9 @@ export interface LateWrite {
   readonly tab: string;
   /**
    * The tab knew when it sent the write: it had let go of the lock, or had heard the lock
-   * was taken, or never held it, or had heard a newer tab's ask whose wait had run out. If
-   * not, the lock went while the write was on its way, or before the tab could hear about it.
+   * was taken, or never held it, or had heard a newer tab's ask whose wait had run out (but
+   * not a steal the browser has since told it was old news). If not, the lock went while the
+   * write was on its way, or before the tab could hear about it.
    */
   readonly knew: boolean;
   /** What it wrote, so a test can tell whether IndexedDB still holds it. */
@@ -154,21 +155,22 @@ interface IdbOperation {
   readonly perform: () => Task;
 }
 
-/** The times in a tab's ask for the save (Ask in progress.ts). */
+/** The times in a tab's ask for the save (Ask in progress.ts), and whether it says it stole. */
 interface AskTimes {
   readonly at: number;
   readonly nonce: number;
   readonly takesAt: number;
+  readonly stole: boolean;
 }
 
 /** The times in `data` when it's an ask for the save, or null for any other message. */
 function readAsk(data: unknown): AskTimes | null {
   if (typeof data !== 'object' || data === null) return null;
-  const { at, nonce, takesAt } = data as Record<string, unknown>;
+  const { at, nonce, takesAt, stole } = data as Record<string, unknown>;
   if (typeof at !== 'number' || typeof nonce !== 'number' || typeof takesAt !== 'number') {
     return null;
   }
-  return { at, nonce, takesAt };
+  return { at, nonce, takesAt, stole: stole === true };
 }
 
 export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): SimulatedBrowser {
@@ -293,7 +295,9 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
         new Promise((resolve) => {
           tab.up.locks(() => {
             const holding = holder?.tab === tab;
+            const answeredAt = Date.now();
             tab.down.locks(() => {
+              if (holding) heardStillHolding(tab, answeredAt);
               resolve(holding);
             });
           });
@@ -306,18 +310,35 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
   /** Each tab's latest ask for the save. */
   const ownAsks = new Map<TabInternals, AskTimes>();
   /**
-   * Per tab: the earliest `takesAt` among newer tabs' asks it has heard since it last asked.
-   * From then on the tab knows a newer tab is taking the save, whatever the lock news says.
+   * Per tab: the newer tabs' asks it has heard since it last asked. Once the earliest
+   * `takesAt` among them has passed, the tab knows a newer tab is taking the save, whatever
+   * the lock news says.
    */
-  const heardDeadlines = new Map<TabInternals, number>();
+  const heardAsks = new Map<TabInternals, AskTimes[]>();
 
   function heard(tab: TabInternals, data: unknown): void {
     const ask = readAsk(data);
     const own = ownAsks.get(tab);
     if (ask === null || own === undefined) return;
     if (ask.at < own.at || (ask.at === own.at && ask.nonce <= own.nonce)) return;
-    const earliest = heardDeadlines.get(tab) ?? Number.POSITIVE_INFINITY;
-    heardDeadlines.set(tab, Math.min(earliest, ask.takesAt));
+    heardAsks.set(tab, [...(heardAsks.get(tab) ?? []), ask]);
+  }
+
+  /**
+   * The browser told `tab` it held the lock at `answeredAt`. Any tab that said it stole the
+   * lock before then had lost it again, so the tab no longer counts that as knowing.
+   */
+  function heardStillHolding(tab: TabInternals, answeredAt: number): void {
+    const asks = heardAsks.get(tab) ?? [];
+    heardAsks.set(
+      tab,
+      asks.filter((ask) => !ask.stole || ask.takesAt > answeredAt),
+    );
+  }
+
+  /** From when `tab` knows a newer tab is taking the save. */
+  function knownDeadline(tab: TabInternals): number {
+    return Math.min(...(heardAsks.get(tab) ?? []).map((ask) => ask.takesAt));
   }
 
   function broadcast(from: ChannelEnd, data: unknown): void {
@@ -344,7 +365,7 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
           const ask = readAsk(data);
           if (ask !== null) {
             ownAsks.set(tab, ask);
-            heardDeadlines.delete(tab);
+            heardAsks.delete(tab);
           }
           tab.up.channel(() => {
             broadcast(end, data);
@@ -412,8 +433,7 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
       await open();
       // Its own request settles once the tab has let go, or has heard the lock was taken.
       const own = seenGranted.get(tab);
-      const deadline = heardDeadlines.get(tab) ?? Number.POSITIVE_INFINITY;
-      const knew = own === undefined || own.settled || Date.now() >= deadline;
+      const knew = own === undefined || own.settled || Date.now() >= knownDeadline(tab);
       await idb(tab, () => {
         if (holder?.tab !== tab) lateWrites.push({ tab: tab.name, knew, save });
         stored = save;
