@@ -449,6 +449,13 @@ async function playRandomOpening(seed: number, tabCount: 2 | 3): Promise<string 
   return `gaps ${gaps.join('/')} ms: tabs ${states.join(' and ')}, lock held by ${String(browser.lockHolder())}`;
 }
 
+/**
+ * Room for a loop of hundreds of seeded sessions. Alone, each loop takes well under a second,
+ * but a busy machine can stretch it past Vitest's 5 s default. A loop stopped there keeps
+ * running in the background on the same tab modules, and breaks whichever test runs next.
+ */
+const SEEDED_LOOP_TIMEOUT_MS = 60_000;
+
 describe('tabs opened together, any timing', () => {
   it.each([2, 3] as const)(
     'end with exactly one of %i tabs saving, holding the lock',
@@ -460,5 +467,6 @@ describe('tabs opened together, any timing', () => {
       }
       expect(failures).toEqual([]);
     },
+    SEEDED_LOOP_TIMEOUT_MS,
   );
 });
