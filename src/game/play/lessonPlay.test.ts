@@ -334,6 +334,27 @@ describe('the option order when a lesson is played again', () => {
     expect(lesson().run.card.picked).toEqual([wrong.id]);
     expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
   });
+
+  it('shows a final tried again, after its clock ran out or after leaving it, in a new order', () => {
+    // Its first play keeps the authored order, even at a start time that would move one.
+    startLesson(sampleFinal.id, MOVED);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleFinal));
+    endLessonBriefing(T0);
+    for (let index = 0; index < sampleFinal.cards.length - 1; index++) answer();
+    tickPlay(T0 + 121_000);
+    expect(lesson().run.outcome).toBe('timed-out');
+    expect(saved(sampleFinal.id).mission?.status).toBe('in-progress');
+    // Every right option but the last card's has just been seen, so Try again moves them.
+    startLesson(sampleFinal.id, MOVED);
+    expect(optionOrder(lesson().lesson)).not.toEqual(optionOrder(sampleFinal));
+    expect(optionOrder(lesson().lesson)).toEqual(seededOrder(MOVED));
+    // A final never resumes, so one left partway starts over in a new order too.
+    endLessonBriefing(MOVED);
+    leavePlay();
+    startLesson(sampleFinal.id, MOVED);
+    expect(lesson().run.phase).toBe('briefing');
+    expect(optionOrder(lesson().lesson)).toEqual(seededOrder(MOVED));
+  });
 });
 
 describe('a final lesson', () => {
