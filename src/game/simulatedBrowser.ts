@@ -36,6 +36,12 @@ export interface SimulatedBrowserOptions {
    * Default: 1 ms for everything.
    */
   latency?: (route: Route, index: number) => number;
+  /**
+   * What IndexedDB holds when the browser starts. Nothing by default, as on a first launch.
+   * `fromOlderVersion` marks a save an older version of the game wrote: a load upgrades it
+   * and stores it again, as loadSave does.
+   */
+  stored?: { save: SaveData; fromOlderVersion: boolean };
 }
 
 export interface SimulatedTab {
@@ -48,12 +54,25 @@ export interface SimulatedTab {
   busyFor: (ms: number) => void;
 }
 
+/** A save write that reached IndexedDB after its tab had lost the lock. */
+export interface LateWrite {
+  readonly tab: string;
+  /**
+   * The tab knew when it sent the write: it had let go of the lock, or had heard the lock
+   * was taken, or never held it. If not, the lock went while the write was on its way, or
+   * before the tab could hear about it.
+   */
+  readonly knew: boolean;
+}
+
 export interface SimulatedBrowser {
   openTab: (name: string) => SimulatedTab;
   /** The tab whose request holds the save lock right now, or null when nobody does. */
   lockHolder: () => string | null;
   /** What IndexedDB holds. */
   stored: () => SaveData | undefined;
+  /** Every write so far that reached IndexedDB after its tab lost the lock. */
+  lateWrites: () => readonly LateWrite[];
 }
 
 type Task = () => void;
@@ -152,6 +171,8 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
   // --- Web Locks: one lock, the save's ---------------------------------------------------
   let holder: LockRequest | null = null;
   const waiting: LockRequest[] = [];
+  /** Each tab's latest request it saw granted: what the tab itself thinks it holds. */
+  const seenGranted = new Map<TabInternals, LockRequest>();
 
   function grant(request: LockRequest): void {
     holder = request;
@@ -159,6 +180,7 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
       // It stopped waiting first; the browser frees the lock when that news arrives.
       if (request.cancelled) return;
       request.granted = true;
+      seenGranted.set(request.tab, request);
       request.callback().then(
         (value) => {
           finish(request, () => {
@@ -289,7 +311,9 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
   }
 
   // --- IndexedDB -------------------------------------------------------------------------
-  let stored: SaveData | undefined;
+  let stored = options.stored?.save;
+  let storedFromOlderVersion = options.stored?.fromOlderVersion ?? false;
+  const lateWrites: LateWrite[] = [];
   const operations: IdbOperation[] = [];
   let running: IdbOperation | null = null;
 
@@ -331,24 +355,29 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
     // The first use opens the database (creating it, on a first launch), as Dexie does.
     let opening: Promise<void> | null = null;
     const open = () => (opening ??= idb(tab, () => undefined));
+    const write = async (save: SaveData) => {
+      await open();
+      // Its own request settles once the tab has let go, or has heard the lock was taken.
+      const own = seenGranted.get(tab);
+      const knew = own === undefined || own.settled;
+      await idb(tab, () => {
+        if (holder?.tab !== tab) lateWrites.push({ tab: tab.name, knew });
+        stored = save;
+        storedFromOlderVersion = false;
+      });
+    };
     return {
-      // Like loadSave: read the save, or store a new game when there isn't one.
+      // Like loadSave: read the save, or store a new game when there isn't one. A save from
+      // an older version is stored again once upgraded (here the upgrade changes nothing).
       load: async (now) => {
         await open();
-        const found = await idb(tab, () => stored);
-        if (found !== undefined) return found;
-        const fresh = createDefaultSave(now);
-        await idb(tab, () => {
-          stored = fresh;
-        });
-        return fresh;
+        const found = await idb(tab, () => ({ save: stored, upgrade: storedFromOlderVersion }));
+        if (found.save !== undefined && !found.upgrade) return found.save;
+        const save = found.save ?? createDefaultSave(now);
+        await write(save);
+        return save;
       },
-      write: async (save) => {
-        await open();
-        await idb(tab, () => {
-          stored = save;
-        });
-      },
+      write,
     };
   }
 
@@ -378,5 +407,6 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
     },
     lockHolder: () => holder?.tab.name ?? null,
     stored: () => stored,
+    lateWrites: () => lateWrites,
   };
 }
