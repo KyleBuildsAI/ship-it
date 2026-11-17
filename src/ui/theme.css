@@ -298,7 +298,7 @@ body {
 
 /*
  * In a narrow window the editor's left edge reaches the HUD menu row: at Extra large text
- * the row ends near x 632, and in a 1024px window the editor starts at x 557, so its
+ * the row ends near x 630, and in a 1024px window the editor starts at x 557, so its
  * bottom-left corner sat on Music and caught its clicks. Below 1280px it stops above the
  * row's Extra large height (39px) with 8px of air, as the play panel and the command chip
  * do: 16 + 39 + 8 = 63, so 64px with the terminal closed, and 28 + 39 + 8 = 75 on top of

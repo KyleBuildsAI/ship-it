@@ -229,10 +229,11 @@ function dockStart(width: number): number {
 
 describe('the code editor beside the HUD menu', () => {
   it('stops above the row in every window narrow enough for its corner to reach it', () => {
-    // At Extra large the row ends near x 632 (Segoe UI), and in a 1024px window the editor
-    // started at x 557: its bottom-left corner sat on Music and caught its clicks. Its left
-    // edge only moves right as the window widens, so once it clears the row (with 8px of
-    // air) it clears it in every wider window too, and from there it keeps its full height.
+    // At Extra large the row ends near x 630 (Segoe UI, measured in Chrome), and in a 1024px
+    // window the editor started at x 557: its bottom-left corner sat on Music and caught its
+    // clicks. Its left edge only moves right as the window widens, so once it clears the row
+    // (with 8px of air) it clears it in every wider window too, and from there it keeps its
+    // full height.
     const rowEnd = menuRowEnd(LARGEST_ZOOM);
     const clears = Array.from({ length: 4000 }, (_, width) => width).find(
       (width) => dockStart(width) >= rowEnd + 8,
