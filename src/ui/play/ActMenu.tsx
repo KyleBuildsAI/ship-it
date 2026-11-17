@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { roadmapAct } from '../../content/roadmap';
 import type { PlacementTest } from '../../game/missions/schema';
 import type {
@@ -6,22 +7,19 @@ import type {
   FieldMissionOutline,
   PartSummary,
 } from '../../game/play/actSummary';
-import { startBossFight } from '../../game/play/bossPlay';
 import { findActSummary, hasWorkLeft, type FreePlay } from '../../game/play/catalog';
 import { starsFor } from '../../game/missions/lessonRunner';
-import { startFieldMission } from '../../game/play/fieldPlay';
 import { startFreePlay } from '../../game/play/freePlay';
-import { startLesson } from '../../game/play/lessonPlay';
 import { partResumeFor, resumeCardNumber } from '../../game/play/lessonResume';
-import { startActPlacement } from '../../game/play/play';
-import { startMission } from '../../game/play/missionPlay';
-import { reviewItemsToday, startReview } from '../../game/play/seriesPlay';
+import { whileMenuOpen, type PlayRequest } from '../../game/play/playWhenReady';
+import { reviewItemsToday } from '../../game/play/seriesPlay';
 import { bossAccess, isUnlocked, type BossAccess } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { completedActNumbers, rankFor } from '../../game/progression/xp';
 import type { ActProgress, MissionProgress, MissionStatus, SaveData } from '../../game/save/schema';
 import { useStore } from '../useStore';
 import { ActTabs } from './ActTabs';
+import { LoadFailedAlert, PlayButton } from './PlayButton';
 import { PreviewActMenu } from './PreviewActMenu';
 
 const STATUS: Record<MissionStatus, string> = {
@@ -68,12 +66,12 @@ function PlayRow({
   label,
   note,
   status,
-  onPlay,
+  request,
 }: {
   label: string;
   note: string;
   status: MissionStatus;
-  onPlay: () => void;
+  request: PlayRequest;
 }) {
   return (
     <li>
@@ -81,13 +79,13 @@ function PlayRow({
         {label}
         <small>{note}</small>
       </span>
-      <button
-        type="button"
+      <PlayButton
+        request={request}
+        from="act-menu"
         className={status === 'available' ? 'play-button play-button--primary' : 'play-button'}
-        onClick={onPlay}
       >
         {status === 'completed' || status === 'tested-out' ? 'Replay' : 'Play'}
-      </button>
+      </PlayButton>
     </li>
   );
 }
@@ -132,15 +130,9 @@ function PlacementRow({ actNumber, actProgress, test }: PartRowProps & { test: P
               : test.pitch}
         </small>
       </span>
-      <button
-        type="button"
-        className="play-button"
-        onClick={() => {
-          startActPlacement(actNumber);
-        }}
-      >
+      <PlayButton request={{ kind: 'placement', act: actNumber }} from="act-menu">
         Take
-      </button>
+      </PlayButton>
     </li>
   );
 }
@@ -173,16 +165,13 @@ function BossRow({
         Boss: {boss.title}
         <small>{actProgress?.bossCompletedAt ? 'Beaten' : bossHint(access, hasPlacement)}</small>
       </span>
-      <button
-        type="button"
-        className="play-button"
+      <PlayButton
+        request={{ kind: 'boss', act: actNumber }}
+        from="act-menu"
         disabled={access === 'locked'}
-        onClick={() => {
-          startBossFight(actNumber);
-        }}
       >
         Fight
-      </button>
+      </PlayButton>
     </li>
   );
 }
@@ -202,15 +191,9 @@ function FieldRow({
             : `Real work on your ${field.repoName} repo`}
         </small>
       </span>
-      <button
-        type="button"
-        className="play-button"
-        onClick={() => {
-          startFieldMission(actNumber);
-        }}
-      >
+      <PlayButton request={{ kind: 'field', act: actNumber }} from="act-menu">
         Open
-      </button>
+      </PlayButton>
     </li>
   );
 }
@@ -251,6 +234,8 @@ function EarlyAccessNote({ act, save }: { act: ActOutline; save: SaveData }) {
  */
 export function ActMenu({ act: number }: { act: number }) {
   const { save } = useStore(progress);
+  // Above the early return: React needs the same hooks, in the same order, every render.
+  useEffect(() => whileMenuOpen('act-menu', [number]), [number]);
   if (save === null) return null;
   const summary = findActSummary(number);
   if (summary === undefined) {
@@ -277,6 +262,7 @@ export function ActMenu({ act: number }: { act: number }) {
         {rank} · {save.profile.xp} XP{actProgress?.completedAt ? ' · Act complete' : ''}
       </p>
       {act.earlyAccess ? <EarlyAccessNote act={act} save={save} /> : null}
+      <LoadFailedAlert from="act-menu" />
       <ol className="act-menu">
         {placementTest ? (
           <PlacementRow actNumber={act.act} actProgress={actProgress} test={placementTest} />
@@ -295,9 +281,7 @@ export function ActMenu({ act: number }: { act: number }) {
                 label={`${number} ${part.title}`}
                 note={STATUS[status]}
                 status={status}
-                onPlay={() => {
-                  startMission(id);
-                }}
+                request={{ kind: 'mission', id }}
               />
             );
           }
@@ -307,9 +291,7 @@ export function ActMenu({ act: number }: { act: number }) {
               label={`${number} ${part.kind === 'final' ? 'Final: ' : ''}${part.title}`}
               note={lessonNote(part, saved)}
               status={lessonRowStatus(part, saved)}
-              onPlay={() => {
-                startLesson(id);
-              }}
+              request={{ kind: 'lesson', id }}
             />
           );
         })}
@@ -335,15 +317,9 @@ export function ActMenu({ act: number }: { act: number }) {
                 {reviews} {reviews === 1 ? 'review' : 'reviews'} due today
               </small>
             </span>
-            <button
-              type="button"
-              className="play-button"
-              onClick={() => {
-                startReview();
-              }}
-            >
+            <PlayButton request={{ kind: 'review' }} from="act-menu">
               Review
-            </button>
+            </PlayButton>
           </li>
         ) : null}
       </ol>

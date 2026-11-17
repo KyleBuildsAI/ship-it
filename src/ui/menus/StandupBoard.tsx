@@ -1,14 +1,25 @@
+import { useEffect } from 'react';
 import { openMenu } from '../../game/hud';
 import { drillPrompt } from '../../game/play/catalog';
-import { startReview, todaysItems } from '../../game/play/seriesPlay';
+import { actsNeeded, whileMenuOpen } from '../../game/play/playWhenReady';
+import { todaysItems } from '../../game/play/seriesPlay';
 import { progress } from '../../game/progress';
 import { compareDays, localDay } from '../../game/progression/days';
+import { LoadFailedAlert, PlayButton } from '../play/PlayButton';
 import { useStore } from '../useStore';
 import { Overlay } from './Overlay';
 
 /** Today's review set (DESIGN.md section 6): missed drills, brought back by SM-2. */
 export function StandupBoard() {
   const { save } = useStore(progress);
+  const saveLoaded = save !== null;
+  // Above the early return: React needs the same hooks, in the same order, every render.
+  // It runs again once the save loads: the save holds the review queue, which says which
+  // Acts today's review draws from, so until then there's nothing to fetch.
+  useEffect(
+    () => whileMenuOpen('standup-board', actsNeeded({ kind: 'review' }, new Date())),
+    [saveLoaded],
+  );
   if (save === null) return null;
   const now = new Date();
   const today = localDay(now);
@@ -40,17 +51,18 @@ export function StandupBoard() {
               </li>
             ))}
           </ol>
+          <LoadFailedAlert from="standup-board" />
           <div className="play-panel__actions">
-            <button
-              type="button"
+            <PlayButton
+              request={{ kind: 'review' }}
+              from="standup-board"
               className="play-button play-button--primary"
-              onClick={() => {
-                startReview();
+              onStarted={() => {
                 openMenu(null);
               }}
             >
               Start review
-            </button>
+            </PlayButton>
           </div>
         </>
       )}

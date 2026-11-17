@@ -1,5 +1,6 @@
+import type { EffectCallback } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   earlyActInput,
   earlySampleAct,
@@ -22,6 +23,7 @@ import { setCatalog, setLazyCatalog, type ActContent } from '../../game/play/cat
 import { startLesson } from '../../game/play/lessonPlay';
 import { leavePlay } from '../../game/play/play';
 import { play } from '../../game/play/playStore';
+import { cancelPendingPlay, pendingPlay, type PlayRequest } from '../../game/play/playWhenReady';
 import { withUnlock } from '../../game/play/unlock';
 import { progress } from '../../game/progress';
 import { localDay } from '../../game/progression/days';
@@ -42,6 +44,17 @@ import { ActMenu } from './ActMenu';
 // server snapshot (the game only renders in the browser), so here it just reads the store.
 vi.mock('../useStore', () => ({
   useStore: <T extends object>(store: Store<T>) => store.get(),
+}));
+
+// Rendering to a string runs no effects either. This stand-in for useEffect keeps each one
+// a component asks for, so a test can run it (the menu opening) and then run the cleanup
+// it returns (the menu closing or switching Act), as React does in the browser.
+const effects = vi.hoisted((): EffectCallback[] => []);
+vi.mock('react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react')>()),
+  useEffect: (effect: EffectCallback) => {
+    effects.push(effect);
+  },
 }));
 
 const act2: ActContent = { act: sampleAct, missions: [sampleMission, secondMission, thirdMission] };
@@ -76,10 +89,16 @@ function rows(markup: string): string[] {
     text(
       (match[1] ?? '')
         .replace(/<small>(.+?)<\/small>/, ' · $1')
-        .replace(/<button[^>]*disabled[^>]*>(.*?)<\/button>/, ' [$1, locked]')
+        .replace(/<button[^>]*disabled[^>]*>(.*?)<\/button>/, ' [$1, disabled]')
         .replace(/<button[^>]*>(.*?)<\/button>/, ' [$1]'),
     ),
   );
+}
+
+/** What the menu's alert line says, or null when it has none. */
+function alertLine(markup: string): string | null {
+  const line = /<p[^>]*role="alert"[^>]*>(.*?)<\/p>/.exec(markup);
+  return line ? text(line[1] ?? '') : null;
 }
 
 /** What the "Early access" line says after its label, or null when there's no line. */
@@ -140,7 +159,7 @@ describe('the Act menu of an early-access Act', () => {
 
   it("leaves the placement test out of the boss's locked hint, since there isn't one", () => {
     expect(rows(menuFor(earlyWith({ boss: sampleActInput.boss })))).toContain(
-      'Boss: The Dirty Tree (sample) · Opens after every mission [Fight, locked]',
+      'Boss: The Dirty Tree (sample) · Opens after every mission [Fight, disabled]',
     );
   });
 });
@@ -153,7 +172,7 @@ describe('the Act menu of a finished Act', () => {
       '2.1 Three Rooms (sample) [Play]',
       '2.2 Reading History (sample) [Play]',
       '2.3 Good Commits (sample) [Play]',
-      'Boss: The Dirty Tree (sample) · Opens after every mission (or the placement test) [Fight, locked]',
+      'Boss: The Dirty Tree (sample) · Opens after every mission (or the placement test) [Fight, disabled]',
       'Field Mission: Clean the Dirty Tree (sample) · Real work on your SandCastles repo [Open]',
     ]);
     expect(note(markup)).toBeNull();
@@ -379,14 +398,20 @@ describe('an Act menu with no Act content loaded', () => {
     return renderToStaticMarkup(<ActMenu act={content.act.act} />);
   }
 
+  /** Preview mode opens the boss and a review is due, so every kind of button is enabled. */
+  const reviewDue: SaveData = {
+    ...withUnlock(newSave, true),
+    reviewQueue: [createReviewItem(firstDrillId, localDay(new Date()))],
+  };
+
+  afterEach(() => {
+    cancelPendingPlay();
+  });
+
   it('with setLazyCatalog and a loader that throws, every row renders', () => {
     const lessonResume = { answered: firstThreeAnswered, open: null };
     const started = { ...createMissionProgress(), status: 'in-progress' as const, lessonResume };
     const resumed: SaveData = { ...newSave, missions: { [sampleLesson.id]: started } };
-    const reviewDue: SaveData = {
-      ...withUnlock(newSave, true),
-      reviewQueue: [createReviewItem(firstDrillId, localDay(new Date()))],
-    };
     const laptop: ActContent = { ...early, freePlay: { steps: [], notice: 'A laptop.' } };
     const cases: [ActContent, SaveData][] = [
       [act2, reviewDue],
@@ -415,6 +440,77 @@ describe('an Act menu with no Act content loaded', () => {
     const markup = renderToStaticMarkup(<ActMenu act={2} />);
     expect(markup.match(/role="tab"/g)).toHaveLength(2);
     expect(load).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, ActContent, PlayRequest]>([
+    ['Placement test', act2, { kind: 'placement', act: 2 }],
+    ['2.2 Reading History', act2, { kind: 'mission', id: secondMission.id }],
+    ['Boss: The Dirty Tree', act2, { kind: 'boss', act: 2 }],
+    ['Field Mission: Clean the Dirty Tree', act2, { kind: 'field', act: 2 }],
+    ['Standup Board', act2, { kind: 'review' }],
+    [
+      `4.2 ${sampleSecondLesson.title}`,
+      sampleLessonAct(),
+      { kind: 'lesson', id: sampleSecondLesson.id },
+    ],
+  ])('says Loading… on the %s button alone while its Act downloads', (label, content, request) => {
+    const before = rows(summaryMenuFor(content, reviewDue));
+    expect(before.filter((row) => row.startsWith(label))).toHaveLength(1);
+    pendingPlay.update({ from: 'act-menu', waiting: request });
+    // Disabled, so a second press can't start a second download of the same thing.
+    const loading = (row: string) => row.replace(/\[[^\]]*\]$/, '[Loading…, disabled]');
+    expect(rows(summaryMenuFor(content, reviewDue))).toEqual(
+      before.map((row) => (row.startsWith(label) ? loading(row) : row)),
+    );
+  });
+
+  it("names the Act that didn't load, and leaves every button ready to try again", () => {
+    const before = summaryMenuFor(act2, reviewDue);
+    expect(alertLine(before)).toBeNull();
+    pendingPlay.update({ from: 'act-menu', failed: { request: { kind: 'boss', act: 2 }, act: 2 } });
+    const markup = summaryMenuFor(act2, reviewDue);
+    expect(alertLine(markup)).toBe(
+      "Act 2 didn't load. Check SHIP IT is still running, then try again. " +
+        'If it keeps failing, reload the page; your progress is saved.',
+    );
+    expect(rows(markup)).toEqual(rows(before));
+  });
+
+  it('shows neither Loading… nor an alert for a press made on the Standup Board', () => {
+    const before = summaryMenuFor(act2, reviewDue);
+    pendingPlay.update({ from: 'standup-board', waiting: { kind: 'review' } });
+    expect(summaryMenuFor(act2, reviewDue)).toBe(before);
+    pendingPlay.update({ waiting: null, failed: { request: { kind: 'review' }, act: 2 } });
+    expect(summaryMenuFor(act2, reviewDue)).toBe(before);
+  });
+});
+
+describe('opening and closing an Act menu', () => {
+  afterEach(() => {
+    cancelPendingPlay();
+  });
+
+  it('downloads its Act as it opens, and on closing drops only its own press', () => {
+    const load = vi.fn(() => Promise.resolve(act2));
+    setLazyCatalog([{ summary: summarizeAct(act2), load }]);
+    progress.update({ status: 'ready', save: newSave, problem: null });
+    effects.length = 0;
+    ActMenu({ act: 2 });
+    const [close] = effects.map((effect) => effect());
+    expect(load).toHaveBeenCalledOnce();
+    expect(close).toBeTypeOf('function');
+    const closeMenu = () => {
+      if (typeof close === 'function') close();
+    };
+
+    // The Standup Board keeps its press when the menu under it closes or switches Act...
+    pendingPlay.update({ from: 'standup-board', waiting: { kind: 'review' } });
+    closeMenu();
+    expect(pendingPlay.get().waiting).not.toBeNull();
+    // ...but the menu's own press goes with it.
+    pendingPlay.update({ from: 'act-menu', waiting: { kind: 'mission', id: sampleMission.id } });
+    closeMenu();
+    expect(pendingPlay.get().waiting).toBeNull();
   });
 });
 

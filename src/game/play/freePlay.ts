@@ -3,6 +3,7 @@ import { closeActMenu, openTerminal } from '../hud';
 import { zoneForAct } from '../world/zones';
 import { travelTo } from '../worldState';
 import { leavePlay } from './play';
+import { cancelPendingPlay } from './playWhenReady';
 import { loadSandbox } from './sandboxControl';
 
 /**
@@ -12,6 +13,9 @@ import { loadSandbox } from './sandboxControl';
  * so what's typed shows there too: the laptop's terraces light up on Act 1's.
  */
 export function startFreePlay(act: number, steps: readonly FixtureStep[], notice: string): void {
+  // The sandbox opens at once, so it's the player's newest choice: a Play still waiting for
+  // its Act must not start when the download arrives and replace the sandbox.
+  cancelPendingPlay();
   leavePlay();
   loadSandbox(steps, notice);
   closeActMenu();
