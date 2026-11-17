@@ -191,6 +191,8 @@ export function SettingsPanel() {
         <button
           type="button"
           className="play-button"
+          // Like Start over: an import can't replace a save that hasn't loaded yet.
+          disabled={status === 'loading'}
           onClick={() => {
             fileInput.current?.click();
           }}

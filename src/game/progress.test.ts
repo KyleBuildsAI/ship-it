@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { devStatus } from './devStatus';
 import {
+  CHANGE_DROPPED,
   flushProgress,
   isSavingHere,
   progress,
@@ -93,6 +94,39 @@ describe('progress', () => {
     expect(await replaceSave(imported)).toBe(true);
     expect(progress.get().save?.profile.xp).toBe(999);
     expect(writes.at(-1)?.profile.xp).toBe(999);
+  });
+
+  it('refuses an import until the save has loaded, and never stores it later', async () => {
+    let finishLoad: (save: SaveData) => void = () => undefined;
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(
+      {
+        load: () =>
+          new Promise((resolve) => {
+            finishLoad = resolve;
+          }),
+        write: storage.write,
+      },
+      NOW,
+      tab.coordination,
+    );
+    await settle();
+    const imported = {
+      ...createDefaultSave(NOW),
+      profile: { ...createDefaultSave(NOW).profile, xp: 999 },
+    };
+    // Waiting for the lock, then reading the save: the load would then show the save it
+    // read, while IndexedDB held the import, and the next change would write over it.
+    expect(await replaceSave(imported)).toBe(false);
+    void tab.grant();
+    await settle();
+    expect(await replaceSave(imported)).toBe(false);
+    finishLoad(createDefaultSave(NOW));
+    await starting;
+    await flushProgress();
+    expect(progress.get().save?.profile.xp).toBe(0);
+    expect(writes).toHaveLength(0);
   });
 });
 
@@ -340,6 +374,50 @@ describe('two tabs', () => {
     const attempts = write.mock.calls.length;
     await flushProgress();
     expect(write.mock.calls.length).toBe(attempts);
+  });
+
+  it('drops a change still waiting when another tab takes the save, and says so', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.steals();
+    await vi.waitFor(() => {
+      expect(devStatus.get().save).toBe('elsewhere');
+    });
+    // The other tab may already have loaded the save: writing now would undo its progress.
+    await flushProgress();
+    expect(writes.map((save) => save.profile.xp)).not.toContain(5);
+    expect(progress.get().problem).toBe(CHANGE_DROPPED);
+  });
+
+  it('stops writing, and logs it, when the browser drops the lock for another reason', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnings = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    // Not another tab's steal, but this tab doesn't hold the lock any more all the same.
+    const fault = new DOMException('The lock went away', 'InvalidStateError');
+    tab.requests[0]?.reject(fault);
+    await vi.waitFor(() => {
+      expect(devStatus.get().save).toBe('elsewhere');
+    });
+    await flushProgress();
+    expect(writes.map((save) => save.profile.xp)).not.toContain(5);
+    expect(errors).toHaveBeenCalledWith('[ship-it] this tab lost the save lock', fault);
+    // No other tab took the save, so the change wasn't dropped for one: it's offered as an
+    // export (ElsewhereNotice.tsx), as a change whose write failed is.
+    expect(progress.get().problem).toBe('Your latest change in this tab could not be saved.');
+    expect(warnings).not.toHaveBeenCalled();
   });
 
   it('ignores losing an older claim from this same page', async () => {

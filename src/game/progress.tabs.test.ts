@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DevStatusModule from './devStatus';
 import type * as ProgressModule from './progress';
+import type { SaveData } from './save/schema';
 import {
   createSimulatedBrowser,
   type Route,
@@ -93,6 +94,20 @@ const isChannelAsk = (route: Route, index: number) =>
 const slowDisk = latency((route) =>
   route.pipe === 'idb' && route.direction === 'down' ? 50 : undefined,
 );
+
+/** A change the player makes: here, one that sets the XP, so every change can be told apart. */
+function setXp(xp: number): (save: SaveData) => SaveData {
+  return (save) => ({ ...save, profile: { ...save.profile, xp } });
+}
+
+/** What a tab logs when it drops a change on purpose (handOver in progress.ts). */
+const DROPPED_WARNING =
+  '[ship-it] another tab took the save first, so this tab dropped its last change';
+
+/** Keeps the dropped-change warning out of the test output, and lets a test check for it. */
+function quietWarnings() {
+  return vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+}
 
 describe('two tabs opened at the same moment', () => {
   it.each(['a', 'b'])(
@@ -275,6 +290,99 @@ describe('a third tab', () => {
   });
 });
 
+describe('a tab that loses the save (#198)', () => {
+  it('never writes a change it had not stored yet over the new owner’s progress', async () => {
+    const warnings = quietWarnings();
+    // b's ask takes 3 s to reach a, so a never answers and b takes the lock when its 1.5 s
+    // wait runs out. The news that a lost the lock then takes 200 ms to reach a.
+    const browser = createSimulatedBrowser({
+      latency: latency((route) => {
+        if (route.tab !== 'a' || route.direction !== 'down') return undefined;
+        if (route.pipe === 'channel') return 3000;
+        return route.pipe === 'locks' ? 200 : undefined;
+      }),
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(first, a);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(badges()).toEqual(['saving', 'loading']);
+    start(second, b);
+
+    // Just before b's wait runs out, the player changes a setting in a. It waits out the
+    // autosave delay, so it isn't stored yet when b takes the save.
+    await vi.advanceTimersByTimeAsync(1400);
+    a.run(() => {
+      first.progress.updateSave(setXp(5));
+    });
+    // b has loaded the save before a hears it lost it, and the player finishes a step there.
+    await vi.advanceTimersByTimeAsync(150);
+    expect(browser.lockHolder()).toBe('b');
+    expect(second.progress.progress.get().status).toBe('ready');
+    b.run(() => {
+      second.progress.saveProgressNow(setXp(40));
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(40);
+    // a's change was dropped, and a says so.
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
+  });
+
+  it.each([
+    [
+      'a finished step',
+      (xp: number) => {
+        first.progress.saveProgressNow(setXp(xp));
+      },
+    ],
+    [
+      'a settings change',
+      (xp: number) => {
+        first.progress.updateSave(setXp(xp));
+      },
+    ],
+  ])('reports %s it drops as a dropped change, not as an error', async (_case, change) => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const warnings = quietWarnings();
+    // b's ask never reaches a in time, so b takes the save at 2.5 s. The result of a's
+    // finished step (a's 4th IndexedDB result) takes 1 s to come back, so the next write
+    // waits behind it until after a hears it lost the lock.
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) => {
+        if (route.tab !== 'a' || route.direction !== 'down') return undefined;
+        if (route.pipe === 'channel') return 5000;
+        return route.pipe === 'idb' && index === 3 ? 1000 : undefined;
+      }),
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(first, a);
+    await vi.advanceTimersByTimeAsync(1000);
+    start(second, b);
+    await vi.advanceTimersByTimeAsync(900);
+    a.run(() => {
+      first.progress.saveProgressNow(setXp(5));
+    });
+    // A settings change waits out the autosave delay, so its write starts at 2.45 s.
+    await vi.advanceTimersByTimeAsync(50);
+    a.run(() => {
+      change(6);
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(5);
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
+    // The notice tells the player, and a developer sees a warning. A console error would say
+    // something broke.
+    expect(errors).not.toHaveBeenCalled();
+    expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
+  });
+});
+
 /** Mulberry32, as in judgment.ts: the same seed always gives the same numbers. */
 function seededRandom(seed: number): () => number {
   let state = seed;
@@ -341,6 +449,13 @@ async function playRandomOpening(seed: number, tabCount: 2 | 3): Promise<string 
   return `gaps ${gaps.join('/')} ms: tabs ${states.join(' and ')}, lock held by ${String(browser.lockHolder())}`;
 }
 
+/**
+ * Room for a loop of hundreds of seeded sessions. Alone, each loop takes well under a second,
+ * but a busy machine can stretch it past Vitest's 5 s default. A loop stopped there keeps
+ * running in the background on the same tab modules, and breaks whichever test runs next.
+ */
+const SEEDED_LOOP_TIMEOUT_MS = 60_000;
+
 describe('tabs opened together, any timing', () => {
   it.each([2, 3] as const)(
     'end with exactly one of %i tabs saving, holding the lock',
@@ -352,5 +467,6 @@ describe('tabs opened together, any timing', () => {
       }
       expect(failures).toEqual([]);
     },
+    SEEDED_LOOP_TIMEOUT_MS,
   );
 });

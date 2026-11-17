@@ -110,6 +110,11 @@ function askTime(): number {
 let autosave: Autosave | null = null;
 /** Set the moment this tab starts handing over, before anything else can write. */
 let steppedAside = false;
+/**
+ * Whether this tab may write the save: it holds the lock, or the browser has no Web Locks.
+ * Cleared the moment this tab learns the lock is gone, and checked as each write starts.
+ */
+let holdsSave = false;
 /** A newer tab asked for the save while this one was still waiting for it. */
 let handoverRequested = false;
 /** Ends this tab's hold on the save lock. Null when it doesn't hold it. */
@@ -133,7 +138,35 @@ let claims = 0;
  * (as on an overloaded machine) can't make this tab hand the save straight back. The new
  * ask goes out on the channel too, so a third tab still waiting steps aside instead of
  * stealing the save in turn from a tab that would have answered it.
+ *
+ * Only a tab holding the lock writes the player's changes (#198). Once a tab knows it lost
+ * the lock, it starts no such write again: the new owner may already have loaded the save,
+ * so a late write would put this tab's older copy over newer progress. A tab knows it when
+ * the lock is taken from it.
  */
+
+/**
+ * What the other-tab notice says when this tab dropped its last change on purpose. It offers
+ * no export then (ElsewhereNotice.tsx): this tab's copy may be older than the other tab's,
+ * so importing it there would undo progress.
+ */
+export const CHANGE_DROPPED =
+  "Your last change in this tab wasn't saved, because the other tab took over the save first. Keep playing there.";
+
+/**
+ * What the notice says when a change couldn't be stored for any other reason: the write
+ * failed, or the browser dropped the lock without another tab taking it. The notice offers
+ * the change as an export then, so the player can keep it.
+ */
+const CHANGE_NOT_SAVED = 'Your latest change in this tab could not be saved.';
+
+/** A write refused because this tab no longer holds the save lock. */
+class SaveElsewhereError extends Error {
+  override name = 'SaveElsewhereError';
+  constructor() {
+    super('Another tab has the save now, so this tab must not write it.');
+  }
+}
 
 function isAbortError(error: unknown): boolean {
   return (
@@ -141,25 +174,47 @@ function isAbortError(error: unknown): boolean {
   );
 }
 
-/** Stops this tab writing, stores what's pending, and tells the player. Final until reload. */
-async function handOver(release: boolean): Promise<void> {
+/**
+ * Stops this tab writing, stores what's pending if it still holds the lock, and tells the
+ * player. `lockFault`: the browser dropped the lock without another tab taking it. Final
+ * until reload.
+ */
+async function handOver(release: boolean, lockFault = false): Promise<void> {
   if (steppedAside) return;
   steppedAside = true;
   progress.update({ status: 'elsewhere' });
-  let lastChangeLost = false;
+  let problem: string | null = null;
   try {
+    // While this tab holds the lock, the new tab loads only after this write, so it gets the
+    // change. Once this tab has heard that the lock is gone, the write is refused and the
+    // change dropped, on purpose. Handing it to the new owner instead isn't safe:
+    // it's a whole save built on this tab's copy, which may be older than the one the new
+    // owner loaded and has changed since, and two saves can't be merged without guessing. So
+    // the player is told, and plays on in the tab that has the save. Only what hadn't reached
+    // IndexedDB yet is lost, and finished steps go there the moment they happen
+    // (saveProgressNow), so it's usually a settings change still in the autosave delay.
     await autosave?.flush();
   } catch (error) {
-    lastChangeLost = true;
-    console.error('[ship-it] saving before handing over to the other tab failed', error);
+    if (!(error instanceof SaveElsewhereError)) {
+      problem = CHANGE_NOT_SAVED;
+      console.error('[ship-it] saving before handing over to the other tab failed', error);
+    } else if (lockFault) {
+      // Refused, but not for another tab's sake (lost() has logged the fault), so there may
+      // be no other tab to play on in. The player can keep the change as an export.
+      problem = CHANGE_NOT_SAVED;
+    } else {
+      problem = CHANGE_DROPPED;
+      console.warn(
+        '[ship-it] another tab took the save first, so this tab dropped its last change',
+      );
+    }
   }
   // Nothing in this tab may write again, not even a retry of a failed write.
   autosave = null;
-  progress.update({
-    problem: lastChangeLost ? 'Your latest change in this tab could not be saved.' : null,
-  });
+  progress.update({ problem });
   devStatus.update({ save: 'elsewhere' });
   if (release) {
+    holdsSave = false;
     releaseSave?.();
     releaseSave = null;
   }
@@ -176,12 +231,17 @@ function onTabMessage(event: { data: unknown }): void {
 
 /** Resolves once this tab holds the save lock (or has to go without: no Web Locks). */
 function acquireSave(locks: SaveLocks | null): Promise<void> {
-  if (locks === null) return Promise.resolve();
+  if (locks === null) {
+    // Without Web Locks no tab can know who saves, so every tab writes, as before.
+    holdsSave = true;
+    return Promise.resolve();
+  }
   const claim = ++claims;
   return new Promise<void>((granted) => {
     let holding = false;
     const hold = () => {
       holding = true;
+      holdsSave = true;
       granted();
       return new Promise<void>((release) => {
         releaseSave = release;
@@ -202,8 +262,13 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
     const lost = (error: unknown) => {
       // A newer claim from this same page (a second startProgress) isn't another tab.
       if (claim !== claims) return;
-      if (isAbortError(error)) void handOver(false);
-      else console.error('[ship-it] this tab lost the save lock', error);
+      // Before anything else runs: a write already waiting must not start now.
+      holdsSave = false;
+      // Another tab's steal is the one expected way to lose it. Any other is a browser fault,
+      // and still means this tab doesn't hold the lock, so it stops writing all the same.
+      const stolen = isAbortError(error);
+      if (!stolen) console.error('[ship-it] this tab lost the save lock', error);
+      void handOver(false, !stolen);
     };
     locks
       .request(SAVE_LOCK, { signal: AbortSignal.timeout(HANDOVER_WAIT_MS) }, hold)
@@ -225,6 +290,8 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
             return;
           }
           console.error('[ship-it] this tab could not claim the save', stealError);
+          // Web Locks failed here, so this tab saves as a browser without them would.
+          holdsSave = true;
           granted();
         });
       });
@@ -247,16 +314,21 @@ export async function startProgress(
   channel?.close();
   channel = null;
   steppedAside = false;
+  holdsSave = false;
   handoverRequested = false;
   progress.update({ status: 'loading', save: null, problem: null });
 
   autosave = createAutosave(
     async (save) => {
+      // Checked as each write starts, so one queued behind another can't start late.
+      if (!holdsSave) throw new SaveElsewhereError();
       await storage.write(save);
       devStatus.update({ save: 'saved' });
     },
     {
       onError: (error) => {
+        // Refused because another tab has the save: expected, and handOver tells the player.
+        if (error instanceof SaveElsewhereError) return;
         devStatus.update({ save: 'error' });
         console.error('[ship-it] autosave failed; recent progress is not stored yet', error);
       },
@@ -346,19 +418,34 @@ export function saveProgressNow(change: (save: SaveData) => SaveData): number {
 
 /**
  * Replaces the whole save, as an import does, and stores it straight away. Resolves false,
- * changing nothing, when another tab has the save.
+ * changing nothing, while the save is still loading or when another tab has the save.
  */
 export async function replaceSave(save: SaveData): Promise<boolean> {
-  if (steppedAside) return false;
+  // Not while loading: the load would then show the save it read, not this one, and the
+  // next change made on that would be written over this one.
+  if (steppedAside || progress.get().status === 'loading') return false;
   progress.update({ status: 'ready', save, problem: null });
   autosave?.schedule(save);
-  await flushProgress();
-  return true;
+  return storePending();
 }
 
 /** Writes any pending change now, e.g. when the tab is hidden or before an export. */
 export async function flushProgress(): Promise<void> {
-  await autosave?.flush();
+  await storePending();
+}
+
+/**
+ * Writes any pending change now. False when it was refused because another tab took the
+ * save first: that's expected, and handOver tells the player, so callers needn't report it.
+ */
+async function storePending(): Promise<boolean> {
+  try {
+    await autosave?.flush();
+    return true;
+  } catch (error) {
+    if (error instanceof SaveElsewhereError) return false;
+    throw error;
+  }
 }
 
 /**
