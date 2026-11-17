@@ -10,7 +10,8 @@ import { createDefaultSave, type SaveData } from './save/schema';
  * - Each tab has one main thread. While it's busy (a long task, or waiting on a starved
  *   GPU), nothing else in that tab runs: messages, timers and IndexedDB results queue up.
  * - Tabs talk to the browser over pipes that keep messages in order, each way.
- * - Web Locks: one holder, a queue, `signal` to stop waiting, `steal` to take the lock.
+ * - Web Locks: one holder, a queue, `signal` to stop waiting, `steal` to take the lock, and
+ *   asking who holds the lock (`query` in a real browser).
  * - BroadcastChannel: a message reaches the channels connected when it gets to the browser.
  * - IndexedDB: one operation at a time, and each only finishes once the tab that made it
  *   has handled the result. So a busy tab holds up every other tab's reads and writes.
@@ -285,6 +286,16 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
           );
           tab.up.locks(() => {
             arrive(request);
+          });
+        }),
+      // The browser answers with who holds the lock when the question reaches it.
+      isHolding: () =>
+        new Promise((resolve) => {
+          tab.up.locks(() => {
+            const holding = holder?.tab === tab;
+            tab.down.locks(() => {
+              resolve(holding);
+            });
           });
         }),
     };

@@ -3,6 +3,7 @@ import { createAutosave, type Autosave } from './save/autosave';
 import { loadSave, requestPersistentStorage, writeSave } from './save/db';
 import type { SaveData } from './save/schema';
 import { createStore } from './store';
+import { webSaveLocks, type WebLocks } from './webLocks';
 
 /** 'elsewhere': another tab has the save now, so this one stopped writing it. */
 export type ProgressStatus = 'loading' | 'ready' | 'failed' | 'elsewhere';
@@ -40,13 +41,18 @@ export interface ProgressStorage {
 
 const indexedDbStorage: ProgressStorage = { load: loadSave, write: writeSave };
 
-/** The one Web Locks call the save uses. `navigator.locks` in the game; a fake in tests. */
+/**
+ * The Web Locks calls the save uses. Made from `navigator.locks` in the game (webLocks.ts); a
+ * fake in tests.
+ */
 export interface SaveLocks {
   request: (
     name: string,
     options: { steal?: boolean; signal?: AbortSignal },
     callback: () => Promise<void>,
   ) => Promise<unknown>;
+  /** Asks the browser whether this tab holds the lock `name` right now. */
+  isHolding: (name: string) => Promise<boolean>;
 }
 
 /** How tabs of the game talk to each other. A BroadcastChannel in the game; a fake in tests. */
@@ -70,12 +76,13 @@ export const HANDOVER_WAIT_MS = 1500;
 function browserCoordination(): TabCoordination {
   // Read through honest types: older browsers have neither, and Node in tests has both.
   const scope = globalThis as {
-    navigator?: { locks?: SaveLocks };
+    navigator?: { locks?: WebLocks };
     BroadcastChannel?: new (name: string) => TabChannel;
   };
   const Channel = scope.BroadcastChannel;
+  const locks = scope.navigator?.locks;
   return {
-    locks: scope.navigator?.locks ?? null,
+    locks: locks ? webSaveLocks(locks) : null,
     openChannel: Channel ? () => new Channel(HANDOVER) : null,
   };
 }

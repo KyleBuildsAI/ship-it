@@ -152,6 +152,8 @@ function otherTab() {
     },
   };
   const requests: LockRequest[] = [];
+  /** This tab's questions to the browser about who holds the lock, for a test to answer. */
+  const checks: { answer: (holding: boolean) => void; fail: (error: unknown) => void }[] = [];
   const locks: SaveLocks = {
     request: (_name, options, callback) =>
       new Promise((resolve, reject) => {
@@ -160,12 +162,17 @@ function otherTab() {
           reject(new DOMException('The wait for the lock timed out', 'TimeoutError'));
         });
       }),
+    isHolding: () =>
+      new Promise((answer, fail) => {
+        checks.push({ answer, fail });
+      }),
   };
   const coordination: TabCoordination = { locks, openChannel: () => channel };
   return {
     coordination,
     posted,
     requests,
+    checks,
     listeners,
     /** The lock is free: this tab gets it. Resolves when this tab lets go of it. */
     grant: (index = requests.length - 1) => {
