@@ -1,7 +1,24 @@
+import type { ArtifactKind } from '../../game/missions/lessonSchema';
+
 /*
  * Words for a lesson card (LessonView.tsx). They live apart from the components so that
  * file only exports components, which React's fast refresh needs.
  */
+
+/** The label on an artifact's box when content gives none of its own. */
+export const ARTIFACT_LABELS: Record<ArtifactKind, string> = {
+  diff: 'Diff',
+  log: 'Log',
+  terminal: 'Terminal',
+  issue: 'Issue',
+  'pull-request': 'Pull request',
+  'agent-message': "Agent's message",
+  code: 'Code',
+  file: 'File',
+  request: 'HTTP request',
+  response: 'HTTP response',
+  error: 'Error',
+};
 
 /** An answer's feedback, split into the bold verdict and what follows it. */
 export interface Feedback {

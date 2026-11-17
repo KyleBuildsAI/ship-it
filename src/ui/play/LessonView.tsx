@@ -10,7 +10,6 @@ import {
   type LessonRun,
 } from '../../game/missions/lessonRunner';
 import type {
-  ArtifactKind,
   Artifact,
   CardOption,
   Lesson,
@@ -37,23 +36,8 @@ import { leftAfterTestOut } from '../../game/play/saveRules';
 import { progress } from '../../game/progress';
 import { hangingIndent } from './artifactLines';
 import { answersOn, revealBehavior } from './lessonReveal';
-import { splitFeedback, stepsInPlaceText } from './lessonText';
+import { ARTIFACT_LABELS, splitFeedback, stepsInPlaceText } from './lessonText';
 import { useClock } from './useClock';
-
-/** The label on an artifact's box when content gives none of its own. */
-const ARTIFACT_LABELS: Record<ArtifactKind, string> = {
-  diff: 'Diff',
-  log: 'Log',
-  terminal: 'Terminal',
-  issue: 'Issue',
-  'pull-request': 'Pull request',
-  'agent-message': "Agent's message",
-  code: 'Code',
-  file: 'File',
-  request: 'HTTP request',
-  response: 'HTTP response',
-  error: 'Error',
-};
 
 /** The eyebrow over each kind of card, so the player knows how to answer it. */
 const CARD_EYEBROWS = {
