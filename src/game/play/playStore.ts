@@ -148,3 +148,16 @@ export interface PlayState {
 }
 
 export const play = createStore<PlayState>({ activity: null, checklist: [] });
+
+/**
+ * Whether a locked placement test is under way: until it ends, nothing may show whether an
+ * answer was right. A drill's first pass pays XP, and a miss joins the review queue, so the
+ * menus that show those would give a locked answer away.
+ */
+export function lockedRunActive(activity: Activity | null): boolean {
+  if (activity?.kind === 'placement') return activity.results.length < activity.drills.length;
+  if (activity?.kind === 'lesson' && activity.placement !== undefined) {
+    return activity.placement.result === null;
+  }
+  return false;
+}

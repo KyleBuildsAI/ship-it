@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
 import { openMenu } from '../../game/hud';
 import { drillPrompt } from '../../game/play/catalog';
+import { lockedRunActive, play } from '../../game/play/playStore';
 import { actsNeeded, whileMenuOpen } from '../../game/play/playWhenReady';
 import { todaysItems } from '../../game/play/seriesPlay';
 import { progress } from '../../game/progress';
 import { compareDays, localDay } from '../../game/progression/days';
 import { LoadFailedAlert, PlayButton } from '../play/PlayButton';
 import { useStore } from '../useStore';
+import { LockedRunNote } from './LockedRunNote';
 import { Overlay } from './Overlay';
 
 /** Today's review set (DESIGN.md section 6): missed drills, brought back by SM-2. */
 export function StandupBoard() {
   const { save } = useStore(progress);
+  const { activity } = useStore(play);
   const saveLoaded = save !== null;
   // Above the early return: React needs the same hooks, in the same order, every render.
   // It runs again once the save loads: the save holds the review queue, which says which
@@ -21,6 +24,15 @@ export function StandupBoard() {
     [saveLoaded],
   );
   if (save === null) return null;
+  // A locked answer that was wrong joins the review queue at once, so a new item would
+  // give it away.
+  if (lockedRunActive(activity)) {
+    return (
+      <Overlay title="Standup Board">
+        <LockedRunNote />
+      </Overlay>
+    );
+  }
   const now = new Date();
   const today = localDay(now);
   // The same set the Act menu counts and Start review plays, so all three agree.
