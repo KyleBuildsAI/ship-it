@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { devStatus } from './devStatus';
 import {
+  CHANGE_DROPPED,
   flushProgress,
   isSavingHere,
   progress,
@@ -391,7 +392,7 @@ describe('two tabs', () => {
     // The other tab may already have loaded the save: writing now would undo its progress.
     await flushProgress();
     expect(writes.map((save) => save.profile.xp)).not.toContain(5);
-    expect(progress.get().problem).toContain('could not be saved');
+    expect(progress.get().problem).toBe(CHANGE_DROPPED);
   });
 
   it('stops writing, and logs it, when the browser drops the lock for another reason', async () => {

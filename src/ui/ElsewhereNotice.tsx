@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { leavePlay } from '../game/play/play';
-import { progress } from '../game/progress';
+import { CHANGE_DROPPED, progress } from '../game/progress';
 import { exportSave } from '../game/save/exportImport';
 import { download, saveFileName } from './download';
 import { useStore } from './useStore';
@@ -24,6 +24,9 @@ export function ElsewhereNotice() {
   }, [elsewhere]);
 
   if (!elsewhere) return null;
+  // Only a change that failed to store is worth exporting. One dropped on purpose sits on a
+  // copy that may be older than the other tab's, so importing it there would undo progress.
+  const offerExport = problem !== null && problem !== CHANGE_DROPPED;
   // Larger text sizes zoom the inner box, never the dialog: it keeps its place and size,
   // like every menu (Overlay.tsx, theme.css).
   return (
@@ -43,7 +46,9 @@ export function ElsewhereNotice() {
         <p id="elsewhere-detail" className="play-panel__instruction">
           {problem === null
             ? "Your progress is saved there. This tab stopped saving, so the two can't overwrite each other."
-            : `${problem} Export it now to keep a copy, then play in the other tab.`}
+            : offerExport
+              ? `${problem} Export it now to keep a copy, then play in the other tab.`
+              : problem}
         </p>
         <div className="play-panel__actions">
           <button
@@ -55,7 +60,7 @@ export function ElsewhereNotice() {
           >
             Play here instead
           </button>
-          {problem !== null && save !== null ? (
+          {offerExport && save !== null ? (
             <button
               type="button"
               className="play-button"

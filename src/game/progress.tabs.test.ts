@@ -317,7 +317,7 @@ describe('a tab that loses the save (#198)', () => {
     expect(badges()).toEqual(['elsewhere', 'saving']);
     expect(browser.stored()?.profile.xp).toBe(40);
     // a's change was dropped, and a says so.
-    expect(first.progress.progress.get().problem).toContain('could not be saved');
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
   });
 
   it.each([
@@ -363,7 +363,7 @@ describe('a tab that loses the save (#198)', () => {
     await vi.advanceTimersByTimeAsync(10_000);
     expect(badges()).toEqual(['elsewhere', 'saving']);
     expect(browser.stored()?.profile.xp).toBe(5);
-    expect(first.progress.progress.get().problem).toContain('could not be saved');
+    expect(first.progress.progress.get().problem).toBe(first.progress.CHANGE_DROPPED);
     // The notice tells the player. A console error would say something broke.
     expect(errors).not.toHaveBeenCalled();
   });

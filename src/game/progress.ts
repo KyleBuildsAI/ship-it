@@ -145,6 +145,14 @@ let claims = 0;
  * the lock is taken from it.
  */
 
+/**
+ * What the other-tab notice says when this tab dropped its last change on purpose. It offers
+ * no export then (ElsewhereNotice.tsx): this tab's copy may be older than the other tab's,
+ * so importing it there would undo progress.
+ */
+export const CHANGE_DROPPED =
+  "Your last change in this tab wasn't saved, because the other tab took over the save first. Keep playing there.";
+
 /** A write refused because this tab no longer holds the save lock. */
 class SaveElsewhereError extends Error {
   override name = 'SaveElsewhereError';
@@ -167,7 +175,7 @@ async function handOver(release: boolean): Promise<void> {
   if (steppedAside) return;
   steppedAside = true;
   progress.update({ status: 'elsewhere' });
-  let lastChangeLost = false;
+  let problem: string | null = null;
   try {
     // While this tab holds the lock, the new tab loads only after this write, so it gets the
     // change. Once this tab has heard that the lock is gone, the write is refused
@@ -179,20 +187,19 @@ async function handOver(release: boolean): Promise<void> {
     // (saveProgressNow), so it's usually a settings change still in the autosave delay.
     await autosave?.flush();
   } catch (error) {
-    lastChangeLost = true;
     if (error instanceof SaveElsewhereError) {
+      problem = CHANGE_DROPPED;
       console.warn(
         '[ship-it] another tab took the save first, so this tab dropped its last change',
       );
     } else {
+      problem = 'Your latest change in this tab could not be saved.';
       console.error('[ship-it] saving before handing over to the other tab failed', error);
     }
   }
   // Nothing in this tab may write again, not even a retry of a failed write.
   autosave = null;
-  progress.update({
-    problem: lastChangeLost ? 'Your latest change in this tab could not be saved.' : null,
-  });
+  progress.update({ problem });
   devStatus.update({ save: 'elsewhere' });
   if (release) {
     holdsSave = false;
