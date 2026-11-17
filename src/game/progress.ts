@@ -186,8 +186,8 @@ async function handOver(release: boolean, lockFault = false): Promise<void> {
   let problem: string | null = null;
   try {
     // While this tab holds the lock, the new tab loads only after this write, so it gets the
-    // change. Once this tab has heard that the lock is gone, the write is refused
-    // and the change dropped, on purpose. Handing it to the new owner instead isn't safe:
+    // change. Once this tab has heard that the lock is gone, the write is refused and the
+    // change dropped, on purpose. Handing it to the new owner instead isn't safe:
     // it's a whole save built on this tab's copy, which may be older than the one the new
     // owner loaded and has changed since, and two saves can't be merged without guessing. So
     // the player is told, and plays on in the tab that has the save. Only what hadn't reached
