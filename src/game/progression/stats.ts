@@ -59,19 +59,36 @@ export function recordPractice(profile: Profile, today: string): Profile {
 }
 
 /**
- * Whether the concept practiced by `drillIds` is mastered: at least 90% correct over its last
- * 10 attempts. With fewer than 10 attempts it is not mastered yet, so a lucky first few
- * answers can't light up a skill-tree node.
+ * Whether each of the last 10 (or fewer) attempts at `drillIds` was right, oldest first.
+ * Attempts count wherever they were played: a mission, a placement test or a review.
  */
+export function recentResults(
+  history: readonly DrillAttempt[],
+  drillIds: readonly string[],
+): boolean[] {
+  const wanted = new Set(drillIds);
+  return history
+    .filter((attempt) => wanted.has(attempt.drillId))
+    .slice(-MASTERY_ATTEMPTS)
+    .map((attempt) => attempt.correct);
+}
+
+/**
+ * The mastery rule over recent results (oldest first): at least 90% right over the last
+ * 10. With fewer than 10 it is not mastered yet, so a lucky first few answers can't light
+ * up a skill-tree node.
+ */
+export function isMastered(results: readonly boolean[]): boolean {
+  const recent = results.slice(-MASTERY_ATTEMPTS);
+  if (recent.length < MASTERY_ATTEMPTS) return false;
+  const correct = recent.filter(Boolean).length;
+  return correct / MASTERY_ATTEMPTS >= MASTERY_ACCURACY;
+}
+
+/** Whether the concept practiced by `drillIds` is mastered: the rule over its recent results. */
 export function masteredConcept(
   history: readonly DrillAttempt[],
   drillIds: readonly string[],
 ): boolean {
-  const conceptDrills = new Set(drillIds);
-  const recent = history
-    .filter((attempt) => conceptDrills.has(attempt.drillId))
-    .slice(-MASTERY_ATTEMPTS);
-  if (recent.length < MASTERY_ATTEMPTS) return false;
-  const correct = recent.filter((attempt) => attempt.correct).length;
-  return correct / MASTERY_ATTEMPTS >= MASTERY_ACCURACY;
+  return isMastered(recentResults(history, drillIds));
 }

@@ -3,10 +3,12 @@ import { DRILL_HISTORY_LIMIT, type DrillAttempt, type Profile } from '../save/sc
 import {
   averageSeconds,
   drillAccuracy,
+  isMastered,
   MASTERY_ACCURACY,
   MASTERY_ATTEMPTS,
   masteredConcept,
   practiceDayCount,
+  recentResults,
   recordDrillAttempt,
   recordPractice,
 } from './stats';
@@ -189,5 +191,35 @@ describe('masteredConcept', () => {
 
   it('is never mastered for a concept with no drills', () => {
     expect(masteredConcept(attempts('stage-file', 'xxxxxxxxxx'), [])).toBe(false);
+  });
+});
+
+/** Results from a pattern like "xx.x", where x is right and . is a miss. */
+function results(pattern: string): boolean[] {
+  return Array.from(pattern, (mark) => mark === 'x');
+}
+
+describe('recentResults', () => {
+  it('gives the last 10 results at those drills only, oldest first', () => {
+    const history = [
+      ...attempts('stage-file', '..xxxxx'),
+      ...attempts('unrelated', '.'),
+      ...attempts('stage-all', 'x.xxx'),
+    ];
+
+    // The two oldest misses fall out of the last 10, and the unrelated miss never counts.
+    expect(recentResults(history, ['stage-file', 'stage-all'])).toEqual(results('xxxxxx.xxx'));
+  });
+
+  it('is empty for no drill ids', () => {
+    expect(recentResults(attempts('stage-file', 'xxx'), [])).toEqual([]);
+  });
+});
+
+describe('isMastered', () => {
+  it('needs 9 right of exactly 10: not 8 of 10, nor 9 of 9', () => {
+    expect(isMastered(results('xxxx.xxxxx'))).toBe(true);
+    expect(isMastered(results('xx.xx.xxxx'))).toBe(false);
+    expect(isMastered(results('xxxxxxxxx'))).toBe(false);
   });
 });
