@@ -69,18 +69,25 @@ export async function writeSave(data: SaveData): Promise<void> {
  * A damaged save (InvalidSaveError) or one from a newer game (FutureSaveVersionError) is
  * thrown to the caller and left untouched in the database. Replacing it with a new game
  * here would wipe real progress without asking; the UI should offer import or reset instead.
+ *
+ * `store` writes the new game or the upgraded copy. The game passes one that writes only
+ * while this tab holds the save (progress.ts), so a tab that hands the save to another tab
+ * mid-load can't store its copy over the new owner's.
  */
-export async function loadSave(now: Date): Promise<SaveData> {
+export async function loadSave(
+  now: Date,
+  store: (save: SaveData) => Promise<void> = writeSave,
+): Promise<SaveData> {
   const row = await getSaveDatabase().saves.get(SAVE_SLOT);
   if (row === undefined) {
     const fresh = createDefaultSave(now);
-    await writeSave(fresh);
+    await store(fresh);
     return fresh;
   }
   const save = migrate(row.data);
   if (storedSchemaVersion(row.data) !== CURRENT_SCHEMA_VERSION) {
     // Store the upgraded copy so the next load doesn't have to migrate again.
-    await writeSave(save);
+    await store(save);
   }
   return save;
 }

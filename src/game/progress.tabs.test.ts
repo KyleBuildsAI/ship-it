@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DevStatusModule from './devStatus';
 import type * as ProgressModule from './progress';
-import type { SaveData } from './save/schema';
+import { createDefaultSave, type SaveData } from './save/schema';
 import {
   createSimulatedBrowser,
   type Route,
@@ -98,6 +98,13 @@ const slowDisk = latency((route) =>
 /** A change the player makes: here, one that sets the XP, so every change can be told apart. */
 function setXp(xp: number): (save: SaveData) => SaveData {
   return (save) => ({ ...save, profile: { ...save.profile, xp } });
+}
+
+/** Moves time on 10 ms at a time until `done()`, for at most `limit` ms. */
+async function advanceUntil(done: () => boolean, limit = 20_000): Promise<void> {
+  for (let waited = 0; !done() && waited < limit; waited += 10) {
+    await vi.advanceTimersByTimeAsync(10);
+  }
 }
 
 /** What a tab logs when it drops a change on purpose (handOver in progress.ts). */
@@ -381,6 +388,49 @@ describe('a tab that loses the save (#198)', () => {
     expect(errors).not.toHaveBeenCalled();
     expect(warnings).toHaveBeenCalledWith(DROPPED_WARNING);
   });
+
+  it.each([
+    ['a first launch', undefined],
+    [
+      'a save from an older version',
+      { save: setXp(20)(createDefaultSave(NOW)), fromOlderVersion: true },
+    ],
+  ])(
+    'that hands over while loading never stores the save it loaded over the new owner’s (%s)',
+    async (_case, stored) => {
+      // a's read takes 100 ms to come back, so b's ask arrives first and a hands over before
+      // it has the save in hand. Anything a then writes takes 3 s to reach IndexedDB: index
+      // 4 on its pipe, after opening and reading sent two messages up each (the request,
+      // then "handled the result").
+      const browser = createSimulatedBrowser({
+        latency: latency((route, index) => {
+          if (route.tab !== 'a' || route.pipe !== 'idb') return undefined;
+          if (route.direction === 'down') return index === 1 ? 100 : undefined;
+          return index >= 4 ? 3000 : undefined;
+        }),
+        stored,
+      });
+      const a = browser.openTab('a');
+      const b = browser.openTab('b');
+      start(first, a);
+      setTimeout(() => {
+        start(second, b);
+      }, 10);
+
+      // The player finishes a step in b as soon as b has the save.
+      await vi.advanceTimersByTimeAsync(1000);
+      await advanceUntil(() => second.progress.progress.get().status === 'ready');
+      b.run(() => {
+        second.progress.saveProgressNow(setXp(40));
+      });
+
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(badges()).toEqual(['elsewhere', 'saving']);
+      expect(browser.stored()?.profile.xp).toBe(40);
+      // Not even one that b wrote over later: a stored nothing once b had the lock.
+      expect(browser.lateWrites()).toEqual([]);
+    },
+  );
 });
 
 /** Mulberry32, as in judgment.ts: the same seed always gives the same numbers. */

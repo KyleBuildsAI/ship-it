@@ -66,6 +66,17 @@ describe('loadSave', () => {
     expect((await readStoredRow())?.data).toEqual(createSampleSave());
   });
 
+  it('stores a new game and an upgraded save only through the store it is given', async () => {
+    // The game passes a store that refuses once another tab has the save (progress.ts).
+    const store = vi.fn(() => Promise.resolve());
+    const fresh = await loadSave(TEST_NOW, store);
+    await getSaveDatabase().saves.put({ slot: SAVE_SLOT, data: createLegacyV0Save() });
+    const upgraded = await loadSave(LATER, store);
+
+    expect(store.mock.calls).toEqual([[fresh], [upgraded]]);
+    expect((await readStoredRow())?.data).toEqual(createLegacyV0Save());
+  });
+
   it('leaves a current save alone instead of rewriting it on every load', async () => {
     await writeSave(createSampleSave());
     const put = vi.spyOn(getSaveDatabase().saves, 'put');

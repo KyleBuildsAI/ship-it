@@ -30,7 +30,11 @@ export const progress = createStore<ProgressState>({
 
 /** Where saves are read and written. IndexedDB in the game; a fake in tests. */
 export interface ProgressStorage {
-  load: (now: Date) => Promise<SaveData>;
+  /**
+   * Reads the save. A new game, or an old save it upgrades, is stored with `store`, so that
+   * write follows the same rules as every other one (storeLoadedSave).
+   */
+  load: (now: Date, store: (save: SaveData) => Promise<void>) => Promise<SaveData>;
   write: (save: SaveData) => Promise<void>;
 }
 
@@ -139,10 +143,10 @@ let claims = 0;
  * ask goes out on the channel too, so a third tab still waiting steps aside instead of
  * stealing the save in turn from a tab that would have answered it.
  *
- * Only a tab holding the lock writes the player's changes (#198). Once a tab knows it lost
- * the lock, it starts no such write again: the new owner may already have loaded the save,
- * so a late write would put this tab's older copy over newer progress. A tab knows it when
- * the lock is taken from it.
+ * Only a tab holding the lock writes (#198). Once a tab knows it lost the lock, nothing in
+ * it starts a write again: the new owner may already have loaded the save, so a late write
+ * would put this tab's older copy over newer progress. A tab knows it when the lock is
+ * taken from it.
  */
 
 /**
@@ -318,6 +322,7 @@ export async function startProgress(
   handoverRequested = false;
   progress.update({ status: 'loading', save: null, problem: null });
 
+  // Every write goes through here: changes, the store before a handover, and the load's own.
   autosave = createAutosave(
     async (save) => {
       // Checked as each write starts, so one queued behind another can't start late.
@@ -349,7 +354,7 @@ export async function startProgress(
   }
 
   try {
-    const save = await storage.load(now);
+    const save = await storage.load(now, storeLoadedSave);
     // Handed over while loading: keep the save to show, but this tab stays 'elsewhere'.
     if (!isSavingHere()) {
       progress.update({ save });
@@ -367,6 +372,19 @@ export async function startProgress(
     devStatus.update({ save: 'error' });
     console.error('[ship-it] the save could not be loaded', error);
   }
+}
+
+/**
+ * How a load stores a new game, or an old save it has upgraded. It goes through the autosave
+ * queue like every other write, so it passes the same check, and a handover waits for it to
+ * finish before letting go of the lock.
+ */
+function storeLoadedSave(save: SaveData): Promise<void> {
+  // Handed over mid-load: skipping loses nothing, because the tab that gets the save loads it
+  // itself and stores its own new game or upgrade.
+  if (autosave === null || !isSavingHere()) return Promise.resolve();
+  autosave.schedule(save);
+  return autosave.flush();
 }
 
 function describeLoadProblem(error: unknown): string {

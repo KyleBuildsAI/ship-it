@@ -420,6 +420,72 @@ describe('two tabs', () => {
     expect(warnings).not.toHaveBeenCalled();
   });
 
+  it('stores nothing from a load that finishes after handing over', async () => {
+    let readDone: () => void = () => undefined;
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(
+      {
+        // Like loadSave on a first launch: read, then store the new game it made.
+        load: async (now, store) => {
+          await new Promise<void>((resolve) => {
+            readDone = resolve;
+          });
+          const fresh = createDefaultSave(now);
+          await store(fresh);
+          return fresh;
+        },
+        write: storage.write,
+      },
+      NOW,
+      tab.coordination,
+    );
+    await settle();
+    const held = tab.grant();
+    await settle();
+    tab.asks();
+    await held;
+    readDone();
+    await starting;
+    // The new owner loads the save itself, and stores its own new game.
+    expect(writes).toHaveLength(0);
+    expect(progress.get()).toMatchObject({ status: 'elsewhere', save: createDefaultSave(NOW) });
+  });
+
+  it('lets go only once a new game it was already storing is stored', async () => {
+    let writeDone: () => void = () => undefined;
+    const tab = otherTab();
+    const starting = startProgress(
+      {
+        load: async (now, store) => {
+          const fresh = createDefaultSave(now);
+          await store(fresh);
+          return fresh;
+        },
+        write: () =>
+          new Promise((resolve) => {
+            writeDone = resolve;
+          }),
+      },
+      NOW,
+      tab.coordination,
+    );
+    await settle();
+    let released = false;
+    void tab.grant().then(() => {
+      released = true;
+    });
+    await settle();
+    // Asked while the new game is on its way to IndexedDB: the new tab must load after it.
+    tab.asks();
+    await settle();
+    expect(released).toBe(false);
+    writeDone();
+    await starting;
+    await settle();
+    expect(released).toBe(true);
+  });
+
   it('ignores losing an older claim from this same page', async () => {
     const { storage, writes } = memoryStorage();
     const tab = otherTab();
