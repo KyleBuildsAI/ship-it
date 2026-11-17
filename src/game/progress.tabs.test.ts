@@ -295,6 +295,55 @@ describe('a third tab', () => {
     expect(saving[0]?.game.progress.progress.get().save).toEqual(browser.stored());
     expect(players.filter(({ game }) => badge(game) === 'elsewhere')).toHaveLength(2);
   });
+
+  it('that took the lock from a steal its owner had not seen yet keeps the save (#223)', async () => {
+    // The news that b's steal went through (the first lock message down to b) takes 3 s.
+    const browser = createSimulatedBrowser({
+      latency: latency((route, index) =>
+        route.tab === 'b' && route.pipe === 'locks' && route.direction === 'down' && index === 0
+          ? 3000
+          : undefined,
+      ),
+    });
+    const players = [
+      { tab: browser.openTab('a'), game: first },
+      { tab: browser.openTab('b'), game: second },
+      { tab: browser.openTab('c'), game: third },
+    ] as const;
+    const [a, b, c] = players;
+    // a has the save, then freezes for a minute, so it never answers an ask.
+    start(a.game, a.tab);
+    setTimeout(() => {
+      a.tab.busyFor(60_000);
+    }, 50);
+    // b opens, and when its wait runs out at 1.6 s it steals the lock from a. The browser
+    // grants that at once, but b won't hear so until 4.6 s.
+    setTimeout(() => {
+      start(b.game, b.tab);
+    }, 100);
+    // c opens meanwhile. Nobody answers its ask either, so at 3.2 s it steals the lock from
+    // b's unseen grant, says it took the save, and loads it.
+    setTimeout(() => {
+      start(c.game, c.tab);
+    }, 1700);
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(browser.lockHolder()).toBe('c');
+    expect(badge(c.game)).toBe('saving');
+
+    // At 4.6 s b sees its old grant and says it took the save, after c did. Then it hears the
+    // lock was taken from it. c must not hand the save to b, which no longer has the lock.
+    await vi.advanceTimersByTimeAsync(1000);
+    c.tab.run(() => {
+      c.game.progress.saveProgressNow(setXp(40));
+    });
+    await vi.advanceTimersByTimeAsync(70_000);
+    const saving = players.filter(({ game }) => badge(game) === 'saving');
+    expect(saving.map(({ tab }) => tab.name)).toEqual(['c']);
+    expect(browser.lockHolder()).toBe('c');
+    expect(badge(a.game)).toBe('elsewhere');
+    expect(badge(b.game)).toBe('elsewhere');
+    expect(browser.stored()?.profile.xp).toBe(40);
+  });
 });
 
 describe('a tab that loses the save (#198)', () => {
@@ -670,10 +719,9 @@ function randomStartingSave(
  * - 'unseen race': it doesn't, because what it holds came from a write that landed late,
  *   sent before its tab could know the lock had gone (LateWrite in simulatedBrowser.ts).
  *   progress.ts explains why no tab can stop that one (#224).
- * - 'no saving tab': no single tab ended up saving, so there's no copy to compare.
  * - Anything else says what went wrong.
  */
-type SessionEnd = 'stored' | 'unseen race' | 'no saving tab' | { readonly problem: string };
+type SessionEnd = 'stored' | 'unseen race' | { readonly problem: string };
 
 /**
  * Plays one random session of two or three tabs: openings, long tasks, and the player changing
@@ -740,7 +788,10 @@ async function playRandomSession(seed: number, tabCount: 2 | 3): Promise<Session
     states.filter((state) => state === 'ready/saving').length === 1 &&
     states.filter((state) => state === 'elsewhere/elsewhere').length === tabCount - 1 &&
     browser.lockHolder() === ownerName;
-  if (!oneOwner) return 'no saving tab';
+  if (!oneOwner) {
+    const holder = String(browser.lockHolder());
+    return { problem: `not one tab saving: tabs ${states.join(' and ')}, lock held by ${holder}` };
+  }
 
   // Compared whole: the owner's copy must be exactly what IndexedDB holds.
   const owner = games[ownerIndex]?.progress.progress.get().save;
@@ -754,13 +805,6 @@ async function playRandomSession(seed: number, tabCount: 2 | 3): Promise<Session
 
 const SESSIONS = 1000;
 
-/**
- * The sessions that end with no single tab saving: every tab handed over and the lock free.
- * That's an older bug in the #104 handover, not this one (main ends these seeds the same
- * way), to be fixed on its own in #223. Listed by seed so that any new one fails this test.
- */
-const NO_SAVING_TAB_SEEDS: Record<2 | 3, readonly number[]> = { 2: [], 3: [19, 37, 438, 558] };
-
 describe('the player changing the save while tabs hand it over, any timing (#198)', () => {
   it.each([2, 3] as const)(
     'ends with IndexedDB holding exactly the copy of the one of %i tabs that saves',
@@ -769,16 +813,13 @@ describe('the player changing the save while tabs hand it over, any timing (#198
       // test output.
       quietWarnings();
       const problems: string[] = [];
-      const noSavingTab: number[] = [];
       let unseenRaces = 0;
       for (let seed = 1; seed <= SESSIONS; seed++) {
         const end = await playRandomSession(seed, tabCount);
         if (end === 'unseen race') unseenRaces += 1;
-        else if (end === 'no saving tab') noSavingTab.push(seed);
         else if (typeof end === 'object') problems.push(`seed ${String(seed)}: ${end.problem}`);
       }
       expect(problems).toEqual([]);
-      expect(noSavingTab).toEqual(NO_SAVING_TAB_SEEDS[tabCount]);
       // Rare: about 1 session in 1,000 here, all on a starved machine. Far more would mean
       // a tab writes when it could know better, and these sessions are hiding it.
       expect(unseenRaces).toBeLessThanOrEqual(SESSIONS / 100);

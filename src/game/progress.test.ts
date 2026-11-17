@@ -168,6 +168,11 @@ function otherTab() {
       }),
   };
   const coordination: TabCoordination = { locks, openChannel: () => channel };
+  /** The other tab's ask, as progress.ts sends it. */
+  const ask = (at: number, takesAt: number, stole: boolean) => {
+    const data = { ask: 'ship-it-handover', at, nonce: 0, takesAt, stole };
+    for (const listener of [...listeners]) listener({ data });
+  };
   return {
     coordination,
     posted,
@@ -188,8 +193,14 @@ function otherTab() {
      * is when it stops waiting and takes the save: by default, never.
      */
     asks: (at = Number.POSITIVE_INFINITY, takesAt = Number.POSITIVE_INFINITY) => {
-      const ask = { ask: 'ship-it-handover', at, nonce: 0, takesAt };
-      for (const listener of [...listeners]) listener({ data: ask });
+      ask(at, takesAt, false);
+    },
+    /**
+     * The other tab says it has just stolen the lock. It may be old news: the lock may have
+     * been taken from it since (#223).
+     */
+    saysItStole: () => {
+      ask(Number.POSITIVE_INFINITY, Date.now(), true);
     },
     /** The other tab's fallback takes the lock without asking. */
     steals: (index = requests.length - 1) => {
@@ -441,6 +452,71 @@ describe('two tabs', () => {
     tab.asks(Number.POSITIVE_INFINITY, Date.now() - 1);
     await held;
     expect(writes.map((save) => save.profile.xp)).not.toContain(5);
+    expect(progress.get().problem).toBe(CHANGE_DROPPED);
+  });
+
+  it('keeps the save when a tab says it stole the lock but the browser says it is still here', async () => {
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.saysItStole();
+    expect(tab.checks).toHaveLength(1);
+    // Nothing is written until the browser answers.
+    const storing = flushProgress();
+    await settle();
+    expect(writes).toHaveLength(0);
+    // The lock is still this tab's: the other tab's steal was taken from it before it knew.
+    tab.checks[0]?.answer(true);
+    await storing;
+    expect(writes.at(-1)?.profile.xp).toBe(5);
+    expect(progress.get().status).toBe('ready');
+    expect(isSavingHere()).toBe(true);
+  });
+
+  it('steps aside, writing nothing, when the browser says the tab that stole the lock has it', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.saysItStole();
+    const storing = flushProgress();
+    await settle();
+    tab.checks[0]?.answer(false);
+    await storing;
+    await vi.waitFor(() => {
+      expect(devStatus.get().save).toBe('elsewhere');
+    });
+    expect(writes).toHaveLength(0);
+    expect(progress.get()).toMatchObject({ status: 'elsewhere', problem: CHANGE_DROPPED });
+  });
+
+  it('believes a tab that says it stole the lock when the browser cannot say', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    const held = tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.saysItStole();
+    const failure = new Error('no answer');
+    tab.checks[0]?.fail(failure);
+    await held;
+    expect(errors).toHaveBeenCalledWith(
+      '[ship-it] could not ask the browser which tab has the save',
+      failure,
+    );
+    expect(writes).toHaveLength(0);
     expect(progress.get().problem).toBe(CHANGE_DROPPED);
   });
 

@@ -102,22 +102,37 @@ interface Ask {
    * reached it yet.
    */
   readonly takesAt: number;
+  /**
+   * True when the asking tab says it has just taken the lock by stealing it, rather than
+   * waiting for it. That can be old news: another tab may have stolen the lock from it since.
+   */
+  readonly stole: boolean;
 }
 
 function isAsk(data: unknown): data is Ask {
   if (typeof data !== 'object' || data === null) return false;
-  const { ask, at, nonce, takesAt } = data as Record<string, unknown>;
+  const { ask, at, nonce, takesAt, stole } = data as Record<string, unknown>;
   return (
     ask === HANDOVER &&
     typeof at === 'number' &&
     typeof nonce === 'number' &&
-    typeof takesAt === 'number'
+    typeof takesAt === 'number' &&
+    typeof stole === 'boolean'
   );
 }
 
-/** This tab's ask, made now. `waitMs` is how long it waits before taking the save anyway. */
-function askNow(waitMs: number): Ask {
-  return { ask: HANDOVER, at: askTime(), nonce: Math.random(), takesAt: Date.now() + waitMs };
+/**
+ * This tab's ask, made now. `waitMs` is how long it waits before taking the save anyway;
+ * `stole` says it has just taken the lock by stealing it.
+ */
+function askNow(waitMs: number, stole: boolean): Ask {
+  return {
+    ask: HANDOVER,
+    at: askTime(),
+    nonce: Math.random(),
+    takesAt: Date.now() + waitMs,
+    stole,
+  };
 }
 
 /** This tab's own ask. Null before it has asked. */
@@ -154,6 +169,13 @@ let releaseSave: (() => void) | null = null;
 let channel: TabChannel | null = null;
 /** Counts claims, so only the latest one in this page reacts to losing the save. */
 let claims = 0;
+/** The Web Locks this tab claimed the save with, for asking the browser who holds it. */
+let saveLocks: SaveLocks | null = null;
+/**
+ * Set while this tab asks the browser whether it still holds the lock, after another tab said
+ * it stole it. No write starts until the answer is in.
+ */
+let lockCheck: Promise<void> | null = null;
 
 /*
  * Two tabs each hold a copy of the save, so both writing would let the older copy
@@ -171,11 +193,20 @@ let claims = 0;
  * ask goes out on the channel too, so a third tab still waiting steps aside instead of
  * stealing the save in turn from a tab that would have answered it.
  *
+ * That new ask can be old news (#223). Say tab b's steal goes through while b is too busy to
+ * notice, and tab c, which hasn't heard from b, steals the lock from b in turn. When b
+ * catches up, it says it took the save (after c did), and only then hears the lock is gone.
+ * If c handed over to b's ask, as to any newer ask, neither tab would save. No tab can tell
+ * that old news from a real steal, but the browser knows who holds the lock. So a tab that
+ * holds it asks the browser before giving the save up to a tab that says it stole it,
+ * starting no write until the answer comes, and keeps the save if the lock is still its own.
+ *
  * Only a tab holding the lock writes (#198). Once a tab knows it lost the lock, nothing in
  * it starts a write again: the new owner may already have loaded the save, so a late write
  * would put this tab's older copy over newer progress. A tab knows it two ways: the lock is
  * taken from it, or the `takesAt` of an ask it heard has passed, when the asker takes the
- * save even if that news hasn't arrived. A tab can't know sooner than that, so two writes
+ * save even if that news hasn't arrived (for a tab that says it stole the lock, the
+ * browser's answer above decides instead). A tab can't know sooner than that, so two writes
  * can still land late: one already on its way when the lock goes, and one started before
  * the tab could hear either (say, a click handled straight after a long freeze). Only a
  * check inside IndexedDB itself could stop those (#224).
@@ -265,11 +296,43 @@ function onTabMessage(event: { data: unknown }): void {
     handoverRequested = true;
     return;
   }
+  // A tab that says it stole the lock may have lost it to this one since (#223).
+  if (event.data.stole && saveLocks !== null) {
+    checkStillHolding(saveLocks, event.data.takesAt);
+    return;
+  }
   // Once the asker's wait runs out, it takes the lock and may load the save, whether or not
   // this tab has let go. So no write may start here after that: not one heard too late (this
   // tab was frozen, say), nor one still queued behind a slow write when the moment passes.
   newOwnerTakesAt = event.data.takesAt;
   void handOver(true);
+}
+
+/**
+ * Another tab said it stole the lock. Asks the browser whether this tab holds it all the same,
+ * and steps aside only if it doesn't. Writes wait for the answer (lockCheck).
+ */
+function checkStillHolding(locks: SaveLocks, stolenAt: number): void {
+  const claim = claims;
+  const check: Promise<void> = locks.isHolding(SAVE_LOCK).then(
+    (holding) => {
+      if (lockCheck === check) lockCheck = null;
+      // Still its own: the other tab's steal was taken from it before it knew. Keep saving.
+      // An answer about an older claim from this same page changes nothing.
+      if (holding || claim !== claims) return;
+      holdsSave = false;
+      void handOver(false);
+    },
+    (error: unknown) => {
+      if (lockCheck === check) lockCheck = null;
+      if (claim !== claims) return;
+      console.error('[ship-it] could not ask the browser which tab has the save', error);
+      // No answer, so believe the other tab, as for any newer ask: no write from now on.
+      newOwnerTakesAt = stolenAt;
+      void handOver(true);
+    },
+  );
+  lockCheck = check;
 }
 
 /** Resolves once this tab holds the save lock (or has to go without: no Web Locks). */
@@ -299,7 +362,7 @@ function acquireSave(locks: SaveLocks | null): Promise<void> {
     const holdStolen = () => {
       // It has the lock already, so its deadline for taking it is now: the tab it took the
       // lock from may hear this ask before the news of the steal, and must write nothing more.
-      ownAsk = askNow(0);
+      ownAsk = askNow(0, true);
       handoverRequested = false;
       channel?.postMessage(ownAsk);
       return hold();
@@ -362,11 +425,15 @@ export async function startProgress(
   holdsSave = false;
   newOwnerTakesAt = Number.POSITIVE_INFINITY;
   handoverRequested = false;
+  saveLocks = coordination.locks;
+  lockCheck = null;
   progress.update({ status: 'loading', save: null, problem: null });
 
   // Every write goes through here: changes, the store before a handover, and the load's own.
   autosave = createAutosave(
     async (save) => {
+      // Another tab says it stole the lock: whether this one may write is the browser's answer.
+      while (lockCheck !== null) await lockCheck;
       // Checked as each write starts, so one queued behind another can't start late.
       if (!holdsSave || Date.now() >= newOwnerTakesAt) throw new SaveElsewhereError();
       await storage.write(save);
@@ -382,7 +449,7 @@ export async function startProgress(
     },
   );
 
-  ownAsk = askNow(HANDOVER_WAIT_MS);
+  ownAsk = askNow(HANDOVER_WAIT_MS, false);
   if (coordination.openChannel) {
     channel = coordination.openChannel();
     channel.addEventListener('message', onTabMessage);
