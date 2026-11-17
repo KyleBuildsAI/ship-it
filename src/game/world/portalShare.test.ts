@@ -79,11 +79,13 @@ describe('portalShares', () => {
   });
 
   it('darkens a mission pip again when new misses dim its node', () => {
-    expect(pipsFor({ missions: {}, drillHistory: attempts('xxxxxxxxxx..') })[2]).toEqual([
-      false,
-      false,
-      false,
-    ]);
+    const history = attempts('xxxxxxxxxx..');
+    // 10 of the last 10 right: the first mission's pip is lit.
+    const lit = pipsFor({ missions: {}, drillHistory: history.slice(0, 10) });
+    expect(lit[2]).toEqual([true, false, false]);
+    // Two misses later the last 10 hold 8 right, under the bar, so the same pip goes dark.
+    const dimmed = pipsFor({ missions: {}, drillHistory: history });
+    expect(dimmed[2]).toEqual([false, false, false]);
   });
 
   it("shows no pips on a locked Act's portal, so it never looks like it has progress", () => {
