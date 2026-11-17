@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as DevStatusModule from './devStatus';
 import type * as ProgressModule from './progress';
+import type { SaveData } from './save/schema';
 import {
   createSimulatedBrowser,
   type Route,
@@ -93,6 +94,11 @@ const isChannelAsk = (route: Route, index: number) =>
 const slowDisk = latency((route) =>
   route.pipe === 'idb' && route.direction === 'down' ? 50 : undefined,
 );
+
+/** A change the player makes: here, one that sets the XP, so every change can be told apart. */
+function setXp(xp: number): (save: SaveData) => SaveData {
+  return (save) => ({ ...save, profile: { ...save.profile, xp } });
+}
 
 describe('two tabs opened at the same moment', () => {
   it.each(['a', 'b'])(
@@ -272,6 +278,46 @@ describe('a third tab', () => {
     expect(saving.map(({ tab }) => tab.name)).toEqual([browser.lockHolder()]);
     expect(saving[0]?.game.progress.progress.get().save).toEqual(browser.stored());
     expect(players.filter(({ game }) => badge(game) === 'elsewhere')).toHaveLength(2);
+  });
+});
+
+describe('a tab that loses the save (#198)', () => {
+  it('never writes a change it had not stored yet over the new owner’s progress', async () => {
+    // b's ask takes 3 s to reach a, so a never answers and b takes the lock when its 1.5 s
+    // wait runs out. The news that a lost the lock then takes 200 ms to reach a.
+    const browser = createSimulatedBrowser({
+      latency: latency((route) => {
+        if (route.tab !== 'a' || route.direction !== 'down') return undefined;
+        if (route.pipe === 'channel') return 3000;
+        return route.pipe === 'locks' ? 200 : undefined;
+      }),
+    });
+    const a = browser.openTab('a');
+    const b = browser.openTab('b');
+    start(first, a);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(badges()).toEqual(['saving', 'loading']);
+    start(second, b);
+
+    // Just before b's wait runs out, the player changes a setting in a. It waits out the
+    // autosave delay, so it isn't stored yet when b takes the save.
+    await vi.advanceTimersByTimeAsync(1400);
+    a.run(() => {
+      first.progress.updateSave(setXp(5));
+    });
+    // b has loaded the save before a hears it lost it, and the player finishes a step there.
+    await vi.advanceTimersByTimeAsync(150);
+    expect(browser.lockHolder()).toBe('b');
+    expect(second.progress.progress.get().status).toBe('ready');
+    b.run(() => {
+      second.progress.saveProgressNow(setXp(40));
+    });
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(badges()).toEqual(['elsewhere', 'saving']);
+    expect(browser.stored()?.profile.xp).toBe(40);
+    // a's change was dropped, and a says so.
+    expect(first.progress.progress.get().problem).toContain('could not be saved');
   });
 });
 

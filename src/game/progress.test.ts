@@ -342,6 +342,46 @@ describe('two tabs', () => {
     expect(write.mock.calls.length).toBe(attempts);
   });
 
+  it('drops a change still waiting when another tab takes the save, and says so', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    tab.steals();
+    await vi.waitFor(() => {
+      expect(devStatus.get().save).toBe('elsewhere');
+    });
+    // The other tab may already have loaded the save: writing now would undo its progress.
+    await flushProgress();
+    expect(writes.map((save) => save.profile.xp)).not.toContain(5);
+    expect(progress.get().problem).toContain('could not be saved');
+  });
+
+  it('stops writing, and logs it, when the browser drops the lock for another reason', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { storage, writes } = memoryStorage();
+    const tab = otherTab();
+    const starting = startProgress(storage, NOW, tab.coordination);
+    await settle();
+    void tab.grant();
+    await starting;
+    updateSave((save) => ({ ...save, profile: { ...save.profile, xp: 5 } }));
+    // Not another tab's steal, but this tab doesn't hold the lock any more all the same.
+    const fault = new DOMException('The lock went away', 'InvalidStateError');
+    tab.requests[0]?.reject(fault);
+    await vi.waitFor(() => {
+      expect(devStatus.get().save).toBe('elsewhere');
+    });
+    await flushProgress();
+    expect(writes.map((save) => save.profile.xp)).not.toContain(5);
+    expect(errors).toHaveBeenCalledWith('[ship-it] this tab lost the save lock', fault);
+  });
+
   it('ignores losing an older claim from this same page', async () => {
     const { storage, writes } = memoryStorage();
     const tab = otherTab();
