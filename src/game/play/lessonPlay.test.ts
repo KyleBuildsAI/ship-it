@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act3 } from '../../content/act3';
 import { hud, openTerminal } from '../hud';
+import { shuffledCard } from '../missions/lessonPlacement';
 import { currentCard } from '../missions/lessonRunner';
 import { isPickCard, type Lesson } from '../missions/lessonSchema';
 import {
@@ -243,10 +244,19 @@ describe('a lesson left partway', () => {
   });
 });
 
-describe('a replay of a completed lesson', () => {
+describe('the option order when a lesson is played again', () => {
   /** Each card's option ids, in the order the cards show them (none for an order card). */
   function optionOrder(target: Lesson): string[][] {
     return target.cards.map((card) => (isPickCard(card) ? card.options.map(({ id }) => id) : []));
+  }
+
+  /** A start time whose seed moves at least one option, so keeping the order means something. */
+  const MOVED = T0 + 120_000;
+
+  /** The order a run seeded at `nowMs` shows, from the same cards as every sample lesson. */
+  function seededOrder(nowMs: number): string[][] {
+    const cards = sampleLesson.cards.map((card) => shuffledCard(card, String(nowMs)));
+    return optionOrder({ ...sampleLesson, cards });
   }
 
   it("shows each card's options in a new order, set by when it starts", () => {
@@ -302,6 +312,27 @@ describe('a replay of a completed lesson', () => {
     // And a replay left partway keeps no resume point, so no order needs rebuilding later.
     leavePlay();
     expect(saved(sampleLesson.id).mission?.lessonResume).toBeUndefined();
+  });
+
+  it('keeps the authored order on a first play, and on a lesson picked up partway', () => {
+    expect(seededOrder(MOVED)).not.toEqual(optionOrder(sampleLesson));
+    startLesson(sampleLesson.id, MOVED);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
+    endLessonBriefing(T0);
+    answer();
+    const open = currentCard(lesson().run, lesson().lesson);
+    const wrong =
+      open !== undefined && isPickCard(open)
+        ? open.options.find((option) => !option.correct)
+        : undefined;
+    if (wrong === undefined) throw new Error('The second sample card is a pick card.');
+    answerLesson(wrong.id, T0);
+    leavePlay();
+    // Picked up at its second card, wrong try kept: the card must look as it was left.
+    startLesson(sampleLesson.id, MOVED);
+    expect(lesson().run).toMatchObject({ cardIndex: 1, firstTry: [true] });
+    expect(lesson().run.card.picked).toEqual([wrong.id]);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
   });
 });
 
