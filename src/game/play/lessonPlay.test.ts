@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act3 } from '../../content/act3';
 import { hud, openTerminal } from '../hud';
 import { currentCard } from '../missions/lessonRunner';
+import { isPickCard, type Lesson } from '../missions/lessonSchema';
 import {
   sampleAct,
   sampleMission,
@@ -239,6 +240,68 @@ describe('a lesson left partway', () => {
     expect(saved(sampleFinal.id).mission?.lessonResume).toBeUndefined();
     startLesson(sampleFinal.id);
     expect(lesson().run).toMatchObject({ phase: 'briefing', firstTry: [] });
+  });
+});
+
+describe('a replay of a completed lesson', () => {
+  /** Each card's option ids, in the order the cards show them (none for an order card). */
+  function optionOrder(target: Lesson): string[][] {
+    return target.cards.map((card) => (isPickCard(card) ? card.options.map(({ id }) => id) : []));
+  }
+
+  it("shows each card's options in a new order, set by when it starts", () => {
+    // A tested-out lesson isn't completed, so its first real play keeps the authored order.
+    saveProgressNow((save) =>
+      recordPlacement(
+        save,
+        sampleLessonAct().act,
+        [sampleLesson],
+        { percent: 100, testedOut: true },
+        NOW,
+      ),
+    );
+    startLesson(sampleLesson.id, T0);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
+    playThrough();
+    expect(saved(sampleLesson.id).mission?.status).toBe('completed');
+
+    startLesson(sampleLesson.id, T0 + 60_000);
+    const first = optionOrder(lesson().lesson);
+    startLesson(sampleLesson.id, T0 + 60_000);
+    expect(optionOrder(lesson().lesson)).toEqual(first);
+    startLesson(sampleLesson.id, T0 + 120_000);
+    expect(optionOrder(lesson().lesson)).not.toEqual(first);
+    // Only the options move: the cards keep their order, and each option its answer.
+    expect(lesson().lesson.cards.map((card) => card.id)).toEqual(
+      sampleLesson.cards.map((card) => card.id),
+    );
+    expect(
+      lesson().lesson.cards.map((card) => (isPickCard(card) ? card.options.length : 0)),
+    ).toEqual(sampleLesson.cards.map((card) => (isPickCard(card) ? card.options.length : 0)));
+  });
+
+  it('grades by option id, so the right option is right wherever it sits', () => {
+    startLesson(sampleLesson.id, T0);
+    playThrough();
+    // A start time that moves the first card's right option (with three, some leave it put).
+    startLesson(sampleLesson.id, T0 + 120_000);
+    const authored = sampleLesson.cards[0];
+    const shown = lesson().lesson.cards[0];
+    if (authored === undefined || !isPickCard(authored) || shown === undefined) {
+      throw new Error('The sample lesson starts with a pick card.');
+    }
+    const rightId = authored.options.find((option) => option.correct)?.id ?? '';
+    const shownIds = isPickCard(shown) ? shown.options.map(({ id }) => id) : [];
+    // The right option has moved, yet picking it by its id is still a first-try right.
+    expect(shownIds.indexOf(rightId)).not.toBe(
+      authored.options.findIndex(({ id }) => id === rightId),
+    );
+    endLessonBriefing(T0);
+    answerLesson(rightId, T0);
+    expect(lesson().run.firstTry).toEqual([true]);
+    // And a replay left partway keeps no resume point, so no order needs rebuilding later.
+    leavePlay();
+    expect(saved(sampleLesson.id).mission?.lessonResume).toBeUndefined();
   });
 });
 

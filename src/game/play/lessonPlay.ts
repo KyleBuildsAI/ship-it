@@ -12,7 +12,7 @@ import {
   tickLesson,
   type LessonRun,
 } from '../missions/lessonRunner';
-import { lessonPlacementResult, placementLesson } from '../missions/lessonPlacement';
+import { lessonPlacementResult, placementLesson, shuffledCard } from '../missions/lessonPlacement';
 import { requireLessonPlacement } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
 import { beatZoneForAct } from '../world/beats';
@@ -127,11 +127,18 @@ export function startLesson(lessonId: string, nowMs: number = Date.now()): void 
   // Nothing in a lesson is typed, so the terminal steps aside and the cards get the room.
   closeTerminal();
   travelTo(zoneForAct(lesson.act));
+  // A replay shows the options in a new order, so ★★★ comes from reading the cards again,
+  // not from remembering where the right one sat. It's safe to vary per run: a completed
+  // lesson never keeps a resume point, so no order has to be rebuilt after a reload.
+  const replay = progress.get().save?.missions[lesson.id]?.status === 'completed';
+  const played = replay
+    ? { ...lesson, cards: lesson.cards.map((card) => shuffledCard(card, String(nowMs))) }
+    : lesson;
   saveProgressNow((save) => startMissionProgress(save, lesson.id));
-  const resume = lessonResumeFor(lesson, progress.get().save?.missions[lesson.id]);
-  const run = resume === null ? startLessonRun(lesson) : resumedLessonRun(lesson, resume, nowMs);
+  const resume = lessonResumeFor(played, progress.get().save?.missions[lesson.id]);
+  const run = resume === null ? startLessonRun(played) : resumedLessonRun(played, resume, nowMs);
   play.update({
-    activity: { kind: 'lesson', lesson, run, xpEarned: 0 },
+    activity: { kind: 'lesson', lesson: played, run, xpEarned: 0 },
     checklist: [],
   });
 }
