@@ -38,10 +38,19 @@ export function shuffledBy<T>(items: readonly T[], seed: string): T[] {
   return shuffled;
 }
 
-/** A borrowed card with its options in this attempt's order. Order cards scramble anyway. */
-function forAttempt(card: LessonCard, attempt: number): LessonCard {
+/**
+ * A card with its options in an order set by `seed`, so a remembered position is no
+ * answer: a placement test seeds it with the attempt, a lesson replay with when it starts.
+ * Order cards come back as they are, since the run scrambles their steps anyway.
+ */
+export function shuffledCard(card: LessonCard, seed: string): LessonCard {
   if (!isPickCard(card)) return card;
-  return { ...card, options: shuffledBy(card.options, `${card.id}:${String(attempt)}`) };
+  return { ...card, options: shuffledBy(card.options, `${card.id}:${seed}`) };
+}
+
+/** A borrowed card with its options in this attempt's order. */
+function forAttempt(card: LessonCard, attempt: number): LessonCard {
+  return shuffledCard(card, String(attempt));
 }
 
 /**

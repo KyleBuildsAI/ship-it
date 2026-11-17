@@ -12,9 +12,11 @@ import {
   tickLesson,
   type LessonRun,
 } from '../missions/lessonRunner';
-import { lessonPlacementResult, placementLesson } from '../missions/lessonPlacement';
+import { lessonPlacementResult, placementLesson, shuffledCard } from '../missions/lessonPlacement';
+import type { Lesson } from '../missions/lessonSchema';
 import { requireLessonPlacement } from '../missions/schema';
 import { progress, saveProgressNow } from '../progress';
+import type { MissionStatus } from '../save/schema';
 import { beatZoneForAct } from '../world/beats';
 import { zoneForAct } from '../world/zones';
 import { travelTo, worldState, type ActIslandZone } from '../worldState';
@@ -116,6 +118,19 @@ function update(change: (run: LessonRun) => LessonRun, nowMs: number): void {
 }
 
 /**
+ * Whether a run shows the options in a new order, so ★★★ comes from reading the cards
+ * again, not from remembering where the right one sat: a replay of a completed lesson, or
+ * a final tried again while in progress (its clock ran out, or it was left partway). A
+ * per-run order is safe for both, since neither keeps a resume point to rebuild after a
+ * reload. A first play keeps the authored order, as does an untimed lesson in progress,
+ * whose open card must look as it was left. So does a tested-out lesson until it's
+ * completed: its save can't tell the first real play from a retry.
+ */
+function reordersOptions(lesson: Lesson, status: MissionStatus | undefined): boolean {
+  return status === 'completed' || (status === 'in-progress' && !lessonResumes(lesson));
+}
+
+/**
  * Plays a lesson, leaving whatever was being played: from its briefing, or, for an
  * untimed lesson left partway, at its first unanswered card with its first tries kept.
  */
@@ -127,11 +142,16 @@ export function startLesson(lessonId: string, nowMs: number = Date.now()): void 
   // Nothing in a lesson is typed, so the terminal steps aside and the cards get the room.
   closeTerminal();
   travelTo(zoneForAct(lesson.act));
+  // Read before the start marks a first play in progress, which would look like a retry.
+  const status = progress.get().save?.missions[lesson.id]?.status;
+  const played = reordersOptions(lesson, status)
+    ? { ...lesson, cards: lesson.cards.map((card) => shuffledCard(card, String(nowMs))) }
+    : lesson;
   saveProgressNow((save) => startMissionProgress(save, lesson.id));
-  const resume = lessonResumeFor(lesson, progress.get().save?.missions[lesson.id]);
-  const run = resume === null ? startLessonRun(lesson) : resumedLessonRun(lesson, resume, nowMs);
+  const resume = lessonResumeFor(played, progress.get().save?.missions[lesson.id]);
+  const run = resume === null ? startLessonRun(played) : resumedLessonRun(played, resume, nowMs);
   play.update({
-    activity: { kind: 'lesson', lesson, run, xpEarned: 0 },
+    activity: { kind: 'lesson', lesson: played, run, xpEarned: 0 },
     checklist: [],
   });
 }

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act3 } from '../../content/act3';
 import { hud, openTerminal } from '../hud';
+import { shuffledCard } from '../missions/lessonPlacement';
 import { currentCard } from '../missions/lessonRunner';
+import { isPickCard, type Lesson } from '../missions/lessonSchema';
 import {
   sampleAct,
   sampleMission,
@@ -239,6 +241,119 @@ describe('a lesson left partway', () => {
     expect(saved(sampleFinal.id).mission?.lessonResume).toBeUndefined();
     startLesson(sampleFinal.id);
     expect(lesson().run).toMatchObject({ phase: 'briefing', firstTry: [] });
+  });
+});
+
+describe('the option order when a lesson is played again', () => {
+  /** Each card's option ids, in the order the cards show them (none for an order card). */
+  function optionOrder(target: Lesson): string[][] {
+    return target.cards.map((card) => (isPickCard(card) ? card.options.map(({ id }) => id) : []));
+  }
+
+  /** A start time whose seed moves at least one option, so keeping the order means something. */
+  const MOVED = T0 + 120_000;
+
+  /** The order a run seeded at `nowMs` shows, from the same cards as every sample lesson. */
+  function seededOrder(nowMs: number): string[][] {
+    const cards = sampleLesson.cards.map((card) => shuffledCard(card, String(nowMs)));
+    return optionOrder({ ...sampleLesson, cards });
+  }
+
+  it("shows each card's options in a new order, set by when it starts", () => {
+    // A tested-out lesson isn't completed, so its first real play keeps the authored order.
+    saveProgressNow((save) =>
+      recordPlacement(
+        save,
+        sampleLessonAct().act,
+        [sampleLesson],
+        { percent: 100, testedOut: true },
+        NOW,
+      ),
+    );
+    startLesson(sampleLesson.id, T0);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
+    playThrough();
+    expect(saved(sampleLesson.id).mission?.status).toBe('completed');
+
+    startLesson(sampleLesson.id, T0 + 60_000);
+    const first = optionOrder(lesson().lesson);
+    startLesson(sampleLesson.id, T0 + 60_000);
+    expect(optionOrder(lesson().lesson)).toEqual(first);
+    startLesson(sampleLesson.id, T0 + 120_000);
+    expect(optionOrder(lesson().lesson)).not.toEqual(first);
+    // Only the options move: the cards keep their order, and each option its answer.
+    expect(lesson().lesson.cards.map((card) => card.id)).toEqual(
+      sampleLesson.cards.map((card) => card.id),
+    );
+    expect(
+      lesson().lesson.cards.map((card) => (isPickCard(card) ? card.options.length : 0)),
+    ).toEqual(sampleLesson.cards.map((card) => (isPickCard(card) ? card.options.length : 0)));
+  });
+
+  it('grades by option id, so the right option is right wherever it sits', () => {
+    startLesson(sampleLesson.id, T0);
+    playThrough();
+    // A start time that moves the first card's right option (with three, some leave it put).
+    startLesson(sampleLesson.id, T0 + 120_000);
+    const authored = sampleLesson.cards[0];
+    const shown = lesson().lesson.cards[0];
+    if (authored === undefined || !isPickCard(authored) || shown === undefined) {
+      throw new Error('The sample lesson starts with a pick card.');
+    }
+    const rightId = authored.options.find((option) => option.correct)?.id ?? '';
+    const shownIds = isPickCard(shown) ? shown.options.map(({ id }) => id) : [];
+    // The right option has moved, yet picking it by its id is still a first-try right.
+    expect(shownIds.indexOf(rightId)).not.toBe(
+      authored.options.findIndex(({ id }) => id === rightId),
+    );
+    endLessonBriefing(T0);
+    answerLesson(rightId, T0);
+    expect(lesson().run.firstTry).toEqual([true]);
+    // And a replay left partway keeps no resume point, so no order needs rebuilding later.
+    leavePlay();
+    expect(saved(sampleLesson.id).mission?.lessonResume).toBeUndefined();
+  });
+
+  it('keeps the authored order on a first play, and on a lesson picked up partway', () => {
+    expect(seededOrder(MOVED)).not.toEqual(optionOrder(sampleLesson));
+    startLesson(sampleLesson.id, MOVED);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
+    endLessonBriefing(T0);
+    answer();
+    const open = currentCard(lesson().run, lesson().lesson);
+    const wrong =
+      open !== undefined && isPickCard(open)
+        ? open.options.find((option) => !option.correct)
+        : undefined;
+    if (wrong === undefined) throw new Error('The second sample card is a pick card.');
+    answerLesson(wrong.id, T0);
+    leavePlay();
+    // Picked up at its second card, wrong try kept: the card must look as it was left.
+    startLesson(sampleLesson.id, MOVED);
+    expect(lesson().run).toMatchObject({ cardIndex: 1, firstTry: [true] });
+    expect(lesson().run.card.picked).toEqual([wrong.id]);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleLesson));
+  });
+
+  it('shows a final tried again, after its clock ran out or after leaving it, in a new order', () => {
+    // Its first play keeps the authored order, even at a start time that would move one.
+    startLesson(sampleFinal.id, MOVED);
+    expect(optionOrder(lesson().lesson)).toEqual(optionOrder(sampleFinal));
+    endLessonBriefing(T0);
+    for (let index = 0; index < sampleFinal.cards.length - 1; index++) answer();
+    tickPlay(T0 + 121_000);
+    expect(lesson().run.outcome).toBe('timed-out');
+    expect(saved(sampleFinal.id).mission?.status).toBe('in-progress');
+    // Every right option but the last card's has just been seen, so Try again moves them.
+    startLesson(sampleFinal.id, MOVED);
+    expect(optionOrder(lesson().lesson)).not.toEqual(optionOrder(sampleFinal));
+    expect(optionOrder(lesson().lesson)).toEqual(seededOrder(MOVED));
+    // A final never resumes, so one left partway starts over in a new order too.
+    endLessonBriefing(MOVED);
+    leavePlay();
+    startLesson(sampleFinal.id, MOVED);
+    expect(lesson().run.phase).toBe('briefing');
+    expect(optionOrder(lesson().lesson)).toEqual(seededOrder(MOVED));
   });
 });
 
