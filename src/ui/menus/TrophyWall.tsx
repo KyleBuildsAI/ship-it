@@ -1,4 +1,3 @@
-import { actSummaries } from '../../game/play/catalog';
 import { lockedRunActive, play } from '../../game/play/playStore';
 import { progress } from '../../game/progress';
 import { averageSeconds, drillAccuracy, practiceDayCount } from '../../game/progression/stats';
@@ -6,12 +5,16 @@ import { completedActNumbers, nextRank, rankFor } from '../../game/progression/x
 import { useStore } from '../useStore';
 import { LockedRunNote } from './LockedRunNote';
 import { Overlay } from './Overlay';
+import { SkillTree } from './SkillTree';
 
 function percent(value: number | null): string {
   return value === null ? '—' : `${String(Math.round(value * 100))}%`;
 }
 
-/** Rank, XP, and stats (DESIGN.md section 6). Days are counted, never streaks. */
+/**
+ * Rank, XP, stats and the skill tree (DESIGN.md section 6). Days are counted, never
+ * streaks. It reads summaries only, so opening it never waits for an Act to download.
+ */
 export function TrophyWall() {
   const { save } = useStore(progress);
   const { activity } = useStore(play);
@@ -26,14 +29,6 @@ export function TrophyWall() {
   const acts = completedActNumbers(save.acts);
   const next = nextRank(acts);
   const average = averageSeconds(save.drillHistory);
-  // From summaries, so opening the wall never waits for an Act's content to download.
-  const missions = actSummaries().flatMap(({ parts }) =>
-    parts.filter((part) => part.kind === 'mission'),
-  );
-  const finished = missions.filter((mission) => {
-    const status = save.missions[mission.id]?.status;
-    return status === 'completed' || status === 'tested-out';
-  });
 
   return (
     <Overlay title="Trophy Wall">
@@ -61,14 +56,7 @@ export function TrophyWall() {
           <dd>{practiceDayCount(save.profile)}</dd>
         </div>
       </dl>
-      <p className="play-panel__eyebrow">Missions</p>
-      <ul className="trophy-missions">
-        {missions.map((mission) => (
-          <li key={mission.id} className={finished.includes(mission) ? 'checklist__done' : ''}>
-            {finished.includes(mission) ? '✓' : '○'} {mission.title}
-          </li>
-        ))}
-      </ul>
+      <SkillTree save={save} />
       <p className="play-panel__muted">
         Acts complete: {acts.length === 0 ? 'none yet' : acts.map(String).join(', ')}
       </p>
