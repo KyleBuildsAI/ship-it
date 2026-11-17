@@ -59,10 +59,12 @@ export interface LateWrite {
   readonly tab: string;
   /**
    * The tab knew when it sent the write: it had let go of the lock, or had heard the lock
-   * was taken, or never held it. If not, the lock went while the write was on its way, or
-   * before the tab could hear about it.
+   * was taken, or never held it, or had heard a newer tab's ask whose wait had run out. If
+   * not, the lock went while the write was on its way, or before the tab could hear about it.
    */
   readonly knew: boolean;
+  /** What it wrote, so a test can tell whether IndexedDB still holds it. */
+  readonly save: SaveData;
 }
 
 export interface SimulatedBrowser {
@@ -149,6 +151,23 @@ interface IdbOperation {
   readonly tab: TabInternals;
   /** Does the work in the browser, and returns what hands the result to the tab. */
   readonly perform: () => Task;
+}
+
+/** The times in a tab's ask for the save (Ask in progress.ts). */
+interface AskTimes {
+  readonly at: number;
+  readonly nonce: number;
+  readonly takesAt: number;
+}
+
+/** The times in `data` when it's an ask for the save, or null for any other message. */
+function readAsk(data: unknown): AskTimes | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const { at, nonce, takesAt } = data as Record<string, unknown>;
+  if (typeof at !== 'number' || typeof nonce !== 'number' || typeof takesAt !== 'number') {
+    return null;
+  }
+  return { at, nonce, takesAt };
 }
 
 export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): SimulatedBrowser {
@@ -273,12 +292,29 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
 
   // --- BroadcastChannel ----------------------------------------------------------------
   const channels = new Set<ChannelEnd>();
+  /** Each tab's latest ask for the save. */
+  const ownAsks = new Map<TabInternals, AskTimes>();
+  /**
+   * Per tab: the earliest `takesAt` among newer tabs' asks it has heard since it last asked.
+   * From then on the tab knows a newer tab is taking the save, whatever the lock news says.
+   */
+  const heardDeadlines = new Map<TabInternals, number>();
+
+  function heard(tab: TabInternals, data: unknown): void {
+    const ask = readAsk(data);
+    const own = ownAsks.get(tab);
+    if (ask === null || own === undefined) return;
+    if (ask.at < own.at || (ask.at === own.at && ask.nonce <= own.nonce)) return;
+    const earliest = heardDeadlines.get(tab) ?? Number.POSITIVE_INFINITY;
+    heardDeadlines.set(tab, Math.min(earliest, ask.takesAt));
+  }
 
   function broadcast(from: ChannelEnd, data: unknown): void {
     for (const end of channels) {
       if (end === from) continue;
       end.tab.down.channel(() => {
         if (!end.open) return;
+        heard(end.tab, data);
         for (const listener of [...end.listeners]) listener({ data });
       });
     }
@@ -293,6 +329,12 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
       return {
         postMessage: (message) => {
           const data = structuredClone(message);
+          // Asking again makes every ask heard before it an older one.
+          const ask = readAsk(data);
+          if (ask !== null) {
+            ownAsks.set(tab, ask);
+            heardDeadlines.delete(tab);
+          }
           tab.up.channel(() => {
             broadcast(end, data);
           });
@@ -359,9 +401,10 @@ export function createSimulatedBrowser(options: SimulatedBrowserOptions = {}): S
       await open();
       // Its own request settles once the tab has let go, or has heard the lock was taken.
       const own = seenGranted.get(tab);
-      const knew = own === undefined || own.settled;
+      const deadline = heardDeadlines.get(tab) ?? Number.POSITIVE_INFINITY;
+      const knew = own === undefined || own.settled || Date.now() >= deadline;
       await idb(tab, () => {
-        if (holder?.tab !== tab) lateWrites.push({ tab: tab.name, knew });
+        if (holder?.tab !== tab) lateWrites.push({ tab: tab.name, knew, save });
         stored = save;
         storedFromOlderVersion = false;
       });
