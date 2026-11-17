@@ -47,9 +47,127 @@ function identifyCheckout(): Plugin {
   };
 }
 
+/** A file in any Act's content folder, src/content/act1/ to act8/. */
+const ACT_CONTENT = /\/src\/content\/act\d+\//;
+
+/** An Act's index.ts: what lazyActs.ts loads with import(), so it starts that Act's own file. */
+const ACT_INDEX = /\/src\/content\/act\d+\/index\.ts$/;
+
+/**
+ * Act 1's free-play laptop, and shared.ts that builds it, open from the first screen (the
+ * preview menu), so they may load up front. They're a few kB, not an Act's content.
+ */
+const ACT_FILES_ALLOWED_UP_FRONT = ['/src/content/act1/laptop.ts', '/src/content/act1/shared.ts'];
+
+/** The parts of a built chunk the guard reads. Rolldown's own chunk type has these and more. */
+interface BuiltChunk {
+  readonly fileName: string;
+  readonly isEntry: boolean;
+  /** The module this chunk was made for, when it's an entry or what an import() loads. */
+  readonly facadeModuleId: string | null;
+  /** Chunks this one imports statically: the browser fetches them along with it. */
+  readonly imports: readonly string[];
+  /** Chunks this one can fetch later with import(), like the 3D world or the code editor. */
+  readonly dynamicImports: readonly string[];
+  readonly moduleIds: readonly string[];
+}
+
+/** Module ids use backslashes on Windows. The patterns above are written with "/". */
+function withSlashes(id: string): string {
+  return id.replaceAll('\\', '/');
+}
+
+/** Whether `chunk` is an Act's own file, the one lazyActs.ts's import() of that Act loads. */
+function isActFile(chunk: BuiltChunk): boolean {
+  return chunk.facadeModuleId !== null && ACT_INDEX.test(withSlashes(chunk.facadeModuleId));
+}
+
+/**
+ * Every chunk the game can download without asking for an Act: the entry, everything it
+ * imports, and everything those fetch later with import(). That takes in the 3D world, which
+ * main.tsx fetches as soon as the page loads, and the code editor. The one door it doesn't
+ * go through is an import() of an Act's own file, the way lazyActs.ts loads an Act.
+ */
+function downloadsWithoutAnAct(chunks: readonly BuiltChunk[]): BuiltChunk[] {
+  const byFileName = new Map(chunks.map((chunk) => [chunk.fileName, chunk]));
+  const found = new Map<string, BuiltChunk>();
+  const toVisit = chunks.filter((chunk) => chunk.isEntry);
+  for (let chunk = toVisit.pop(); chunk !== undefined; chunk = toVisit.pop()) {
+    if (found.has(chunk.fileName)) continue;
+    found.set(chunk.fileName, chunk);
+    for (const fileName of chunk.imports) {
+      const imported = byFileName.get(fileName);
+      if (imported !== undefined) toVisit.push(imported);
+    }
+    for (const fileName of chunk.dynamicImports) {
+      const loaded = byFileName.get(fileName);
+      if (loaded !== undefined && !isActFile(loaded)) toVisit.push(loaded);
+    }
+  }
+  return [...found.values()];
+}
+
+/** A module id as a path from the repo, for messages: src/content/act2/index.ts. */
+function fromRepo(id: string): string {
+  const path = withSlashes(id);
+  return path.slice(path.indexOf('/src/') + 1);
+}
+
+/**
+ * Fails the build if any Act's content could download before the game asks for that Act.
+ * The game reaches each Act only through an import() in src/content/lazyActs.ts, which the
+ * build turns into a file of its own. One static import of an Act's folder, even through a
+ * chain of other files, would quietly pull that Act into the first download, or into the
+ * 3D world's file, which downloads at startup too. A lint rule sees one file's imports at a
+ * time; this reads the real build output, so it catches a chain too.
+ */
+function keepActContentLazy(): Plugin {
+  return {
+    name: 'ship-it-keep-act-content-lazy',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).flatMap((file) => (file.type === 'chunk' ? [file] : []));
+      // The build always holds Act content. If none matches ACT_CONTENT, the build has
+      // changed how it names modules, and the check below would pass without looking.
+      const everyModule = chunks.flatMap((chunk) => chunk.moduleIds);
+      if (!everyModule.some((id) => ACT_CONTENT.test(withSlashes(id)))) {
+        this.error(
+          'No module in the build is under src/content/actN/, so the check that keeps each ' +
+            "Act's content in its own file would check nothing. Update ACT_CONTENT and " +
+            'ACT_INDEX in vite.config.ts to match how the build names modules.',
+        );
+      }
+      const upFront = new Set(downloadsWithoutAnAct(chunks).flatMap((chunk) => chunk.moduleIds));
+      const leaked = [...upFront].filter((id) => {
+        const path = withSlashes(id);
+        return (
+          ACT_CONTENT.test(path) && !ACT_FILES_ALLOWED_UP_FRONT.some((ok) => path.endsWith(ok))
+        );
+      });
+      if (leaked.length === 0) return;
+      // Name where the content comes in: each leaked file imported by an up-front file that
+      // isn't leaked content itself. Its own imports follow it in, so they aren't listed.
+      const doors = leaked.flatMap((id) => {
+        const importers = this.getModuleInfo(id)?.importers ?? [];
+        const from = importers.filter(
+          (importer) => upFront.has(importer) && !leaked.includes(importer),
+        );
+        return from.map((importer) => `  ${fromRepo(id)}, imported by ${fromRepo(importer)}`);
+      });
+      this.error(
+        [
+          'Act content would download before the game asks for its Act:',
+          ...(doors.length > 0 ? doors : leaked.map((id) => `  ${fromRepo(id)}`)),
+          'Reach an Act only through the import() calls in src/content/lazyActs.ts.',
+        ].join('\n'),
+      );
+    },
+  };
+}
+
 export default defineConfig(({ command, mode, isPreview }) => ({
   base: command === 'build' || isPreview ? PAGES_BASE : '/',
-  plugins: [react(), identifyCheckout()],
+  plugins: [react(), identifyCheckout(), keepActContentLazy()],
   server: {
     // Always the same port, never a fallback: the save lives in the browser under this exact
     // address, so another port would open an empty game. Better to fail loudly.
@@ -69,11 +187,10 @@ export default defineConfig(({ command, mode, isPreview }) => ({
   },
   build: {
     // The three.js WebGPU core alone is over the 500 kB default. It loads in its own
-    // lazy chunk after the HUD, so the warning would only be noise. The main chunk holds
-    // every Act's content, and Act 2's directed missions (Otto's cards, checks and drills)
-    // took it just past 1600 kB; splitting content per Act is the real fix, so this
-    // leaves room only until then.
-    chunkSizeWarningLimit: 1700,
+    // lazy chunk after the HUD, so the warning would only be noise. The main chunk is
+    // about 1,100 kB now that each Act's content is a file of its own (keepActContentLazy
+    // keeps it that way), so this warns once main grows by a few more screens of UI.
+    chunkSizeWarningLimit: 1200,
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.ts'],

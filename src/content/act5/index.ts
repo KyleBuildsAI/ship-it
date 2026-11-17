@@ -4,7 +4,7 @@ import { act5Lessons } from './lessons';
 import { act5Placement } from './placement';
 
 /**
- * Act 5: Quality Gates, taught as lessons and parsed once when the game loads, with every
+ * Act 5: Quality Gates, taught as lessons and parsed once when the Act downloads, with every
  * part a finished Act has: a placement test of cards from its lessons, the Red CI final
  * as its boss, and a Field Mission on SandCastles. `act5.act` is the parsed Act and
  * `act5.lessons` its parsed lessons, final last; `act5Lessons` is the raw input, kept for

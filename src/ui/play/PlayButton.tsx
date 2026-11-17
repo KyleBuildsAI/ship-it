@@ -11,7 +11,7 @@ import { useStore } from '../useStore';
 /**
  * A menu's button that starts play through the loader (playWhenReady). While the Acts it
  * needs download, it says "Loading…" and can't be pressed again. Buttons inside an activity
- * call their starters directly instead: that activity's Act has loaded already.
+ * start at once through playAgain instead: that activity's Act has loaded already.
  */
 export function PlayButton({
   request,

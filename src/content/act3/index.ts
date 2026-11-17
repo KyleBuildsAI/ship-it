@@ -4,7 +4,7 @@ import { act3Lessons } from './lessons';
 import { act3Placement } from './placement';
 
 /**
- * Act 3: Branching, taught as lessons and parsed once when the game loads. It's a
+ * Act 3: Branching, taught as lessons and parsed once when the Act downloads. It's a
  * finished Act: a placement test borrowed from the lessons, the Conflict Storm final as
  * its boss, and a Field Mission on Kyle's real SandCastles repo.
  */

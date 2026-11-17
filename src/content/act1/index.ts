@@ -3,7 +3,7 @@ import { ActSchema, MissionSchema, type Act, type Mission } from '../../game/mis
 import { act1Input, act1MissionInputs } from './act';
 import { act1LessonInputs } from './lessons';
 
-/** Act 1, parsed once when the game loads. The tests prove this parse never throws. */
+/** Act 1, parsed once when the Act downloads. The tests prove this parse never throws. */
 export const act1Missions: readonly Mission[] = act1MissionInputs.map((input) =>
   MissionSchema.parse(input),
 );

@@ -66,8 +66,8 @@ function currentState(): CatalogState {
 }
 
 /**
- * Set at startup from src/content, and by tests. All of the content is here, so every Act
- * counts as loaded. The game moves to setLazyCatalog once play goes through the loader.
+ * For tests: all of the content is here, so every Act counts as loaded and play starts
+ * during the press. The game itself uses setLazyCatalog.
  */
 export function setCatalog(catalog: Catalog): void {
   const entries = catalog.acts.map((content) => ({
@@ -84,8 +84,8 @@ export function setCatalog(catalog: Catalog): void {
 }
 
 /**
- * Summaries now, each Act's content when play needs it. Nothing calls this yet: main.tsx
- * switches to it once each Act's content is split into a file of its own.
+ * Summaries now, each Act's content when play needs it. main.tsx sets the game up this way
+ * with LAZY_ACTS (src/content/lazyActs.ts), whose loaders each download one Act's file.
  */
 export function setLazyCatalog(acts: readonly LazyAct[]): void {
   state = { entries: acts, loaded: new Map(), loading: new Map() };

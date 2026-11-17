@@ -12,6 +12,7 @@ import { isJudgmentDrill, type Drill } from '../../game/missions/schema';
 import { formatClock } from '../../game/play/bossPlay';
 import { leavePlay } from '../../game/play/play';
 import type { DrillResult, MissionActivity } from '../../game/play/playStore';
+import { playAgain } from '../../game/play/playWhenReady';
 import { devStatus } from '../../game/devStatus';
 import { useStore } from '../useStore';
 import { Checklist } from './Checklist';
@@ -144,7 +145,9 @@ function Sim({
             type="button"
             className="play-button"
             onClick={() => {
-              restartMission(mission.id);
+              playAgain(() => {
+                restartMission(mission.id);
+              });
             }}
           >
             Start mission over

@@ -13,7 +13,7 @@ import { act2Input, act2MissionInputs } from './act';
 import { dirtyTreeFinal } from './dirtyTreeFinal';
 
 /**
- * Act 2, parsed once when the game loads. Parsing fills in defaults (a step's XP, a
+ * Act 2, parsed once when the Act downloads. Parsing fills in defaults (a step's XP, a
  * drill's time limit, a twist's empty apply list), so the game only ever sees the
  * complete output types. The tests prove this parse never throws.
  */

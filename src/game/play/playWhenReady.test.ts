@@ -14,12 +14,14 @@ import { createDefaultSave, type SaveData } from '../save/schema';
 import { summarizeAct } from './actSummary';
 import { isActLoaded, setCatalog, setLazyCatalog, type ActContent } from './catalog';
 import { startFreePlay } from './freePlay';
+import { startLesson } from './lessonPlay';
 import { leavePlay } from './play';
 import { play, type Activity } from './playStore';
 import {
   actsNeeded,
   cancelPendingPlay,
   pendingPlay,
+  playAgain,
   playWhenReady,
   samePlayRequest,
   whileMenuOpen,
@@ -375,6 +377,25 @@ describe('playWhenReady with a review', () => {
     await expect(outcome).resolves.toBe('started');
     expect(actTwoEntry.load).not.toHaveBeenCalled();
     expect(new Set(reviewDrillIds())).toEqual(new Set(actThreeDue));
+  });
+
+  it('drops a review still loading once a button inside the running lesson replays it', async () => {
+    // The Standup Board sits over the play panel, so both can be pressed: Start review on
+    // the board, then Replay on a lesson's Done screen, while the review's Act downloads.
+    await expect(
+      playWhenReady({ kind: 'lesson', id: sampleLesson.id }, 'act-menu', NOW),
+    ).resolves.toBe('started');
+    const review = playWhenReady({ kind: 'review' }, 'standup-board', NOW);
+    expect(pendingPlay.get().waiting).toEqual({ kind: 'review' });
+
+    playAgain(() => {
+      startLesson(sampleLesson.id);
+    });
+    expect(pendingPlay.get()).toEqual(NOTHING_PENDING);
+    actThreeDownload.arrive();
+    await expect(review).resolves.toBe('superseded');
+    // The lesson the player replayed is still the one being played, not the review.
+    expect(play.get().activity).toMatchObject({ kind: 'lesson', lesson: { id: sampleLesson.id } });
   });
 
   it('plans no further once a newer click has taken over', async () => {
